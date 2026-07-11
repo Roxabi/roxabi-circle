@@ -1,0 +1,210 @@
+# Merge-on-green — Free private org (go-silex) cannot use native
+# `gh pr merge --auto` + branch protection (Team/Pro only).
+#
+# Ported from bouly-site / roxabi-1page (Roxabi pattern).
+#
+# Merges when ALL hold:
+#   1. label `reviewed` (human sign-off)
+#   2. every check run on head SHA is completed + green
+#   3. PR mergeable, not draft
+#
+# Merge method: merge commit (¬squash).
+#
+# SPLIT-TOKEN:
+#   - Gate: GITHUB_TOKEN (checks:read)
+#   - Merge: secrets.PAT (classic PAT, scopes repo + workflow)
+#     → set on go-silex/silex-share or org go-silex
+#     → without PAT, workflow fails the merge step with a clear error
+#
+# Gating workflows today: Secret scan only (full CI later — AGENTS.md).
+# When adding CI / PR Title, append names to workflow_run.workflows below.
+name: Merge on Green
+
+on:
+  pull_request:
+    types: [labeled, synchronize, reopened, closed]
+  check_suite:
+    types: [completed]
+  workflow_run:
+    workflows: [Secret scan]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: PR number to evaluate (optional; blank = all reviewed open PRs)
+        required: false
+
+permissions:
+  contents: read
+  pull-requests: read
+  issues: write
+  checks: read
+  statuses: read
+
+concurrency:
+  group: merge-on-green-${{ github.event.pull_request.number || github.event.check_suite.head_sha || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  merge-on-green:
+    name: merge-on-green
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Evaluate green PRs
+        id: evaluate
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const SELF_JOB = 'merge-on-green';
+            const REQUIRED_LABEL = 'reviewed';
+            const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+            const toMerge = [];
+
+            const candidates = new Set();
+            const dispatchPr = context.payload.inputs && context.payload.inputs.pr;
+            if (dispatchPr) {
+              candidates.add(parseInt(dispatchPr, 10));
+            } else if (context.payload.pull_request) {
+              candidates.add(context.payload.pull_request.number);
+            } else if (context.payload.check_suite) {
+              for (const pr of context.payload.check_suite.pull_requests || []) {
+                candidates.add(pr.number);
+              }
+            } else if (context.payload.workflow_run) {
+              for (const pr of context.payload.workflow_run.pull_requests || []) {
+                candidates.add(pr.number);
+              }
+            }
+            if (candidates.size === 0) {
+              const { data: open } = await github.rest.pulls.list({
+                owner: context.repo.owner, repo: context.repo.repo, state: 'open', per_page: 100,
+              });
+              for (const pr of open) {
+                if (pr.labels.some((l) => l.name === REQUIRED_LABEL)) candidates.add(pr.number);
+              }
+            }
+
+            for (const number of candidates) {
+              const tag = `PR #${number}`;
+              let pr;
+              for (let i = 0; i < 6; i++) {
+                ({ data: pr } = await github.rest.pulls.get({
+                  owner: context.repo.owner, repo: context.repo.repo, pull_number: number,
+                }));
+                if (pr.mergeable !== null || pr.state !== 'open') break;
+                await sleep(3000);
+              }
+              if (pr.state !== 'open') { core.info(`${tag}: not open (${pr.state}) — skip.`); continue; }
+              if (pr.draft)           { core.info(`${tag}: draft — skip.`); continue; }
+              if (pr.merged)          { core.info(`${tag}: already merged — skip.`); continue; }
+
+              if (!pr.labels.some((l) => l.name === REQUIRED_LABEL)) {
+                core.info(`${tag}: no '${REQUIRED_LABEL}' label — skip.`); continue;
+              }
+              if (pr.mergeable === false) { core.info(`${tag}: conflict — skip.`); continue; }
+              if (pr.mergeable === null)  { core.info(`${tag}: mergeability computing — skip.`); continue; }
+
+              const sha = pr.head.sha;
+              const runs = await github.paginate(github.rest.checks.listForRef, {
+                owner: context.repo.owner, repo: context.repo.repo, ref: sha, per_page: 100,
+              });
+              const others = runs.filter((r) => r.name !== SELF_JOB);
+              const pending = others.filter((r) => r.status !== 'completed');
+              const failed = others.filter(
+                (r) => r.status === 'completed' && !['success', 'neutral', 'skipped'].includes(r.conclusion),
+              );
+              if (pending.length) {
+                core.info(`${tag}: pending ${pending.map((r) => r.name).join(', ')} — skip.`);
+                continue;
+              }
+              if (failed.length) {
+                core.info(`${tag}: failed ${failed.map((r) => `${r.name}=${r.conclusion}`).join(', ')} — skip.`);
+                continue;
+              }
+
+              const { data: combined } = await github.rest.repos.getCombinedStatusForRef({
+                owner: context.repo.owner, repo: context.repo.repo, ref: sha,
+              });
+              if (combined.total_count > 0 && combined.state !== 'success') {
+                core.info(`${tag}: combined status = ${combined.state} — skip.`); continue;
+              }
+
+              core.info(`${tag}: reviewed + checks green → queue merge.`);
+              toMerge.push(number);
+            }
+
+            core.setOutput('to_merge', JSON.stringify(toMerge));
+            if (toMerge.length === 0) core.info('No PRs ready to merge.');
+
+      - name: Require PAT for merge
+        if: steps.evaluate.outputs.to_merge != '' && steps.evaluate.outputs.to_merge != '[]'
+        env:
+          PAT: ${{ secrets.PAT }}
+        run: |
+          if [ -z "$PAT" ]; then
+            echo "::error::secrets.PAT is not set on this repo/org."
+            echo "Create a classic PAT (scopes: repo, workflow) and:"
+            echo "  gh secret set PAT -R go-silex/silex-share"
+            echo "Or org-level: gh secret set PAT --org go-silex --visibility private"
+            echo "Without PAT, Free private repos cannot merge workflow PRs reliably with GITHUB_TOKEN."
+            exit 1
+          fi
+
+      - name: Merge green PRs
+        if: steps.evaluate.outputs.to_merge != '' && steps.evaluate.outputs.to_merge != '[]'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          TO_MERGE: ${{ steps.evaluate.outputs.to_merge }}
+        with:
+          github-token: ${{ secrets.PAT }}
+          script: |
+            const toMerge = JSON.parse(process.env.TO_MERGE || '[]');
+            for (const number of toMerge) {
+              const tag = `PR #${number}`;
+              try {
+                await github.rest.pulls.merge({
+                  owner: context.repo.owner, repo: context.repo.repo, pull_number: number,
+                  merge_method: 'merge',
+                });
+                core.notice(`${tag}: merged (merge commit) — reviewed + checks green.`);
+              } catch (e) {
+                core.warning(`${tag}: merge failed: ${e.message}`);
+              }
+            }
+
+  close-linked-issues:
+    name: Close linked issues
+    runs-on: ubuntu-latest
+    if: github.event.action == 'closed' && github.event.pull_request.merged == true
+    timeout-minutes: 5
+    steps:
+      - name: Close issues referenced with closing keywords
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const body = context.payload.pull_request.body || '';
+            const pattern = /(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+#(\d+)/gi;
+            const issues = new Set();
+            let match;
+            while ((match = pattern.exec(body)) !== null) {
+              issues.add(parseInt(match[1], 10));
+            }
+            if (issues.size === 0) {
+              core.info('No closing keywords found in PR body');
+              return;
+            }
+            for (const number of issues) {
+              try {
+                await github.rest.issues.update({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: number,
+                  state: 'closed',
+                });
+                core.info(`Closed #${number}`);
+              } catch (e) {
+                core.warning(`Could not close #${number}: ${e.message}`);
+              }
+            }
