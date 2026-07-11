@@ -4,7 +4,7 @@ Team artifact host for **go-silex** — publish HTML / images / PDF / multi-file
 
 | | |
 |---|---|
-| **GitHub** | `go-silex/silex-share` (à créer) |
+| **GitHub** | [`go-silex/silex-share`](https://github.com/go-silex/silex-share) (private) |
 | **URL** | `https://share.gosilex.com/{slug}` |
 | **Shortlinks** | `https://s.gosilex.com/…` (Shlink, best-effort) |
 | **Stack** | Cloudflare Worker + R2 + D1 |
