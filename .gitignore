@@ -1,0 +1,23 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor / agent local
+.claude/
+.grok/
+*.bak
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# Node / build (future Worker)
+node_modules/
+dist/
+.wrangler/
+.dev.vars
+
+# OS / editor
+*.swp
+*~
