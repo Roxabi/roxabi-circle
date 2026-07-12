@@ -3,9 +3,7 @@ import {
   defaultSessionPort,
   generateApiKey,
   hashApiKey,
-  parseBearer,
-  parseCookie,
-  SESSION_COOKIE,
+  resolveDualAuth,
   type SessionPort,
   verifyApiKey,
   verifyPassword,
@@ -115,30 +113,20 @@ export async function resolveAuth(
   cookieHeader: string | null,
   opts?: { sessions?: SessionPort },
 ): Promise<{ subject: string; method: 'session' | 'api_key' } | null> {
-  const sessions = opts?.sessions ?? defaultSessionPort
-  const bearer = parseBearer(authorization)
-  if (bearer) {
-    let prefix: string
-    try {
-      prefix = apiKeyPrefix(bearer)
-    } catch {
-      throw AppError.unauthorized()
-    }
-    const row = await keysRepo.findApiKeyByPrefix(db, prefix)
-    if (!row || row.revokedAt != null) throw AppError.unauthorized()
-    if (row.expiresAt != null && row.expiresAt <= Date.now()) throw AppError.unauthorized()
-    const ok = await verifyApiKey(bearer, row.keyHash)
-    if (!ok) throw AppError.unauthorized()
-    return { subject: row.subject, method: 'api_key' }
-  }
-
-  const token = parseCookie(cookieHeader, SESSION_COOKIE)
-  if (token) {
-    const payload = await sessions.verify(token, secret)
-    if (payload) return { subject: payload.sub, method: 'session' }
-  }
-
-  return null
+  return resolveDualAuth(authorization, cookieHeader, {
+    secret,
+    sessions: opts?.sessions ?? defaultSessionPort,
+    findApiKeyByPrefix: async (prefix) => {
+      const row = await keysRepo.findApiKeyByPrefix(db, prefix)
+      if (!row) return null
+      return {
+        subject: row.subject,
+        keyHash: row.keyHash,
+        revokedAt: row.revokedAt ?? null,
+        expiresAt: row.expiresAt ?? null,
+      }
+    },
+  })
 }
 
 export { DEMO_EMAIL, DEMO_EMAIL_B, DEMO_PASSWORD, DEMO_PASSWORD_B }

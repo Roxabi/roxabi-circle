@@ -1,25 +1,29 @@
-import { AppError } from '@gosilex/core'
+import { createRequireAuth, defaultSessionPort } from '@gosilex/auth'
 import { createDb } from '@gosilex/db'
 import type { MiddlewareHandler } from 'hono'
 import { schema } from '../db/schema'
 import { getSecret } from '../lib/session-env'
-import * as authService from '../services/auth'
+import * as keysRepo from '../repos/keys'
 import type { AppEnv } from '../types'
 
 /**
  * Dual-path auth middleware: Bearer sk_ or session cookie → subject + authMethod.
- * Mount with `route.use('*', requireAuth)` so handlers cannot forget the guard.
+ * Package factory + app-injected D1 key lookup + session secret.
  */
-export const requireAuth: MiddlewareHandler<AppEnv> = async (c, next) => {
+export const requireAuth: MiddlewareHandler<AppEnv> = createRequireAuth((c) => {
   const db = createDb(c.env.DB, schema)
-  const auth = await authService.resolveAuth(
-    db,
-    getSecret(c.env),
-    c.req.header('authorization') ?? null,
-    c.req.header('cookie') ?? null,
-  )
-  if (!auth) throw AppError.unauthorized()
-  c.set('subject', auth.subject)
-  c.set('authMethod', auth.method)
-  await next()
-}
+  return {
+    secret: getSecret(c.env),
+    sessions: defaultSessionPort,
+    findApiKeyByPrefix: async (prefix) => {
+      const row = await keysRepo.findApiKeyByPrefix(db, prefix)
+      if (!row) return null
+      return {
+        subject: row.subject,
+        keyHash: row.keyHash,
+        revokedAt: row.revokedAt ?? null,
+        expiresAt: row.expiresAt ?? null,
+      }
+    },
+  }
+}) as MiddlewareHandler<AppEnv>

@@ -158,6 +158,28 @@ describe('session cookie', () => {
   })
 })
 
+describe('resolveDualAuth', () => {
+  it('returns null without credentials', async () => {
+    const { resolveDualAuth } = await import('./require-auth')
+    const r = await resolveDualAuth(null, null, {
+      secret: 'x'.repeat(32),
+      findApiKeyByPrefix: async () => null,
+    })
+    expect(r).toBeNull()
+  })
+
+  it('throws unauthorized for unknown bearer', async () => {
+    const { resolveDualAuth } = await import('./require-auth')
+    const key = generateApiKey()
+    await expect(
+      resolveDualAuth(`Bearer ${key}`, null, {
+        secret: 'x'.repeat(32),
+        findApiKeyByPrefix: async () => null,
+      }),
+    ).rejects.toMatchObject({ code: 'UNAUTHORIZED' })
+  })
+})
+
 describe('SessionPort (HMAC adapter)', () => {
   const secret = 'test-secret-at-least-32-characters!!'
 
