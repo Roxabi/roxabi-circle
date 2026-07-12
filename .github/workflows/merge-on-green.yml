@@ -126,24 +126,17 @@ jobs:
                 core.info(`${tag}: no check runs on head — skip (fail-closed).`);
                 continue;
               }
-              const REQUIRED_CHECK_SUBSTRINGS = [
-                'TruffleHog',
-                'Secret scan',
-                'lint-typecheck-test',
-              ];
-              const missingRequired = REQUIRED_CHECK_SUBSTRINGS.filter(
-                (s) => !others.some((r) => (r.name || '').includes(s)),
-              );
-              // Require secret scan (TruffleHog OR Secret scan name) + app CI job name
+              // Require secret-scan check (TruffleHog job name OR workflow "Secret scan")
+              // AND app quality CI job (name: lint-typecheck-test; often appears as "CI / lint-typecheck-test").
               const hasSecret = others.some((r) =>
                 /TruffleHog|Secret scan/i.test(r.name || ''),
               );
               const hasCi = others.some((r) =>
-                /lint-typecheck-test|^CI$/i.test(r.name || ''),
+                /lint-typecheck-test/i.test(r.name || ''),
               );
               if (!hasSecret || !hasCi) {
                 core.info(
-                  `${tag}: missing required checks (secret=${hasSecret}, ci=${hasCi}, missing=${missingRequired.join(',')}) — skip.`,
+                  `${tag}: missing required checks (secret=${hasSecret}, ci=${hasCi}) — skip.`,
                 );
                 continue;
               }

@@ -94,9 +94,13 @@ async function main() {
   // list tools
   send({ jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} })
   const listed = await waitFor((m) => m.id === 2)
-  const tools = listed.result?.tools?.map((t) => t.name) ?? []
-  if (!tools.includes('ping') || !tools.includes('whoami')) {
-    throw new Error(`expected ping+whoami, got ${JSON.stringify(tools)}`)
+  const tools = (listed.result?.tools?.map((t) => t.name) ?? []).slice().sort()
+  const expected = ['ping', 'whoami'].slice().sort()
+  // Exact allowlist — extra tools fail (not merely "includes ping+whoami")
+  if (JSON.stringify(tools) !== JSON.stringify(expected)) {
+    throw new Error(
+      `expected exact tools ${JSON.stringify(expected)}, got ${JSON.stringify(tools)}`,
+    )
   }
   if (tools.some((n) => String(n).startsWith('share_'))) {
     throw new Error(`share_* tools forbidden: ${JSON.stringify(tools)}`)
