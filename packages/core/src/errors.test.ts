@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 import { AppError, newRequestId, toApiErrorBody } from './errors'
+import { createLogger } from './logger'
 import { parseOrThrow } from './parse'
 
 describe('AppError', () => {
@@ -62,6 +63,24 @@ describe('AppError', () => {
     const id = newRequestId()
     expect(id.startsWith('req_')).toBe(true)
     expect(id.length).toBeGreaterThan(8)
+  })
+})
+
+describe('createLogger', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('emits JSON lines with requestId from child', () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const log = createLogger({ service: 'kit' }).child({ requestId: 'req_abc' })
+    log.error('boom', { code: 'INTERNAL_ERROR' })
+    expect(spy).toHaveBeenCalled()
+    const line = String(spy.mock.calls[0]?.[0])
+    const parsed = JSON.parse(line) as { msg: string; requestId: string; level: string }
+    expect(parsed.msg).toBe('boom')
+    expect(parsed.requestId).toBe('req_abc')
+    expect(parsed.level).toBe('error')
   })
 })
 

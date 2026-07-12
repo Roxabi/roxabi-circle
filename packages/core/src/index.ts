@@ -1,4 +1,5 @@
 export type { ApiErrorBody, ErrorCodeName } from '@gosilex/types'
 export { ErrorCode } from '@gosilex/types'
 export { AppError, newRequestId, toApiErrorBody } from './errors'
+export { createLogger, type LogFields, type Logger, type LogLevel } from './logger'
 export { parseOrThrow } from './parse'
