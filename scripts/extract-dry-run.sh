@@ -120,14 +120,20 @@ for pkg_json in packages/*/package.json; do
   if [[ "$base" == "config" || -z "$name" ]]; then
     continue
   fi
-  # Count references outside this package directory
+  # Count references outside this package directory.
+  # Note: rg exits 1 when no matches — must not trip `set -o pipefail`.
   hits=0
   if command -v rg >/dev/null 2>&1; then
-    hits="$(rg -F -l --glob '!**/node_modules/**' --glob '!**/.git/**' --glob "!${dir}/**" "$name" apps packages 2>/dev/null | wc -l | tr -d ' ')"
+    hits="$(
+      { rg -F -l --glob '!**/node_modules/**' --glob '!**/.git/**' --glob "!${dir}/**" "$name" apps packages || true; } 2>/dev/null | wc -l | tr -d ' '
+    )"
   else
-    hits="$(grep -RIl --exclude-dir=node_modules --exclude-dir=.git -F "$name" apps packages 2>/dev/null | grep -v "^${dir}/" | wc -l | tr -d ' ')"
+    hits="$(
+      { grep -RIl --exclude-dir=node_modules --exclude-dir=.git -F "$name" apps packages || true; } 2>/dev/null | grep -v "^${dir}/" | wc -l | tr -d ' '
+    )"
   fi
-  if [[ "${hits:-0}" -eq 0 ]]; then
+  hits="${hits:-0}"
+  if [[ "$hits" -eq 0 ]]; then
     echo "ORPHAN package (no importers outside itself): $name ($dir)" >&2
     orphan=1
   fi
