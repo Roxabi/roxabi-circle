@@ -1,4 +1,5 @@
 import {
+  clearSessionCookieHeader,
   generateApiKey,
   hashApiKey,
   hashPassword,
@@ -20,20 +21,36 @@ type Db = DrizzleD1Database<typeof schema>
 
 const DEMO_PASSWORD = 'demo-password-change-me'
 const DEMO_EMAIL = 'demo@gosilex.local'
+/** Second demo principal for multi-tenant / IDOR tests. */
+const DEMO_EMAIL_B = 'demo-b@gosilex.local'
+const DEMO_PASSWORD_B = 'demo-password-b-change-me'
 
 export async function ensureDemoUser(db: Db) {
   const { demoUsers } = await import('../db/schema')
   const existing = await db.select().from(demoUsers).all()
-  if (existing.length > 0) return
-  await db
-    .insert(demoUsers)
-    .values({
-      id: 'user_demo',
-      email: DEMO_EMAIL,
-      passwordHash: await hashPassword(DEMO_PASSWORD),
-      createdAt: Date.now(),
-    })
-    .run()
+  const ids = new Set(existing.map((u) => u.id))
+  if (!ids.has('user_demo')) {
+    await db
+      .insert(demoUsers)
+      .values({
+        id: 'user_demo',
+        email: DEMO_EMAIL,
+        passwordHash: await hashPassword(DEMO_PASSWORD),
+        createdAt: Date.now(),
+      })
+      .run()
+  }
+  if (!ids.has('user_b')) {
+    await db
+      .insert(demoUsers)
+      .values({
+        id: 'user_b',
+        email: DEMO_EMAIL_B,
+        passwordHash: await hashPassword(DEMO_PASSWORD_B),
+        createdAt: Date.now(),
+      })
+      .run()
+  }
 }
 
 export async function loginWithPassword(
@@ -63,6 +80,10 @@ export async function loginWithPassword(
     subject: user.id,
     cookie: sessionCookieHeader(token, { secure: opts?.secureCookie ?? false }),
   }
+}
+
+export function logoutCookie(opts?: { secureCookie?: boolean }): string {
+  return clearSessionCookieHeader({ secure: opts?.secureCookie ?? false })
 }
 
 export async function mintApiKey(db: Db, subject: string): Promise<{ id: string; key: string }> {
@@ -101,4 +122,4 @@ export async function resolveAuth(
   return null
 }
 
-export { DEMO_EMAIL, DEMO_PASSWORD, hashApiKey, verifyApiKey }
+export { DEMO_EMAIL, DEMO_EMAIL_B, DEMO_PASSWORD, DEMO_PASSWORD_B, hashApiKey, verifyApiKey }

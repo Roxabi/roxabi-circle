@@ -40,9 +40,17 @@ bun run banlist && bun run extract-dry-run
 
 ### Demo credentials
 
-- Email: `demo@gosilex.local`
-- Password: `demo-password-change-me`
+- Email: `demo@gosilex.local` / password: `demo-password-change-me`
+- Second user (IDOR demos): `demo-b@gosilex.local` / `demo-password-b-change-me`
 - After login: cookie session `gosilex_session` (HttpOnly) · mint `sk_` via `POST /api/keys`
+
+### Local secrets / env (do not deploy as-is)
+
+- `apps/example-api/.dev.vars` from `.dev.vars.example` — **gitignored**
+- `ENVIRONMENT` must be **explicit** `development` or `test` for the known session-secret fallback
+- Missing / `production` / `staging` without `SESSION_SECRET` (min 32) → **fail closed**
+- Cookie `Secure` is set when `ENVIRONMENT` is not `development`|`test`
+- Never ship wrangler `ENVIRONMENT=development` to a public Worker
 
 ## Package map
 
@@ -54,7 +62,7 @@ bun run banlist && bun run extract-dry-run
 | `@gosilex/db` | Drizzle D1 factory (schemas stay in apps) |
 | `@gosilex/storage` | R2 put/get/delete + safe key join (`demo/` prefix in example) |
 | `@gosilex/auth` | Session cookie HMAC + `sk_` hash/generate/Bearer parse |
-| `@gosilex/ui` | CVA button/input/card/label (shadcn-style Base kit) |
+| `@gosilex/ui` | shadcn-style kit: tokens light/dark, Button/Input/Field/Dialog/Sheet/Sidebar/Toast/Dropdown/Table |
 | `@gosilex/email` | Demo email text builder |
 | `@gosilex/mcp` | `ping` / `whoami` helpers + no-share-tools guard |
 
@@ -63,7 +71,7 @@ bun run banlist && bun run extract-dry-run
 | App | Role |
 |---|---|
 | `example-api` | Hono Worker · health · dual auth · notes CRUD · D1/R2 · demo email |
-| `example-web` | Vite SPA · TanStack Router/Query/Form · FR/EN · `@gosilex/ui` |
+| `example-web` | Vite SPA · TanStack Router/Query/Form · app shell · notes/keys/settings · FR/EN · dark mode · `@gosilex/ui` |
 | `mcp-example` | FastMCP stdio · tools `ping` + `whoami` only |
 
 **No** `apps/share-*` until kit goal exit.

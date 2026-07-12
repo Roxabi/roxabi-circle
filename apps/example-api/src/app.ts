@@ -28,11 +28,18 @@ const loginSchema = z.object({
 const DEFAULT_CORS = 'http://localhost:5173,http://127.0.0.1:5173'
 const DEV_SESSION_FALLBACK = 'dev-session-secret-change-me-32chars!!'
 
-function environmentName(env: Env): string {
-  return (env.ENVIRONMENT || 'development').toLowerCase()
+/** Explicit env only — missing ENVIRONMENT is not treated as development. */
+export function environmentName(env: Env): string | undefined {
+  const n = env.ENVIRONMENT?.trim().toLowerCase()
+  return n || undefined
 }
 
-/** Fail-closed outside development/test: SESSION_SECRET required (min 32). */
+/**
+ * SESSION_SECRET:
+ * - Prefer real secret (min 32) always when set.
+ * - Known fallback only when ENVIRONMENT is **explicitly** `development` | `test`.
+ * - Missing ENVIRONMENT or production/staging → fail closed without secret.
+ */
 export function getSecret(env: Env): string {
   const secret = env.SESSION_SECRET?.trim()
   if (secret && secret.length >= 32) return secret
@@ -40,18 +47,22 @@ export function getSecret(env: Env): string {
   if (name === 'development' || name === 'test') {
     return DEV_SESSION_FALLBACK
   }
-  throw AppError.internal('SESSION_SECRET is required (min 32 chars) outside development')
+  throw AppError.internal(
+    'SESSION_SECRET is required (min 32 chars) unless ENVIRONMENT is development|test',
+  )
 }
 
-function corsAllowlist(env: Env): string[] {
+export function corsAllowlist(env: Env): string[] {
   return (env.CORS_ORIGINS || DEFAULT_CORS)
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean)
 }
 
-function useSecureCookie(env: Env): boolean {
-  return environmentName(env) === 'production'
+/** Secure cookies on HTTPS-like envs; local HTTP only for explicit development|test. */
+export function useSecureCookie(env: Env): boolean {
+  const name = environmentName(env)
+  return name !== 'development' && name !== 'test'
 }
 
 /** Factory used by Worker entry and unit tests (same shipped app). */
@@ -101,6 +112,11 @@ export function createApp() {
     )
     c.header('Set-Cookie', cookie)
     return c.json({ subject, email: parsed.data.email, requestId: c.get('requestId') })
+  })
+
+  app.post('/api/auth/logout', async (c) => {
+    c.header('Set-Cookie', authService.logoutCookie({ secureCookie: useSecureCookie(c.env) }))
+    return c.json({ ok: true, requestId: c.get('requestId') })
   })
 
   app.post('/api/keys', async (c) => {

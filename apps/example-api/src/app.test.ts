@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { createApp } from './app'
-import { DEMO_EMAIL, DEMO_PASSWORD } from './services/auth'
+import { createApp, getSecret, useSecureCookie } from './app'
+import { DEMO_EMAIL, DEMO_EMAIL_B, DEMO_PASSWORD, DEMO_PASSWORD_B } from './services/auth'
 import { createMemoryEnv } from './test/memory-env'
 
 const SCRATCH = process.env.SCRATCH || '/tmp/grok-goal-c818b205ecce/implementer'
@@ -261,14 +261,135 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     expect(missingBody.error.code).toBe('NOT_FOUND')
   })
 
-  it('getSecret fails closed in production without SESSION_SECRET', async () => {
-    const { getSecret } = await import('./app')
-    expect(() =>
+  it('getSecret fails closed without explicit development|test', () => {
+    const base = { DB: {} as never, BUCKET: {} as never }
+    expect(() => getSecret({ ...base, ENVIRONMENT: 'production' })).toThrow(/SESSION_SECRET/)
+    expect(() => getSecret({ ...base, ENVIRONMENT: 'staging' })).toThrow(/SESSION_SECRET/)
+    // Missing ENVIRONMENT is NOT treated as development (deploy footgun closed)
+    expect(() => getSecret({ ...base })).toThrow(/SESSION_SECRET/)
+    // Explicit local envs may use fallback when secret absent
+    expect(getSecret({ ...base, ENVIRONMENT: 'development' })).toMatch(/dev-session/)
+    expect(getSecret({ ...base, ENVIRONMENT: 'test' })).toMatch(/dev-session/)
+    // Real secret always wins
+    expect(
       getSecret({
-        DB: {} as never,
-        BUCKET: {} as never,
+        ...base,
         ENVIRONMENT: 'production',
+        SESSION_SECRET: 'prod-session-secret-at-least-32-chars!!',
       }),
-    ).toThrow(/SESSION_SECRET/)
+    ).toBe('prod-session-secret-at-least-32-chars!!')
+  })
+
+  it('useSecureCookie is false only for development|test', () => {
+    const base = { DB: {} as never, BUCKET: {} as never }
+    expect(useSecureCookie({ ...base, ENVIRONMENT: 'development' })).toBe(false)
+    expect(useSecureCookie({ ...base, ENVIRONMENT: 'test' })).toBe(false)
+    expect(useSecureCookie({ ...base, ENVIRONMENT: 'production' })).toBe(true)
+    expect(useSecureCookie({ ...base, ENVIRONMENT: 'staging' })).toBe(true)
+    // missing env → Secure (safer default for unknown deploy)
+    expect(useSecureCookie({ ...base })).toBe(true)
+  })
+
+  it('login sets Secure cookie outside development|test', async () => {
+    const app = createApp()
+    const env = createMemoryEnv({
+      ENVIRONMENT: 'staging',
+      SESSION_SECRET: 'staging-session-secret-at-least-32ch!',
+    })
+    const login = await app.request(
+      '/api/auth/login',
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: DEMO_EMAIL, password: DEMO_PASSWORD }),
+      },
+      env,
+    )
+    expect(login.status).toBe(200)
+    expect(login.headers.get('set-cookie')).toMatch(/Secure/i)
+  })
+
+  it('CORS rejects unknown Origin (no reflect)', async () => {
+    const app = createApp()
+    const env = createMemoryEnv()
+    const res = await app.request(
+      '/health',
+      {
+        headers: {
+          Origin: 'https://evil.example',
+        },
+      },
+      env,
+    )
+    expect(res.status).toBe(200)
+    // Hono omits or nulls ACAO when origin callback returns null
+    const acao = res.headers.get('access-control-allow-origin')
+    expect(acao).not.toBe('https://evil.example')
+    expect(acao === null || acao === '' || acao === 'null').toBe(true)
+
+    const ok = await app.request('/health', { headers: { Origin: 'http://localhost:5173' } }, env)
+    expect(ok.headers.get('access-control-allow-origin')).toBe('http://localhost:5173')
+  })
+
+  it('notes are subject-scoped (IDOR: B cannot read A note)', async () => {
+    const app = createApp()
+    const env = createMemoryEnv()
+
+    const loginA = await app.request(
+      '/api/auth/login',
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: DEMO_EMAIL, password: DEMO_PASSWORD }),
+      },
+      env,
+    )
+    expect(loginA.status).toBe(200)
+    const cookieA = loginA.headers.get('set-cookie')!.split(';')[0]
+
+    const created = await app.request(
+      '/api/notes',
+      {
+        method: 'POST',
+        headers: { cookie: cookieA, 'content-type': 'application/json' },
+        body: JSON.stringify({ title: 'A private', body: 'secret-to-a' }),
+      },
+      env,
+    )
+    expect(created.status).toBe(201)
+    const noteId = ((await created.json()) as { note: { id: string } }).note.id
+
+    const loginB = await app.request(
+      '/api/auth/login',
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: DEMO_EMAIL_B, password: DEMO_PASSWORD_B }),
+      },
+      env,
+    )
+    expect(loginB.status).toBe(200)
+    const cookieB = loginB.headers.get('set-cookie')!.split(';')[0]
+
+    const listB = await app.request('/api/notes', { headers: { cookie: cookieB } }, env)
+    expect(listB.status).toBe(200)
+    const notesB = ((await listB.json()) as { notes: { id: string }[] }).notes
+    expect(notesB.some((n) => n.id === noteId)).toBe(false)
+
+    const getB = await app.request(`/api/notes/${noteId}`, { headers: { cookie: cookieB } }, env)
+    expect(getB.status).toBe(404)
+    const body = (await getB.json()) as { error: { code: string } }
+    expect(body.error.code).toBe('NOT_FOUND')
+
+    const delB = await app.request(
+      `/api/notes/${noteId}`,
+      { method: 'DELETE', headers: { cookie: cookieB } },
+      env,
+    )
+    expect(delB.status).toBe(404)
+
+    // Owner still has the note
+    const getA = await app.request(`/api/notes/${noteId}`, { headers: { cookie: cookieA } }, env)
+    expect(getA.status).toBe(200)
   })
 })

@@ -1,6 +1,6 @@
 ---
 title: Kit polish after B1–B6 (non-blocking residual)
-status: ready
+status: implemented-p1-p4
 date: 2026-07-12
 base: main @ d5f226e
 source_review: artifacts/reviews/2026-07-12-kit-chemin-a-code-review-r2.md
