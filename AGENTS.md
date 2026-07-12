@@ -41,6 +41,9 @@ Contexte : passation + deck `~/projects/gosilex/docs/presentations/` · hub `~/p
 
 **SPEC-001 share** (`artifacts/specs/001-share-m0-m1-core-spec.md`) : **superseded / deferred** — ne pas `/plan` ni implementer tant que le goal boilerplate n’est pas livré.
 
+**Arbitrages figés pré-goal** : [`artifacts/reviews/2026-07-12-goal-arbitration-freeze.md`](artifacts/reviews/2026-07-12-goal-arbitration-freeze.md) · goal : [`artifacts/goals/001-chemin-a-boilerplate-goal.md`](artifacts/goals/001-chemin-a-boilerplate-goal.md).  
+`/goal` ne re-débat pas les defaults A1–A25 / O1–O12 / X1–X6 sans supersede explicite.
+
 ### Chemin A vs B
 
 | Chemin | Plateforme | Boilerplate |
