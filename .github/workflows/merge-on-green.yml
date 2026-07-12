@@ -120,7 +120,21 @@ jobs:
               const runs = await github.paginate(github.rest.checks.listForRef, {
                 owner: context.repo.owner, repo: context.repo.repo, ref: sha, per_page: 100,
               });
+              // Fail-closed: require at least one completed non-self check (e.g. TruffleHog).
+              // Empty check list + "reviewed" must NOT merge (Free plan has no required checks).
               const others = runs.filter((r) => r.name !== SELF_JOB);
+              if (others.length === 0) {
+                core.info(`${tag}: no check runs on head — skip (fail-closed).`);
+                continue;
+              }
+              const REQUIRED_CHECK_SUBSTRINGS = ['TruffleHog', 'Secret scan'];
+              const hasRequired = others.some((r) =>
+                REQUIRED_CHECK_SUBSTRINGS.some((s) => (r.name || '').includes(s)),
+              );
+              if (!hasRequired) {
+                core.info(`${tag}: missing required secret-scan check (TruffleHog) — skip.`);
+                continue;
+              }
               const pending = others.filter((r) => r.status !== 'completed');
               const failed = others.filter(
                 (r) => r.status === 'completed' && !['success', 'neutral', 'skipped'].includes(r.conclusion),

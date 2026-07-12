@@ -13,25 +13,33 @@ Team artifact host for **GOSILEX** · org [`go-silex`](https://github.com/go-sil
 
 ---
 
-## Dual mission (non-négociable)
+## Dual mission — **priorité inversée (2026-07-12)**
 
-Ce repo n’est **pas** un one-off. Deux livrables couplés :
+Décision produit/ops : **boilerplate Chemin A d’abord**, fonctionnalités métier silex-share **ensuite**.
 
-| Livrable | Intention |
-|---|---|
-| **1. Produit** | Plateforme d’hébergement d’artefacts équipe (HTML, multi-fichiers, image, PDF, vidéo) — skill + MCP + UI |
-| **2. Boilerplate Chemin A** | **Premier test de haute qualité** d’un starter **Full Cloudflare** dérivable en template GOSILEX |
+| Priorité | Livrable | Intention |
+|---|---|---|
+| **P0 — maintenant** | **Boilerplate Chemin A** | Starter **Full Cloudflare** haute qualité, monorepo extractible, conventions + CI + auth + UI kit + MCP kit + libs SaaS classiques — **template GOSILEX** |
+| **P1 — après** | **Produit share** | Artefacts team (`share.gosilex.com`) comme **première app métier** qui *consomme* le kit, pas l’inverse |
 
 Jugement de chaque décision :
 
-1. Correctness produit (frame)  
-2. **Extractabilité** — pas de dette métier share collée au kit  
+1. **Extractabilité / qualité kit** (packages génériques, examples verts sans métier share)  
+2. Correctness produit share **quand** on implémente `apps/share-*`  
 
-**JTBD prioritaire 30j :** share live (`POST` + `GET /{slug}`). Kit factory = side-effect de code propre + extract dry-run, pas 12 packages vides jour 1.
+**JTBD prioritaire :**  
+> *En partant de ce monorepo, un dev GOSILEX clone/extrait un kit CF, a `example-api` + `example-web` + `mcp-example` verts (lint/typecheck/test), auth demo, UI shadcn, erreurs centralisées, i18n FR/EN, email catcher local — sans aucune string métier « artefact/share ».*
+
+**Anti-pattern (ancien) :** ship M0 share live d’abord et laisser le kit « en side-effect ».  
+**Pattern (nouveau) :** ship kit + examples d’abord ; share = app domain qui s’appuie sur le kit.
 
 **Barre qualité = audits** (Spark, Metalyde) : sécu, coverage, god files, couches, CI, linter — **par défaut** tooling+CI.
 
 Contexte : passation + deck `~/projects/gosilex/docs/presentations/` · hub `~/projects/gosilex/AGENTS.md` · ref mono **`~/projects/roxabi-boilerplate`** (Bun+Turbo+Biome+Better Auth+TanStack — runtime Node/Nest ≠ A).
+
+**Frame produit share** (`001-…-frame.md`) reste valide pour **plus tard** — ne pilote **pas** le prochain `/goal` / scaffold.
+
+**SPEC-001 share** (`artifacts/specs/001-share-m0-m1-core-spec.md`) : **superseded / deferred** — ne pas `/plan` ni implementer tant que le goal boilerplate n’est pas livré.
 
 ### Chemin A vs B
 
@@ -422,15 +430,18 @@ silex-share/
 | `apps/example-*` | prouve kit seul |
 | `apps/share-*` | jamais dans template extrait |
 
-### Phasage
+### Phasage (boilerplate-first)
 
 | Phase | Contenu |
 |---|---|
-| **S0** | Bun+Turbo · Biome · CI · core/config · 1 Worker app · AppError+requestId |
-| **S1 M0–M1** | share-api create/serve/private_key · Vitest pool |
-| **S2 M2–M4** | presign · OAuth+cookies · UI TanStack+shadcn · Shlink · i18n shell |
-| **S3 M5** | FastMCP share-mcp + skill |
-| **S4** | email (+ Mailpit/Mailcatcher local & staging) · rate-limit · audit · Sentry · Better Stack · Playwright · CodeRabbit |
+| **B0** | Bun+Turbo monorepo · Biome · Vitest · Lefthook · AppError+requestId · `packages/core`+`config` · `apps/example-api` health |
+| **B1** | `example-api` : Hono + D1 demo schema + Zod + guards skeleton · CI typecheck/test/lint |
+| **B2** | `packages/db`+`storage` generic · R2 helper demo · migrations pattern |
+| **B3** | `packages/auth` Better Auth Hono + cookies · key hash demo · **not** share domain |
+| **B4** | `example-web` TanStack+shadcn Base UI · i18n FR/EN · ApiError client |
+| **B5** | FastMCP `mcp-example` · email + Mailpit compose · rate-limit/audit stubs |
+| **B6** | Extract dry-run CI · docs kit · Sentry/Better Stack hooks · Playwright smoke examples |
+| **P1 later** | `apps/share-*` product slices M0–M6 **on top of** kit |
 
 ### Couches API
 

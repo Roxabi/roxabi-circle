@@ -11,16 +11,23 @@ Team artifact host for **go-silex** — publish HTML / images / PDF / multi-file
 | **Frame** | [`artifacts/frames/001-share-platform-frame.md`](artifacts/frames/001-share-platform-frame.md) |
 | **Agent** | [`AGENTS.md`](AGENTS.md) |
 
-## Dual mission
+## Dual mission (priority 2026-07-12)
 
-1. **Produit** — hébergement d’artefacts équipe (skill + MCP + UI).
-2. **Boilerplate Chemin A** — starter Full Cloudflare extractible (qualité, couches, CI, i18n, errors, obs).
+| Priority | What |
+|---|---|
+| **P0 now** | **Chemin A boilerplate** — Full Cloudflare monorepo kit (examples verts, packages, CI) |
+| **P1 later** | **silex-share product** — artefact host as first consumer app |
 
-Voir [`AGENTS.md`](AGENTS.md) pour stack figée, cookies, erreurs, MCP, observability.
+Goal brief : [`artifacts/goals/001-chemin-a-boilerplate-goal.md`](artifacts/goals/001-chemin-a-boilerplate-goal.md)  
+Product frame (later) : [`artifacts/frames/001-share-platform-frame.md`](artifacts/frames/001-share-platform-frame.md)
+
+Voir [`AGENTS.md`](AGENTS.md) pour stack, sécu IA, merge Free + App `gosilex-ci`.
 
 ## Status
 
-Frame decisions locked 2026-07-11. Implementation not started.
+- Product frame locked 2026-07-11 (deferred implement).  
+- **Boilerplate-first** priority set 2026-07-12.  
+- Scaffold kit : not started.
 
 ## Repo hygiene (S0)
 
