@@ -1,15 +1,35 @@
-import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label } from '@gosilex/ui'
+import {
+  Button,
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldLabel,
+  Input,
+} from '@gosilex/ui'
 import { useForm } from '@tanstack/react-form'
+import { useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { toast } from 'sonner'
 import { ApiError, apiFetch } from '../lib/api'
-import { defaultLocale, type Locale, t } from '../lib/i18n'
+import { meQueryKey, useMe } from '../lib/auth'
+import { useLocale } from '../lib/locale'
 
 export function LoginPage() {
+  const { m, locale, setLocale } = useLocale()
   const navigate = useNavigate()
-  const [locale, setLocale] = useState<Locale>(defaultLocale)
+  const qc = useQueryClient()
   const [error, setError] = useState<string | null>(null)
-  const m = t(locale)
+  const me = useMe()
+
+  useEffect(() => {
+    if (me.data) void navigate({ to: '/' })
+  }, [me.data, navigate])
 
   const form = useForm({
     defaultValues: {
@@ -23,74 +43,103 @@ export function LoginPage() {
           method: 'POST',
           body: JSON.stringify(value),
         })
+        await qc.invalidateQueries({ queryKey: meQueryKey })
+        toast.success(m.login, { description: value.email })
         await navigate({ to: '/' })
       } catch (e) {
-        if (e instanceof ApiError) setError(`${e.code}: ${e.message} (${e.requestId})`)
-        else setError(String(e))
+        if (e instanceof ApiError) {
+          setError(`${e.code}: ${e.message}`)
+          toast.error(m.error, { description: e.message })
+        } else {
+          setError(String(e))
+        }
       }
     },
   })
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle>{m.login}</CardTitle>
-        <div className="flex gap-2 text-sm">
-          <span className="text-zinc-500">{m.lang}</span>
-          <button type="button" className="underline" onClick={() => setLocale('fr')}>
-            FR
-          </button>
-          <button type="button" className="underline" onClick={() => setLocale('en')}>
-            EN
-          </button>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <p className="mb-4 text-sm text-zinc-500">{m.demoCreds}</p>
-        <form
-          className="flex flex-col gap-4"
-          onSubmit={(e) => {
-            e.preventDefault()
-            e.stopPropagation()
-            void form.handleSubmit()
-          }}
-        >
-          <form.Field name="email">
-            {(field) => (
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor={field.name}>{m.email}</Label>
-                <Input
-                  id={field.name}
-                  type="email"
-                  value={field.state.value}
-                  onBlur={field.handleBlur}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                />
-              </div>
-            )}
-          </form.Field>
-          <form.Field name="password">
-            {(field) => (
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor={field.name}>{m.password}</Label>
-                <Input
-                  id={field.name}
-                  type="password"
-                  value={field.state.value}
-                  onBlur={field.handleBlur}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                />
-              </div>
-            )}
-          </form.Field>
-          {error ? (
-            <p className="text-sm text-red-600" role="alert">
-              {m.error}: {error}
-            </p>
-          ) : null}
-          <Button type="submit">{m.submit}</Button>
-        </form>
-      </CardContent>
-    </Card>
+    <div className="relative flex min-h-svh items-center justify-center overflow-hidden p-4">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,var(--muted),transparent_55%),radial-gradient(ellipse_at_bottom_right,var(--accent),transparent_50%)]"
+      />
+      <Card className="relative w-full max-w-md shadow-lg">
+        <CardHeader className="space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex size-10 items-center justify-center rounded-xl bg-primary text-sm font-bold text-primary-foreground">
+              GX
+            </div>
+            <div className="flex gap-1">
+              <Button
+                type="button"
+                size="sm"
+                variant={locale === 'fr' ? 'secondary' : 'ghost'}
+                onClick={() => setLocale('fr')}
+              >
+                FR
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={locale === 'en' ? 'secondary' : 'ghost'}
+                onClick={() => setLocale('en')}
+              >
+                EN
+              </Button>
+            </div>
+          </div>
+          <div>
+            <CardTitle>{m.loginTitle}</CardTitle>
+            <CardDescription className="mt-1.5">{m.loginDesc}</CardDescription>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <form
+            className="flex flex-col gap-4"
+            onSubmit={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              void form.handleSubmit()
+            }}
+          >
+            <form.Field name="email">
+              {(field) => (
+                <Field>
+                  <FieldLabel htmlFor={field.name}>{m.email}</FieldLabel>
+                  <Input
+                    id={field.name}
+                    type="email"
+                    autoComplete="username"
+                    value={field.state.value}
+                    onBlur={field.handleBlur}
+                    onChange={(e) => field.handleChange(e.target.value)}
+                  />
+                </Field>
+              )}
+            </form.Field>
+            <form.Field name="password">
+              {(field) => (
+                <Field>
+                  <FieldLabel htmlFor={field.name}>{m.password}</FieldLabel>
+                  <Input
+                    id={field.name}
+                    type="password"
+                    autoComplete="current-password"
+                    value={field.state.value}
+                    onBlur={field.handleBlur}
+                    onChange={(e) => field.handleChange(e.target.value)}
+                  />
+                </Field>
+              )}
+            </form.Field>
+            <FieldDescription>{m.demoCreds}</FieldDescription>
+            {error ? <FieldError>{error}</FieldError> : null}
+            <Button type="submit" className="w-full">
+              {m.submit}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+    </div>
   )
 }

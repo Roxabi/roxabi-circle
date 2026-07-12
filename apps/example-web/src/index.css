@@ -1,1 +1,6 @@
-@import "tailwindcss";
+/* Official shadcn Base (base-nova) tokens + utilities from @gosilex/ui */
+@import "@gosilex/ui/styles.css";
+
+/* Monorepo content detection — package + app sources */
+@source "../../../packages/ui/src/**/*.{ts,tsx}";
+@source "./**/*.{ts,tsx}";
