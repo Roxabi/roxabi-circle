@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { deleteObject, getObject, joinObjectKey, type KitR2Bucket, putObject } from './index'
+import {
+  deleteObject,
+  getObject,
+  joinObjectKey,
+  type KitR2Bucket,
+  putObject,
+  StorageClient,
+  StorageError,
+} from './index'
 
 function memoryBucket(): KitR2Bucket & { keys: () => string[] } {
   const store = new Map<string, string>()
@@ -20,6 +28,17 @@ function memoryBucket(): KitR2Bucket & { keys: () => string[] } {
     },
     async delete(key) {
       store.delete(key)
+    },
+    async head(key) {
+      return store.has(key) ? { key } : null
+    },
+    async list(opts) {
+      const p = opts?.prefix ?? ''
+      const objects = [...store.keys()]
+        .filter((k) => k.startsWith(p))
+        .slice(0, opts?.limit ?? 1000)
+        .map((key) => ({ key }))
+      return { objects }
     },
     keys: () => [...store.keys()],
   }
@@ -61,5 +80,22 @@ describe('R2 put/get/delete round-trip under demo/', () => {
 
     await deleteObject(bucket, key)
     expect(await getObject(bucket, key)).toBeNull()
+  })
+})
+
+describe('StorageClient', () => {
+  it('forces base prefix on put/get/list/head', async () => {
+    const bucket = memoryBucket()
+    const client = new StorageClient(bucket, 'demo')
+    const key = await client.put(['n1', 'a.txt'], 'hello')
+    expect(key).toBe('demo/n1/a.txt')
+    expect(await (await client.get(['n1', 'a.txt']))!.text()).toBe('hello')
+    expect(await client.head(['n1', 'a.txt'])).toEqual({ key: 'demo/n1/a.txt' })
+    const listed = await client.list({ subPrefix: 'n1' })
+    expect(listed.some((o) => o.key === 'demo/n1/a.txt')).toBe(true)
+  })
+
+  it('rejects invalid base prefix', () => {
+    expect(() => new StorageClient(memoryBucket(), 'a/../b')).toThrow(StorageError)
   })
 })
