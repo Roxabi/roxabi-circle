@@ -3,7 +3,7 @@
  * better-sqlite3 works under Vitest (Node). Drizzle D1 driver needs bind/all/raw/run.
  */
 
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import Database from 'better-sqlite3'
@@ -12,8 +12,11 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 
 function applyMigrations(sqlite: Database.Database) {
   const migDir = join(__dirname, '../../migrations')
-  // Apply numbered migrations in lexical order (0001, 0002, …)
-  for (const name of ['0001_init.sql']) {
+  // Same order as Wrangler: all *.sql lexical
+  const files = readdirSync(migDir)
+    .filter((f) => f.endsWith('.sql'))
+    .sort()
+  for (const name of files) {
     sqlite.exec(readFileSync(join(migDir, name), 'utf8'))
   }
 }
