@@ -331,7 +331,7 @@ Roxabi : Docker Postgres en local — même esprit : **services dev dans `docker
 | Lint/format | **Biome** | S0 |
 | Tests | **Vitest** + `@cloudflare/vitest-pool-workers` | S0 |
 | E2E | **Playwright** | P1 |
-| Hooks | **Lefthook** (pre-commit Biome · **pre-push coverage**) + commitlint | S0 |
+| Hooks | **Lefthook** (pre-commit Biome · **pre-push = validate:full** primary gate) + commitlint · CI = garde-fou | S0 |
 | CI | GH Actions lint · typecheck · test · build — **bloquant** | S0 |
 | Security headers | HSTS, X-Frame-Options, nosniff, Referrer-Policy (ShipFast) | S0/M0 |
 | Schema validation | Zod partout (ShipFast security) | S0 |
@@ -490,7 +490,7 @@ Règles : guard first · Zod double frontière · pas de god file · packages �
 - [ ] Vitest (au moins core + paths critiques)  
 - [ ] D1 migrations versionnées  
 - [ ] `.dev.vars.example` sans secrets  
-- [x] Lefthook + conventional commits + **pre-push `test:coverage`**  
+- [x] Lefthook + conventional commits + **pre-push `validate:full`** (local primary; CI guardrail) · [`docs/testing.md`](docs/testing.md)  
 
 - [ ] Security headers de base  
 
@@ -601,29 +601,35 @@ Règles dures pour tout agent (humain qui drive l’IA) :
 
 ### 4. Gates techniques (machine, pas confiance)
 
+**SSoT tests :** [`docs/testing.md`](docs/testing.md) — tests efficaces + ownership axial + inventaire CP-\*.
+
+**Doctrine ops :** la **validation locale (pre-push) est le vrai gate**. La CI GitHub est un **garde-fou** (hooks skippés, machine sale) — un push ne doit partir **que** si `validate:full` est vert en local. CI rouge = incident process, pas le flux normal de debug.
+
 ```text
 pre-commit (Lefthook) → Biome format/lint (staged)
          ↓
-pre-push (Lefthook) → typecheck + test:coverage (seuils) + banlist
+pre-push (Lefthook)   → bun run validate + bun run test:coverage
+                        (= validate:full : lint · typecheck · test · banlist · extract · floors)
          ↓
-PR CI → lint · typecheck · test · coverage · banlist · extract  (bloquant)
+PR CI                 → même suite (garde-fou) · secret scan
          ↓
-option → CodeRabbit / review AI  (signal, pas merge auto)
+option                → CodeRabbit / review AI  (signal, pas merge auto)
          ↓
-humain → merge (surtout auth, storage, MCP, migrations)
+humain                → merge (surtout auth, storage, MCP, migrations)
          ↓
-deploy CD pull après CI verte
+deploy CD             → pull après CI verte
 ```
 
 | Gate | Empêche |
 |---|---|
 | TypeScript strict + Zod | une partie des bêtises de types / input |
 | Biome | style + bugs triviaux |
-| Vitest + **coverage thresholds** (`bun run test:coverage`) | régressions + baisse de couverture sous le floor |
-| Branch protection | merge sans CI |
+| Vitest + floors T0 (`test:coverage`) | régressions + baisse sous le floor auth/api |
+| banlist + extract-dry-run | fuite domaine share dans le kit |
+| Branch protection / merge-on-green | merge sans checks (Free = process + workflow) |
 | CODEOWNERS (option) | paths `auth/`, `mcp/`, `migrations/` → review requise |
 
-**Lefthook :** `bunx lefthook install` une fois par clone. **Interdit** `git push --no-verify` / `LEFTHOOK=0` sans raison documentée.
+**Lefthook :** `bunx lefthook install` une fois par clone. **Interdit** `git push --no-verify` / `LEFTHOOK=0` sans raison documentée. Ne pas « laisser la CI rattraper ».
 
 ### 5. Review du code généré par IA
 
@@ -731,6 +737,7 @@ bun run --filter @gosilex/share-api deploy   # après CI / permission
 | Doc | Rôle |
 |---|---|
 | `artifacts/frames/001-share-platform-frame.md` | SSoT produit |
+| [`docs/testing.md`](docs/testing.md) | Stratégie tests · CP-\* · local-first gates |
 | `~/projects/gosilex/docs/presentations/*` | Intention fondateurs A/B |
 | `~/projects/roxabi-boilerplate` | Ref mono Bun/Turbo/qualité |
 | [shipfa.st/docs/extras](https://shipfa.st/docs/extras) | Assets / indices features |

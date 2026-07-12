@@ -109,9 +109,15 @@ Also: first login still **lazy-seeds users** via `ensureDemoUsers` if you skip `
 
 Packages = platform concerns. Apps = deployables. Product domain only later under `apps/<product>-*`.
 
-## Coverage
+## Testing & coverage
+
+**SSoT strategy:** [`docs/testing.md`](docs/testing.md) — effective/risk-targeted tests, axial ownership, critical paths (CP-\*), local-first gates.
 
 ```bash
+# Full local gate (same as Lefthook pre-push) — run before every push
+bun run validate:full
+
+# Coverage only (HTML → coverage/<pkg>/index.html · thresholds enforced)
 bun run test:coverage
 ```
 
@@ -125,38 +131,41 @@ bun run test:coverage
 
 | Package | Floor | Notes |
 |---|---|---|
-| `example-api` | **80%** | backend kit bar |
-| `auth` | **80%** | keys / session |
+| `example-api` | **80%** | T0 backend kit bar |
+| `auth` | **80%** | T0 keys / session |
 | `core` | **75%** | AppError |
 | `storage` · `db` · `types` · `mcp` | **70%** | small pure packages |
 | `email` | **50%** | still thin |
-| `ui` | **20%** | large surface; raise with component tests |
-| `example-web` | **10%** | SPA; raise with page tests |
+| `ui` | **20%** | large surface; contract tests, not every primitive |
+| `example-web` | **10%** | SPA chrome low; pin FE auth client contracts |
 | `mcp-example` | **50%** stmts/lines (funcs 0%) | handlers not invoked in unit tests |
 
-Coverage HTML is gitignored (`coverage/`).
+Coverage HTML is gitignored (`coverage/`). **% is a ratchet** — see `docs/testing.md` for critical paths over vanity UI coverage.
 
-### Hooks + CI (enforced)
+### Hooks + CI (local first)
 
-| Gate | When | What |
-|---|---|---|
-| **Lefthook pre-commit** | every commit | Biome (staged) |
-| **Lefthook pre-push** | every push | `typecheck` + **`test:coverage`** (thresholds) + `banlist` |
-| **GitHub Actions CI** | PR / main / staging | lint · typecheck · test · **`test:coverage`** · banlist · extract dry-run |
+| Gate | When | What | Role |
+|---|---|---|---|
+| **Lefthook pre-commit** | every commit | Biome (staged) | fast format/lint |
+| **Lefthook pre-push** | every push | **`validate` + `test:coverage`** (`validate:full`) | **primary gate** |
+| **GitHub Actions CI** | PR / main / staging | same suite + secret scan | **guardrail** (hooks skipped / env drift) |
 
 ```bash
-# Install git hooks (once per clone)
+# Install git hooks (once per clone) — required
 bunx lefthook install
 ```
+
+Do **not** push red hoping CI will catch it. Do **not** habitually use `LEFTHOOK=0` / `--no-verify`.
 
 ## CI / hygiene
 
 | Artefact | Role |
 |---|---|
-| `.github/workflows/ci.yml` | **`CI`**: lint · typecheck · test · **coverage** · banlist |
+| `.github/workflows/ci.yml` | Guardrail: lint · typecheck · test · **coverage** · banlist · extract |
 | `.github/workflows/secret-scan.yml` | TruffleHog |
 | `.github/workflows/merge-on-green.yml` | Label `reviewed` + green checks (ops track) |
-| `lefthook.yml` | pre-commit Biome · **pre-push coverage thresholds** · commitlint |
+| `lefthook.yml` | pre-commit Biome · **pre-push = full validate:full** · commitlint |
+| [`docs/testing.md`](docs/testing.md) | Test doctrine + CP-\* inventory |
 
 Ops companion (GitHub App `gosilex-ci`, DNS, CF deploy) = **out of local kit exit** — see [`docs/gosilex-ci-app-setup.md`](docs/gosilex-ci-app-setup.md).
 

@@ -1,6 +1,8 @@
-# Local quality gates — see AGENTS.md § Gates techniques
+# Local quality gates — PRIMARY gate (CI is guardrail only).
+# SSoT: docs/testing.md · AGENTS.md § Gates techniques
 # Install: bun install (prepare)  or  bunx lefthook install
-# Skip (emergency only): LEFTHOOK=0 git push
+# Skip (emergency only, document why): LEFTHOOK=0 git push
+# Policy: fix red HERE — do not push hoping CI will catch it.
 
 pre-commit:
   parallel: true
@@ -15,9 +17,10 @@ commit-msg:
     commitlint:
       run: bunx commitlint --edit {1}
 
-# Full suite before code leaves the machine.
+# Full suite before code leaves the machine (= validate:full).
+# Intentional cost: local SoT; CI re-runs as guardrail (skip hooks / env drift).
 # validate = lint/typecheck/test/banlist/extract
-# test:coverage = Vitest thresholds (API 80%, UI/web lower floors)
+# test:coverage = Vitest thresholds (T0 auth/api 80%; ui/web low floors)
 pre-push:
   parallel: false
   commands:
