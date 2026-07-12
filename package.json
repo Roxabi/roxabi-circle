@@ -14,7 +14,9 @@
     "typecheck": "turbo typecheck",
     "test": "turbo test",
     "extract-dry-run": "bash scripts/extract-dry-run.sh",
-    "banlist": "bash scripts/check-banned-strings.sh"
+    "banlist": "bash scripts/check-banned-strings.sh",
+    "validate": "bun run lint && bun run typecheck && bun run test && bun run banlist && bun run extract-dry-run",
+    "prepare": "lefthook install || true"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.0.0",

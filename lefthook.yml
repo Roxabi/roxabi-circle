@@ -1,6 +1,12 @@
+# Local quality gates — mirror CI enough to avoid red pushes.
+# Install: bun install  (prepare → lefthook install)  or  bunx lefthook install
+# Skip (emergency only): LEFTHOOK=0 git push
+
 pre-commit:
+  parallel: true
   commands:
     biome:
+      # Format + lint staged only (fast)
       run: bunx biome check --write --staged --no-errors-on-unmatched --files-ignore-unknown=true
       stage_fixed: true
 
@@ -8,3 +14,12 @@ commit-msg:
   commands:
     commitlint:
       run: bunx commitlint --edit {1}
+
+# Full local suite before code leaves the machine (same core gates as CI).
+# Sequential = clear fail-fast (which gate broke).
+pre-push:
+  parallel: false
+  commands:
+    validate:
+      skip: false
+      run: bun run validate
