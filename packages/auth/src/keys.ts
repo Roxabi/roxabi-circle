@@ -31,6 +31,14 @@ export function generateApiKey(): string {
   return `sk_${body}`
 }
 
+/** Stable prefix for DB index lookup (not secret enough alone — always pair with hash). */
+export function apiKeyPrefix(plaintext: string): string {
+  if (!plaintext.startsWith('sk_') || plaintext.length < 12) {
+    throw new Error('invalid api key format for prefix')
+  }
+  return plaintext.slice(0, 12)
+}
+
 export function parseBearer(header: string | null | undefined): string | null {
   if (!header) return null
   const m = /^Bearer\s+(.+)$/i.exec(header.trim())

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  apiKeyPrefix,
   generateApiKey,
   hashApiKey,
   hashPassword,
@@ -42,6 +43,13 @@ describe('api keys', () => {
     expect(h).toHaveLength(64)
     expect(await verifyApiKey(key, h)).toBe(true)
     expect(await verifyApiKey('sk_wrong', h)).toBe(false)
+  })
+
+  it('apiKeyPrefix is stable 12-char prefix', () => {
+    const key = generateApiKey()
+    expect(apiKeyPrefix(key)).toBe(key.slice(0, 12))
+    expect(apiKeyPrefix(key)).toHaveLength(12)
+    expect(() => apiKeyPrefix('short')).toThrow(/invalid/)
   })
 
   it('parses Bearer header', () => {

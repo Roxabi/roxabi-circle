@@ -11,8 +11,11 @@ import Database from 'better-sqlite3'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
 function applyMigrations(sqlite: Database.Database) {
-  const sqlPath = join(__dirname, '../../migrations/0001_init.sql')
-  sqlite.exec(readFileSync(sqlPath, 'utf8'))
+  const migDir = join(__dirname, '../../migrations')
+  // Apply numbered migrations in lexical order (0001, 0002, …)
+  for (const name of ['0001_init.sql']) {
+    sqlite.exec(readFileSync(join(migDir, name), 'utf8'))
+  }
 }
 
 function makeStatement(sqlite: Database.Database, sql: string) {

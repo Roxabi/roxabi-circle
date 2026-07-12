@@ -6,11 +6,37 @@ type Db = DrizzleD1Database<typeof schema>
 
 export async function insertApiKey(
   db: Db,
-  row: { id: string; keyHash: string; subject: string; createdAt: number },
+  row: {
+    id: string
+    keyHash: string
+    keyPrefix: string
+    subject: string
+    name?: string | null
+    createdAt: number
+    expiresAt?: number | null
+  },
 ) {
-  await db.insert(apiKeys).values(row).run()
+  await db
+    .insert(apiKeys)
+    .values({
+      id: row.id,
+      keyHash: row.keyHash,
+      keyPrefix: row.keyPrefix,
+      subject: row.subject,
+      name: row.name ?? null,
+      createdAt: row.createdAt,
+      expiresAt: row.expiresAt ?? null,
+    })
+    .run()
 }
 
+/** Active key by prefix (may return revoked/expired — caller filters). */
+export async function findApiKeyByPrefix(db: Db, keyPrefix: string) {
+  const rows = await db.select().from(apiKeys).where(eq(apiKeys.keyPrefix, keyPrefix)).all()
+  return rows[0] ?? null
+}
+
+/** @deprecated prefer findApiKeyByPrefix + hash verify */
 export async function findApiKeyByHash(db: Db, keyHash: string) {
   const rows = await db
     .select()
@@ -26,7 +52,10 @@ export async function listApiKeysForSubject(db: Db, subject: string) {
     .select({
       id: apiKeys.id,
       subject: apiKeys.subject,
+      keyPrefix: apiKeys.keyPrefix,
+      name: apiKeys.name,
       createdAt: apiKeys.createdAt,
+      expiresAt: apiKeys.expiresAt,
       revokedAt: apiKeys.revokedAt,
     })
     .from(apiKeys)

@@ -45,6 +45,7 @@ meRoutes.post('/api/keys', async (c) => {
   return c.json({
     id: minted.id,
     key: minted.key,
+    keyPrefix: minted.keyPrefix,
     requestId: c.get('requestId'),
   })
 })

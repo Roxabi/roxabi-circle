@@ -11,8 +11,12 @@ export const demoNotes = sqliteTable('demo_notes', {
 export const apiKeys = sqliteTable('api_keys', {
   id: text('id').primaryKey(),
   keyHash: text('key_hash').notNull().unique(),
+  /** Lookup index — first 12 chars of plaintext sk_ (never the full key). */
+  keyPrefix: text('key_prefix').notNull().unique(),
   subject: text('subject').notNull(),
+  name: text('name'),
   createdAt: integer('created_at', { mode: 'number' }).notNull(),
+  expiresAt: integer('expires_at', { mode: 'number' }),
   revokedAt: integer('revoked_at', { mode: 'number' }),
 })
 

@@ -155,7 +155,7 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
       env,
     )
     expect(mint.status).toBe(200)
-    const minted = (await mint.json()) as { id: string; key: string }
+    const minted = (await mint.json()) as { id: string; key: string; keyPrefix?: string }
     expect(minted.key.startsWith('sk_')).toBe(true)
 
     const me = await app.request(
@@ -185,8 +185,21 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
 
     const list = await app.request('/api/keys', { headers: { cookie } }, env)
     expect(list.status).toBe(200)
-    const listed = (await list.json()) as { keys: { id: string; revokedAt: number | null }[] }
-    expect(listed.keys.some((k) => k.id === minted.id && k.revokedAt == null)).toBe(true)
+    const listed = (await list.json()) as {
+      keys: { id: string; keyPrefix: string; revokedAt: number | null }[]
+    }
+    const meta = listed.keys.find((k) => k.id === minted.id)
+    expect(meta?.revokedAt).toBeNull()
+    expect(meta?.keyPrefix).toBe(minted.key.slice(0, 12))
+
+    // Wrong hash same prefix → 401
+    const fakeSamePrefix = `${minted.key.slice(0, 12)}${'0'.repeat(40)}`
+    const wrongHash = await app.request(
+      '/api/me',
+      { headers: { authorization: `Bearer ${fakeSamePrefix}` } },
+      env,
+    )
+    expect(wrongHash.status).toBe(401)
 
     const rev = await app.request(
       `/api/keys/${minted.id}`,
@@ -211,6 +224,23 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     const badBody = (await bad.json()) as { error: { code: string }; requestId: string }
     expect(badBody.error.code).toBe('UNAUTHORIZED')
     expect(badBody.requestId).toMatch(/^req_/)
+  })
+
+  it('rejects expired API keys', async () => {
+    const app = createApp()
+    const env = createMemoryEnv()
+    const cookie = await loginAs(app, env, DEMO_EMAIL, DEMO_PASSWORD)
+    const { createDb } = await import('@gosilex/db')
+    const { schema } = await import('./db/schema')
+    const { mintApiKey } = await import('./services/auth')
+    const db = createDb(env.DB, schema)
+    const minted = await mintApiKey(db, 'user_demo', { expiresAt: Date.now() - 1000, name: 'old' })
+    const res = await app.request(
+      '/api/me',
+      { headers: { authorization: `Bearer ${minted.key}` } },
+      env,
+    )
+    expect(res.status).toBe(401)
   })
 
   it('cookie mutations require trusted Origin', async () => {

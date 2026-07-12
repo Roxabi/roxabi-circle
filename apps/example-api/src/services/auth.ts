@@ -1,4 +1,5 @@
 import {
+  apiKeyPrefix,
   defaultSessionPort,
   generateApiKey,
   hashApiKey,
@@ -74,17 +75,28 @@ export function logoutCookie(opts?: { secureCookie?: boolean; sessions?: Session
   return sessions.clearCookieHeader({ secure: opts?.secureCookie ?? false })
 }
 
-export async function mintApiKey(db: Db, subject: string): Promise<{ id: string; key: string }> {
+export async function mintApiKey(
+  db: Db,
+  subject: string,
+  opts?: { name?: string; expiresAt?: number | null; ttlMs?: number },
+): Promise<{ id: string; key: string; keyPrefix: string }> {
   const key = generateApiKey()
   const keyHash = await hashApiKey(key)
+  const keyPrefix = apiKeyPrefix(key)
   const id = crypto.randomUUID()
+  const createdAt = Date.now()
+  const expiresAt =
+    opts?.expiresAt !== undefined ? opts.expiresAt : opts?.ttlMs ? createdAt + opts.ttlMs : null
   await keysRepo.insertApiKey(db, {
     id,
     keyHash,
+    keyPrefix,
     subject,
-    createdAt: Date.now(),
+    name: opts?.name ?? null,
+    createdAt,
+    expiresAt,
   })
-  return { id, key }
+  return { id, key, keyPrefix }
 }
 
 export async function listApiKeys(db: Db, subject: string) {
@@ -106,10 +118,18 @@ export async function resolveAuth(
   const sessions = opts?.sessions ?? defaultSessionPort
   const bearer = parseBearer(authorization)
   if (bearer) {
-    const h = await hashApiKey(bearer)
-    const row = await keysRepo.findApiKeyByHash(db, h)
-    if (row) return { subject: row.subject, method: 'api_key' }
-    throw AppError.unauthorized()
+    let prefix: string
+    try {
+      prefix = apiKeyPrefix(bearer)
+    } catch {
+      throw AppError.unauthorized()
+    }
+    const row = await keysRepo.findApiKeyByPrefix(db, prefix)
+    if (!row || row.revokedAt != null) throw AppError.unauthorized()
+    if (row.expiresAt != null && row.expiresAt <= Date.now()) throw AppError.unauthorized()
+    const ok = await verifyApiKey(bearer, row.keyHash)
+    if (!ok) throw AppError.unauthorized()
+    return { subject: row.subject, method: 'api_key' }
   }
 
   const token = parseCookie(cookieHeader, SESSION_COOKIE)

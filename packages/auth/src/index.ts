@@ -1,4 +1,5 @@
 export {
+  apiKeyPrefix,
   generateApiKey,
   hashApiKey,
   hashPassword,

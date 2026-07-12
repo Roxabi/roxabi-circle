@@ -9,8 +9,11 @@ CREATE TABLE IF NOT EXISTS demo_notes (
 CREATE TABLE IF NOT EXISTS api_keys (
   id TEXT PRIMARY KEY NOT NULL,
   key_hash TEXT NOT NULL UNIQUE,
+  key_prefix TEXT NOT NULL UNIQUE,
   subject TEXT NOT NULL,
+  name TEXT,
   created_at INTEGER NOT NULL,
+  expires_at INTEGER,
   revoked_at INTEGER
 );
 
