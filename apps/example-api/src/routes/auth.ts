@@ -3,6 +3,7 @@ import { createDb } from '@gosilex/db'
 import { Hono } from 'hono'
 import { z } from 'zod'
 import { schema } from '../db/schema'
+import { assertRateLimit } from '../lib/rate-limit'
 import { environmentName, getSecret, useSecureCookie } from '../lib/session-env'
 import * as authService from '../services/auth'
 import type { AppEnv } from '../types'
@@ -12,9 +13,16 @@ const loginSchema = z.object({
   password: z.string().min(1),
 })
 
+/** 20 login attempts / IP / 15 min (demo in-memory). */
+const LOGIN_LIMIT = 20
+const LOGIN_WINDOW_MS = 15 * 60 * 1000
+
 export const authRoutes = new Hono<AppEnv>()
 
 authRoutes.post('/api/auth/login', async (c) => {
+  const ip = c.req.header('cf-connecting-ip') || c.req.header('x-forwarded-for') || 'local'
+  assertRateLimit(`login:${ip}`, LOGIN_LIMIT, LOGIN_WINDOW_MS)
+
   const raw = await c.req.json().catch(() => null)
   const parsed = loginSchema.safeParse(raw)
   if (!parsed.success) {

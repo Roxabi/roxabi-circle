@@ -18,6 +18,17 @@ export class ApiError extends Error {
   }
 }
 
+/** Map API / unknown errors to a short user-facing string (i18n can wrap later). */
+export function apiErrorToMessage(err: unknown, fallback = 'Error'): string {
+  if (err instanceof ApiError) {
+    return err.message || err.code || fallback
+  }
+  if (err instanceof Error && err.message) {
+    return err.message
+  }
+  return fallback
+}
+
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const headers = new Headers(init?.headers)
   if (init?.body != null && !headers.has('content-type')) {

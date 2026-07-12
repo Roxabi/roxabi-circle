@@ -19,6 +19,7 @@ import { AppError } from '@gosilex/core'
 import type { DrizzleD1Database } from 'drizzle-orm/d1'
 import type { schema } from '../db/schema'
 import * as keysRepo from '../repos/keys'
+import * as usersRepo from '../repos/users'
 import {
   DEMO_EMAIL,
   DEMO_EMAIL_B,
@@ -47,10 +48,7 @@ export async function loginWithPassword(
   opts?: { secureCookie?: boolean; environment?: string | null },
 ): Promise<{ cookie: string; subject: string }> {
   await ensureDemoUsers(db, { environment: opts?.environment })
-  const { demoUsers } = await import('../db/schema')
-  const { eq } = await import('drizzle-orm')
-  const rows = await db.select().from(demoUsers).where(eq(demoUsers.email, email)).all()
-  const user = rows[0]
+  const user = await usersRepo.findUserByEmail(db, email)
   if (!user) throw AppError.unauthorized('Invalid credentials')
   const ok = await verifyPassword(password, user.passwordHash)
   if (!ok) throw AppError.unauthorized('Invalid credentials')
@@ -83,6 +81,15 @@ export async function mintApiKey(db: Db, subject: string): Promise<{ id: string;
     createdAt: Date.now(),
   })
   return { id, key }
+}
+
+export async function listApiKeys(db: Db, subject: string) {
+  return keysRepo.listApiKeysForSubject(db, subject)
+}
+
+export async function revokeApiKey(db: Db, id: string, subject: string): Promise<void> {
+  const ok = await keysRepo.revokeApiKey(db, id, subject)
+  if (!ok) throw AppError.notFound('API key not found')
 }
 
 export async function resolveAuth(

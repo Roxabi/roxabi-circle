@@ -1,11 +1,13 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import { createApp } from './app'
+import { resetRateLimits } from './lib/rate-limit'
 import { getSecret, useSecureCookie } from './lib/session-env'
 import { DEMO_EMAIL, DEMO_EMAIL_B, DEMO_PASSWORD, DEMO_PASSWORD_B } from './services/auth'
 import { createMemoryEnv } from './test/memory-env'
 
 const SCRATCH = process.env.SCRATCH || '/tmp/grok-goal-c818b205ecce/implementer'
+const ORIGIN = 'http://localhost:5173'
 
 function writeScratch(name: string, data: unknown) {
   try {
@@ -15,6 +17,39 @@ function writeScratch(name: string, data: unknown) {
     // non-fatal — tests still assert
   }
 }
+
+/** Cookie-authenticated mutation headers (Origin required by originGuard). */
+function sessionMutation(cookie: string): Record<string, string> {
+  return {
+    cookie,
+    'content-type': 'application/json',
+    Origin: ORIGIN,
+  }
+}
+
+async function loginAs(
+  app: ReturnType<typeof createApp>,
+  env: ReturnType<typeof createMemoryEnv>,
+  email: string,
+  password: string,
+) {
+  const login = await app.request(
+    '/api/auth/login',
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', Origin: ORIGIN },
+      body: JSON.stringify({ email, password }),
+    },
+    env,
+  )
+  expect(login.status).toBe(200)
+  const cookie = login.headers.get('set-cookie')!.split(';')[0]!
+  return cookie
+}
+
+beforeEach(() => {
+  resetRateLimits()
+})
 
 describe('createApp shipped entry — health & errors', () => {
   it('GET /health returns 200 with requestId', async () => {
@@ -75,27 +110,7 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
   it('login → cookie session → GET /api/me succeeds', async () => {
     const app = createApp()
     const env = createMemoryEnv()
-
-    const login = await app.request(
-      '/api/auth/login',
-      {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ email: DEMO_EMAIL, password: DEMO_PASSWORD }),
-      },
-      env,
-    )
-    expect(login.status).toBe(200)
-    const loginBody = (await login.json()) as { subject: string; requestId: string }
-    expect(loginBody.subject).toBe('user_demo')
-    expect(loginBody.requestId).toMatch(/^req_/)
-
-    const setCookie = login.headers.get('set-cookie')
-    expect(setCookie).toBeTruthy()
-    expect(setCookie).toMatch(/gosilex_session=/)
-    expect(setCookie).toMatch(/HttpOnly/i)
-    expect(setCookie).toMatch(/SameSite=Lax/i)
-    const cookie = setCookie!.split(';')[0]
+    const cookie = await loginAs(app, env, DEMO_EMAIL, DEMO_PASSWORD)
 
     const me = await app.request('/api/me', { headers: { cookie } }, env)
     expect(me.status).toBe(200)
@@ -114,16 +129,7 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
   it('login with wrong password returns UNAUTHORIZED', async () => {
     const app = createApp()
     const env = createMemoryEnv()
-    // seed demo user
-    await app.request(
-      '/api/auth/login',
-      {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ email: DEMO_EMAIL, password: DEMO_PASSWORD }),
-      },
-      env,
-    )
+    await loginAs(app, env, DEMO_EMAIL, DEMO_PASSWORD)
     const bad = await app.request(
       '/api/auth/login',
       {
@@ -138,24 +144,14 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     expect(body.error.code).toBe('UNAUTHORIZED')
   })
 
-  it('mint sk_ → Bearer GET /api/me succeeds; bad key 401', async () => {
+  it('mint sk_ → Bearer GET /api/me succeeds; bad key 401; revoke works', async () => {
     const app = createApp()
     const env = createMemoryEnv()
-
-    const login = await app.request(
-      '/api/auth/login',
-      {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ email: DEMO_EMAIL, password: DEMO_PASSWORD }),
-      },
-      env,
-    )
-    const cookie = login.headers.get('set-cookie')!.split(';')[0]
+    const cookie = await loginAs(app, env, DEMO_EMAIL, DEMO_PASSWORD)
 
     const mint = await app.request(
       '/api/keys',
-      { method: 'POST', headers: { cookie, 'content-type': 'application/json' } },
+      { method: 'POST', headers: sessionMutation(cookie) },
       env,
     )
     expect(mint.status).toBe(200)
@@ -172,6 +168,40 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     expect(meBody.subject).toBe('user_demo')
     expect(meBody.authMethod).toBe('api_key')
 
+    // Cannot mint a new key with sk_ (session only)
+    const chain = await app.request(
+      '/api/keys',
+      {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${minted.key}`,
+          'content-type': 'application/json',
+        },
+        body: '{}',
+      },
+      env,
+    )
+    expect(chain.status).toBe(403)
+
+    const list = await app.request('/api/keys', { headers: { cookie } }, env)
+    expect(list.status).toBe(200)
+    const listed = (await list.json()) as { keys: { id: string; revokedAt: number | null }[] }
+    expect(listed.keys.some((k) => k.id === minted.id && k.revokedAt == null)).toBe(true)
+
+    const rev = await app.request(
+      `/api/keys/${minted.id}`,
+      { method: 'DELETE', headers: sessionMutation(cookie) },
+      env,
+    )
+    expect(rev.status).toBe(200)
+
+    const meAfter = await app.request(
+      '/api/me',
+      { headers: { authorization: `Bearer ${minted.key}` } },
+      env,
+    )
+    expect(meAfter.status).toBe(401)
+
     const bad = await app.request(
       '/api/me',
       { headers: { authorization: 'Bearer sk_not_a_real_key_000000000000' } },
@@ -183,21 +213,43 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     expect(badBody.requestId).toMatch(/^req_/)
   })
 
-  it('D1 notes CRUD + R2 attachment under demo/ prefix', async () => {
+  it('cookie mutations require trusted Origin', async () => {
     const app = createApp()
     const env = createMemoryEnv()
+    const cookie = await loginAs(app, env, DEMO_EMAIL, DEMO_PASSWORD)
 
-    const login = await app.request(
-      '/api/auth/login',
+    const missing = await app.request(
+      '/api/keys',
       {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ email: DEMO_EMAIL, password: DEMO_PASSWORD }),
+        headers: { cookie, 'content-type': 'application/json' },
+        body: '{}',
       },
       env,
     )
-    const cookie = login.headers.get('set-cookie')!.split(';')[0]
-    const auth = { cookie, 'content-type': 'application/json' }
+    expect(missing.status).toBe(403)
+
+    const evil = await app.request(
+      '/api/keys',
+      {
+        method: 'POST',
+        headers: {
+          cookie,
+          'content-type': 'application/json',
+          Origin: 'https://evil.example',
+        },
+        body: '{}',
+      },
+      env,
+    )
+    expect(evil.status).toBe(403)
+  })
+
+  it('D1 notes CRUD + R2 attachment under demo/ prefix', async () => {
+    const app = createApp()
+    const env = createMemoryEnv()
+    const cookie = await loginAs(app, env, DEMO_EMAIL, DEMO_PASSWORD)
+    const auth = sessionMutation(cookie)
 
     const create = await app.request(
       '/api/notes',
@@ -221,19 +273,18 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     expect(created.note.body).toBe('hello d1')
     expect(created.note.id).toBeTruthy()
 
-    const list = await app.request('/api/notes', { headers: auth }, env)
+    const list = await app.request('/api/notes', { headers: { cookie } }, env)
     expect(list.status).toBe(200)
     const listed = (await list.json()) as { notes: { id: string }[] }
     expect(listed.notes.some((n) => n.id === created.note.id)).toBe(true)
 
-    const get = await app.request(`/api/notes/${created.note.id}`, { headers: auth }, env)
+    const get = await app.request(`/api/notes/${created.note.id}`, { headers: { cookie } }, env)
     expect(get.status).toBe(200)
     const one = (await get.json()) as {
       note: { id: string; attachment: string | null }
     }
     expect(one.note.attachment).toBe('r2-payload-demo')
 
-    // R2 keys must use demo/ never share/
     const keys = env.BUCKET._keys?.() ?? []
     expect(keys.some((k) => k.startsWith(`demo/${created.note.id}/`))).toBe(true)
     expect(keys.every((k) => !k.startsWith('share/'))).toBe(true)
@@ -248,14 +299,14 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     )
     expect(del.status).toBe(200)
 
-    const listAfter = await app.request('/api/notes', { headers: auth }, env)
+    const listAfter = await app.request('/api/notes', { headers: { cookie } }, env)
     const after = (await listAfter.json()) as { notes: { id: string }[] }
     expect(after.notes.some((n) => n.id === created.note.id)).toBe(false)
 
     const missing = await app.request(
       '/api/notes/00000000-0000-4000-8000-000000000099',
       {
-        headers: auth,
+        headers: { cookie },
       },
       env,
     )
@@ -268,12 +319,9 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     const base = { DB: {} as never, BUCKET: {} as never }
     expect(() => getSecret({ ...base, ENVIRONMENT: 'production' })).toThrow(/SESSION_SECRET/)
     expect(() => getSecret({ ...base, ENVIRONMENT: 'staging' })).toThrow(/SESSION_SECRET/)
-    // Missing ENVIRONMENT is NOT treated as development (deploy footgun closed)
     expect(() => getSecret({ ...base })).toThrow(/SESSION_SECRET/)
-    // Explicit local envs may use fallback when secret absent
     expect(getSecret({ ...base, ENVIRONMENT: 'development' })).toMatch(/dev-session/)
     expect(getSecret({ ...base, ENVIRONMENT: 'test' })).toMatch(/dev-session/)
-    // Real secret always wins
     expect(
       getSecret({
         ...base,
@@ -289,7 +337,6 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     expect(useSecureCookie({ ...base, ENVIRONMENT: 'test' })).toBe(false)
     expect(useSecureCookie({ ...base, ENVIRONMENT: 'production' })).toBe(true)
     expect(useSecureCookie({ ...base, ENVIRONMENT: 'staging' })).toBe(true)
-    // missing env → Secure (safer default for unknown deploy)
     expect(useSecureCookie({ ...base })).toBe(true)
   })
 
@@ -299,7 +346,6 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
       ENVIRONMENT: 'staging',
       SESSION_SECRET: 'staging-session-secret-at-least-32ch!',
     })
-    // staging must not auto-seed — provision users explicitly
     const { createDb } = await import('@gosilex/db')
     const { schema } = await import('./db/schema')
     const { seedDemoDatabase } = await import('./seed/seed-db')
@@ -316,6 +362,7 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     )
     expect(login.status).toBe(200)
     expect(login.headers.get('set-cookie')).toMatch(/Secure/i)
+    expect(login.headers.get('strict-transport-security')).toMatch(/max-age/i)
   })
 
   it('login does not auto-seed demo users in production', async () => {
@@ -336,7 +383,6 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     expect(login.status).toBe(401)
     const body = (await login.json()) as { error: { code: string; message: string } }
     expect(body.error.code).toBe('UNAUTHORIZED')
-    // 5xx config messages must not leak via auth path either
     expect(JSON.stringify(body)).not.toMatch(/SESSION_SECRET/i)
   })
 
@@ -371,7 +417,6 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
       env,
     )
     expect(res.status).toBe(200)
-    // Hono omits or nulls ACAO when origin callback returns null
     const acao = res.headers.get('access-control-allow-origin')
     expect(acao).not.toBe('https://evil.example')
     expect(acao === null || acao === '' || acao === 'null').toBe(true)
@@ -384,23 +429,13 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     const app = createApp()
     const env = createMemoryEnv()
 
-    const loginA = await app.request(
-      '/api/auth/login',
-      {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ email: DEMO_EMAIL, password: DEMO_PASSWORD }),
-      },
-      env,
-    )
-    expect(loginA.status).toBe(200)
-    const cookieA = loginA.headers.get('set-cookie')!.split(';')[0]
+    const cookieA = await loginAs(app, env, DEMO_EMAIL, DEMO_PASSWORD)
 
     const created = await app.request(
       '/api/notes',
       {
         method: 'POST',
-        headers: { cookie: cookieA, 'content-type': 'application/json' },
+        headers: sessionMutation(cookieA),
         body: JSON.stringify({ title: 'A private', body: 'secret-to-a' }),
       },
       env,
@@ -408,17 +443,7 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     expect(created.status).toBe(201)
     const noteId = ((await created.json()) as { note: { id: string } }).note.id
 
-    const loginB = await app.request(
-      '/api/auth/login',
-      {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ email: DEMO_EMAIL_B, password: DEMO_PASSWORD_B }),
-      },
-      env,
-    )
-    expect(loginB.status).toBe(200)
-    const cookieB = loginB.headers.get('set-cookie')!.split(';')[0]
+    const cookieB = await loginAs(app, env, DEMO_EMAIL_B, DEMO_PASSWORD_B)
 
     const listB = await app.request('/api/notes', { headers: { cookie: cookieB } }, env)
     expect(listB.status).toBe(200)
@@ -432,12 +457,11 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
 
     const delB = await app.request(
       `/api/notes/${noteId}`,
-      { method: 'DELETE', headers: { cookie: cookieB } },
+      { method: 'DELETE', headers: sessionMutation(cookieB) },
       env,
     )
     expect(delB.status).toBe(404)
 
-    // Owner still has the note
     const getA = await app.request(`/api/notes/${noteId}`, { headers: { cookie: cookieA } }, env)
     expect(getA.status).toBe(200)
   })

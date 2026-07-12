@@ -46,6 +46,14 @@ export type Messages = {
   noteCreated: string
   noteDeleted: string
   keyMinted: string
+  keyRevoked: string
+  keysList: string
+  emptyKeys: string
+  revokeKey: string
+  bearerTitle: string
+  bearerDesc: string
+  bearerHelp: string
+  bearerSessionNote: string
   copied: string
   navDashboard: string
   navNotes: string
@@ -119,6 +127,15 @@ export const fr: Messages = {
   noteCreated: 'Note créée',
   noteDeleted: 'Note supprimée',
   keyMinted: 'Clé API générée',
+  keyRevoked: 'Clé révoquée',
+  keysList: 'Clés actives',
+  emptyKeys: 'Aucune clé active',
+  revokeKey: 'Révoquer',
+  bearerTitle: 'Bearer',
+  bearerDesc: 'Authorization: Bearer sk_…',
+  bearerHelp:
+    'Les clients MCP / machine appellent la même API Hono avec une clé sk_ mintée ici (session uniquement).',
+  bearerSessionNote: 'Les sessions UI restent en cookies HttpOnly — pas de clé d’équipe partagée.',
   copied: 'Copié dans le presse-papiers',
   navDashboard: 'Dashboard',
   navNotes: 'Notes',

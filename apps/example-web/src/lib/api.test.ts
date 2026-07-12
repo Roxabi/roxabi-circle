@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { ApiError, apiFetch } from './api'
+import { ApiError, apiErrorToMessage, apiFetch } from './api'
 
 describe('ApiError', () => {
   it('maps nested envelope', () => {
@@ -10,6 +10,16 @@ describe('ApiError', () => {
     expect(err.code).toBe('UNAUTHORIZED')
     expect(err.requestId).toBe('req_abc')
     expect(err.status).toBe(401)
+  })
+
+  it('apiErrorToMessage prefers ApiError.message', () => {
+    const err = new ApiError(400, {
+      error: { code: 'VALIDATION_ERROR', message: 'Invalid note' },
+      requestId: 'req_x',
+    })
+    expect(apiErrorToMessage(err)).toBe('Invalid note')
+    expect(apiErrorToMessage(new Error('boom'))).toBe('boom')
+    expect(apiErrorToMessage(null, 'fallback')).toBe('fallback')
   })
 })
 

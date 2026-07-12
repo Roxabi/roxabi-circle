@@ -33,9 +33,19 @@ export async function createNote(
   })
   if (input.attachmentText) {
     const key = joinObjectKey('demo', id, 'attachment.txt')
-    await putObject(bucket, key, input.attachmentText, {
-      httpMetadata: { contentType: 'text/plain' },
-    })
+    try {
+      await putObject(bucket, key, input.attachmentText, {
+        httpMetadata: { contentType: 'text/plain' },
+      })
+    } catch (err) {
+      // Compensate: avoid orphan D1 note without attachment when R2 fails mid-write.
+      try {
+        await notesRepo.deleteNote(db, id, subject)
+      } catch {
+        /* best-effort cleanup */
+      }
+      throw err
+    }
   }
   return note
 }
@@ -57,10 +67,18 @@ export async function getNoteWithAttachment(
 export async function removeNote(db: Db, bucket: KitR2Bucket, id: string, subject: string) {
   const note = await notesRepo.getNote(db, id, subject)
   if (!note) throw AppError.notFound('Note not found')
+  // Delete D1 first (subject-scoped) so authz failure cannot leave a dangling metadata row.
+  await notesRepo.deleteNote(db, id, subject)
   try {
     await deleteObject(bucket, joinObjectKey('demo', id, 'attachment.txt'))
-  } catch {
-    // ignore missing object
+  } catch (err) {
+    console.error(
+      JSON.stringify({
+        level: 'warn',
+        msg: 'r2_delete_after_note_failed',
+        noteId: id,
+        error: err instanceof Error ? err.message : String(err),
+      }),
+    )
   }
-  await notesRepo.deleteNote(db, id, subject)
 }

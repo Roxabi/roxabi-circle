@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { corsAllowlist } from './lib/session-env'
 import { onError } from './middleware/error-handler'
+import { originGuard } from './middleware/origin-guard'
 import { requestIdMiddleware } from './middleware/request-id'
 import { securityHeaders } from './middleware/security-headers'
 import { authRoutes } from './routes/auth'
@@ -33,6 +34,7 @@ export function createApp() {
       exposeHeaders: ['x-request-id'],
     }),
   )
+  app.use('*', originGuard)
   app.onError((err, c) => onError(err, c))
 
   // routes → services → repos (secondary axis)

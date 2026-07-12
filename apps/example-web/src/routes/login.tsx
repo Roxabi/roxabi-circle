@@ -16,9 +16,12 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
-import { ApiError, apiFetch } from '../lib/api'
+import { apiErrorToMessage, apiFetch } from '../lib/api'
 import { meQueryKey, useMe } from '../lib/auth'
 import { useLocale } from '../lib/locale'
+
+const DEMO_EMAIL = 'demo@gosilex.local'
+const DEMO_PASSWORD = 'demo-password-change-me'
 
 export function LoginPage() {
   const { m, locale, setLocale } = useLocale()
@@ -26,6 +29,8 @@ export function LoginPage() {
   const qc = useQueryClient()
   const [error, setError] = useState<string | null>(null)
   const me = useMe()
+  // Prefill demo credentials only in Vite DEV (never in production builds).
+  const demoPrefill = import.meta.env.DEV
 
   useEffect(() => {
     if (me.data) void navigate({ to: '/' })
@@ -33,8 +38,8 @@ export function LoginPage() {
 
   const form = useForm({
     defaultValues: {
-      email: 'demo@gosilex.local',
-      password: 'demo-password-change-me',
+      email: demoPrefill ? DEMO_EMAIL : '',
+      password: demoPrefill ? DEMO_PASSWORD : '',
     },
     onSubmit: async ({ value }) => {
       setError(null)
@@ -47,12 +52,9 @@ export function LoginPage() {
         toast.success(m.login, { description: value.email })
         await navigate({ to: '/' })
       } catch (e) {
-        if (e instanceof ApiError) {
-          setError(`${e.code}: ${e.message}`)
-          toast.error(m.error, { description: e.message })
-        } else {
-          setError(String(e))
-        }
+        const msg = apiErrorToMessage(e, m.error)
+        setError(msg)
+        toast.error(m.error, { description: msg })
       }
     },
   })
@@ -132,7 +134,7 @@ export function LoginPage() {
                 </Field>
               )}
             </form.Field>
-            <FieldDescription>{m.demoCreds}</FieldDescription>
+            {demoPrefill ? <FieldDescription>{m.demoCreds}</FieldDescription> : null}
             {error ? <FieldError>{error}</FieldError> : null}
             <Button type="submit" className="w-full">
               {m.submit}

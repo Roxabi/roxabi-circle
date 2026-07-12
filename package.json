@@ -25,7 +25,7 @@
     "i18n:check": "bun run --filter @gosilex/example-web test -- src/messages/messages.contract.test.ts",
     "license:check": "bun run tools/licenseChecker.ts",
     "validate": "bun run lint && bun run typecheck && bun run test && bun run banlist && bun run extract-dry-run && bun run env:check",
-    "validate:full": "bun run validate && bun run test:coverage && bun run license:check",
+    "validate:full": "bun run lint && bun run typecheck && bun run banlist && bun run extract-dry-run && bun run env:check && bun run test:coverage && bun run license:check",
     "prepare": "lefthook install || true"
   },
   "devDependencies": {

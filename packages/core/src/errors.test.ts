@@ -45,6 +45,12 @@ describe('AppError', () => {
     expect(body.error.details).toEqual({ fieldErrors: { title: ['Required'] } })
   })
 
+  it('maps rateLimited to 429', () => {
+    const { body, status } = toApiErrorBody(AppError.rateLimited(), 'req_rl')
+    expect(status).toBe(429)
+    expect(body.error.code).toBe('RATE_LIMITED')
+  })
+
   it('newRequestId is non-empty and stable format', () => {
     const id = newRequestId()
     expect(id.startsWith('req_')).toBe(true)

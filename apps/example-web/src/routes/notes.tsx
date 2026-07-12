@@ -28,7 +28,7 @@ import { Plus, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { PageHeader } from '../components/app-shell'
-import { apiFetch } from '../lib/api'
+import { apiErrorToMessage, apiFetch } from '../lib/api'
 import { useLocale } from '../lib/locale'
 
 type Note = { id: string; title: string; body: string; createdAt: number }
@@ -52,7 +52,7 @@ export function NotesPage() {
       toast.success(m.noteCreated)
       setOpen(false)
     },
-    onError: (e) => toast.error(m.error, { description: String(e) }),
+    onError: (e) => toast.error(m.error, { description: apiErrorToMessage(e) }),
   })
 
   const deleteNote = useMutation({
@@ -62,7 +62,7 @@ export function NotesPage() {
       toast.success(m.noteDeleted)
       setPendingDelete(null)
     },
-    onError: (e) => toast.error(m.error, { description: String(e) }),
+    onError: (e) => toast.error(m.error, { description: apiErrorToMessage(e) }),
   })
 
   const form = useForm({

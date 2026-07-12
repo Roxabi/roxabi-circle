@@ -37,6 +37,10 @@ export class AppError extends Error {
   static internal(message = 'Internal error'): AppError {
     return new AppError(ErrorCode.INTERNAL_ERROR, message, 500)
   }
+
+  static rateLimited(message = 'Too many requests'): AppError {
+    return new AppError(ErrorCode.RATE_LIMITED, message, 429)
+  }
 }
 
 export function toApiErrorBody(

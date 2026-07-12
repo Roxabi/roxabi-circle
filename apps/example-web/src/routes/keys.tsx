@@ -7,33 +7,73 @@ import {
   CardTitle,
   Input,
 } from '@gosilex/ui'
-import { useMutation } from '@tanstack/react-query'
-import { Copy, KeyRound } from 'lucide-react'
-import { useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Copy, KeyRound, Trash2 } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { PageHeader } from '../components/app-shell'
-import { apiFetch } from '../lib/api'
+import { apiErrorToMessage, apiFetch } from '../lib/api'
 import { useLocale } from '../lib/locale'
+
+type KeyMeta = {
+  id: string
+  subject: string
+  createdAt: number
+  revokedAt: number | null
+}
+
+/** Plaintext sk_ is shown once then auto-cleared. */
+const PLAINTEXT_TTL_MS = 60_000
 
 export function KeysPage() {
   const { m } = useLocale()
+  const qc = useQueryClient()
   const [minted, setMinted] = useState<{ id: string; key: string } | null>(null)
+
+  const keys = useQuery({
+    queryKey: ['keys'],
+    queryFn: () => apiFetch<{ keys: KeyMeta[] }>('/api/keys'),
+  })
+
+  useEffect(() => {
+    if (!minted) return
+    const t = window.setTimeout(() => setMinted(null), PLAINTEXT_TTL_MS)
+    return () => window.clearTimeout(t)
+  }, [minted])
 
   const mint = useMutation({
     mutationFn: () =>
       apiFetch<{ id: string; key: string }>('/api/keys', { method: 'POST', body: '{}' }),
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       setMinted(data)
       toast.success(m.keyMinted)
+      await qc.invalidateQueries({ queryKey: ['keys'] })
     },
-    onError: (e) => toast.error(m.error, { description: String(e) }),
+    onError: (e) => toast.error(m.error, { description: apiErrorToMessage(e) }),
+  })
+
+  const revoke = useMutation({
+    mutationFn: (id: string) => apiFetch(`/api/keys/${id}`, { method: 'DELETE' }),
+    onSuccess: async () => {
+      toast.success(m.keyRevoked)
+      await qc.invalidateQueries({ queryKey: ['keys'] })
+    },
+    onError: (e) => toast.error(m.error, { description: apiErrorToMessage(e) }),
   })
 
   const copy = async () => {
     if (!minted?.key) return
-    await navigator.clipboard.writeText(minted.key)
-    toast.success(m.copied)
+    try {
+      await navigator.clipboard.writeText(minted.key)
+      toast.success(m.copied)
+      // Clear plaintext from UI after successful copy
+      setMinted(null)
+    } catch (e) {
+      toast.error(m.error, { description: apiErrorToMessage(e, m.error) })
+    }
   }
+
+  const activeKeys = (keys.data?.keys ?? []).filter((k) => k.revokedAt == null)
 
   return (
     <div>
@@ -71,20 +111,49 @@ export function KeysPage() {
                 <p className="text-xs text-muted-foreground">id: {minted.id}</p>
               </div>
             ) : null}
+
+            <div className="space-y-2">
+              <p className="text-sm font-medium">{m.keysList}</p>
+              {keys.isLoading ? (
+                <p className="text-xs text-muted-foreground">{m.loading}</p>
+              ) : keys.isError ? (
+                <p className="text-xs text-destructive">{m.loadFailed}</p>
+              ) : activeKeys.length === 0 ? (
+                <p className="text-xs text-muted-foreground">{m.emptyKeys}</p>
+              ) : (
+                <ul className="space-y-2">
+                  {activeKeys.map((k) => (
+                    <li
+                      key={k.id}
+                      className="flex items-center justify-between gap-2 rounded-md border border-border px-3 py-2 text-xs"
+                    >
+                      <span className="truncate font-mono">{k.id.slice(0, 8)}…</span>
+                      <Button
+                        type="button"
+                        size="icon-sm"
+                        variant="ghost"
+                        aria-label={m.revokeKey}
+                        disabled={revoke.isPending}
+                        onClick={() => revoke.mutate(k.id)}
+                      >
+                        <Trash2 className="text-destructive" />
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Bearer</CardTitle>
-            <CardDescription>Authorization: Bearer sk_…</CardDescription>
+            <CardTitle className="text-base">{m.bearerTitle}</CardTitle>
+            <CardDescription>{m.bearerDesc}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-2 text-sm text-muted-foreground">
-            <p>
-              MCP tools / machine clients call the same Hono API with an{' '}
-              <code className="rounded bg-muted px-1 py-0.5 text-xs">sk_</code> key minted here.
-            </p>
-            <p>UI sessions stay on HttpOnly cookies — no shared team key.</p>
+            <p>{m.bearerHelp}</p>
+            <p>{m.bearerSessionNote}</p>
           </CardContent>
         </Card>
       </div>
