@@ -105,19 +105,23 @@ export type EnvLike = {
   DB: ReturnType<typeof makeD1>
   BUCKET: ReturnType<typeof makeR2>
   SESSION_SECRET?: string
+  ENVIRONMENT?: string
+  CORS_ORIGINS?: string
   DEMO_USER_EMAIL?: string
   SMTP_HOST?: string
   SMTP_PORT?: string
 }
 
 /** Fresh in-memory SQLite + R2 for each test (same createApp entry as Worker). */
-export function createMemoryEnv(): EnvLike {
+export function createMemoryEnv(overrides?: Partial<EnvLike>): EnvLike {
   const sqlite = new Database(':memory:')
   applyMigrations(sqlite)
   return {
     DB: makeD1(sqlite),
     BUCKET: makeR2(),
     SESSION_SECRET: 'test-session-secret-at-least-32-chars!',
+    ENVIRONMENT: 'test',
     DEMO_USER_EMAIL: 'demo@gosilex.local',
+    ...overrides,
   }
 }

@@ -25,8 +25,33 @@ const loginSchema = z.object({
   password: z.string().min(1),
 })
 
-function getSecret(env: Env): string {
-  return env.SESSION_SECRET || 'dev-session-secret-change-me-32chars'
+const DEFAULT_CORS = 'http://localhost:5173,http://127.0.0.1:5173'
+const DEV_SESSION_FALLBACK = 'dev-session-secret-change-me-32chars!!'
+
+function environmentName(env: Env): string {
+  return (env.ENVIRONMENT || 'development').toLowerCase()
+}
+
+/** Fail-closed outside development/test: SESSION_SECRET required (min 32). */
+export function getSecret(env: Env): string {
+  const secret = env.SESSION_SECRET?.trim()
+  if (secret && secret.length >= 32) return secret
+  const name = environmentName(env)
+  if (name === 'development' || name === 'test') {
+    return DEV_SESSION_FALLBACK
+  }
+  throw AppError.internal('SESSION_SECRET is required (min 32 chars) outside development')
+}
+
+function corsAllowlist(env: Env): string[] {
+  return (env.CORS_ORIGINS || DEFAULT_CORS)
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+}
+
+function useSecureCookie(env: Env): boolean {
+  return environmentName(env) === 'production'
 }
 
 /** Factory used by Worker entry and unit tests (same shipped app). */
@@ -38,7 +63,11 @@ export function createApp() {
   app.use(
     '*',
     cors({
-      origin: (origin) => origin || 'http://localhost:5173',
+      origin: (origin, c) => {
+        const list = corsAllowlist(c.env)
+        if (!origin) return list[0] ?? 'http://localhost:5173'
+        return list.includes(origin) ? origin : null
+      },
       credentials: true,
       allowHeaders: ['Content-Type', 'Authorization', 'x-request-id'],
       exposeHeaders: ['x-request-id'],
@@ -68,6 +97,7 @@ export function createApp() {
       getSecret(c.env),
       parsed.data.email,
       parsed.data.password,
+      { secureCookie: useSecureCookie(c.env) },
     )
     c.header('Set-Cookie', cookie)
     return c.json({ subject, email: parsed.data.email, requestId: c.get('requestId') })
@@ -97,7 +127,7 @@ export function createApp() {
   app.get('/api/notes', async (c) => {
     await requireAuth(c)
     const db = createDb(c.env.DB, schema)
-    const notes = await notesService.listNotes(db)
+    const notes = await notesService.listNotes(db, c.get('subject')!)
     return c.json({ notes, requestId: c.get('requestId') })
   })
 
@@ -111,21 +141,26 @@ export function createApp() {
       })
     }
     const db = createDb(c.env.DB, schema)
-    const note = await notesService.createNote(db, c.env.BUCKET, parsed.data)
+    const note = await notesService.createNote(db, c.env.BUCKET, c.get('subject')!, parsed.data)
     return c.json({ note, requestId: c.get('requestId') }, 201)
   })
 
   app.get('/api/notes/:id', async (c) => {
     await requireAuth(c)
     const db = createDb(c.env.DB, schema)
-    const note = await notesService.getNoteWithAttachment(db, c.env.BUCKET, c.req.param('id'))
+    const note = await notesService.getNoteWithAttachment(
+      db,
+      c.env.BUCKET,
+      c.req.param('id'),
+      c.get('subject')!,
+    )
     return c.json({ note, requestId: c.get('requestId') })
   })
 
   app.delete('/api/notes/:id', async (c) => {
     await requireAuth(c)
     const db = createDb(c.env.DB, schema)
-    await notesService.removeNote(db, c.env.BUCKET, c.req.param('id'))
+    await notesService.removeNote(db, c.env.BUCKET, c.req.param('id'), c.get('subject')!)
     return c.json({ ok: true, requestId: c.get('requestId') })
   })
 

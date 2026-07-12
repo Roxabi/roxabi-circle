@@ -1,5 +1,6 @@
 CREATE TABLE IF NOT EXISTS demo_notes (
   id TEXT PRIMARY KEY NOT NULL,
+  subject TEXT NOT NULL,
   title TEXT NOT NULL,
   body TEXT NOT NULL DEFAULT '',
   created_at INTEGER NOT NULL

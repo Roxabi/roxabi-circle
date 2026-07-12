@@ -92,6 +92,8 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     const setCookie = login.headers.get('set-cookie')
     expect(setCookie).toBeTruthy()
     expect(setCookie).toMatch(/gosilex_session=/)
+    expect(setCookie).toMatch(/HttpOnly/i)
+    expect(setCookie).toMatch(/SameSite=Lax/i)
     const cookie = setCookie!.split(';')[0]
 
     const me = await app.request('/api/me', { headers: { cookie } }, env)
@@ -104,6 +106,33 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     expect(meBody.subject).toBe('user_demo')
     expect(meBody.authMethod).toBe('session')
     expect(meBody.requestId).toMatch(/^req_/)
+  })
+
+  it('login with wrong password returns UNAUTHORIZED', async () => {
+    const app = createApp()
+    const env = createMemoryEnv()
+    // seed demo user
+    await app.request(
+      '/api/auth/login',
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: DEMO_EMAIL, password: DEMO_PASSWORD }),
+      },
+      env,
+    )
+    const bad = await app.request(
+      '/api/auth/login',
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: DEMO_EMAIL, password: 'wrong-password' }),
+      },
+      env,
+    )
+    expect(bad.status).toBe(401)
+    const body = (await bad.json()) as { error: { code: string } }
+    expect(body.error.code).toBe('UNAUTHORIZED')
   })
 
   it('mint sk_ → Bearer GET /api/me succeeds; bad key 401', async () => {
@@ -219,5 +248,27 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     const listAfter = await app.request('/api/notes', { headers: auth }, env)
     const after = (await listAfter.json()) as { notes: { id: string }[] }
     expect(after.notes.some((n) => n.id === created.note.id)).toBe(false)
+
+    const missing = await app.request(
+      '/api/notes/00000000-0000-4000-8000-000000000099',
+      {
+        headers: auth,
+      },
+      env,
+    )
+    expect(missing.status).toBe(404)
+    const missingBody = (await missing.json()) as { error: { code: string } }
+    expect(missingBody.error.code).toBe('NOT_FOUND')
+  })
+
+  it('getSecret fails closed in production without SESSION_SECRET', async () => {
+    const { getSecret } = await import('./app')
+    expect(() =>
+      getSecret({
+        DB: {} as never,
+        BUCKET: {} as never,
+        ENVIRONMENT: 'production',
+      }),
+    ).toThrow(/SESSION_SECRET/)
   })
 })

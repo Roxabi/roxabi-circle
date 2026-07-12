@@ -1,12 +1,14 @@
 import {
   generateApiKey,
   hashApiKey,
+  hashPassword,
   parseBearer,
   parseCookie,
   SESSION_COOKIE,
   sessionCookieHeader,
   signSession,
   verifyApiKey,
+  verifyPassword,
   verifySession,
 } from '@gosilex/auth'
 import { AppError } from '@gosilex/core'
@@ -19,28 +21,19 @@ type Db = DrizzleD1Database<typeof schema>
 const DEMO_PASSWORD = 'demo-password-change-me'
 const DEMO_EMAIL = 'demo@gosilex.local'
 
-async function hashPassword(password: string): Promise<string> {
-  return hashApiKey(`pwd:${password}`)
-}
-
 export async function ensureDemoUser(db: Db) {
-  // Lazy seed — ignore conflicts in pure unit tests without DB
-  try {
-    const { demoUsers } = await import('../db/schema')
-    const existing = await db.select().from(demoUsers).all()
-    if (existing.length > 0) return
-    await db
-      .insert(demoUsers)
-      .values({
-        id: 'user_demo',
-        email: DEMO_EMAIL,
-        passwordHash: await hashPassword(DEMO_PASSWORD),
-        createdAt: Date.now(),
-      })
-      .run()
-  } catch {
-    // table may not exist in some mocks
-  }
+  const { demoUsers } = await import('../db/schema')
+  const existing = await db.select().from(demoUsers).all()
+  if (existing.length > 0) return
+  await db
+    .insert(demoUsers)
+    .values({
+      id: 'user_demo',
+      email: DEMO_EMAIL,
+      passwordHash: await hashPassword(DEMO_PASSWORD),
+      createdAt: Date.now(),
+    })
+    .run()
 }
 
 export async function loginWithPassword(
@@ -48,6 +41,7 @@ export async function loginWithPassword(
   secret: string,
   email: string,
   password: string,
+  opts?: { secureCookie?: boolean },
 ): Promise<{ cookie: string; subject: string }> {
   await ensureDemoUser(db)
   const { demoUsers } = await import('../db/schema')
@@ -55,7 +49,7 @@ export async function loginWithPassword(
   const rows = await db.select().from(demoUsers).where(eq(demoUsers.email, email)).all()
   const user = rows[0]
   if (!user) throw AppError.unauthorized('Invalid credentials')
-  const ok = (await hashPassword(password)) === user.passwordHash
+  const ok = await verifyPassword(password, user.passwordHash)
   if (!ok) throw AppError.unauthorized('Invalid credentials')
   const token = await signSession(
     {
@@ -67,7 +61,7 @@ export async function loginWithPassword(
   )
   return {
     subject: user.id,
-    cookie: sessionCookieHeader(token, { secure: false }),
+    cookie: sessionCookieHeader(token, { secure: opts?.secureCookie ?? false }),
   }
 }
 
@@ -95,10 +89,6 @@ export async function resolveAuth(
     const h = await hashApiKey(bearer)
     const row = await keysRepo.findApiKeyByHash(db, h)
     if (row) return { subject: row.subject, method: 'api_key' }
-    // also allow verify against stored hash via verifyApiKey for tests
-    if (row === null) {
-      // try bootstrap: no row
-    }
     throw AppError.unauthorized()
   }
 
@@ -111,5 +101,4 @@ export async function resolveAuth(
   return null
 }
 
-// re-export for tests
 export { DEMO_EMAIL, DEMO_PASSWORD, hashApiKey, verifyApiKey }

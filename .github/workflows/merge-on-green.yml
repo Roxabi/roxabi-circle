@@ -17,8 +17,7 @@
 #       secrets.GOSILEX_CI_APP_PRIVATE_KEY
 #     Setup: docs/gosilex-ci-app-setup.md
 #
-# Gating workflows today: Secret scan only (full CI later — AGENTS.md).
-# When adding CI / PR Title, append names to workflow_run.workflows below.
+# Gating workflows: Secret scan + CI (lint/typecheck/test).
 name: Merge on Green
 
 on:
@@ -27,7 +26,7 @@ on:
   check_suite:
     types: [completed]
   workflow_run:
-    workflows: [Secret scan]
+    workflows: [Secret scan, CI]
     types: [completed]
   workflow_dispatch:
     inputs:
@@ -127,12 +126,25 @@ jobs:
                 core.info(`${tag}: no check runs on head — skip (fail-closed).`);
                 continue;
               }
-              const REQUIRED_CHECK_SUBSTRINGS = ['TruffleHog', 'Secret scan'];
-              const hasRequired = others.some((r) =>
-                REQUIRED_CHECK_SUBSTRINGS.some((s) => (r.name || '').includes(s)),
+              const REQUIRED_CHECK_SUBSTRINGS = [
+                'TruffleHog',
+                'Secret scan',
+                'lint-typecheck-test',
+              ];
+              const missingRequired = REQUIRED_CHECK_SUBSTRINGS.filter(
+                (s) => !others.some((r) => (r.name || '').includes(s)),
               );
-              if (!hasRequired) {
-                core.info(`${tag}: missing required secret-scan check (TruffleHog) — skip.`);
+              // Require secret scan (TruffleHog OR Secret scan name) + app CI job name
+              const hasSecret = others.some((r) =>
+                /TruffleHog|Secret scan/i.test(r.name || ''),
+              );
+              const hasCi = others.some((r) =>
+                /lint-typecheck-test|^CI$/i.test(r.name || ''),
+              );
+              if (!hasSecret || !hasCi) {
+                core.info(
+                  `${tag}: missing required checks (secret=${hasSecret}, ci=${hasCi}, missing=${missingRequired.join(',')}) — skip.`,
+                );
                 continue;
               }
               const pending = others.filter((r) => r.status !== 'completed');

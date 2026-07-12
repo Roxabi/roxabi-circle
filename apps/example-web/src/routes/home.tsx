@@ -1,4 +1,14 @@
-import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label } from '@gosilex/ui'
+import {
+  Button,
+  buttonVariants,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  cn,
+  Input,
+  Label,
+} from '@gosilex/ui'
 import { useForm } from '@tanstack/react-form'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
@@ -86,8 +96,8 @@ export function HomePage() {
         <Card>
           <CardContent className="flex items-center justify-between gap-4 pt-6">
             <p className="text-sm text-zinc-600">{m.login}</p>
-            <Link to="/login">
-              <Button>{m.login}</Button>
+            <Link to="/login" className={cn(buttonVariants())}>
+              {m.login}
             </Link>
             {me.error instanceof ApiError ? (
               <p className="text-xs text-zinc-500">

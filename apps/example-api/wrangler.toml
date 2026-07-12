@@ -14,4 +14,6 @@ binding = "BUCKET"
 bucket_name = "example-api-local"
 
 [vars]
+ENVIRONMENT = "development"
 DEMO_USER_EMAIL = "demo@gosilex.local"
+CORS_ORIGINS = "http://localhost:5173,http://127.0.0.1:5173"

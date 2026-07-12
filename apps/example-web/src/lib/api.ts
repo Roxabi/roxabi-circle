@@ -19,16 +19,25 @@ export class ApiError extends Error {
 }
 
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+  const headers = new Headers(init?.headers)
+  if (init?.body != null && !headers.has('content-type')) {
+    headers.set('content-type', 'application/json')
+  }
   const res = await fetch(`${API_BASE}${path}`, {
     ...init,
     credentials: 'include',
-    headers: {
-      'content-type': 'application/json',
-      ...(init?.headers ?? {}),
-    },
+    headers,
   })
   const text = await res.text()
-  const data = text ? (JSON.parse(text) as unknown) : null
+  let data: unknown = null
+  if (text) {
+    try {
+      data = JSON.parse(text) as unknown
+    } catch {
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      throw new Error('Invalid JSON response')
+    }
+  }
   if (!res.ok) {
     const body = data as ApiErrorBody
     if (body?.error?.code) throw new ApiError(res.status, body)

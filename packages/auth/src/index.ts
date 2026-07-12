@@ -1,8 +1,11 @@
 export {
   generateApiKey,
   hashApiKey,
+  hashPassword,
   parseBearer,
+  timingSafeEqualHex,
   verifyApiKey,
+  verifyPassword,
 } from './keys'
 export {
   parseCookie,

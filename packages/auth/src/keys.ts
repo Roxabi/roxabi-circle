@@ -1,8 +1,27 @@
-/** Hash an API key for storage (never store plaintext). */
+/** Hash an API key for storage (never store plaintext). High-entropy only — not passwords. */
 export async function hashApiKey(plaintext: string): Promise<string> {
   const data = new TextEncoder().encode(plaintext)
   const digest = await crypto.subtle.digest('SHA-256', data)
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('')
+}
+
+function hexToBytes(hex: string): Uint8Array {
+  const out = new Uint8Array(hex.length / 2)
+  for (let i = 0; i < out.length; i++) {
+    out[i] = Number.parseInt(hex.slice(i * 2, i * 2 + 2), 16)
+  }
+  return out
+}
+
+/** Constant-time equality for equal-length hex digests (Workers-safe, no node:crypto). */
+export async function timingSafeEqualHex(a: string, b: string): Promise<boolean> {
+  if (a.length !== b.length || a.length % 2 !== 0) return false
+  const ba = hexToBytes(a)
+  const bb = hexToBytes(b)
+  if (ba.byteLength !== bb.byteLength) return false
+  let diff = 0
+  for (let i = 0; i < ba.byteLength; i++) diff |= ba[i]! ^ bb[i]!
+  return diff === 0
 }
 
 /** Generate a demo sk_ key (plaintext shown once to client). */
@@ -20,5 +39,54 @@ export function parseBearer(header: string | null | undefined): string | null {
 
 export async function verifyApiKey(plaintext: string, expectedHash: string): Promise<boolean> {
   const h = await hashApiKey(plaintext)
-  return h === expectedHash
+  return timingSafeEqualHex(h, expectedHash)
+}
+
+const PBKDF2_ITERS = 100_000
+
+/**
+ * Password KDF (PBKDF2-SHA-256). Format: `pbkdf2$iterations$saltHex$hashHex`
+ * Do not reuse for API keys — use `hashApiKey` for high-entropy sk_ values.
+ */
+export async function hashPassword(password: string, salt?: Uint8Array): Promise<string> {
+  const saltBytes = salt ?? crypto.getRandomValues(new Uint8Array(16))
+  const keyMaterial = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(password),
+    'PBKDF2',
+    false,
+    ['deriveBits'],
+  )
+  const bits = await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', salt: saltBytes as BufferSource, iterations: PBKDF2_ITERS, hash: 'SHA-256' },
+    keyMaterial,
+    256,
+  )
+  const hashHex = [...new Uint8Array(bits)].map((b) => b.toString(16).padStart(2, '0')).join('')
+  const saltHex = [...saltBytes].map((b) => b.toString(16).padStart(2, '0')).join('')
+  return `pbkdf2$${PBKDF2_ITERS}$${saltHex}$${hashHex}`
+}
+
+export async function verifyPassword(password: string, stored: string): Promise<boolean> {
+  const parts = stored.split('$')
+  if (parts.length !== 4 || parts[0] !== 'pbkdf2') return false
+  const iterations = Number(parts[1])
+  const saltHex = parts[2]
+  const expectedHex = parts[3]
+  if (!Number.isFinite(iterations) || iterations < 1 || !saltHex || !expectedHex) return false
+  const salt = hexToBytes(saltHex)
+  const keyMaterial = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(password),
+    'PBKDF2',
+    false,
+    ['deriveBits'],
+  )
+  const bits = await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', salt: salt as BufferSource, iterations, hash: 'SHA-256' },
+    keyMaterial,
+    256,
+  )
+  const gotHex = [...new Uint8Array(bits)].map((b) => b.toString(16).padStart(2, '0')).join('')
+  return timingSafeEqualHex(gotHex, expectedHex)
 }

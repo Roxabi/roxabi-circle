@@ -12,19 +12,21 @@ import * as notesRepo from '../repos/notes'
 
 type Db = DrizzleD1Database<typeof schema>
 
-export async function listNotes(db: Db) {
-  return notesRepo.listNotes(db)
+export async function listNotes(db: Db, subject: string) {
+  return notesRepo.listNotes(db, subject)
 }
 
 export async function createNote(
   db: Db,
   bucket: KitR2Bucket,
+  subject: string,
   input: { title: string; body?: string; attachmentText?: string },
 ) {
   const id = crypto.randomUUID()
   const createdAt = Date.now()
   const note = await notesRepo.createNote(db, {
     id,
+    subject,
     title: input.title,
     body: input.body ?? '',
     createdAt,
@@ -38,8 +40,13 @@ export async function createNote(
   return note
 }
 
-export async function getNoteWithAttachment(db: Db, bucket: KitR2Bucket, id: string) {
-  const note = await notesRepo.getNote(db, id)
+export async function getNoteWithAttachment(
+  db: Db,
+  bucket: KitR2Bucket,
+  id: string,
+  subject: string,
+) {
+  const note = await notesRepo.getNote(db, id, subject)
   if (!note) throw AppError.notFound('Note not found')
   const key = joinObjectKey('demo', id, 'attachment.txt')
   const obj = await getObject(bucket, key)
@@ -47,13 +54,13 @@ export async function getNoteWithAttachment(db: Db, bucket: KitR2Bucket, id: str
   return { ...note, attachment }
 }
 
-export async function removeNote(db: Db, bucket: KitR2Bucket, id: string) {
-  const note = await notesRepo.getNote(db, id)
+export async function removeNote(db: Db, bucket: KitR2Bucket, id: string, subject: string) {
+  const note = await notesRepo.getNote(db, id, subject)
   if (!note) throw AppError.notFound('Note not found')
   try {
     await deleteObject(bucket, joinObjectKey('demo', id, 'attachment.txt'))
   } catch {
     // ignore missing object
   }
-  await notesRepo.deleteNote(db, id)
+  await notesRepo.deleteNote(db, id, subject)
 }

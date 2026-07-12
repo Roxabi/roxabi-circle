@@ -1,9 +1,16 @@
 import { describe, expect, it } from 'vitest'
-import { generateApiKey, hashApiKey, parseBearer, verifyApiKey } from './keys'
+import {
+  generateApiKey,
+  hashApiKey,
+  hashPassword,
+  parseBearer,
+  verifyApiKey,
+  verifyPassword,
+} from './keys'
 import { signSession, verifySession } from './session'
 
 describe('api keys', () => {
-  it('hashes and verifies', async () => {
+  it('hashes and verifies with timing-safe compare', async () => {
     const key = generateApiKey()
     expect(key.startsWith('sk_')).toBe(true)
     const h = await hashApiKey(key)
@@ -16,6 +23,15 @@ describe('api keys', () => {
     expect(parseBearer('Bearer sk_abc')).toBe('sk_abc')
     expect(parseBearer(null)).toBeNull()
     expect(parseBearer('Basic x')).toBeNull()
+  })
+})
+
+describe('password KDF', () => {
+  it('hashes with PBKDF2 and verifies', async () => {
+    const stored = await hashPassword('demo-password-change-me')
+    expect(stored.startsWith('pbkdf2$')).toBe(true)
+    expect(await verifyPassword('demo-password-change-me', stored)).toBe(true)
+    expect(await verifyPassword('wrong-password', stored)).toBe(false)
   })
 })
 
@@ -38,5 +54,14 @@ describe('session cookie', () => {
       secret,
     )
     expect(await verifySession(token, 'other-secret-at-least-32-chars!!!!')).toBeNull()
+  })
+
+  it('rejects expired sessions', async () => {
+    const secret = 'test-secret-at-least-32-characters!!'
+    const token = await signSession(
+      { sub: 'u1', email: 'a@b.c', exp: Math.floor(Date.now() / 1000) - 10 },
+      secret,
+    )
+    expect(await verifySession(token, secret)).toBeNull()
   })
 })

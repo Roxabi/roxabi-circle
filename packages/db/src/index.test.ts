@@ -50,10 +50,6 @@ function d1FromSqlite(sqlite: Database.Database) {
 }
 
 describe('createDb', () => {
-  it('exports a factory function', () => {
-    expect(typeof createDb).toBe('function')
-  })
-
   it('round-trips demo_notes insert + select via D1-shaped client', async () => {
     const sqlite = new Database(':memory:')
     sqlite.exec(`

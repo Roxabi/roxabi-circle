@@ -2,6 +2,7 @@ import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
 export const demoNotes = sqliteTable('demo_notes', {
   id: text('id').primaryKey(),
+  subject: text('subject').notNull(),
   title: text('title').notNull(),
   body: text('body').notNull().default(''),
   createdAt: integer('created_at', { mode: 'number' }).notNull(),
