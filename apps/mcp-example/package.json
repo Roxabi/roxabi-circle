@@ -8,6 +8,7 @@
     "start": "bun run src/index.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run && bun run scripts/stdio-smoke.mjs",
+    "test:coverage": "vitest run --coverage",
     "smoke:stdio": "bun run scripts/stdio-smoke.mjs",
     "build": "echo ok"
   },

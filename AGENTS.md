@@ -331,7 +331,7 @@ Roxabi : Docker Postgres en local — même esprit : **services dev dans `docker
 | Lint/format | **Biome** | S0 |
 | Tests | **Vitest** + `@cloudflare/vitest-pool-workers` | S0 |
 | E2E | **Playwright** | P1 |
-| Hooks | **Lefthook** + Conventional Commits + commitlint | S0 |
+| Hooks | **Lefthook** (pre-commit Biome · **pre-push coverage**) + commitlint | S0 |
 | CI | GH Actions lint · typecheck · test · build — **bloquant** | S0 |
 | Security headers | HSTS, X-Frame-Options, nosniff, Referrer-Policy (ShipFast) | S0/M0 |
 | Schema validation | Zod partout (ShipFast security) | S0 |
@@ -490,7 +490,8 @@ Règles : guard first · Zod double frontière · pas de god file · packages �
 - [ ] Vitest (au moins core + paths critiques)  
 - [ ] D1 migrations versionnées  
 - [ ] `.dev.vars.example` sans secrets  
-- [ ] Lefthook + conventional commits  
+- [x] Lefthook + conventional commits + **pre-push `test:coverage`**  
+
 - [ ] Security headers de base  
 
 ### GitHub Free (go-silex) — limites & pattern Roxabi
@@ -601,9 +602,11 @@ Règles dures pour tout agent (humain qui drive l’IA) :
 ### 4. Gates techniques (machine, pas confiance)
 
 ```text
-pre-commit (Lefthook) → format + lint (+ typecheck rapide)
+pre-commit (Lefthook) → Biome format/lint (staged)
          ↓
-PR CI → lint · typecheck · test · build  (bloquant)
+pre-push (Lefthook) → typecheck + test:coverage (seuils) + banlist
+         ↓
+PR CI → lint · typecheck · test · coverage · banlist · extract  (bloquant)
          ↓
 option → CodeRabbit / review AI  (signal, pas merge auto)
          ↓
@@ -616,9 +619,11 @@ deploy CD pull après CI verte
 |---|---|
 | TypeScript strict + Zod | une partie des bêtises de types / input |
 | Biome | style + bugs triviaux |
-| Vitest (auth, slug 409, path traversal, zip-slip) | régressions sécu ciblées |
+| Vitest + **coverage thresholds** (`bun run test:coverage`) | régressions + baisse de couverture sous le floor |
 | Branch protection | merge sans CI |
 | CODEOWNERS (option) | paths `auth/`, `mcp/`, `migrations/` → review requise |
+
+**Lefthook :** `bunx lefthook install` une fois par clone. **Interdit** `git push --no-verify` / `LEFTHOOK=0` sans raison documentée.
 
 ### 5. Review du code généré par IA
 

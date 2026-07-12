@@ -17,9 +17,16 @@ Product **silex-share** is P1 (frame only) — **not** in this kit tree.
 bun install
 bun run lint && bun run typecheck && bun run test
 
+# Coverage (HTML → coverage/<pkg>/index.html · thresholds enforced)
+bun run test:coverage
+
 # API (Worker + D1 + R2 local)
 cp apps/example-api/.dev.vars.example apps/example-api/.dev.vars
-cd apps/example-api && bunx wrangler d1 migrations apply example-api-local --local && bun run dev
+bun run db:migrate          # D1 schema
+bun run db:seed             # users + demo notes (idempotent)
+# bun run db:seed:reset     # wipe demo tables + reseed
+# bun run db:reset          # migrate + seed --reset
+cd apps/example-api && bun run dev
 # → http://127.0.0.1:8787/health
 
 # Web (other terminal)
@@ -36,12 +43,25 @@ cd apps/mcp-example && bun run start
 
 # Extractability
 bun run banlist && bun run extract-dry-run
+
+# Browser smoke (API + web up): design-system overlays, no Base UI pageerrors
+bun run test:e2e:design-system
 ```
 
-### Demo credentials
+### Demo credentials (seed SSoT: `apps/example-api/src/seed/demo-data.ts`)
 
-- Email: `demo@gosilex.local` / password: `demo-password-change-me`
-- Second user (IDOR demos): `demo-b@gosilex.local` / `demo-password-b-change-me`
+| User | Password | Role |
+|---|---|---|
+| `demo@gosilex.local` | `demo-password-change-me` | **admin** (design system) |
+| `demo-b@gosilex.local` | `demo-password-b-change-me` | user (IDOR demos) |
+
+```bash
+bun run db:seed           # idempotent
+bun run db:seed:reset     # DELETE demo tables + reseed
+bun run db:reset          # migrate + seed:reset
+```
+
+Also: first login still **lazy-seeds users** via `ensureDemoUsers` if you skip `db:seed` (notes only via seed script).
 - After login: cookie session `gosilex_session` (HttpOnly) · mint `sk_` via `POST /api/keys`
 
 ### Local secrets / env (do not deploy as-is)
@@ -62,7 +82,7 @@ bun run banlist && bun run extract-dry-run
 | `@gosilex/db` | Drizzle D1 factory (schemas stay in apps) |
 | `@gosilex/storage` | R2 put/get/delete + safe key join (`demo/` prefix in example) |
 | `@gosilex/auth` | Session cookie HMAC + `sk_` hash/generate/Bearer parse |
-| `@gosilex/ui` | shadcn-style kit: tokens light/dark, Button/Input/Field/Dialog/Sheet/Sidebar/Toast/Dropdown/Table |
+| `@gosilex/ui` | **shadcn official** `base-nova` + `@base-ui/react` (Button, Dialog, Sidebar, Sonner, …) |
 | `@gosilex/email` | Demo email text builder |
 | `@gosilex/mcp` | `ping` / `whoami` helpers + no-share-tools guard |
 
@@ -71,7 +91,7 @@ bun run banlist && bun run extract-dry-run
 | App | Role |
 |---|---|
 | `example-api` | Hono Worker · health · dual auth · notes CRUD · D1/R2 · demo email |
-| `example-web` | Vite SPA · TanStack Router/Query/Form · app shell · notes/keys/settings · FR/EN · dark mode · `@gosilex/ui` |
+| `example-web` | Vite SPA · TanStack · shadcn Base shell · notes/keys/settings · **design system (admin)** · FR/EN · dark mode |
 | `mcp-example` | FastMCP stdio · tools `ping` + `whoami` only |
 
 **No** `apps/share-*` until kit goal exit.
@@ -89,14 +109,54 @@ bun run banlist && bun run extract-dry-run
 
 Packages = platform concerns. Apps = deployables. Product domain only later under `apps/<product>-*`.
 
+## Coverage
+
+```bash
+bun run test:coverage
+```
+
+| | |
+|---|---|
+| Reports | `coverage/<pkg>/index.html` + `coverage-summary.json` |
+| Shared config | `packages/config/vitest-coverage.mjs` |
+| Runner | `scripts/test-coverage.sh` |
+
+### Thresholds (stmts / lines — enforced by Vitest)
+
+| Package | Floor | Notes |
+|---|---|---|
+| `example-api` | **80%** | backend kit bar |
+| `auth` | **80%** | keys / session |
+| `core` | **75%** | AppError |
+| `storage` · `db` · `types` · `mcp` | **70%** | small pure packages |
+| `email` | **50%** | still thin |
+| `ui` | **20%** | large surface; raise with component tests |
+| `example-web` | **10%** | SPA; raise with page tests |
+| `mcp-example` | **50%** stmts/lines (funcs 0%) | handlers not invoked in unit tests |
+
+Coverage HTML is gitignored (`coverage/`).
+
+### Hooks + CI (enforced)
+
+| Gate | When | What |
+|---|---|---|
+| **Lefthook pre-commit** | every commit | Biome (staged) |
+| **Lefthook pre-push** | every push | `typecheck` + **`test:coverage`** (thresholds) + `banlist` |
+| **GitHub Actions CI** | PR / main / staging | lint · typecheck · test · **`test:coverage`** · banlist · extract dry-run |
+
+```bash
+# Install git hooks (once per clone)
+bunx lefthook install
+```
+
 ## CI / hygiene
 
 | Artefact | Role |
 |---|---|
-| `.github/workflows/ci.yml` | Workflow name **`CI`**: lint · typecheck · test · banlist |
+| `.github/workflows/ci.yml` | **`CI`**: lint · typecheck · test · **coverage** · banlist |
 | `.github/workflows/secret-scan.yml` | TruffleHog |
 | `.github/workflows/merge-on-green.yml` | Label `reviewed` + green checks (ops track) |
-| `lefthook.yml` + commitlint | Pre-commit + conventional commits |
+| `lefthook.yml` | pre-commit Biome · **pre-push coverage thresholds** · commitlint |
 
 Ops companion (GitHub App `gosilex-ci`, DNS, CF deploy) = **out of local kit exit** — see [`docs/gosilex-ci-app-setup.md`](docs/gosilex-ci-app-setup.md).
 

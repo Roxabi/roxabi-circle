@@ -1,5 +1,5 @@
-# Local quality gates — mirror CI enough to avoid red pushes.
-# Install: bun install  (prepare → lefthook install)  or  bunx lefthook install
+# Local quality gates — see AGENTS.md § Gates techniques
+# Install: bun install (prepare)  or  bunx lefthook install
 # Skip (emergency only): LEFTHOOK=0 git push
 
 pre-commit:
@@ -15,11 +15,15 @@ commit-msg:
     commitlint:
       run: bunx commitlint --edit {1}
 
-# Full local suite before code leaves the machine (same core gates as CI).
-# Sequential = clear fail-fast (which gate broke).
+# Full suite before code leaves the machine.
+# validate = lint/typecheck/test/banlist/extract
+# test:coverage = Vitest thresholds (API 80%, UI/web lower floors)
 pre-push:
   parallel: false
   commands:
     validate:
       skip: false
       run: bun run validate
+    coverage:
+      skip: false
+      run: bun run test:coverage
