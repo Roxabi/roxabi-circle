@@ -103,6 +103,39 @@ search_q '@gosilex/types' apps/example-web || {
   echo "example-web must import @gosilex/types" >&2
   exit 1
 }
+search_q '@gosilex/i18n' apps/example-web || {
+  echo "example-web must import @gosilex/i18n" >&2
+  exit 1
+}
+
+echo "== extract-dry-run: no orphan workspace packages (optional hard-fail) =="
+# Packages under packages/* must be referenced outside their own dir (except config tooling).
+# EXTRACT_ORPHAN_FAIL=1 enables hard-fail (default on).
+ORPHAN_FAIL="${EXTRACT_ORPHAN_FAIL:-1}"
+orphan=0
+for pkg_json in packages/*/package.json; do
+  name="$(node -e "console.log(require('./$pkg_json').name||'')")"
+  dir="$(dirname "$pkg_json")"
+  base="$(basename "$dir")"
+  if [[ "$base" == "config" || -z "$name" ]]; then
+    continue
+  fi
+  # Count references outside this package directory
+  hits=0
+  if command -v rg >/dev/null 2>&1; then
+    hits="$(rg -F -l --glob '!**/node_modules/**' --glob '!**/.git/**' --glob "!${dir}/**" "$name" apps packages 2>/dev/null | wc -l | tr -d ' ')"
+  else
+    hits="$(grep -RIl --exclude-dir=node_modules --exclude-dir=.git -F "$name" apps packages 2>/dev/null | grep -v "^${dir}/" | wc -l | tr -d ' ')"
+  fi
+  if [[ "${hits:-0}" -eq 0 ]]; then
+    echo "ORPHAN package (no importers outside itself): $name ($dir)" >&2
+    orphan=1
+  fi
+done
+if [[ "$orphan" -eq 1 && "$ORPHAN_FAIL" == "1" ]]; then
+  echo "extract-dry-run: orphan packages failed (set EXTRACT_ORPHAN_FAIL=0 to warn only)" >&2
+  exit 1
+fi
 
 # config consumed via tsconfig extends (relative path to packages/config)
 search_q 'config/tsconfig.base.json' apps packages || {
