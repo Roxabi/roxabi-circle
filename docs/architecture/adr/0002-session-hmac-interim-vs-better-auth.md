@@ -36,17 +36,34 @@ Arbitration freeze mentioned Better Auth for B3. Full Better Auth on Workers add
 ## Consequences
 
 - Example apps must not hard-code Better Auth routes (`/api/auth/*` kit login is demo-only).
-- When promoting to product: introduce `SessionPort` / adapter at the app boundary; keep `@gosilex/auth` crypto helpers or wrap Better Auth.
-- Staging/prod must set real `SESSION_SECRET` and explicit `ENVIRONMENT` (see polish P1).
+- **SessionPort is shipped** (`createHmacSessionPort` / `defaultSessionPort` in `@gosilex/auth`). Apps inject or default the HMAC adapter; product swap implements the same port.
+- Staging/prod must set real `SESSION_SECRET` and explicit `ENVIRONMENT`.
+
+## Better Auth timeline (not installed in kit)
+
+| Phase | Status | Work |
+|---|---|---|
+| **Kit B3 / now** | **Done** | HMAC `SessionPort` + cookie contract + PBKDF2 demo users + `sk_` keys |
+| **Before product M3** | Required | Keep FE contract stable; do not claim BA in README |
+| **Product M3** | Planned | Better Auth on Hono + D1 adapter + GitHub OAuth + org gate (issue #12) |
+| **After BA** | Follow-up | HMAC adapter becomes optional/demo-only; password storage may change |
+
+Swap recipe (product):
+
+1. Implement `SessionPort` with Better Auth session cookie read/write (or thin wrapper).
+2. Bind `example-api` / `share-api` via `opts.sessions` / DI — no FE change if cookie still HttpOnly + credentials include.
+3. Keep `hashApiKey` / timing-safe compare for machine keys (unchanged).
 
 ## Anti-patterns
 
 - Using `hashApiKey` for user passwords
 - Storing session tokens in SPA localStorage
 - Claiming “Better Auth installed” when only HMAC is present
+- Forking session crypto per app instead of implementing `SessionPort`
 
 ## Related
 
 - ADR-0001 axial packages compose apps
-- `packages/auth/src/session.ts`, `packages/auth/src/keys.ts`
+- `packages/auth/src/session.ts`, `packages/auth/src/session-port.ts`, `packages/auth/src/keys.ts`
 - Goal arbitration freeze B3 dual auth
+- GitHub #3 SessionPort · #12 Better Auth M3

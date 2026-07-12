@@ -16,3 +16,8 @@ export {
   signSession,
   verifySession,
 } from './session'
+export {
+  createHmacSessionPort,
+  defaultSessionPort,
+  type SessionPort,
+} from './session-port'

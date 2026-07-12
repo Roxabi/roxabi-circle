@@ -10,6 +10,7 @@ import {
   verifyPassword,
 } from './keys'
 import { signSession, verifySession } from './session'
+import { createHmacSessionPort, defaultSessionPort } from './session-port'
 
 function b64urlJson(obj: unknown): string {
   const json = JSON.stringify(obj)
@@ -146,5 +147,30 @@ describe('session cookie', () => {
     })
     const token = await forgeSignedBody(body, secret)
     expect(await verifySession(token, secret)).toBeNull()
+  })
+})
+
+describe('SessionPort (HMAC adapter)', () => {
+  const secret = 'test-secret-at-least-32-characters!!'
+
+  it('createHmacSessionPort signs and verifies via port surface', async () => {
+    const port = createHmacSessionPort()
+    const token = await port.sign(
+      { sub: 'u1', email: 'a@b.c', exp: Math.floor(Date.now() / 1000) + 3600 },
+      secret,
+    )
+    const payload = await port.verify(token, secret)
+    expect(payload?.sub).toBe('u1')
+    expect(port.cookieHeader(token, { secure: true })).toMatch(/HttpOnly/)
+    expect(port.cookieHeader(token, { secure: true })).toMatch(/Secure/)
+    expect(port.clearCookieHeader()).toMatch(/Max-Age=0/)
+  })
+
+  it('defaultSessionPort is the HMAC adapter', async () => {
+    const token = await defaultSessionPort.sign(
+      { sub: 'u2', email: 'x@y.z', exp: Math.floor(Date.now() / 1000) + 60 },
+      secret,
+    )
+    expect(await defaultSessionPort.verify(token, secret)).toMatchObject({ sub: 'u2' })
   })
 })

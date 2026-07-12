@@ -1,15 +1,13 @@
 import {
-  clearSessionCookieHeader,
+  defaultSessionPort,
   generateApiKey,
   hashApiKey,
   parseBearer,
   parseCookie,
   SESSION_COOKIE,
-  sessionCookieHeader,
-  signSession,
+  type SessionPort,
   verifyApiKey,
   verifyPassword,
-  verifySession,
 } from '@gosilex/auth'
 
 // re-export crypto helpers used by tests
@@ -45,14 +43,19 @@ export async function loginWithPassword(
   secret: string,
   email: string,
   password: string,
-  opts?: { secureCookie?: boolean; environment?: string | null },
+  opts?: {
+    secureCookie?: boolean
+    environment?: string | null
+    sessions?: SessionPort
+  },
 ): Promise<{ cookie: string; subject: string }> {
+  const sessions = opts?.sessions ?? defaultSessionPort
   await ensureDemoUsers(db, { environment: opts?.environment })
   const user = await usersRepo.findUserByEmail(db, email)
   if (!user) throw AppError.unauthorized('Invalid credentials')
   const ok = await verifyPassword(password, user.passwordHash)
   if (!ok) throw AppError.unauthorized('Invalid credentials')
-  const token = await signSession(
+  const token = await sessions.sign(
     {
       sub: user.id,
       email: user.email,
@@ -62,12 +65,13 @@ export async function loginWithPassword(
   )
   return {
     subject: user.id,
-    cookie: sessionCookieHeader(token, { secure: opts?.secureCookie ?? false }),
+    cookie: sessions.cookieHeader(token, { secure: opts?.secureCookie ?? false }),
   }
 }
 
-export function logoutCookie(opts?: { secureCookie?: boolean }): string {
-  return clearSessionCookieHeader({ secure: opts?.secureCookie ?? false })
+export function logoutCookie(opts?: { secureCookie?: boolean; sessions?: SessionPort }): string {
+  const sessions = opts?.sessions ?? defaultSessionPort
+  return sessions.clearCookieHeader({ secure: opts?.secureCookie ?? false })
 }
 
 export async function mintApiKey(db: Db, subject: string): Promise<{ id: string; key: string }> {
@@ -97,7 +101,9 @@ export async function resolveAuth(
   secret: string,
   authorization: string | null,
   cookieHeader: string | null,
+  opts?: { sessions?: SessionPort },
 ): Promise<{ subject: string; method: 'session' | 'api_key' } | null> {
+  const sessions = opts?.sessions ?? defaultSessionPort
   const bearer = parseBearer(authorization)
   if (bearer) {
     const h = await hashApiKey(bearer)
@@ -108,7 +114,7 @@ export async function resolveAuth(
 
   const token = parseCookie(cookieHeader, SESSION_COOKIE)
   if (token) {
-    const payload = await verifySession(token, secret)
+    const payload = await sessions.verify(token, secret)
     if (payload) return { subject: payload.sub, method: 'session' }
   }
 
