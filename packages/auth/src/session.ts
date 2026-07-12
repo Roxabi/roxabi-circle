@@ -85,6 +85,12 @@ export function sessionCookieHeader(
   return `${SESSION_COOKIE}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${secure}`
 }
 
+/** Clear session cookie (logout). Same flags as set, Max-Age=0. */
+export function clearSessionCookieHeader(opts?: { secure?: boolean }): string {
+  const secure = opts?.secure ? '; Secure' : ''
+  return `${SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${secure}`
+}
+
 export function parseCookie(header: string | null | undefined, name: string): string | null {
   if (!header) return null
   for (const part of header.split(';')) {

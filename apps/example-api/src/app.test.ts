@@ -1,6 +1,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { createApp, getSecret, useSecureCookie } from './app'
+import { createApp } from './app'
+import { getSecret, useSecureCookie } from './lib/session-env'
 import { DEMO_EMAIL, DEMO_EMAIL_B, DEMO_PASSWORD, DEMO_PASSWORD_B } from './services/auth'
 import { createMemoryEnv } from './test/memory-env'
 

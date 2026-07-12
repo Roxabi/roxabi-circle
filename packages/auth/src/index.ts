@@ -8,6 +8,7 @@ export {
   verifyPassword,
 } from './keys'
 export {
+  clearSessionCookieHeader,
   parseCookie,
   SESSION_COOKIE,
   type SessionPayload,

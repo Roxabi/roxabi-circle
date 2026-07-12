@@ -1,9 +1,16 @@
 #!/usr/bin/env bash
-# Dry-run extractability check for Chemin A kit (no product share apps required).
+# Dry-run extractability check for Chemin A kit.
+#
+# Modes (EXTRACT_MODE):
+#   kit   (default) — banlist examples + packages; warn if product apps exist but do not fail
+#   mono  — dual-mission monorepo: product apps allowed; banlist still covers packages + examples only
+#   strict — legacy kit-only: fail if apps/share-* present
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
+
+MODE="${EXTRACT_MODE:-kit}"
 
 search_q() {
   local pat="$1"
@@ -15,6 +22,7 @@ search_q() {
   fi
 }
 
+echo "== extract-dry-run: mode=${MODE} =="
 echo "== extract-dry-run: tree sanity =="
 
 required=(
@@ -42,15 +50,24 @@ for f in "${required[@]}"; do
   fi
 done
 
-# Product apps must not exist yet (kit-only tree)
+product_found=0
 for product_app in apps/share-api apps/share-web; do
   if [[ -d "$product_app" ]]; then
-    echo "UNEXPECTED product app present during kit extract dry-run: $product_app" >&2
-    exit 1
+    product_found=1
+    if [[ "$MODE" == "strict" ]]; then
+      echo "UNEXPECTED product app present (EXTRACT_MODE=strict): $product_app" >&2
+      exit 1
+    fi
+    echo "NOTE: product app present ($product_app) — banlist still excludes product dirs; mode=${MODE}"
   fi
 done
 
-echo "== extract-dry-run: banlist =="
+if [[ "$MODE" == "kit" && "$product_found" -eq 0 ]]; then
+  echo "NOTE: no product apps (kit-only tree)"
+fi
+
+echo "== extract-dry-run: banlist (packages + example apps only) =="
+# check-banned-strings.sh already targets packages + apps/example-* only
 bash scripts/check-banned-strings.sh
 
 echo "== extract-dry-run: every package imported by an example =="
@@ -99,4 +116,10 @@ if ! grep -q 'axial: true' docs/architecture/adr/0001-primary-axis-packages-comp
   exit 1
 fi
 
-echo "extract-dry-run: OK"
+# ADR-0002 session interim present (kit contract)
+if [[ ! -f docs/architecture/adr/0002-session-hmac-interim-vs-better-auth.md ]]; then
+  echo "MISSING: ADR-0002 session HMAC interim" >&2
+  exit 1
+fi
+
+echo "extract-dry-run: OK (mode=${MODE})"
