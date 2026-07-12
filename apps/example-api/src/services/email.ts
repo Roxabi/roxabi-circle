@@ -1,6 +1,12 @@
 import { buildDemoEmailText } from '@gosilex/email'
 import type { Env } from '../env'
 
+type ConnectSocket = {
+  writable: WritableStream
+  readable: ReadableStream
+  close: () => Promise<void>
+}
+
 /**
  * Demo email send. Local: SMTP to Mailpit (default localhost:1025).
  * When SMTP is unavailable, falls back to structured log (still tests the path).
@@ -29,30 +35,37 @@ export async function sendDemoEmail(
     // In Workers, raw TCP needs connect() — use log transport when connect unavailable.
     const connect = (
       globalThis as {
-        connect?: (opts: { hostname: string; port: number }) => Promise<{
-          writable: WritableStream
-          readable: ReadableStream
-          close: () => Promise<void>
-        }>
+        connect?: (opts: { hostname: string; port: number }) => Promise<ConnectSocket>
       }
     ).connect
 
     if (typeof connect === 'function') {
       const socket = await connect({ hostname: host, port })
       const writer = socket.writable.getWriter()
-      const encoder = new TextEncoder()
-      const write = async (line: string) => {
-        await writer.write(encoder.encode(`${line}\r\n`))
+      try {
+        const encoder = new TextEncoder()
+        const write = async (line: string) => {
+          await writer.write(encoder.encode(`${line}\r\n`))
+        }
+        // Best-effort SMTP dialogue (Mailpit is lenient enough for demo)
+        await write(`EHLO localhost`)
+        await write(`MAIL FROM:<kit@gosilex.local>`)
+        await write(`RCPT TO:<${to}>`)
+        await write(`DATA`)
+        await writer.write(encoder.encode(`${body}\r\n.\r\n`))
+        await write(`QUIT`)
+      } finally {
+        try {
+          await writer.close()
+        } catch {
+          /* already closed or aborted */
+        }
+        try {
+          await socket.close()
+        } catch {
+          /* best-effort */
+        }
       }
-      // Best-effort SMTP dialogue (Mailpit is lenient enough for demo)
-      await write(`EHLO localhost`)
-      await write(`MAIL FROM:<kit@gosilex.local>`)
-      await write(`RCPT TO:<${to}>`)
-      await write(`DATA`)
-      await writer.write(encoder.encode(`${body}\r\n.\r\n`))
-      await write(`QUIT`)
-      await writer.close()
-      await socket.close()
       return { ok: true, transport: 'smtp', to }
     }
   } catch (e) {

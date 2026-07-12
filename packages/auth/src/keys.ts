@@ -42,7 +42,12 @@ export async function verifyApiKey(plaintext: string, expectedHash: string): Pro
   return timingSafeEqualHex(h, expectedHash)
 }
 
-const PBKDF2_ITERS = 100_000
+/** Default iterations for new hashes (demo kit; raise for production policies). */
+export const PBKDF2_ITERS = 100_000
+/** Reject stored hashes below this (downgrade / planted weak hashes). */
+export const PBKDF2_MIN_ITERS = 100_000
+/** Cap iterations on verify to bound CPU DoS if hash column is writable. */
+export const PBKDF2_MAX_ITERS = 600_000
 
 /**
  * Password KDF (PBKDF2-SHA-256). Format: `pbkdf2$iterations$saltHex$hashHex`
@@ -73,20 +78,32 @@ export async function verifyPassword(password: string, stored: string): Promise<
   const iterations = Number(parts[1])
   const saltHex = parts[2]
   const expectedHex = parts[3]
-  if (!Number.isFinite(iterations) || iterations < 1 || !saltHex || !expectedHex) return false
-  const salt = hexToBytes(saltHex)
-  const keyMaterial = await crypto.subtle.importKey(
-    'raw',
-    new TextEncoder().encode(password),
-    'PBKDF2',
-    false,
-    ['deriveBits'],
-  )
-  const bits = await crypto.subtle.deriveBits(
-    { name: 'PBKDF2', salt: salt as BufferSource, iterations, hash: 'SHA-256' },
-    keyMaterial,
-    256,
-  )
-  const gotHex = [...new Uint8Array(bits)].map((b) => b.toString(16).padStart(2, '0')).join('')
-  return timingSafeEqualHex(gotHex, expectedHex)
+  if (
+    !Number.isFinite(iterations) ||
+    iterations < PBKDF2_MIN_ITERS ||
+    iterations > PBKDF2_MAX_ITERS ||
+    !saltHex ||
+    !expectedHex
+  ) {
+    return false
+  }
+  try {
+    const salt = hexToBytes(saltHex)
+    const keyMaterial = await crypto.subtle.importKey(
+      'raw',
+      new TextEncoder().encode(password),
+      'PBKDF2',
+      false,
+      ['deriveBits'],
+    )
+    const bits = await crypto.subtle.deriveBits(
+      { name: 'PBKDF2', salt: salt as BufferSource, iterations, hash: 'SHA-256' },
+      keyMaterial,
+      256,
+    )
+    const gotHex = [...new Uint8Array(bits)].map((b) => b.toString(16).padStart(2, '0')).join('')
+    return timingSafeEqualHex(gotHex, expectedHex)
+  } catch {
+    return false
+  }
 }

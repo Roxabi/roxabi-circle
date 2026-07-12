@@ -299,6 +299,12 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
       ENVIRONMENT: 'staging',
       SESSION_SECRET: 'staging-session-secret-at-least-32ch!',
     })
+    // staging must not auto-seed — provision users explicitly
+    const { createDb } = await import('@gosilex/db')
+    const { schema } = await import('./db/schema')
+    const { seedDemoDatabase } = await import('./seed/seed-db')
+    await seedDemoDatabase(createDb(env.DB, schema), { notes: false })
+
     const login = await app.request(
       '/api/auth/login',
       {
@@ -310,6 +316,46 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     )
     expect(login.status).toBe(200)
     expect(login.headers.get('set-cookie')).toMatch(/Secure/i)
+  })
+
+  it('login does not auto-seed demo users in production', async () => {
+    const app = createApp()
+    const env = createMemoryEnv({
+      ENVIRONMENT: 'production',
+      SESSION_SECRET: 'prod-session-secret-at-least-32-chars!!',
+    })
+    const login = await app.request(
+      '/api/auth/login',
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: DEMO_EMAIL, password: DEMO_PASSWORD }),
+      },
+      env,
+    )
+    expect(login.status).toBe(401)
+    const body = (await login.json()) as { error: { code: string; message: string } }
+    expect(body.error.code).toBe('UNAUTHORIZED')
+    // 5xx config messages must not leak via auth path either
+    expect(JSON.stringify(body)).not.toMatch(/SESSION_SECRET/i)
+  })
+
+  it('protected routes reject unauthenticated without per-handler requireAuth calls', async () => {
+    const app = createApp()
+    const env = createMemoryEnv()
+    for (const path of ['/api/me', '/api/notes', '/api/keys'] as const) {
+      const method = path === '/api/keys' ? 'POST' : 'GET'
+      const res = await app.request(
+        path,
+        {
+          method,
+          headers: path === '/api/keys' ? { 'content-type': 'application/json' } : undefined,
+          body: path === '/api/keys' ? '{}' : undefined,
+        },
+        env,
+      )
+      expect(res.status).toBe(401)
+    }
   })
 
   it('CORS rejects unknown Origin (no reflect)', async () => {

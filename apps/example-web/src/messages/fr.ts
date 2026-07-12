@@ -33,6 +33,8 @@ export type Messages = {
   health: string
   empty: string
   error: string
+  loadFailed: string
+  retry: string
   demoCreds: string
   dashboard: string
   session: string
@@ -104,6 +106,8 @@ export const fr: Messages = {
   health: 'API',
   empty: 'Aucune note pour l’instant',
   error: 'Erreur',
+  loadFailed: 'Chargement impossible',
+  retry: 'Réessayer',
   demoCreds: 'Démo : demo@gosilex.local / demo-password-change-me',
   dashboard: 'Tableau de bord',
   session: 'Session',

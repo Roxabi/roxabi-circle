@@ -83,7 +83,18 @@ export async function seedDemoDatabase(
   return { reset, users, notes }
 }
 
-/** Lazy bootstrap for login path — users only (notes via `bun run db:seed`). */
-export async function ensureDemoUsers(db: Db): Promise<void> {
+/**
+ * Lazy bootstrap for login path — users only (notes via `bun run db:seed`).
+ * **Only** when `environment` is explicitly `development` | `test`.
+ * Staging/prod (or missing env) must provision users out-of-band — no auto-seed of demo passwords.
+ */
+export async function ensureDemoUsers(
+  db: Db,
+  opts?: { environment?: string | null },
+): Promise<void> {
+  const env = opts?.environment?.trim().toLowerCase()
+  if (env !== 'development' && env !== 'test') {
+    return
+  }
   await seedDemoDatabase(db, { reset: false, notes: false })
 }

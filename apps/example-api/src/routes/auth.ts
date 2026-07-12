@@ -3,7 +3,7 @@ import { createDb } from '@gosilex/db'
 import { Hono } from 'hono'
 import { z } from 'zod'
 import { schema } from '../db/schema'
-import { getSecret, useSecureCookie } from '../lib/session-env'
+import { environmentName, getSecret, useSecureCookie } from '../lib/session-env'
 import * as authService from '../services/auth'
 import type { AppEnv } from '../types'
 
@@ -28,7 +28,10 @@ authRoutes.post('/api/auth/login', async (c) => {
     getSecret(c.env),
     parsed.data.email,
     parsed.data.password,
-    { secureCookie: useSecureCookie(c.env) },
+    {
+      secureCookie: useSecureCookie(c.env),
+      environment: environmentName(c.env),
+    },
   )
   c.header('Set-Cookie', cookie)
   return c.json({ subject, email: parsed.data.email, requestId: c.get('requestId') })

@@ -1,0 +1,40 @@
+{
+  "status": "completed",
+  "repo": "go-silex/silex-share",
+  "playbook": "multi-agent-audit-playbook.md v1.1",
+  "started": "2026-07-12T20:46:19Z",
+  "completed": "2026-07-12T23:55:00Z",
+  "completed_agents": "all",
+  "pending_agents": [],
+  "pending": [],
+  "current_wave": 7,
+  "final_report": "artifacts/analyses/quality-audit/AUDIT-SUMMARY.md",
+  "technical_debt_score": 74,
+  "p0_count": 0,
+  "waves": {
+    "1": ["axial-structural", "axial-semantic", "arch-P1", "arch-P2", "arch-P3"],
+    "2": ["arch-P4", "arch-P5", "arch-P6", "arch-P7", "sec-P2"],
+    "3": ["sec-P1", "sec-P3", "sec-P5", "sec-P6", "smells-P1"],
+    "4": ["smells-P2", "smells-P3", "smells-P4", "smells-P5", "smells-P6"],
+    "5": ["smells-T", "types-P1-P3", "types-P4-P6", "async-full", "errors-BE"],
+    "6": ["errors-FE", "tests-T1", "tests-T2", "tests-T3", "techdebt-A"],
+    "7": ["techdebt-B", "cocoindex-validate", "synthesis"]
+  },
+  "partitions": {
+    "P1": "packages/core, packages/types, packages/config",
+    "P2": "packages/auth",
+    "P3": "packages/db, packages/storage, packages/email, packages/mcp",
+    "P4": "packages/ui",
+    "P5": "apps/example-api",
+    "P6": "apps/example-web, apps/mcp-example",
+    "P7": "scripts, tools, .github, root config",
+    "T1": "packages/**/*.test.ts(x)",
+    "T2": "apps/**/*.test.ts(x)",
+    "T3": "coverage aggregates + docs/testing.md"
+  },
+  "method_notes": {
+    "cocoindex": "fallback rg + source reads (ccc unavailable in agents)",
+    "importlinter": "absent — structural axial report used",
+    "product_apps": "share-* not present"
+  }
+}

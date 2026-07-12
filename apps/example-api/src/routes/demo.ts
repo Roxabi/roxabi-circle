@@ -5,8 +5,9 @@ import type { AppEnv } from '../types'
 
 export const demoRoutes = new Hono<AppEnv>()
 
+demoRoutes.use('*', requireAuth)
+
 demoRoutes.post('/api/demo/email', async (c) => {
-  await requireAuth(c)
   const result = await sendDemoEmail(c.env, c.get('subject') || 'unknown')
   return c.json({ ...result, requestId: c.get('requestId') })
 })

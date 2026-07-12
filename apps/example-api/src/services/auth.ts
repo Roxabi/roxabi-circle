@@ -35,8 +35,8 @@ export type { KitRole }
 export { roleForSubject }
 
 /** @deprecated prefer ensureDemoUsers from seed — kept name for call sites */
-export async function ensureDemoUser(db: Db) {
-  await ensureDemoUsers(db)
+export async function ensureDemoUser(db: Db, opts?: { environment?: string | null }) {
+  await ensureDemoUsers(db, opts)
 }
 
 export async function loginWithPassword(
@@ -44,9 +44,9 @@ export async function loginWithPassword(
   secret: string,
   email: string,
   password: string,
-  opts?: { secureCookie?: boolean },
+  opts?: { secureCookie?: boolean; environment?: string | null },
 ): Promise<{ cookie: string; subject: string }> {
-  await ensureDemoUsers(db)
+  await ensureDemoUsers(db, { environment: opts?.environment })
   const { demoUsers } = await import('../db/schema')
   const { eq } = await import('drizzle-orm')
   const rows = await db.select().from(demoUsers).where(eq(demoUsers.email, email)).all()

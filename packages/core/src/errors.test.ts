@@ -25,6 +25,26 @@ describe('AppError', () => {
     expect(body.error.message).not.toContain('secret')
   })
 
+  it('scrubs AppError 5xx messages and details from public body', () => {
+    const err = new AppError('INTERNAL_ERROR', 'SESSION_SECRET is required (min 32 chars)', 500, {
+      secretHint: 'should-not-leak',
+    })
+    const { body, status } = toApiErrorBody(err, 'req_scrub')
+    expect(status).toBe(500)
+    expect(body.error.code).toBe('INTERNAL_ERROR')
+    expect(body.error.message).toBe('Internal error')
+    expect(body.error.message).not.toContain('SESSION_SECRET')
+    expect(body.error.details).toBeUndefined()
+  })
+
+  it('keeps 4xx AppError messages and details public', () => {
+    const err = AppError.validation('bad field', { fieldErrors: { title: ['Required'] } })
+    const { body, status } = toApiErrorBody(err, 'req_4xx')
+    expect(status).toBe(400)
+    expect(body.error.message).toBe('bad field')
+    expect(body.error.details).toEqual({ fieldErrors: { title: ['Required'] } })
+  })
+
   it('newRequestId is non-empty and stable format', () => {
     const id = newRequestId()
     expect(id.startsWith('req_')).toBe(true)

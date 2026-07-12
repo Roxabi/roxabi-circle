@@ -1,9 +1,9 @@
 import { createDb } from '@gosilex/db'
 import { describe, expect, it } from 'vitest'
-import { schema } from '../db/schema'
+import { demoUsers, schema } from '../db/schema'
 import { createMemoryEnv } from '../test/memory-env'
 import { SEED_NOTES, SEED_USERS } from './demo-data'
-import { seedDemoDatabase } from './seed-db'
+import { ensureDemoUsers, seedDemoDatabase } from './seed-db'
 
 describe('seedDemoDatabase', () => {
   it('inserts users and notes once (idempotent)', async () => {
@@ -33,5 +33,24 @@ describe('seedDemoDatabase', () => {
     expect(afterReset.notes.every((n) => n.created)).toBe(true)
     expect(afterReset.users).toHaveLength(SEED_USERS.length)
     expect(afterReset.notes).toHaveLength(SEED_NOTES.length)
+  })
+})
+
+describe('ensureDemoUsers env gate', () => {
+  it('seeds only for development|test', async () => {
+    const env = createMemoryEnv()
+    const db = createDb(env.DB, schema)
+
+    await ensureDemoUsers(db, { environment: 'production' })
+    expect((await db.select().from(demoUsers).all()).length).toBe(0)
+
+    await ensureDemoUsers(db, { environment: 'staging' })
+    expect((await db.select().from(demoUsers).all()).length).toBe(0)
+
+    await ensureDemoUsers(db, { environment: undefined })
+    expect((await db.select().from(demoUsers).all()).length).toBe(0)
+
+    await ensureDemoUsers(db, { environment: 'test' })
+    expect((await db.select().from(demoUsers).all()).length).toBe(SEED_USERS.length)
   })
 })

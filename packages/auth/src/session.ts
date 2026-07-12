@@ -3,7 +3,8 @@
  * HttpOnly cookie + credentials: 'include' on the SPA.
  *
  * Implementation: HMAC-signed payload (Workers-friendly, zero extra deps).
- * Swap to Better Auth adapters later without changing FE fetch/cookie shape.
+ * Interim until Better Auth (ADR-0002). Swap adapters later without changing
+ * FE fetch/cookie shape.
  */
 
 export type SessionPayload = {
@@ -43,6 +44,18 @@ async function hmacKey(secret: string): Promise<CryptoKey> {
   )
 }
 
+function isSessionPayload(value: unknown): value is SessionPayload {
+  if (typeof value !== 'object' || value === null) return false
+  const o = value as Record<string, unknown>
+  return (
+    typeof o.sub === 'string' &&
+    o.sub.length > 0 &&
+    typeof o.email === 'string' &&
+    typeof o.exp === 'number' &&
+    Number.isFinite(o.exp)
+  )
+}
+
 export async function signSession(payload: SessionPayload, secret: string): Promise<string> {
   const body = b64url(JSON.stringify(payload))
   const key = await hmacKey(secret)
@@ -50,23 +63,28 @@ export async function signSession(payload: SessionPayload, secret: string): Prom
   return `${body}.${b64url(sig)}`
 }
 
+/**
+ * Verify HMAC session token. Always fail-closed: returns null on bad shape,
+ * bad MAC, expired exp, or any crypto/parse error (never throws).
+ */
 export async function verifySession(token: string, secret: string): Promise<SessionPayload | null> {
-  const [body, sig] = token.split('.')
-  if (!body || !sig) return null
-  const key = await hmacKey(secret)
-  const sigBytes = fromB64url(sig)
-  const ok = await crypto.subtle.verify(
-    'HMAC',
-    key,
-    sigBytes.buffer.slice(
-      sigBytes.byteOffset,
-      sigBytes.byteOffset + sigBytes.byteLength,
-    ) as ArrayBuffer,
-    new TextEncoder().encode(body),
-  )
-  if (!ok) return null
   try {
-    const payload = JSON.parse(new TextDecoder().decode(fromB64url(body))) as SessionPayload
+    const [body, sig] = token.split('.')
+    if (!body || !sig) return null
+    const key = await hmacKey(secret)
+    const sigBytes = fromB64url(sig)
+    const ok = await crypto.subtle.verify(
+      'HMAC',
+      key,
+      sigBytes.buffer.slice(
+        sigBytes.byteOffset,
+        sigBytes.byteOffset + sigBytes.byteLength,
+      ) as ArrayBuffer,
+      new TextEncoder().encode(body),
+    )
+    if (!ok) return null
+    const payload: unknown = JSON.parse(new TextDecoder().decode(fromB64url(body)))
+    if (!isSessionPayload(payload)) return null
     if (payload.exp < Math.floor(Date.now() / 1000)) return null
     return payload
   } catch {

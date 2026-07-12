@@ -16,20 +16,28 @@ export type KitR2ObjectBody = {
   text(): Promise<string>
 }
 
-/** Join path segments under a product/demo prefix. Rejects traversal. */
-export function joinObjectKey(prefix: string, ...parts: string[]): string {
-  const cleanPrefix = prefix.replace(/^\/+|\/+$/g, '')
-  const segments: string[] = []
-  for (const part of parts) {
-    for (const seg of part.split('/')) {
-      if (!seg || seg === '.') continue
-      if (seg === '..') {
-        throw new Error('path traversal rejected')
-      }
-      segments.push(seg)
+/** Append path segments, rejecting empty / `.` / `..` (including inside prefix). */
+function pushPathSegments(target: string[], part: string): void {
+  for (const seg of part.split('/')) {
+    if (!seg || seg === '.') continue
+    if (seg === '..') {
+      throw new Error('path traversal rejected')
     }
+    target.push(seg)
   }
-  return [cleanPrefix, ...segments].filter(Boolean).join('/')
+}
+
+/**
+ * Join path segments under a product/demo prefix.
+ * Rejects traversal in **prefix and parts** (e.g. `demo/../other`).
+ */
+export function joinObjectKey(prefix: string, ...parts: string[]): string {
+  const segments: string[] = []
+  pushPathSegments(segments, prefix)
+  for (const part of parts) {
+    pushPathSegments(segments, part)
+  }
+  return segments.join('/')
 }
 
 export async function putObject(

@@ -161,16 +161,18 @@ Escape hatch : Postgres/Hyperdrive si un app dépasse D1 — documenté, pas def
 
 | Élément | Choix | Quand |
 |---|---|---|
-| Sessions / OAuth UI | **Better Auth** sur **Hono** (GitHub + org membership) | M3 |
-| API keys machine | `sk_…` hash en D1, **per-user** | M0 bootstrap |
-| Guards | `requireSession` / `requireApiKey` | S0+ |
+| Sessions UI (cible) | **Better Auth** sur **Hono** (GitHub + org membership) | **M3** |
+| Sessions UI (**aujourd’hui**) | **HMAC-signed cookie** via `@gosilex/auth` — [ADR-0002](docs/architecture/adr/0002-session-hmac-interim-vs-better-auth.md) | B3 / kit |
+| API keys machine | `sk_…` hash en D1, **per-user** | B1+ bootstrap |
+| Guards (kit) | Hono middleware dual-path `requireAuth` (Bearer **ou** cookie) dans `example-api` | B1+ |
+| Guards (cible package) | `requireSession` / `requireApiKey` dans `@gosilex/auth` | M3 / promote |
 | Recheck org | Cron ≤24h → revoke keys | M3 |
 
 #### Cookies (obligatoire — sessions UI)
 
 | Règle | Détail |
 |---|---|
-| Qui set | Better Auth → `Set-Cookie` |
+| Qui set | **Aujourd’hui :** `sessionCookieHeader` / login route · **M3 :** Better Auth → `Set-Cookie` |
 | Attributs | **HttpOnly** · **Secure** (prod) · **SameSite=Lax** (ou `None`+Secure si cross-site strict) · `Path=/` |
 | Domain | parent `.gosilex.com` si SPA/API sous-domaines ≠ ; sinon **même host** (préféré M3) |
 | Client fetch | **`credentials: 'include'`** sur apiClient central |
@@ -181,7 +183,7 @@ Escape hatch : Postgres/Hyperdrive si un app dépasse D1 — documenté, pas def
 
 **Non-default :** Clerk.
 
-Better Auth + Hono + CF : doc officielle + [better-auth-cloudflare](https://github.com/zpg6/better-auth-cloudflare) + [hono better-auth CF](https://hono.dev/examples/better-auth-on-cloudflare). Pattern : **1 instance auth / request** (bindings).
+**Interim (ADR-0002) :** HMAC session est volontaire jusqu’à Better Auth M3 — ne pas « inventer » Better Auth dans le code tant que non livré. Cible M3 : doc officielle + [better-auth-cloudflare](https://github.com/zpg6/better-auth-cloudflare) + [hono better-auth CF](https://hono.dev/examples/better-auth-on-cloudflare). Pattern : **1 instance auth / request** (bindings). Prefer `SessionPort` avant le swap.
 
 ---
 
@@ -263,7 +265,7 @@ Ref pattern : `roxabi-boilerplate` (`errorCodes`, `errorUtils`, `ApiError`).
 | `@gosilex/config` | tsconfig, Biome, Vitest presets | **P0** |
 | `@gosilex/db` | Drizzle D1 + migrate | **P0** |
 | `@gosilex/storage` | R2 put/get/presign | **P0** |
-| `@gosilex/auth` | Better Auth Hono, cookies, keys, guards | **P0**/M3 |
+| `@gosilex/auth` | HMAC session + API keys (interim ADR-0002) · Better Auth **M3** | **P0** / M3 |
 | `@gosilex/types` | Zod schemas + ErrorCode | **P0** |
 | `@gosilex/ui` | shadcn Base UI shell | M3 |
 | `@gosilex/mcp` | FastMCP/SDK conventions | M5 |
@@ -440,7 +442,7 @@ silex-share/
 | **B0** | Bun+Turbo monorepo · Biome · Vitest · Lefthook · AppError+requestId · `packages/core`+`config` · `apps/example-api` health |
 | **B1** | `example-api` : Hono + D1 demo schema + Zod + guards skeleton · CI typecheck/test/lint |
 | **B2** | `packages/db`+`storage` generic · R2 helper demo · migrations pattern |
-| **B3** | `packages/auth` Better Auth Hono + cookies · key hash demo · **not** share domain |
+| **B3** | `packages/auth` HMAC session (ADR-0002) + cookies · key hash demo · **not** share domain · Better Auth = M3 |
 | **B4** | `example-web` TanStack+shadcn Base UI · i18n FR/EN · ApiError client |
 | **B5** | FastMCP `mcp-example` · email + Mailpit compose · rate-limit/audit stubs |
 | **B6** | Extract dry-run CI · docs kit · Sentry/Better Stack hooks · Playwright smoke examples |
@@ -484,15 +486,15 @@ Règles : guard first · Zod double frontière · pas de god file · packages �
 - [x] Merge token = **GitHub App `gosilex-ci`** (pas de PAT) — setup : [`docs/gosilex-ci-app-setup.md`](docs/gosilex-ci-app-setup.md)  
 - [ ] Créer/installer App + set `GOSILEX_CI_APP_ID` / `GOSILEX_CI_APP_PRIVATE_KEY` (org)  
 - [ ] Branch protection / rulesets — **bloqué plan Free privé** (voir § GitHub Free)  
-- [ ] Bun workspaces + Turbo  
-- [ ] Biome + CI app (lint/typecheck/test/build) — quand CI/CD GOSILEX  
-- [ ] AppError + requestId + middleware Hono  
-- [ ] Vitest (au moins core + paths critiques)  
-- [ ] D1 migrations versionnées  
-- [ ] `.dev.vars.example` sans secrets  
+- [x] Bun workspaces + Turbo  
+- [x] Biome + CI app (lint/typecheck/test/build) — local `validate:full` + GH workflows  
+- [x] AppError + requestId + middleware Hono  
+- [x] Vitest (core + auth + example-api paths critiques + floors)  
+- [x] D1 migrations versionnées (`apps/example-api/migrations`)  
+- [x] `.dev.vars.example` sans secrets  
 - [x] Lefthook + conventional commits + **pre-push `validate:full`** (local primary; CI guardrail) · [`docs/testing.md`](docs/testing.md)  
 
-- [ ] Security headers de base  
+- [x] Security headers de base (`security-headers` middleware)  
 
 ### GitHub Free (go-silex) — limites & pattern Roxabi
 

@@ -35,6 +35,8 @@ export const en: Messages = {
   health: 'API',
   empty: 'No notes yet',
   error: 'Error',
+  loadFailed: 'Failed to load',
+  retry: 'Retry',
   demoCreds: 'Demo: demo@gosilex.local / demo-password-change-me',
   dashboard: 'Dashboard',
   session: 'Session',

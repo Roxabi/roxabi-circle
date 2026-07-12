@@ -15,15 +15,15 @@ const createNoteSchema = z.object({
 
 export const notesRoutes = new Hono<AppEnv>()
 
+notesRoutes.use('*', requireAuth)
+
 notesRoutes.get('/api/notes', async (c) => {
-  await requireAuth(c)
   const db = createDb(c.env.DB, schema)
   const notes = await notesService.listNotes(db, c.get('subject')!)
   return c.json({ notes, requestId: c.get('requestId') })
 })
 
 notesRoutes.post('/api/notes', async (c) => {
-  await requireAuth(c)
   const raw = await c.req.json().catch(() => null)
   const parsed = createNoteSchema.safeParse(raw)
   if (!parsed.success) {
@@ -37,7 +37,6 @@ notesRoutes.post('/api/notes', async (c) => {
 })
 
 notesRoutes.get('/api/notes/:id', async (c) => {
-  await requireAuth(c)
   const db = createDb(c.env.DB, schema)
   const note = await notesService.getNoteWithAttachment(
     db,
@@ -49,7 +48,6 @@ notesRoutes.get('/api/notes/:id', async (c) => {
 })
 
 notesRoutes.delete('/api/notes/:id', async (c) => {
-  await requireAuth(c)
   const db = createDb(c.env.DB, schema)
   await notesService.removeNote(db, c.env.BUCKET, c.req.param('id'), c.get('subject')!)
   return c.json({ ok: true, requestId: c.get('requestId') })

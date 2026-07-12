@@ -37,6 +37,11 @@ describe('joinObjectKey', () => {
   it('rejects nested .. segments', () => {
     expect(() => joinObjectKey('demo', 'a/../../b')).toThrow(/traversal/)
   })
+
+  it('rejects traversal in prefix', () => {
+    expect(() => joinObjectKey('demo/../other', 'a')).toThrow(/traversal/)
+    expect(() => joinObjectKey('../escape', 'a')).toThrow(/traversal/)
+  })
 })
 
 describe('R2 put/get/delete round-trip under demo/', () => {

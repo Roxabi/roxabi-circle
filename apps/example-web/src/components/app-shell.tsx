@@ -39,9 +39,10 @@ import {
   SunMoon,
 } from 'lucide-react'
 import type { ReactNode } from 'react'
+import { useEffect } from 'react'
 import { toast } from 'sonner'
 import { apiFetch } from '../lib/api'
-import { isAdmin, meQueryKey, useMe } from '../lib/auth'
+import { isAdmin, isUnauthorized, meQueryKey, useMe } from '../lib/auth'
 import { useLocale } from '../lib/locale'
 import { type Theme, useTheme } from '../lib/theme'
 
@@ -244,6 +245,13 @@ export function AdminGate({ children }: { children: ReactNode }) {
   const me = useMe()
   const navigate = useNavigate()
   const { m } = useLocale()
+  const forbidden = !me.isLoading && !isAdmin(me.data)
+
+  useEffect(() => {
+    if (forbidden) {
+      void navigate({ to: '/' })
+    }
+  }, [forbidden, navigate])
 
   if (me.isLoading) {
     return (
@@ -253,10 +261,7 @@ export function AdminGate({ children }: { children: ReactNode }) {
     )
   }
 
-  if (!isAdmin(me.data)) {
-    queueMicrotask(() => {
-      void navigate({ to: '/' })
-    })
+  if (forbidden) {
     return (
       <div className="flex min-h-[40vh] flex-col items-center justify-center gap-2 p-8 text-center">
         <p className="text-lg font-semibold">{m.forbidden}</p>
@@ -272,14 +277,14 @@ export function AuthGate({ children }: { children: ReactNode }) {
   const me = useMe()
   const navigate = useNavigate()
   const { m } = useLocale()
+  const unauth = !me.isLoading && (isUnauthorized(me.error) || (!me.isError && !me.data))
+  const hardError = !me.isLoading && me.isError && !isUnauthorized(me.error)
 
-  if (me.isError || !me.data) {
-    if (!me.isLoading) {
-      queueMicrotask(() => {
-        void navigate({ to: '/login' })
-      })
+  useEffect(() => {
+    if (unauth) {
+      void navigate({ to: '/login' })
     }
-  }
+  }, [unauth, navigate])
 
   if (me.isLoading) {
     return (
@@ -293,7 +298,16 @@ export function AuthGate({ children }: { children: ReactNode }) {
     )
   }
 
-  if (me.isError || !me.data) {
+  if (hardError) {
+    return (
+      <div className="flex min-h-svh flex-col items-center justify-center gap-2 p-8 text-center">
+        <p className="text-lg font-semibold">{m.error}</p>
+        <p className="text-sm text-muted-foreground">{m.loadFailed}</p>
+      </div>
+    )
+  }
+
+  if (unauth || !me.data) {
     return null
   }
 

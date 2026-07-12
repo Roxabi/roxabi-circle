@@ -7,8 +7,9 @@ import type { AppEnv } from '../types'
 
 export const meRoutes = new Hono<AppEnv>()
 
+meRoutes.use('*', requireAuth)
+
 meRoutes.get('/api/me', async (c) => {
-  await requireAuth(c)
   const subject = c.get('subject')!
   return c.json({
     subject,
@@ -19,7 +20,6 @@ meRoutes.get('/api/me', async (c) => {
 })
 
 meRoutes.post('/api/keys', async (c) => {
-  await requireAuth(c)
   const db = createDb(c.env.DB, schema)
   const subject = c.get('subject')!
   const minted = await authService.mintApiKey(db, subject)

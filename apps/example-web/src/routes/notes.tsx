@@ -97,6 +97,22 @@ export function NotesPage() {
               <Skeleton className="h-10 w-full" />
               <Skeleton className="h-10 w-full" />
             </div>
+          ) : notes.isError ? (
+            <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-destructive/40 py-12 text-center">
+              <p className="text-sm font-medium text-destructive">{m.loadFailed}</p>
+              <p className="max-w-sm text-xs text-muted-foreground">
+                {notes.error instanceof Error ? notes.error.message : m.error}
+              </p>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  void notes.refetch()
+                }}
+              >
+                {m.retry}
+              </Button>
+            </div>
           ) : (notes.data?.notes ?? []).length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border py-12 text-center">
               <p className="text-sm text-muted-foreground">{m.empty}</p>

@@ -47,13 +47,16 @@ export function toApiErrorBody(
   status: number
 } {
   if (err instanceof AppError) {
+    // Never leak internal/config messages or details on 5xx.
+    const publicMessage = err.status >= 500 ? 'Internal error' : err.message
+    const details = err.status >= 500 ? undefined : err.details
     return {
       status: err.status,
       body: {
         error: {
           code: err.code,
-          message: err.message,
-          ...(err.details !== undefined ? { details: err.details } : {}),
+          message: publicMessage,
+          ...(details !== undefined ? { details } : {}),
         },
         requestId,
       },
