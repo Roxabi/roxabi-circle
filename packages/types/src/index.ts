@@ -13,7 +13,7 @@ export type ErrorCodeName = (typeof ErrorCode)[keyof typeof ErrorCode]
 
 export type ApiErrorBody = {
   error: {
-    code: string
+    code: ErrorCodeName
     message: string
     details?: unknown
   }

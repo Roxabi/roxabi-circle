@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
+import { z } from 'zod'
 import { AppError, newRequestId, toApiErrorBody } from './errors'
+import { parseOrThrow } from './parse'
 
 describe('AppError', () => {
   it('builds nested API error body without stack', () => {
@@ -51,9 +53,36 @@ describe('AppError', () => {
     expect(body.error.code).toBe('RATE_LIMITED')
   })
 
+  it('derives status from ErrorCode when omitted', () => {
+    const err = new AppError('FORBIDDEN', 'nope')
+    expect(err.status).toBe(403)
+  })
+
   it('newRequestId is non-empty and stable format', () => {
     const id = newRequestId()
     expect(id.startsWith('req_')).toBe(true)
     expect(id.length).toBeGreaterThan(8)
+  })
+})
+
+describe('parseOrThrow', () => {
+  const schema = z.object({ title: z.string().min(1) })
+
+  it('returns parsed data on success', () => {
+    expect(parseOrThrow(schema, { title: 'ok' })).toEqual({ title: 'ok' })
+  })
+
+  it('throws VALIDATION_ERROR with fieldErrors on failure', () => {
+    try {
+      parseOrThrow(schema, { title: '' }, 'Invalid note')
+      expect.unreachable()
+    } catch (e) {
+      expect(e).toBeInstanceOf(AppError)
+      const err = e as AppError
+      expect(err.code).toBe('VALIDATION_ERROR')
+      expect(err.status).toBe(400)
+      expect(err.message).toBe('Invalid note')
+      expect(err.details).toMatchObject({ fieldErrors: expect.any(Object) })
+    }
   })
 })

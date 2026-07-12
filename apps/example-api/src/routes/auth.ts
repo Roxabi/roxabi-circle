@@ -1,4 +1,4 @@
-import { AppError } from '@gosilex/core'
+import { parseOrThrow } from '@gosilex/core'
 import { createDb } from '@gosilex/db'
 import { Hono } from 'hono'
 import { z } from 'zod'
@@ -24,25 +24,20 @@ authRoutes.post('/api/auth/login', async (c) => {
   assertRateLimit(`login:${ip}`, LOGIN_LIMIT, LOGIN_WINDOW_MS)
 
   const raw = await c.req.json().catch(() => null)
-  const parsed = loginSchema.safeParse(raw)
-  if (!parsed.success) {
-    throw AppError.validation('Invalid login body', {
-      fieldErrors: parsed.error.flatten().fieldErrors,
-    })
-  }
+  const body = parseOrThrow(loginSchema, raw, 'Invalid login body')
   const db = createDb(c.env.DB, schema)
   const { cookie, subject } = await authService.loginWithPassword(
     db,
     getSecret(c.env),
-    parsed.data.email,
-    parsed.data.password,
+    body.email,
+    body.password,
     {
       secureCookie: useSecureCookie(c.env),
       environment: environmentName(c.env),
     },
   )
   c.header('Set-Cookie', cookie)
-  return c.json({ subject, email: parsed.data.email, requestId: c.get('requestId') })
+  return c.json({ subject, email: body.email, requestId: c.get('requestId') })
 })
 
 authRoutes.post('/api/auth/logout', async (c) => {

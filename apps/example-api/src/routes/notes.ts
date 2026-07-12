@@ -1,4 +1,4 @@
-import { AppError } from '@gosilex/core'
+import { parseOrThrow } from '@gosilex/core'
 import { createDb } from '@gosilex/db'
 import { Hono } from 'hono'
 import { z } from 'zod'
@@ -25,14 +25,9 @@ notesRoutes.get('/api/notes', async (c) => {
 
 notesRoutes.post('/api/notes', async (c) => {
   const raw = await c.req.json().catch(() => null)
-  const parsed = createNoteSchema.safeParse(raw)
-  if (!parsed.success) {
-    throw AppError.validation('Invalid note', {
-      fieldErrors: parsed.error.flatten().fieldErrors,
-    })
-  }
+  const data = parseOrThrow(createNoteSchema, raw, 'Invalid note')
   const db = createDb(c.env.DB, schema)
-  const note = await notesService.createNote(db, c.env.BUCKET, c.get('subject')!, parsed.data)
+  const note = await notesService.createNote(db, c.env.BUCKET, c.get('subject')!, data)
   return c.json({ note, requestId: c.get('requestId') }, 201)
 })
 

@@ -1,45 +1,55 @@
 import type { ApiErrorBody, ErrorCodeName } from '@gosilex/types'
 import { ErrorCode } from '@gosilex/types'
 
+const CODE_STATUS: Record<ErrorCodeName, number> = {
+  UNAUTHORIZED: 401,
+  FORBIDDEN: 403,
+  NOT_FOUND: 404,
+  VALIDATION_ERROR: 400,
+  CONFLICT: 409,
+  INTERNAL_ERROR: 500,
+  RATE_LIMITED: 429,
+}
+
 export class AppError extends Error {
-  readonly code: string
+  readonly code: ErrorCodeName
   readonly status: number
   readonly details?: unknown
 
-  constructor(code: string, message: string, status = 500, details?: unknown) {
+  constructor(code: ErrorCodeName, message: string, status?: number, details?: unknown) {
     super(message)
     this.name = 'AppError'
     this.code = code
-    this.status = status
+    this.status = status ?? CODE_STATUS[code] ?? 500
     this.details = details
   }
 
   static unauthorized(message = 'Unauthorized'): AppError {
-    return new AppError(ErrorCode.UNAUTHORIZED, message, 401)
+    return new AppError(ErrorCode.UNAUTHORIZED, message)
   }
 
   static forbidden(message = 'Forbidden'): AppError {
-    return new AppError(ErrorCode.FORBIDDEN, message, 403)
+    return new AppError(ErrorCode.FORBIDDEN, message)
   }
 
   static notFound(message = 'Not found'): AppError {
-    return new AppError(ErrorCode.NOT_FOUND, message, 404)
+    return new AppError(ErrorCode.NOT_FOUND, message)
   }
 
   static validation(message: string, details?: unknown): AppError {
-    return new AppError(ErrorCode.VALIDATION_ERROR, message, 400, details)
+    return new AppError(ErrorCode.VALIDATION_ERROR, message, undefined, details)
   }
 
   static conflict(message: string, details?: unknown): AppError {
-    return new AppError(ErrorCode.CONFLICT, message, 409, details)
+    return new AppError(ErrorCode.CONFLICT, message, undefined, details)
   }
 
   static internal(message = 'Internal error'): AppError {
-    return new AppError(ErrorCode.INTERNAL_ERROR, message, 500)
+    return new AppError(ErrorCode.INTERNAL_ERROR, message)
   }
 
   static rateLimited(message = 'Too many requests'): AppError {
-    return new AppError(ErrorCode.RATE_LIMITED, message, 429)
+    return new AppError(ErrorCode.RATE_LIMITED, message)
   }
 }
 
@@ -71,7 +81,7 @@ export function toApiErrorBody(
     status: 500,
     body: {
       error: {
-        code: ErrorCode.INTERNAL_ERROR as ErrorCodeName,
+        code: ErrorCode.INTERNAL_ERROR,
         message: 'Internal error',
       },
       requestId,
