@@ -41,6 +41,7 @@
       "name": "@gosilex/example-web",
       "version": "0.0.1",
       "dependencies": {
+        "@gosilex/i18n": "workspace:*",
         "@gosilex/types": "workspace:*",
         "@gosilex/ui": "workspace:*",
         "@tanstack/react-form": "^1.12.0",
@@ -125,6 +126,14 @@
     },
     "packages/email": {
       "name": "@gosilex/email",
+      "version": "0.0.1",
+      "devDependencies": {
+        "typescript": "^5.9.0",
+        "vitest": "^3.2.0",
+      },
+    },
+    "packages/i18n": {
+      "name": "@gosilex/i18n",
       "version": "0.0.1",
       "devDependencies": {
         "typescript": "^5.9.0",
@@ -421,6 +430,8 @@
     "@gosilex/example-api": ["@gosilex/example-api@workspace:apps/example-api"],
 
     "@gosilex/example-web": ["@gosilex/example-web@workspace:apps/example-web"],
+
+    "@gosilex/i18n": ["@gosilex/i18n@workspace:packages/i18n"],
 
     "@gosilex/mcp": ["@gosilex/mcp@workspace:packages/mcp"],
 

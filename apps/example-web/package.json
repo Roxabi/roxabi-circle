@@ -13,6 +13,7 @@
     "test:e2e:design-system": "bun scripts/e2e-design-system.mjs"
   },
   "dependencies": {
+    "@gosilex/i18n": "workspace:*",
     "@gosilex/types": "workspace:*",
     "@gosilex/ui": "workspace:*",
     "@tanstack/react-form": "^1.12.0",
