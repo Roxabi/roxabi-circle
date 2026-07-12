@@ -117,6 +117,11 @@ Packages = platform concerns. Apps = deployables. Product domain only later unde
 # Full local gate (same as Lefthook pre-push) — run before every push
 bun run validate:full
 
+# Static contracts (also inside validate / validate:full)
+bun run env:check          # Zod schema ↔ .dev.vars.example
+bun run i18n:check         # FR/EN messages contract
+bun run license:check      # dependency SPDX allowlist
+
 # Coverage only (HTML → coverage/<pkg>/index.html · thresholds enforced)
 bun run test:coverage
 ```

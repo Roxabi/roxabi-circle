@@ -31,11 +31,17 @@ jobs:
       - name: Typecheck
         run: bun run typecheck
 
+      - name: Env check
+        run: bun run env:check
+
       - name: Test
         run: bun run test
 
       - name: Coverage (thresholds)
         run: bun run test:coverage
+
+      - name: License check
+        run: bun run license:check
 
       - name: Banlist + extract dry-run
         run: |

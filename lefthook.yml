@@ -19,14 +19,10 @@ commit-msg:
 
 # Full suite before code leaves the machine (= validate:full).
 # Intentional cost: local SoT; CI re-runs as guardrail (skip hooks / env drift).
-# validate = lint/typecheck/test/banlist/extract
-# test:coverage = Vitest thresholds (T0 auth/api 80%; ui/web low floors)
+# validate:full = lint/typecheck/test/banlist/extract/env + coverage + license
 pre-push:
   parallel: false
   commands:
-    validate:
+    validate-full:
       skip: false
-      run: bun run validate
-    coverage:
-      skip: false
-      run: bun run test:coverage
+      run: bun run validate:full

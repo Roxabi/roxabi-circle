@@ -21,8 +21,11 @@
     "db:reset": "bun run --filter @gosilex/example-api db:reset",
     "extract-dry-run": "bash scripts/extract-dry-run.sh",
     "banlist": "bash scripts/check-banned-strings.sh",
-    "validate": "bun run lint && bun run typecheck && bun run test && bun run banlist && bun run extract-dry-run",
-    "validate:full": "bun run validate && bun run test:coverage",
+    "env:check": "bun run scripts/check-env-sync.ts",
+    "i18n:check": "bun run --filter @gosilex/example-web test -- src/messages/messages.contract.test.ts",
+    "license:check": "bun run tools/licenseChecker.ts",
+    "validate": "bun run lint && bun run typecheck && bun run test && bun run banlist && bun run extract-dry-run && bun run env:check",
+    "validate:full": "bun run validate && bun run test:coverage && bun run license:check",
     "prepare": "lefthook install || true"
   },
   "devDependencies": {

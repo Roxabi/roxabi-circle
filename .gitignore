@@ -7,6 +7,9 @@ Thumbs.db
 .grok/
 *.bak
 
+# Code search index (ccc / cocoindex-code) — machine-local sqlite index
+/.cocoindex_code/
+
 # Env / secrets
 .env
 .env.*
@@ -33,6 +36,7 @@ dist/
 !.env.example
 !.dev.vars.example
 coverage/
+reports/
 *.tsbuildinfo
 .DS_Store
 apps/example-web/dist/

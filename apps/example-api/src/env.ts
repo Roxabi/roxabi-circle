@@ -1,14 +1,19 @@
-export type Env = {
+import type { WorkerStringEnv } from './env.schema'
+
+/**
+ * Cloudflare Worker bindings + string env.
+ * String keys SSoT: `./env.schema.ts` (Zod). Do not add string keys here only.
+ */
+export type Env = WorkerStringEnv & {
   DB: D1Database
   BUCKET: R2Bucket
-  /** Required outside development (min 32 chars). */
-  SESSION_SECRET?: string
-  /** development | test | production — defaults to development for local wrangler. */
-  ENVIRONMENT?: string
-  /** Comma-separated allowlist. Default: localhost Vite origins. */
-  CORS_ORIGINS?: string
-  DEMO_USER_EMAIL?: string
-  /** SMTP host for demo email (Mailpit: localhost) */
-  SMTP_HOST?: string
-  SMTP_PORT?: string
 }
+
+export {
+  parseWorkerStringEnv,
+  WORKER_BINDINGS,
+  WORKER_STRING_ENV_KEYS,
+  type WorkerBindingName,
+  type WorkerStringEnv,
+  workerStringEnvSchema,
+} from './env.schema'

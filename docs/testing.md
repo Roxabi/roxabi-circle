@@ -26,8 +26,7 @@ CI minutes and red loops on GitHub are costly (Free private, agents, merge-on-gr
 ```text
 Developer / agent workstation
   pre-commit  → Biome (staged)           # fast
-  pre-push    → bun run validate
-              → bun run test:coverage    # full local SoT
+  pre-push    → bun run validate:full    # full local SoT
          ↓
   push only when green locally
          ↓
@@ -38,7 +37,7 @@ merge-on-green (label reviewed + checks)
 
 | Layer | Role | Cost expectation |
 |---|---|---|
-| **Lefthook pre-push** | **Primary quality gate** — lint, typecheck, test, banlist, extract, coverage thresholds | Accept wall-clock; fix here |
+| **Lefthook pre-push** | **Primary quality gate** — `validate:full` | Accept wall-clock; fix here |
 | **CI** (`lint-typecheck-test`) | **Secondary** — same suite if someone skipped hooks or local env lied | Should almost always be green if pre-push ran |
 | **Secret scan** | Orthogonal security | Always |
 
@@ -47,9 +46,12 @@ merge-on-green (label reviewed + checks)
 ```bash
 bunx lefthook install          # once per clone
 
-bun run validate               # lint · typecheck · test · banlist · extract-dry-run
+bun run validate               # lint · typecheck · test · banlist · extract · env:check
+bun run env:check              # schema ↔ .dev.vars.example (DX only)
+bun run i18n:check             # messages contract (also in turbo test)
+bun run license:check          # dependency SPDX allowlist (UNKNOWN = warn)
 bun run test:coverage          # floors + HTML under coverage/<pkg>/
-bun run validate:full          # validate + test:coverage  (= pre-push content)
+bun run validate:full          # validate + coverage + license  (= pre-push)
 
 # Before opening a PR (explicit habit even if hooks installed):
 bun run validate:full
@@ -90,7 +92,7 @@ Floors are enforced by Vitest (`packages/config/vitest-coverage.mjs` + per-packa
 | **`packages/*`** | Public API of the capability (crypto, AppError, `joinObjectKey`, UI primitive contracts, MCP allowlist) | Share product scenarios (artefact, slug 409, private_key product mode) |
 | **`apps/example-*`** | Composition: Hono + D1/R2, dual auth wire, demo IDOR, CORS, cookies, design-system smoke | Re-implement package crypto N times |
 | **`apps/share-*` (P1 later)** | Product risks (upload modes, zip-slip, org membership, serve) | Forks of `@gosilex/*` stacks |
-| **`scripts/*`** | Architecture gates: banlist, extract-dry-run, coverage orchestrator | Domain behaviour |
+| **`scripts/*` / `tools/*`** | Architecture gates: banlist, extract, env:check, license:check, coverage | Domain behaviour |
 
 ### Design-system e2e
 
@@ -139,7 +141,20 @@ Machine-enforced today via full `validate` + `test:coverage` + package tests. Pr
 | **CP-MCP** | tool allowlist; no share-domain tools in kit | `packages/mcp`, mcp-example |
 | **CP-BAN** | no product-share strings in packages / examples | `scripts/check-banned-strings.sh` |
 | **CP-EXTRACT** | drop share apps → examples + packages still green; packages used | `scripts/extract-dry-run.sh` |
+| **CP-ENV** | Worker string env keys documented in `.dev.vars.example` (SSoT Zod schema); no real secrets in examples | `bun run env:check` — **DX only**, not “prod secrets validated” |
+| **CP-LICENSE** | third-party deps on allowlist; disallowed SPDX fails | `bun run license:check` — **compliance hygiene**, not malware audit |
+| **CP-I18N** | FR/EN non-empty copy; key parity via TypeScript `Messages` | `messages.contract.test.ts` / `i18n:check` — **not** semantic/security review |
 | **CP-UI-CONTRACT** | known Base UI traps (e.g. MenuGroupContext, closed dialog) | `packages/ui` (+ design-system smoke) |
+
+### Env / i18n / license — non-claims
+
+| Gate | Proves | Does **not** prove |
+|---|---|---|
+| `env:check` | Schema ↔ example file inventory | Runtime secret strength, CF dashboard secrets, deploy config |
+| `i18n:check` / messages contract | Non-empty strings, no raw script tags in catalogs | Correct translation meaning, XSS if you render HTML unsafely |
+| `license:check` | SPDX allowlist vs installed tree | Package safety, correct license metadata, supply-chain integrity |
+
+Worker env SSoT: `apps/example-api/src/env.schema.ts`. Bindings `DB` / `BUCKET` stay out of `.dev.vars`.
 
 ### Gaps known (honest backlog — force tests when code lands)
 
@@ -193,7 +208,7 @@ Avoid pure “mock every repo” theatre unless a bug proves the need.
         ├──────────────────────┤
         │  package units       │  auth, core, storage, types, mcp, ui contracts
         ├──────────────────────┤
-        │  architecture scripts│  banlist · extract-dry-run   ← tier-0
+        │  architecture scripts│  banlist · extract · env:check · license (full)
         └──────────────────────┘
 ```
 

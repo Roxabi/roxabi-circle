@@ -608,8 +608,9 @@ Règles dures pour tout agent (humain qui drive l’IA) :
 ```text
 pre-commit (Lefthook) → Biome format/lint (staged)
          ↓
-pre-push (Lefthook)   → bun run validate + bun run test:coverage
-                        (= validate:full : lint · typecheck · test · banlist · extract · floors)
+pre-push (Lefthook)   → bun run validate:full
+                        (lint · typecheck · test · banlist · extract · env:check
+                         · coverage floors · license:check)
          ↓
 PR CI                 → même suite (garde-fou) · secret scan
          ↓

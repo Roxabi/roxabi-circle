@@ -81,6 +81,7 @@ See [`docs/testing.md`](../docs/testing.md) (local-first gates, CP-\* paths, own
 - [ ] CP-R2 / storage paths
 - [ ] CP-FE-CRED (api client credentials / 401)
 - [ ] CP-MCP / CP-BAN / CP-EXTRACT
+- [ ] CP-ENV / CP-LICENSE / CP-I18N
 - [ ] CP-UI-CONTRACT
 - [ ] None of the above
 
