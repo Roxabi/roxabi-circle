@@ -1,0 +1,25 @@
+{
+  "name": "@gosilex/mcp-example",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun run src/index.ts",
+    "start": "bun run src/index.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "smoke:stdio": "bun run scripts/stdio-smoke.mjs",
+    "build": "echo ok"
+  },
+  "dependencies": {
+    "@gosilex/mcp": "workspace:*",
+    "fastmcp": "^3.1.0",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.2.0",
+    "@types/node": "^22.15.0",
+    "typescript": "^5.9.0",
+    "vitest": "^3.2.0"
+  }
+}

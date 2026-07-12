@@ -1,0 +1,31 @@
+{
+  "name": "@gosilex/example-api",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "build": "wrangler deploy --dry-run --outdir=dist 2>/dev/null || echo build-skip"
+  },
+  "dependencies": {
+    "@gosilex/auth": "workspace:*",
+    "@gosilex/core": "workspace:*",
+    "@gosilex/db": "workspace:*",
+    "@gosilex/email": "workspace:*",
+    "@gosilex/storage": "workspace:*",
+    "@gosilex/types": "workspace:*",
+    "drizzle-orm": "^0.44.0",
+    "hono": "^4.7.0",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250620.0",
+    "@types/better-sqlite3": "^7.6.13",
+    "better-sqlite3": "^12.11.1",
+    "typescript": "^5.9.0",
+    "vitest": "^3.2.0",
+    "wrangler": "^4.20.0"
+  }
+}

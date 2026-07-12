@@ -1,0 +1,10 @@
+pre-commit:
+  commands:
+    biome:
+      run: bunx biome check --write --staged --no-errors-on-unmatched --files-ignore-unknown=true
+      stage_fixed: true
+
+commit-msg:
+  commands:
+    commitlint:
+      run: bunx commitlint --edit {1}

@@ -1,0 +1,17 @@
+name = "example-api"
+main = "src/index.ts"
+compatibility_date = "2026-07-01"
+compatibility_flags = ["nodejs_compat"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "example-api-local"
+database_id = "local-example-api"
+migrations_dir = "migrations"
+
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "example-api-local"
+
+[vars]
+DEMO_USER_EMAIL = "demo@gosilex.local"

@@ -1,0 +1,5 @@
+# Copy to .dev.vars (gitignored). Placeholders only — never commit real secrets.
+SESSION_SECRET=dev-session-secret-change-me-32chars!!
+DEMO_USER_EMAIL=demo@gosilex.local
+SMTP_HOST=127.0.0.1
+SMTP_PORT=1025

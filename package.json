@@ -1,0 +1,27 @@
+{
+  "name": "gosilex-chemin-a",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "packageManager": "bun@1.3.14",
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "typecheck": "turbo typecheck",
+    "test": "turbo test",
+    "extract-dry-run": "bash scripts/extract-dry-run.sh",
+    "banlist": "bash scripts/check-banned-strings.sh"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.0.0",
+    "@commitlint/cli": "^19.8.0",
+    "@commitlint/config-conventional": "^19.8.0",
+    "lefthook": "^1.11.0",
+    "turbo": "^2.5.0",
+    "typescript": "^5.9.0"
+  }
+}

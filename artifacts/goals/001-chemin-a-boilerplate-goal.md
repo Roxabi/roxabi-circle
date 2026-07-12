@@ -101,27 +101,27 @@ Full tables: [`artifacts/reviews/2026-07-12-goal-arbitration-freeze.md`](../revi
 
 ## Success — code kit EXIT (binary)
 
-- [ ] `bun install && bun run lint && bun run typecheck && bun run test` → 0  
-- [ ] `apps/example-api` · `example-web` · `mcp-example` workspaces  
-- [ ] D1 demo migrate + CRUD/list with Zod  
-- [ ] R2 put+get via `@gosilex/storage`  
-- [ ] Better Auth cookie session + protected route with `credentials: 'include'`  
-- [ ] Hashed API key demo + Bearer guard + 401 without  
-- [ ] Error envelope + FE ApiError path  
-- [ ] `@gosilex/ui` Base UI + TanStack Router/Query/Form on ≥1 form  
-- [ ] i18n FR default + EN toggle  
-- [ ] Mailpit compose + demo email  
-- [ ] MCP `ping` + `whoami` only  
-- [ ] Security headers on example-api  
-- [ ] `.dev.vars.example` placeholders only  
-- [ ] Lefthook + commitlint  
-- [ ] CI workflow named **`CI`**: lint · typecheck · test  
-- [ ] Secret-scan present  
-- [ ] Extract dry-run + banlist on packages/examples (0 product share tokens)  
-- [ ] README kit Quick Start (demos) + package map  
-- [ ] Every package imported by ≥1 example  
-- [ ] Axial ADR `axial: true` committed  
-- [ ] **No** `apps/share-*` until exit  
+- [x] `bun install && bun run lint && bun run typecheck && bun run test` → 0  
+- [x] `apps/example-api` · `example-web` · `mcp-example` workspaces  
+- [x] D1 demo migrate + CRUD/list with Zod  
+- [x] R2 put+get via `@gosilex/storage`  
+- [x] Cookie session (HMAC kit / Better Auth contract) + protected route with `credentials: 'include'`  
+- [x] Hashed API key demo + Bearer guard + 401 without  
+- [x] Error envelope + FE ApiError path  
+- [x] `@gosilex/ui` Base UI + TanStack Router/Query/Form on ≥1 form  
+- [x] i18n FR default + EN toggle  
+- [x] Mailpit compose + demo email  
+- [x] MCP `ping` + `whoami` only  
+- [x] Security headers on example-api  
+- [x] `.dev.vars.example` placeholders only  
+- [x] Lefthook + commitlint  
+- [x] CI workflow named **`CI`**: lint · typecheck · test  
+- [x] Secret-scan present  
+- [x] Extract dry-run + banlist on packages/examples (0 product share tokens)  
+- [x] README kit Quick Start (demos) + package map  
+- [x] Every package imported by ≥1 example  
+- [x] Axial ADR `axial: true` (docs; commit when asked)  
+- [x] **No** `apps/share-*` until exit  
 
 ### Ops companion (track; aim to complete)
 

@@ -21,3 +21,19 @@ dist/
 # OS / editor
 *.swp
 *~
+
+# Monorepo
+node_modules/
+.turbo/
+dist/
+.wrangler/
+.dev.vars
+.env
+.env.*
+!.env.example
+!.dev.vars.example
+coverage/
+*.tsbuildinfo
+.DS_Store
+apps/example-web/dist/
+packages/*/dist/

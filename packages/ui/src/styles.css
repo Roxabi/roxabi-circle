@@ -1,0 +1,4 @@
+/* Minimal tokens for consumers without a full design system. */
+:root {
+  --gosilex-radius: 0.5rem;
+}
