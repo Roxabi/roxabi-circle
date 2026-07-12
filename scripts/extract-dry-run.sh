@@ -113,31 +113,61 @@ echo "== extract-dry-run: no orphan workspace packages (optional hard-fail) =="
 # EXTRACT_ORPHAN_FAIL=1 enables hard-fail (default on).
 ORPHAN_FAIL="${EXTRACT_ORPHAN_FAIL:-1}"
 orphan=0
-for pkg_json in packages/*/package.json; do
-  name="$(node -e "console.log(require('./$pkg_json').name||'')")"
-  dir="$(dirname "$pkg_json")"
-  base="$(basename "$dir")"
-  if [[ "$base" == "config" || -z "$name" ]]; then
-    continue
-  fi
-  # Count references outside this package directory.
-  # Note: rg exits 1 when no matches — must not trip `set -o pipefail`.
-  hits=0
-  if command -v rg >/dev/null 2>&1; then
-    hits="$(
-      { rg -F -l --glob '!**/node_modules/**' --glob '!**/.git/**' --glob "!${dir}/**" "$name" apps packages || true; } 2>/dev/null | wc -l | tr -d ' '
-    )"
-  else
-    hits="$(
-      { grep -RIl --exclude-dir=node_modules --exclude-dir=.git -F "$name" apps packages || true; } 2>/dev/null | grep -v "^${dir}/" | wc -l | tr -d ' '
-    )"
-  fi
-  hits="${hits:-0}"
-  if [[ "$hits" -eq 0 ]]; then
-    echo "ORPHAN package (no importers outside itself): $name ($dir)" >&2
-    orphan=1
-  fi
-done
+# Use a small Node helper so we avoid set -o pipefail + rg exit-1 traps.
+orphan_report="$(
+  node --input-type=module <<'NODE'
+import { readdirSync, readFileSync, existsSync } from 'node:fs'
+import { join } from 'node:path'
+
+const skip = new Set(['config'])
+const roots = ['apps', 'packages']
+function walk(dir, acc = []) {
+  if (!existsSync(dir)) return acc
+  for (const ent of readdirSync(dir, { withFileTypes: true })) {
+    if (ent.name === 'node_modules' || ent.name === '.git' || ent.name === 'dist' || ent.name === 'coverage') continue
+    const p = join(dir, ent.name)
+    if (ent.isDirectory()) walk(p, acc)
+    else if (/\.(ts|tsx|js|mjs|cjs|json|md)$/.test(ent.name)) acc.push(p)
+  }
+  return acc
+}
+
+const files = roots.flatMap((r) => walk(r))
+const orphans = []
+for (const pkgDir of readdirSync('packages', { withFileTypes: true })) {
+  if (!pkgDir.isDirectory() || skip.has(pkgDir.name)) continue
+  const pkgJsonPath = join('packages', pkgDir.name, 'package.json')
+  if (!existsSync(pkgJsonPath)) continue
+  const name = JSON.parse(readFileSync(pkgJsonPath, 'utf8')).name
+  if (!name) continue
+  const selfPrefix = join('packages', pkgDir.name) + '/'
+  const hit = files.some((f) => {
+    if (f.startsWith(selfPrefix)) return false
+    try {
+      return readFileSync(f, 'utf8').includes(name)
+    } catch {
+      return false
+    }
+  })
+  if (!hit) orphans.push(`${name} (packages/${pkgDir.name})`)
+}
+if (orphans.length) {
+  for (const o of orphans) console.log(`ORPHAN package (no importers outside itself): ${o}`)
+  process.exit(2)
+}
+process.exit(0)
+NODE
+)" || orphan_ec=$?
+orphan_ec="${orphan_ec:-0}"
+if [[ -n "$orphan_report" ]]; then
+  echo "$orphan_report" >&2
+fi
+if [[ "$orphan_ec" -eq 2 ]]; then
+  orphan=1
+elif [[ "$orphan_ec" -ne 0 ]]; then
+  echo "extract-dry-run: orphan check helper failed (exit $orphan_ec)" >&2
+  exit 1
+fi
 if [[ "$orphan" -eq 1 && "$ORPHAN_FAIL" == "1" ]]; then
   echo "extract-dry-run: orphan packages failed (set EXTRACT_ORPHAN_FAIL=0 to warn only)" >&2
   exit 1
