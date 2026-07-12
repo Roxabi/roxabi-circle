@@ -467,7 +467,8 @@ Règles : guard first · Zod double frontière · pas de god file · packages �
 - [x] **Secret scan CI** — `.github/workflows/secret-scan.yml` (TruffleHog `--only-verified`)  
 - [x] **Merge-on-green** — `.github/workflows/merge-on-green.yml` (label `reviewed` + checks green)  
 - [x] Label **`reviewed`** créé sur le repo  
-- [ ] **`secrets.PAT`** org/repo (classic PAT `repo`+`workflow`) — requis pour le merge step  
+- [x] Merge token = **GitHub App `gosilex-ci`** (pas de PAT) — setup : [`docs/gosilex-ci-app-setup.md`](docs/gosilex-ci-app-setup.md)  
+- [ ] Créer/installer App + set `GOSILEX_CI_APP_ID` / `GOSILEX_CI_APP_PRIVATE_KEY` (org)  
 - [ ] Branch protection / rulesets — **bloqué plan Free privé** (voir § GitHub Free)  
 - [ ] Bun workspaces + Turbo  
 - [ ] Biome + CI app (lint/typecheck/test/build) — quand CI/CD GOSILEX  
@@ -485,12 +486,21 @@ Règles : guard first · Zod double frontière · pas de god file · packages �
 | Branch protection API / rulesets | **403** — Team/Pro requis | Impossible aujourd’hui ; upgrade org **ou** process discipliné |
 | Native auto-merge (`allow_auto_merge`) | indisponible / no-op | **merge-on-green** workflow |
 | Required status checks | via branch protection only | Gate **dans** merge-on-green (lit check runs) |
-| Merge token | GITHUB_TOKEN ne merge pas les PRs `.github/workflows/*` | **`secrets.PAT`** classic (`repo` + `workflow`) |
+| Merge token | GITHUB_TOKEN ne merge pas les PRs `.github/workflows/*` | **GitHub App `gosilex-ci`** (comme `roxabi-ci`) — **pas de PAT** |
 
-**Flux merge (aligné Roxabi Free private / bouly-site) :**
+**Credentials (org `go-silex`, visibility all / private repos) :**
+
+| Kind | Name |
+|---|---|
+| Variable | `GOSILEX_CI_APP_ID` |
+| Secret | `GOSILEX_CI_APP_PRIVATE_KEY` |
+
+Runbook : [`docs/gosilex-ci-app-setup.md`](docs/gosilex-ci-app-setup.md).
+
+**Flux merge (aligné Roxabi Free private / bouly-site, App token) :**
 
 ```text
-PR → Secret scan green → label `reviewed` → Merge on Green → merge commit
+PR → Secret scan green → label `reviewed` → Merge on Green (gosilex-ci) → merge commit
 ```
 
 Quand la CI app existera : l’ajouter dans `workflow_run.workflows` de `merge-on-green.yml` **et** dans les required checks (si un jour Team).

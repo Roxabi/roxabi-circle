@@ -30,15 +30,14 @@ Frame decisions locked 2026-07-11. Implementation not started.
 | [`.github/workflows/secret-scan.yml`](.github/workflows/secret-scan.yml) | TruffleHog sur push/PR (`main` / `staging`) |
 | [`.github/workflows/merge-on-green.yml`](.github/workflows/merge-on-green.yml) | Merge si label **`reviewed`** + checks green (plan Free) |
 
-**Org `go-silex` = Free private :** branch protection native **indisponible**. Équivalent = merge-on-green (pattern Roxabi/bouly-site).
+**Org `go-silex` = Free private :** branch protection native **indisponible**. Équivalent = merge-on-green + **GitHub App `gosilex-ci`** (comme `roxabi-ci` — **pas de PAT**).
 
-Setup one-shot :
+Setup App (one-shot) : [`docs/gosilex-ci-app-setup.md`](docs/gosilex-ci-app-setup.md)
 
 ```bash
-# PAT classic scopes: repo, workflow  (ne pas committer le token)
-gh secret set PAT -R go-silex/silex-share
-# ou org: gh secret set PAT --org go-silex --visibility private
+gh variable set GOSILEX_CI_APP_ID --org go-silex --body '<APP_ID>' --visibility all
+gh secret set GOSILEX_CI_APP_PRIVATE_KEY --org go-silex --visibility all < gosilex-ci.pem
 ```
 
-Flux PR : feature → `staging` · label `reviewed` · Secret scan ✅ · auto-merge.  
+Flux PR : feature → `staging` · label `reviewed` · Secret scan ✅ · merge via App.  
 CI app complète : plus tard (setup CI/CD GOSILEX).

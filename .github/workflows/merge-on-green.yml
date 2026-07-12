@@ -1,7 +1,7 @@
 # Merge-on-green — Free private org (go-silex) cannot use native
 # `gh pr merge --auto` + branch protection (Team/Pro only).
 #
-# Ported from bouly-site / roxabi-1page (Roxabi pattern).
+# Pattern: Roxabi `roxabi-ci` App (bouly-site / forge) — **no PAT**.
 #
 # Merges when ALL hold:
 #   1. label `reviewed` (human sign-off)
@@ -12,9 +12,10 @@
 #
 # SPLIT-TOKEN:
 #   - Gate: GITHUB_TOKEN (checks:read)
-#   - Merge: secrets.PAT (classic PAT, scopes repo + workflow)
-#     → set on go-silex/silex-share or org go-silex
-#     → without PAT, workflow fails the merge step with a clear error
+#   - Merge: GitHub App **gosilex-ci** → ephemeral token
+#       vars.GOSILEX_CI_APP_ID
+#       secrets.GOSILEX_CI_APP_PRIVATE_KEY
+#     Setup: docs/gosilex-ci-app-setup.md
 #
 # Gating workflows today: Secret scan only (full CI later — AGENTS.md).
 # When adding CI / PR Title, append names to workflow_run.workflows below.
@@ -51,6 +52,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      # gosilex-ci App token (ephemeral, ~1 h) — same role as roxabi-ci on Roxabi org.
+      # Merges workflow-file PRs + re-triggers push workflows (GITHUB_TOKEN cannot).
+      - name: Mint app token (gosilex-ci)
+        id: app
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ vars.GOSILEX_CI_APP_ID }}
+          private-key: ${{ secrets.GOSILEX_CI_APP_PRIVATE_KEY }}
+
       - name: Evaluate green PRs
         id: evaluate
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
@@ -138,27 +148,13 @@ jobs:
             core.setOutput('to_merge', JSON.stringify(toMerge));
             if (toMerge.length === 0) core.info('No PRs ready to merge.');
 
-      - name: Require PAT for merge
-        if: steps.evaluate.outputs.to_merge != '' && steps.evaluate.outputs.to_merge != '[]'
-        env:
-          PAT: ${{ secrets.PAT }}
-        run: |
-          if [ -z "$PAT" ]; then
-            echo "::error::secrets.PAT is not set on this repo/org."
-            echo "Create a classic PAT (scopes: repo, workflow) and:"
-            echo "  gh secret set PAT -R go-silex/silex-share"
-            echo "Or org-level: gh secret set PAT --org go-silex --visibility private"
-            echo "Without PAT, Free private repos cannot merge workflow PRs reliably with GITHUB_TOKEN."
-            exit 1
-          fi
-
       - name: Merge green PRs
         if: steps.evaluate.outputs.to_merge != '' && steps.evaluate.outputs.to_merge != '[]'
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           TO_MERGE: ${{ steps.evaluate.outputs.to_merge }}
         with:
-          github-token: ${{ secrets.PAT }}
+          github-token: ${{ steps.app.outputs.token }}
           script: |
             const toMerge = JSON.parse(process.env.TO_MERGE || '[]');
             for (const number of toMerge) {
@@ -168,7 +164,7 @@ jobs:
                   owner: context.repo.owner, repo: context.repo.repo, pull_number: number,
                   merge_method: 'merge',
                 });
-                core.notice(`${tag}: merged (merge commit) — reviewed + checks green.`);
+                core.notice(`${tag}: merged (merge commit) — reviewed + checks green (gosilex-ci).`);
               } catch (e) {
                 core.warning(`${tag}: merge failed: ${e.message}`);
               }
