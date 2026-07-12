@@ -102,10 +102,12 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     const meBody = (await me.json()) as {
       subject: string
       authMethod: string
+      role: string
       requestId: string
     }
     expect(meBody.subject).toBe('user_demo')
     expect(meBody.authMethod).toBe('session')
+    expect(meBody.role).toBe('admin')
     expect(meBody.requestId).toMatch(/^req_/)
   })
 

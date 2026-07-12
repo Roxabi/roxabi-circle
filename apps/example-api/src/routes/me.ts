@@ -9,9 +9,11 @@ export const meRoutes = new Hono<AppEnv>()
 
 meRoutes.get('/api/me', async (c) => {
   await requireAuth(c)
+  const subject = c.get('subject')!
   return c.json({
-    subject: c.get('subject'),
+    subject,
     authMethod: c.get('authMethod'),
+    role: authService.roleForSubject(subject),
     requestId: c.get('requestId'),
   })
 })

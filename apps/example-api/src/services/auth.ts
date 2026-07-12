@@ -2,7 +2,6 @@ import {
   clearSessionCookieHeader,
   generateApiKey,
   hashApiKey,
-  hashPassword,
   parseBearer,
   parseCookie,
   SESSION_COOKIE,
@@ -12,45 +11,32 @@ import {
   verifyPassword,
   verifySession,
 } from '@gosilex/auth'
+
+// re-export crypto helpers used by tests
+export { hashApiKey, verifyApiKey }
+
 import { AppError } from '@gosilex/core'
 import type { DrizzleD1Database } from 'drizzle-orm/d1'
 import type { schema } from '../db/schema'
 import * as keysRepo from '../repos/keys'
+import {
+  DEMO_EMAIL,
+  DEMO_EMAIL_B,
+  DEMO_PASSWORD,
+  DEMO_PASSWORD_B,
+  type KitRole,
+  roleForSubject,
+} from '../seed/demo-data'
+import { ensureDemoUsers } from '../seed/seed-db'
 
 type Db = DrizzleD1Database<typeof schema>
 
-const DEMO_PASSWORD = 'demo-password-change-me'
-const DEMO_EMAIL = 'demo@gosilex.local'
-/** Second demo principal for multi-tenant / IDOR tests. */
-const DEMO_EMAIL_B = 'demo-b@gosilex.local'
-const DEMO_PASSWORD_B = 'demo-password-b-change-me'
+export type { KitRole }
+export { roleForSubject }
 
+/** @deprecated prefer ensureDemoUsers from seed — kept name for call sites */
 export async function ensureDemoUser(db: Db) {
-  const { demoUsers } = await import('../db/schema')
-  const existing = await db.select().from(demoUsers).all()
-  const ids = new Set(existing.map((u) => u.id))
-  if (!ids.has('user_demo')) {
-    await db
-      .insert(demoUsers)
-      .values({
-        id: 'user_demo',
-        email: DEMO_EMAIL,
-        passwordHash: await hashPassword(DEMO_PASSWORD),
-        createdAt: Date.now(),
-      })
-      .run()
-  }
-  if (!ids.has('user_b')) {
-    await db
-      .insert(demoUsers)
-      .values({
-        id: 'user_b',
-        email: DEMO_EMAIL_B,
-        passwordHash: await hashPassword(DEMO_PASSWORD_B),
-        createdAt: Date.now(),
-      })
-      .run()
-  }
+  await ensureDemoUsers(db)
 }
 
 export async function loginWithPassword(
@@ -60,7 +46,7 @@ export async function loginWithPassword(
   password: string,
   opts?: { secureCookie?: boolean },
 ): Promise<{ cookie: string; subject: string }> {
-  await ensureDemoUser(db)
+  await ensureDemoUsers(db)
   const { demoUsers } = await import('../db/schema')
   const { eq } = await import('drizzle-orm')
   const rows = await db.select().from(demoUsers).where(eq(demoUsers.email, email)).all()
@@ -122,4 +108,4 @@ export async function resolveAuth(
   return null
 }
 
-export { DEMO_EMAIL, DEMO_EMAIL_B, DEMO_PASSWORD, DEMO_PASSWORD_B, hashApiKey, verifyApiKey }
+export { DEMO_EMAIL, DEMO_EMAIL_B, DEMO_PASSWORD, DEMO_PASSWORD_B }

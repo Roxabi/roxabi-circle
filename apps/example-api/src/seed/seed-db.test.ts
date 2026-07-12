@@ -1,0 +1,37 @@
+import { createDb } from '@gosilex/db'
+import { describe, expect, it } from 'vitest'
+import { schema } from '../db/schema'
+import { createMemoryEnv } from '../test/memory-env'
+import { SEED_NOTES, SEED_USERS } from './demo-data'
+import { seedDemoDatabase } from './seed-db'
+
+describe('seedDemoDatabase', () => {
+  it('inserts users and notes once (idempotent)', async () => {
+    const env = createMemoryEnv()
+    const db = createDb(env.DB, schema)
+
+    const first = await seedDemoDatabase(db, { now: 1_000 })
+    expect(first.reset).toBe(false)
+    expect(first.users.every((u) => u.created)).toBe(true)
+    expect(first.users).toHaveLength(SEED_USERS.length)
+    expect(first.notes.every((n) => n.created)).toBe(true)
+    expect(first.notes).toHaveLength(SEED_NOTES.length)
+
+    const second = await seedDemoDatabase(db, { now: 2_000 })
+    expect(second.users.every((u) => !u.created)).toBe(true)
+    expect(second.notes.every((n) => !n.created)).toBe(true)
+  })
+
+  it('reset clears and re-seeds', async () => {
+    const env = createMemoryEnv()
+    const db = createDb(env.DB, schema)
+
+    await seedDemoDatabase(db, { now: 1_000 })
+    const afterReset = await seedDemoDatabase(db, { reset: true, now: 9_000 })
+    expect(afterReset.reset).toBe(true)
+    expect(afterReset.users.every((u) => u.created)).toBe(true)
+    expect(afterReset.notes.every((n) => n.created)).toBe(true)
+    expect(afterReset.users).toHaveLength(SEED_USERS.length)
+    expect(afterReset.notes).toHaveLength(SEED_NOTES.length)
+  })
+})
