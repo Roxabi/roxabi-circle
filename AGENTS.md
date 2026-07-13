@@ -1,47 +1,44 @@
-# silex-share — agent context
+# silex-boilerplate — agent context
 
-Team artifact host for **GOSILEX** · org [`go-silex`](https://github.com/go-silex) · `https://share.gosilex.com/{slug}`
+**GOSILEX Chemin A** kit SSoT · org [`go-silex`](https://github.com/go-silex) · Full Cloudflare (Workers · D1 · R2 · Hono · TanStack)
 
 | | |
 |---|---|
-| **Repo** | `go-silex/silex-share` (private) · local `~/projects/gosilex/silex-share/` |
-| **Frame (SSoT product)** | [`artifacts/frames/001-share-platform-frame.md`](artifacts/frames/001-share-platform-frame.md) — decisions locked **2026-07-11** |
-| **Status** | Frame approved · implementation not started |
-| **CF account** | Gosilex (`Tool@gosilex.com` / hub `scripts/load-cf-env.sh`) |
-| **Shortlinks** | `s.gosilex.com` via Shlink (`vps-services/services/shlink`) — best-effort |
+| **Repo** | `go-silex/silex-boilerplate` (private) · local `~/projects/gosilex/silex-boilerplate/` |
+| **Product consumers** | e.g. [`go-silex/silex-share`](https://github.com/go-silex/silex-share) (`upstream` → this repo) |
+| **Status** | Kit live **2026-07-13** (split from silex-share) · product apps pull via `git fetch upstream` |
+| **CF account** | Gosilex (`Tool@gosilex.com` / hub `scripts/load-cf-env.sh`) when deploying examples |
 | **Stack SSoT** | section ci-dessous (figée **2026-07-12**, amendée cookies/i18n/errors/MCP/obs) |
 
 ---
 
-## Dual mission — **priorité inversée (2026-07-12)**
+## Mission — kit only (2026-07-13)
 
-Décision produit/ops : **boilerplate Chemin A d’abord**, fonctionnalités métier silex-share **ensuite**.
+Ce repo est le **boilerplate Chemin A** : monorepo extractible, conventions + CI + auth + UI kit + MCP kit + libs SaaS classiques — **template GOSILEX**.
 
 | Priorité | Livrable | Intention |
 |---|---|---|
-| **P0 — maintenant** | **Boilerplate Chemin A** | Starter **Full Cloudflare** haute qualité, monorepo extractible, conventions + CI + auth + UI kit + MCP kit + libs SaaS classiques — **template GOSILEX** |
-| **P1 — après** | **Produit share** | Artefacts team (`share.gosilex.com`) comme **première app métier** qui *consomme* le kit, pas l’inverse |
+| **P0** | **Kit Chemin A** | `packages/*` + `apps/example-*` verts · 0 string métier produit |
+| **Hors scope** | Apps métier (`apps/share-*`, etc.) | Vivent dans les repos product (fork logique) |
 
-Jugement de chaque décision :
+**JTBD :**  
+> *En partant de ce monorepo, un dev GOSILEX clone le kit CF, a `example-api` + `example-web` + `mcp-example` verts (lint/typecheck/test), auth demo, UI shadcn, erreurs centralisées, i18n FR/EN, email catcher local — sans aucune string métier « artefact/share ».*
 
-1. **Extractabilité / qualité kit** (packages génériques, examples verts sans métier share)  
-2. Correctness produit share **quand** on implémente `apps/share-*`  
+### Downstream product apps
 
-**JTBD prioritaire :**  
-> *En partant de ce monorepo, un dev GOSILEX clone/extrait un kit CF, a `example-api` + `example-web` + `mcp-example` verts (lint/typecheck/test), auth demo, UI shadcn, erreurs centralisées, i18n FR/EN, email catcher local — sans aucune string métier « artefact/share ».*
+| App | Repo | Sync |
+|---|---|---|
+| silex-share | `go-silex/silex-share` · `~/projects/gosilex/silex-share/` | `git remote add upstream git@github.com:go-silex/silex-boilerplate.git` · `fetch` + `merge upstream/main` |
 
-**Anti-pattern (ancien) :** ship M0 share live d’abord et laisser le kit « en side-effect ».  
-**Pattern (nouveau) :** ship kit + examples d’abord ; share = app domain qui s’appuie sur le kit.
+**Règle :** changements kit → **ici** d’abord · les products pullent. Ne pas inventer de features métier dans ce repo.
 
 **Barre qualité = audits** (Spark, Metalyde) : sécu, coverage, god files, couches, CI, linter — **par défaut** tooling+CI.
 
-Contexte : passation + deck `~/projects/gosilex/docs/presentations/` · hub `~/projects/gosilex/AGENTS.md` · ref mono **`~/projects/roxabi-boilerplate`** (Bun+Turbo+Biome+Better Auth+TanStack — runtime Node/Nest ≠ A).
+Contexte : hub `~/projects/gosilex/AGENTS.md` · ref Roxabi **`~/projects/roxabi-boilerplate`** (Bun+Turbo+Biome — runtime Node/Nest ≠ A).
 
-**Frame produit share** (`001-…-frame.md`) reste valide pour **plus tard** — ne pilote **pas** le prochain `/goal` / scaffold.
+**Artifacts historiques share** (frames/goals sous `artifacts/`) : legacy du split · ne pilotent plus le kit ; purger / déplacer vers product quand pratique.
 
-**SPEC-001 share** (`artifacts/specs/001-share-m0-m1-core-spec.md`) : **superseded / deferred** — ne pas `/plan` ni implementer tant que le goal boilerplate n’est pas livré.
-
-**Arbitrages figés pré-goal** : [`artifacts/reviews/2026-07-12-goal-arbitration-freeze.md`](artifacts/reviews/2026-07-12-goal-arbitration-freeze.md) · goal : [`artifacts/goals/001-chemin-a-boilerplate-goal.md`](artifacts/goals/001-chemin-a-boilerplate-goal.md).  
+**Arbitrages figés kit** : [`artifacts/reviews/2026-07-12-goal-arbitration-freeze.md`](artifacts/reviews/2026-07-12-goal-arbitration-freeze.md) · goal : [`artifacts/goals/001-chemin-a-boilerplate-goal.md`](artifacts/goals/001-chemin-a-boilerplate-goal.md).  
 `/goal` ne re-débat pas les defaults A1–A25 / O1–O12 / X1–X6 sans supersede explicite.
 
 ### Chemin A vs B
