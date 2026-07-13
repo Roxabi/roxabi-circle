@@ -93,10 +93,12 @@ export async function sendSmtp(
     }
   }
 
+  // Strip CR/LF from header fields (header injection if caller passes user input).
+  const scrub = (s: string) => s.replace(/[\r\n]/g, ' ')
   const body = [
-    `From: ${input.from}`,
-    `To: ${input.to}`,
-    `Subject: ${input.subject.replace(/[\r\n]/g, ' ')}`,
+    `From: ${scrub(input.from)}`,
+    `To: ${scrub(input.to)}`,
+    `Subject: ${scrub(input.subject)}`,
     `Date: ${new Date().toUTCString()}`,
     `Message-ID: <${crypto.randomUUID()}@gosilex.local>`,
     ``,

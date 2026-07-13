@@ -38,14 +38,21 @@ export function assertNoShareTools(names: string[]): void {
 export const MCP_TOOL_NAMES = ['ping', 'whoami'] as const
 export type McpToolName = (typeof MCP_TOOL_NAMES)[number]
 
+function asSkKey(token: string | null | undefined): string | null {
+  if (!token?.startsWith('sk_')) return null
+  return token
+}
+
 export function extractBearerFromEnv(env: Record<string, string | undefined>): string | null {
   const auth = env.AUTHORIZATION?.trim()
   if (auth) {
     // Accept bare sk_… or full "Bearer sk_…" without double-prefixing.
+    // Only sk_ machine keys — same contract as API_KEY.
     const fromBearer = parseBearer(auth) ?? parseBearer(`Bearer ${auth}`)
-    if (fromBearer) return fromBearer
+    const sk = asSkKey(fromBearer)
+    if (sk) return sk
   }
-  return env.API_KEY?.startsWith('sk_') ? env.API_KEY : null
+  return asSkKey(env.API_KEY)
 }
 
 export async function handlePing(): Promise<{ ok: true }> {

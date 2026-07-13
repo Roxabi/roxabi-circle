@@ -35,7 +35,7 @@ describe('mcp kit', () => {
     expect(await handlePing()).toEqual({ ok: true })
   })
 
-  it('extracts API_KEY from env', () => {
+  it('extracts API_KEY from env only when sk_', () => {
     expect(extractBearerFromEnv({ API_KEY: 'sk_test' })).toBe('sk_test')
     expect(extractBearerFromEnv({ API_KEY: 'not-a-key' })).toBeNull()
   })
@@ -45,6 +45,9 @@ describe('mcp kit', () => {
     expect(extractBearerFromEnv({ AUTHORIZATION: 'Bearer sk_from_env_bearer' })).toBe(
       'sk_from_env_bearer',
     )
+    // Non-sk_ bearer rejected (parity with API_KEY).
+    expect(extractBearerFromEnv({ AUTHORIZATION: 'Bearer other_token' })).toBeNull()
+    expect(extractBearerFromEnv({ AUTHORIZATION: 'not-a-key' })).toBeNull()
   })
 })
 

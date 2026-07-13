@@ -43,6 +43,7 @@ export const en: Messages = {
   me: 'Account',
   sendEmail: 'Send demo email',
   emailSent: 'Demo email sent (see Mailpit :8025)',
+  mailpit: 'Mailpit',
   health: 'API',
   empty: 'No notes yet',
   error: 'Error',
@@ -62,6 +63,7 @@ export const en: Messages = {
   keysList: 'Active keys',
   emptyKeys: 'No active keys',
   revokeKey: 'Revoke',
+  confirmRevoke: 'Revoke this API key? It can no longer be used.',
   bearerTitle: 'Bearer',
   bearerDesc: 'Authorization: Bearer sk_…',
   bearerHelp:

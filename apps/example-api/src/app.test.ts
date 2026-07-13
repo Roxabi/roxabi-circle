@@ -1,3 +1,4 @@
+import { AppError } from '@gosilex/core'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { createApp } from './app'
 import { assertRateLimit, resetRateLimits } from './lib/rate-limit'
@@ -467,10 +468,19 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     expect(body.error.code).toBe('UNAUTHORIZED')
   })
 
-  it('assertRateLimit throws RATE_LIMITED after window exceeded', () => {
+  it('assertRateLimit throws AppError RATE_LIMITED with retryAfterSeconds', () => {
     assertRateLimit('unit:test', 2, 60_000)
     assertRateLimit('unit:test', 2, 60_000)
-    expect(() => assertRateLimit('unit:test', 2, 60_000)).toThrow(/Too many|RATE/i)
+    try {
+      assertRateLimit('unit:test', 2, 60_000)
+      expect.fail('expected rate limit throw')
+    } catch (e) {
+      expect(e).toBeInstanceOf(AppError)
+      const err = e as AppError
+      expect(err.code).toBe('RATE_LIMITED')
+      expect(err.status).toBe(429)
+      expect(err.details).toEqual({ retryAfterSeconds: 60 })
+    }
   })
 
   it('login returns 429 after rate limit exceeded', async () => {
@@ -499,6 +509,48 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     expect(body.error.code).toBe('RATE_LIMITED')
     // Login window is 15 minutes → Retry-After should match window seconds.
     expect(blocked.headers.get('retry-after')).toBe('900')
+  })
+
+  it('mint returns 429 after rate limit exceeded', async () => {
+    const app = createApp()
+    const env = createMemoryEnv()
+    const cookie = await loginAs(app, env, DEMO_EMAIL, DEMO_PASSWORD)
+    const me = await app.request('/api/me', { headers: { cookie } }, env)
+    const subject = ((await me.json()) as { subject: string }).subject
+    const windowMs = 60 * 60 * 1000
+    for (let i = 0; i < 30; i++) {
+      assertRateLimit(`mint:${subject}`, 30, windowMs)
+    }
+    const blocked = await app.request(
+      '/api/keys',
+      { method: 'POST', headers: sessionMutation(cookie), body: '{}' },
+      env,
+    )
+    expect(blocked.status).toBe(429)
+    const body = (await blocked.json()) as { error: { code: string } }
+    expect(body.error.code).toBe('RATE_LIMITED')
+    expect(blocked.headers.get('retry-after')).toBe('3600')
+  })
+
+  it('demo email returns 429 after rate limit exceeded', async () => {
+    const app = createApp()
+    const env = createMemoryEnv()
+    const cookie = await loginAs(app, env, DEMO_EMAIL, DEMO_PASSWORD)
+    const me = await app.request('/api/me', { headers: { cookie } }, env)
+    const subject = ((await me.json()) as { subject: string }).subject
+    const windowMs = 60 * 60 * 1000
+    for (let i = 0; i < 10; i++) {
+      assertRateLimit(`email:${subject}`, 10, windowMs)
+    }
+    const blocked = await app.request(
+      '/api/demo/email',
+      { method: 'POST', headers: sessionMutation(cookie), body: '{}' },
+      env,
+    )
+    expect(blocked.status).toBe(429)
+    const body = (await blocked.json()) as { error: { code: string } }
+    expect(body.error.code).toBe('RATE_LIMITED')
+    expect(blocked.headers.get('retry-after')).toBe('3600')
   })
 
   it('login does not auto-seed demo users in production', async () => {

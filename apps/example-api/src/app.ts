@@ -34,7 +34,8 @@ export function createApp() {
       },
       credentials: true,
       allowHeaders: ['Content-Type', 'Authorization', 'x-request-id'],
-      exposeHeaders: ['x-request-id'],
+      // SPA must be able to read Retry-After on 429 (credentials + expose).
+      exposeHeaders: ['x-request-id', 'Retry-After'],
     }),
   )
   app.use('*', originGuard)

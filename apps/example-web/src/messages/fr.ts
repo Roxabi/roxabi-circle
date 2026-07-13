@@ -41,6 +41,7 @@ export type Messages = {
   me: string
   sendEmail: string
   emailSent: string
+  mailpit: string
   health: string
   empty: string
   error: string
@@ -60,6 +61,7 @@ export type Messages = {
   keysList: string
   emptyKeys: string
   revokeKey: string
+  confirmRevoke: string
   bearerTitle: string
   bearerDesc: string
   bearerHelp: string
@@ -147,6 +149,7 @@ export const fr: Messages = {
   me: 'Compte',
   sendEmail: 'Envoyer e-mail démo',
   emailSent: 'E-mail démo envoyé (voir Mailpit :8025)',
+  mailpit: 'Mailpit',
   health: 'API',
   empty: 'Aucune note pour l’instant',
   error: 'Erreur',
@@ -166,6 +169,7 @@ export const fr: Messages = {
   keysList: 'Clés actives',
   emptyKeys: 'Aucune clé active',
   revokeKey: 'Révoquer',
+  confirmRevoke: 'Révoquer cette clé API ? Elle ne pourra plus être utilisée.',
   bearerTitle: 'Bearer',
   bearerDesc: 'Authorization: Bearer sk_…',
   bearerHelp:

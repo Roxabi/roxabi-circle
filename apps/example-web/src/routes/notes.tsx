@@ -117,7 +117,7 @@ export function NotesPage() {
             <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-destructive/40 py-12 text-center">
               <p className="text-sm font-medium text-destructive">{m.loadFailed}</p>
               <p className="max-w-sm text-xs text-muted-foreground">
-                {notes.error instanceof Error ? notes.error.message : m.error}
+                {apiErrorToMessage(notes.error, m)}
               </p>
               <Button
                 variant="secondary"

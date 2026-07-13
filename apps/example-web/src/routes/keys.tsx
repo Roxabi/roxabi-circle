@@ -135,7 +135,10 @@ export function KeysPage() {
                         variant="ghost"
                         aria-label={m.revokeKey}
                         disabled={revoke.isPending}
-                        onClick={() => revoke.mutate(k.id)}
+                        onClick={() => {
+                          if (!window.confirm(m.confirmRevoke)) return
+                          revoke.mutate(k.id)
+                        }}
                       >
                         <Trash2 className="text-destructive" />
                       </Button>

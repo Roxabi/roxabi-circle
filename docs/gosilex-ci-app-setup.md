@@ -4,6 +4,11 @@ Same role as **roxabi-ci** on the Roxabi org: ephemeral tokens for **merge-on-gr
 
 **No classic PAT.** Prefer this App org-wide for all `go-silex/*` private repos on Free plan.
 
+> **Why this matters:** the `merge-on-green` workflow **always** tries to mint an App token.
+> Until `GOSILEX_CI_APP_ID` + `GOSILEX_CI_APP_PRIVATE_KEY` exist (org vars/secrets), that job
+> stays **red** on every PR — noise only; human merge + CI quality still work. Install the App
+> below when you want label `reviewed` → auto merge-commit.
+
 ## 1. Create the App (UI — one-time)
 
 1. Open (org owner) :  
