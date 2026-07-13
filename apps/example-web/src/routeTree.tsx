@@ -1,5 +1,9 @@
-import { createRootRoute, createRoute, Outlet } from '@tanstack/react-router'
+import type { QueryClient } from '@tanstack/react-query'
+import { createRootRouteWithContext, createRoute, Outlet, redirect } from '@tanstack/react-router'
 import { AdminGate, AuthGate } from './components/app-shell'
+import { RouteErrorComponent } from './components/route-error'
+import { apiFetch } from './lib/api'
+import { isAdmin, isUnauthorized, type MeResponse, meQueryKey } from './lib/auth'
 import { DashboardPage } from './routes/dashboard'
 import { DesignSystemPage } from './routes/design-system'
 import { ForgotPasswordPage } from './routes/forgot-password'
@@ -8,8 +12,20 @@ import { LoginPage } from './routes/login'
 import { NotesPage } from './routes/notes'
 import { SettingsPage } from './routes/settings'
 
-const rootRoute = createRootRoute({
+export type RouterContext = {
+  queryClient: QueryClient
+}
+
+async function ensureMe(queryClient: QueryClient): Promise<MeResponse> {
+  return queryClient.ensureQueryData({
+    queryKey: meQueryKey,
+    queryFn: () => apiFetch<MeResponse>('/api/me'),
+  })
+}
+
+const rootRoute = createRootRouteWithContext<RouterContext>()({
   component: () => <Outlet />,
+  errorComponent: RouteErrorComponent,
 })
 
 const loginRoute = createRoute({
@@ -27,6 +43,16 @@ const forgotPasswordRoute = createRoute({
 const appLayoutRoute = createRoute({
   getParentRoute: () => rootRoute,
   id: 'app',
+  beforeLoad: async ({ context }) => {
+    try {
+      await ensureMe(context.queryClient)
+    } catch (e) {
+      if (isUnauthorized(e)) {
+        throw redirect({ to: '/login' })
+      }
+      // Hard API errors: enter shell; AuthGate shows loadFailed UI.
+    }
+  },
   component: () => (
     <AuthGate>
       <Outlet />
@@ -61,6 +87,16 @@ const settingsRoute = createRoute({
 const designSystemRoute = createRoute({
   getParentRoute: () => appLayoutRoute,
   path: '/design-system',
+  beforeLoad: async ({ context }) => {
+    let me: MeResponse
+    try {
+      me = await ensureMe(context.queryClient)
+    } catch (e) {
+      if (isUnauthorized(e)) throw redirect({ to: '/login' })
+      throw e
+    }
+    if (!isAdmin(me)) throw redirect({ to: '/' })
+  },
   component: () => (
     <AdminGate>
       <DesignSystemPage />

@@ -1,6 +1,12 @@
 import { AppError } from '@gosilex/core'
 
-/** In-memory sliding window (demo Worker single-isolate). Not multi-region. */
+/**
+ * In-memory sliding window — **demo / single-isolate only**.
+ *
+ * Product multi-region: replace with Durable Object, KV, D1 counter, or
+ * Cloudflare Rate Limiting binding. Same `assertRateLimit` call sites.
+ * Do not treat this Map as a production auth control across isolates.
+ */
 const buckets = new Map<string, number[]>()
 
 /**

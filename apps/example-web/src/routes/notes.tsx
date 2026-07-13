@@ -11,6 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
   Field,
+  FieldError,
   FieldLabel,
   Input,
   Skeleton,
@@ -30,6 +31,7 @@ import { toast } from 'sonner'
 import { PageHeader } from '../components/app-shell'
 import { apiErrorToMessage, apiFetch } from '../lib/api'
 import { useLocale } from '../lib/locale'
+import { createNoteSchema } from '../lib/schemas'
 
 type Note = { id: string; title: string; body: string; createdAt: number }
 
@@ -52,7 +54,7 @@ export function NotesPage() {
       toast.success(m.noteCreated)
       setOpen(false)
     },
-    onError: (e) => toast.error(m.error, { description: apiErrorToMessage(e) }),
+    onError: (e) => toast.error(m.error, { description: apiErrorToMessage(e, m) }),
   })
 
   const deleteNote = useMutation({
@@ -62,11 +64,25 @@ export function NotesPage() {
       toast.success(m.noteDeleted)
       setPendingDelete(null)
     },
-    onError: (e) => toast.error(m.error, { description: apiErrorToMessage(e) }),
+    onError: (e) => toast.error(m.error, { description: apiErrorToMessage(e, m) }),
   })
 
   const form = useForm({
     defaultValues: { title: '', body: '' },
+    validators: {
+      onSubmit: ({ value }) => {
+        const parsed = createNoteSchema.safeParse(value)
+        if (parsed.success) return undefined
+        const flat = parsed.error.flatten().fieldErrors
+        return {
+          form: m.errValidation,
+          fields: {
+            title: flat.title?.[0] ? m.errTitleRequired : undefined,
+            body: flat.body?.[0] ? m.errValidation : undefined,
+          },
+        }
+      },
+    },
     onSubmit: async ({ value, formApi }) => {
       await createNote.mutateAsync(value)
       formApi.reset()
@@ -171,17 +187,25 @@ export function NotesPage() {
             }}
           >
             <form.Field name="title">
-              {(field) => (
-                <Field>
-                  <FieldLabel htmlFor={field.name}>{m.title}</FieldLabel>
-                  <Input
-                    id={field.name}
-                    value={field.state.value}
-                    onChange={(e) => field.handleChange(e.target.value)}
-                    required
-                  />
-                </Field>
-              )}
+              {(field) => {
+                const err = field.state.meta.errors[0]
+                const errId = `${field.name}-error`
+                const invalid = Boolean(err)
+                return (
+                  <Field>
+                    <FieldLabel htmlFor={field.name}>{m.title}</FieldLabel>
+                    <Input
+                      id={field.name}
+                      value={field.state.value}
+                      onChange={(e) => field.handleChange(e.target.value)}
+                      onBlur={field.handleBlur}
+                      aria-invalid={invalid || undefined}
+                      aria-describedby={invalid ? errId : undefined}
+                    />
+                    {invalid ? <FieldError id={errId}>{String(err)}</FieldError> : null}
+                  </Field>
+                )
+              }}
             </form.Field>
             <form.Field name="body">
               {(field) => (
@@ -191,6 +215,7 @@ export function NotesPage() {
                     id={field.name}
                     value={field.state.value}
                     onChange={(e) => field.handleChange(e.target.value)}
+                    onBlur={field.handleBlur}
                     rows={4}
                   />
                 </Field>

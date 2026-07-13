@@ -90,6 +90,19 @@ export type Messages = {
   dsOnThisPage: string
   forbidden: string
   forbiddenDesc: string
+  /** Stable ErrorCode → UI copy (API codes stay English; FE translates). */
+  errUnauthorized: string
+  errForbidden: string
+  errNotFound: string
+  errValidation: string
+  errConflict: string
+  errInternal: string
+  errRateLimited: string
+  errEmailInvalid: string
+  errPasswordRequired: string
+  errTitleRequired: string
+  errSupportCta: string
+  errPageTitle: string
 }
 
 export const fr: Messages = {
@@ -186,4 +199,16 @@ export const fr: Messages = {
   dsOnThisPage: 'Sur cette page',
   forbidden: 'Accès refusé',
   forbiddenDesc: 'Cette page est réservée aux administrateurs.',
+  errUnauthorized: 'Session expirée ou non authentifié',
+  errForbidden: 'Action non autorisée',
+  errNotFound: 'Ressource introuvable',
+  errValidation: 'Données invalides',
+  errConflict: 'Conflit — ressource déjà existante',
+  errInternal: 'Erreur interne — réessayez plus tard',
+  errRateLimited: 'Trop de requêtes — patientez un moment',
+  errEmailInvalid: 'Adresse e-mail invalide',
+  errPasswordRequired: 'Mot de passe requis',
+  errTitleRequired: 'Titre requis',
+  errSupportCta: 'Contacter le support',
+  errPageTitle: 'Une erreur est survenue',
 }

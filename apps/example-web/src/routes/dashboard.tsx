@@ -34,7 +34,7 @@ export function DashboardPage() {
   const sendEmail = useMutation({
     mutationFn: () => apiFetch('/api/demo/email', { method: 'POST', body: '{}' }),
     onSuccess: () => toast.success(m.emailSent),
-    onError: (e) => toast.error(m.error, { description: apiErrorToMessage(e) }),
+    onError: (e) => toast.error(m.error, { description: apiErrorToMessage(e, m) }),
   })
 
   return (

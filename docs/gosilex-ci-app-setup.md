@@ -42,7 +42,7 @@ Same role as **roxabi-ci** on the Roxabi org: ephemeral tokens for **merge-on-gr
 
 1. App settings → **Install App** → **go-silex**
 2. **All repositories** (recommended for agency CI)  
-   or only `silex-share` first, then expand
+   or only `silex-boilerplate` first, then product consumers
 
 ## 3. Store credentials (org-level preferred)
 
@@ -57,8 +57,13 @@ gh secret set GOSILEX_CI_APP_PRIVATE_KEY --org go-silex --visibility all < /path
 Repo-only alternative (if you prefer not org-wide):
 
 ```bash
-gh variable set GOSILEX_CI_APP_ID -R go-silex/silex-share --body '<APP_ID>'
-gh secret set GOSILEX_CI_APP_PRIVATE_KEY -R go-silex/silex-share < /path/to/gosilex-ci.pem
+# Kit repo
+gh variable set GOSILEX_CI_APP_ID -R go-silex/silex-boilerplate --body '<APP_ID>'
+gh secret set GOSILEX_CI_APP_PRIVATE_KEY -R go-silex/silex-boilerplate < /path/to/gosilex-ci.pem
+
+# Product consumers (same pattern)
+# gh variable set GOSILEX_CI_APP_ID -R go-silex/silex-share --body '<APP_ID>'
+# gh secret set GOSILEX_CI_APP_PRIVATE_KEY -R go-silex/silex-share < /path/to/gosilex-ci.pem
 ```
 
 Verify inheritance (org-level vars may not show on `gh variable list -R`):
@@ -72,14 +77,14 @@ gh api orgs/go-silex/actions/secrets/GOSILEX_CI_APP_PRIVATE_KEY -q .name
 
 | Workflow | Usage |
 |---|---|
-| `silex-share` `.github/workflows/merge-on-green.yml` | mint token → merge when `reviewed` + checks green |
-| Future go-silex repos | copy same mint step (or shared org reusable workflow later) |
+| `silex-boilerplate` `.github/workflows/merge-on-green.yml` | mint token → merge when `reviewed` + checks green |
+| Product repos (`silex-share`, …) | same mint step / org secrets (do not push to this kit as upstream) |
 
 ## 5. Smoke test
 
 1. Open a tiny PR to `staging` (docs typo)
 2. Wait for **Secret scan** green
-3. `gh pr edit <n> -R go-silex/silex-share --add-label reviewed`
+3. `gh pr edit <n> -R go-silex/silex-boilerplate --add-label reviewed`
 4. Expect **Merge on Green** to merge with a **merge commit**
 5. Check run log: mint step succeeds; merge attributed to **`gosilex-ci[bot]`**
 

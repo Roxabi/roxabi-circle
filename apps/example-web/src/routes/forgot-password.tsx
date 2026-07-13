@@ -14,6 +14,7 @@ import { GalleryVerticalEnd } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { useLocale } from '../lib/locale'
+import { forgotPasswordSchema } from '../lib/schemas'
 
 /**
  * Forgot-password UI (login-05 chrome).
@@ -22,16 +23,22 @@ import { useLocale } from '../lib/locale'
 export function ForgotPasswordPage() {
   const { m, locale, setLocale } = useLocale()
   const [sent, setSent] = useState(false)
-  const [error, setError] = useState<string | null>(null)
 
   const form = useForm({
     defaultValues: { email: '' },
-    onSubmit: async ({ value }) => {
-      setError(null)
-      if (!value.email.trim()) {
-        setError(m.forgotEmailRequired)
-        return
-      }
+    validators: {
+      onSubmit: ({ value }) => {
+        const parsed = forgotPasswordSchema.safeParse(value)
+        if (parsed.success) return undefined
+        return {
+          form: m.errValidation,
+          fields: {
+            email: m.errEmailInvalid,
+          },
+        }
+      },
+    },
+    onSubmit: async () => {
       // Stub until Better Auth password reset (issue #12)
       setSent(true)
       toast.message(m.forgotSentTitle, { description: m.forgotSentDesc })
@@ -86,27 +93,37 @@ export function ForgotPasswordPage() {
           >
             <FieldGroup>
               <form.Field name="email">
-                {(field) => (
-                  <Field>
-                    <FieldLabel htmlFor={field.name}>{m.email}</FieldLabel>
-                    <Input
-                      id={field.name}
-                      type="email"
-                      autoComplete="email"
-                      placeholder="m@example.com"
-                      value={field.state.value}
-                      onBlur={field.handleBlur}
-                      onChange={(e) => field.handleChange(e.target.value)}
-                      required
-                    />
-                    <FieldDescription>{m.forgotEmailHint}</FieldDescription>
-                  </Field>
-                )}
+                {(field) => {
+                  const err = field.state.meta.errors[0]
+                  const errId = `${field.name}-error`
+                  const invalid = Boolean(err)
+                  return (
+                    <Field>
+                      <FieldLabel htmlFor={field.name}>{m.email}</FieldLabel>
+                      <Input
+                        id={field.name}
+                        type="email"
+                        autoComplete="email"
+                        placeholder="m@example.com"
+                        value={field.state.value}
+                        onBlur={field.handleBlur}
+                        onChange={(e) => field.handleChange(e.target.value)}
+                        aria-invalid={invalid || undefined}
+                        aria-describedby={invalid ? errId : undefined}
+                      />
+                      <FieldDescription>{m.forgotEmailHint}</FieldDescription>
+                      {invalid ? <FieldError id={errId}>{String(err)}</FieldError> : null}
+                    </Field>
+                  )
+                }}
               </form.Field>
-              {error ? <FieldError>{error}</FieldError> : null}
-              <Button type="submit" className="w-full">
-                {m.forgotSubmit}
-              </Button>
+              <form.Subscribe selector={(s) => s.isSubmitting}>
+                {(isSubmitting) => (
+                  <Button type="submit" className="w-full" disabled={isSubmitting}>
+                    {m.forgotSubmit}
+                  </Button>
+                )}
+              </form.Subscribe>
               <Button variant="ghost" className="w-full" render={<Link to="/login" />}>
                 {m.backToLogin}
               </Button>

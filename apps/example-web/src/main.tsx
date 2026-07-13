@@ -35,7 +35,7 @@ const queryClient = new QueryClient({
       onSessionUnauthorized(error)
       // Skip toast when mutation already defines onError (avoids double toasts).
       if (mutation.options.onError) return
-      toast.error(apiErrorToMessage(error))
+      toast.error(apiErrorToMessage(error, 'Error'))
     },
   }),
   defaultOptions: {
