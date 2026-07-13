@@ -48,7 +48,6 @@ export const en: Messages = {
   error: 'Error',
   loadFailed: 'Failed to load',
   retry: 'Retry',
-  demoCreds: 'Demo: demo@gosilex.local / demo-password-change-me',
   dashboard: 'Dashboard',
   session: 'Session',
   authMethod: 'Method',

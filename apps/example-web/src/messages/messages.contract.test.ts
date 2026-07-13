@@ -35,4 +35,10 @@ describe('messages contract', () => {
     const enKeys = Object.keys(en).sort()
     expect(enKeys).toEqual(frKeys)
   })
+
+  it('never ships demo password literals in production message catalogs', () => {
+    const blob = `${JSON.stringify(fr)}\n${JSON.stringify(en)}`
+    expect(blob).not.toMatch(/demo-password/i)
+    expect(blob).not.toMatch(/password-change-me/i)
+  })
 })

@@ -497,7 +497,8 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     expect(blocked.status).toBe(429)
     const body = (await blocked.json()) as { error: { code: string } }
     expect(body.error.code).toBe('RATE_LIMITED')
-    expect(blocked.headers.get('retry-after')).toBeTruthy()
+    // Login window is 15 minutes → Retry-After should match window seconds.
+    expect(blocked.headers.get('retry-after')).toBe('900')
   })
 
   it('login does not auto-seed demo users in production', async () => {

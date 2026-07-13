@@ -1,5 +1,5 @@
 import type { MiddlewareHandler } from 'hono'
-import { environmentName } from '../lib/session-env'
+import { useSecureCookie } from '../lib/session-env'
 import type { AppEnv } from '../types'
 
 /** Apply baseline security headers (also on error paths via try/finally). */
@@ -13,8 +13,9 @@ export function applySecurityHeaders(c: {
   c.header('X-XSS-Protection', '0')
   c.header('Content-Security-Policy', "default-src 'none'; frame-ancestors 'none'")
   c.header('Permissions-Policy', 'camera=(), microphone=(), geolocation=()')
-  const envName = environmentName(c.env)
-  if (envName && envName !== 'development' && envName !== 'test') {
+  // Align with Secure cookie policy: HSTS whenever not explicit development|test
+  // (including missing ENVIRONMENT — same as useSecureCookie true).
+  if (useSecureCookie(c.env)) {
     c.header('Strict-Transport-Security', 'max-age=31536000; includeSubDomains')
   }
 }

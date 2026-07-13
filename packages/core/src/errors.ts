@@ -48,8 +48,11 @@ export class AppError extends Error {
     return new AppError(ErrorCode.INTERNAL_ERROR, message)
   }
 
-  static rateLimited(message = 'Too many requests'): AppError {
-    return new AppError(ErrorCode.RATE_LIMITED, message)
+  static rateLimited(
+    message = 'Too many requests',
+    details?: { retryAfterSeconds?: number },
+  ): AppError {
+    return new AppError(ErrorCode.RATE_LIMITED, message, undefined, details)
   }
 }
 

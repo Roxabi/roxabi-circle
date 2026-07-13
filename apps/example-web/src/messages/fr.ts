@@ -46,7 +46,6 @@ export type Messages = {
   error: string
   loadFailed: string
   retry: string
-  demoCreds: string
   dashboard: string
   session: string
   authMethod: string
@@ -153,7 +152,6 @@ export const fr: Messages = {
   error: 'Erreur',
   loadFailed: 'Chargement impossible',
   retry: 'Réessayer',
-  demoCreds: 'Démo : demo@gosilex.local / demo-password-change-me',
   dashboard: 'Tableau de bord',
   session: 'Session',
   authMethod: 'Méthode',

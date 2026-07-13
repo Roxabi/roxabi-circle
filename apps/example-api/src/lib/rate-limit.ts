@@ -11,23 +11,19 @@ const buckets = new Map<string, number[]>()
 
 /**
  * Fail closed when `limit` hits occur within `windowMs` for `key`.
- * Throws `AppError.rateLimited` (429).
+ * Throws `AppError.rateLimited` (429) with `retryAfterSeconds` ≈ window.
  */
 export function assertRateLimit(key: string, limit: number, windowMs: number): void {
   const now = Date.now()
   const prev = buckets.get(key) ?? []
   const hits = prev.filter((t) => now - t < windowMs)
   if (hits.length >= limit) {
-    // Keep the full window so subsequent calls still see the limit.
     buckets.set(key, hits)
-    throw AppError.rateLimited()
+    const retryAfterSeconds = Math.max(1, Math.ceil(windowMs / 1000))
+    throw AppError.rateLimited('Too many requests', { retryAfterSeconds })
   }
   hits.push(now)
-  if (hits.length === 0) {
-    buckets.delete(key)
-  } else {
-    buckets.set(key, hits)
-  }
+  buckets.set(key, hits)
 }
 
 /**

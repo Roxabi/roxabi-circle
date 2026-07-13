@@ -1,6 +1,5 @@
 import { AppError } from '@gosilex/core'
 import { Hono } from 'hono'
-import type { KitDb } from '../lib/db-type'
 import { assertRateLimit } from '../lib/rate-limit'
 import { requireAuth } from '../middleware/require-auth'
 import * as authService from '../services/auth'
@@ -28,7 +27,7 @@ meRoutes.get('/api/me', async (c) => {
 })
 
 meRoutes.get('/api/keys', async (c) => {
-  const db = c.get('db') as KitDb
+  const db = c.get('db')!
   const subject = c.get('subject')!
   const keys = await authService.listApiKeys(db, subject)
   return c.json({ keys, requestId: c.get('requestId') })
@@ -42,7 +41,7 @@ meRoutes.post('/api/keys', async (c) => {
   const subject = c.get('subject')!
   assertRateLimit(`mint:${subject}`, MINT_LIMIT, MINT_WINDOW_MS)
 
-  const db = c.get('db') as KitDb
+  const db = c.get('db')!
   const minted = await authService.mintApiKey(db, subject)
   return c.json({
     id: minted.id,
@@ -56,7 +55,7 @@ meRoutes.delete('/api/keys/:id', async (c) => {
   if (c.get('authMethod') !== 'session') {
     throw AppError.forbidden('API key revoke requires a session cookie')
   }
-  const db = c.get('db') as KitDb
+  const db = c.get('db')!
   const subject = c.get('subject')!
   await authService.revokeApiKey(db, c.req.param('id'), subject)
   return c.json({ ok: true, requestId: c.get('requestId') })

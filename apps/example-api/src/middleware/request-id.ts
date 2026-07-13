@@ -1,12 +1,13 @@
 import { newRequestId } from '@gosilex/core'
 import type { MiddlewareHandler } from 'hono'
+import type { KitDb } from '../lib/db-type'
 
 export type AppVariables = {
   requestId: string
   subject?: string
   authMethod?: 'session' | 'api_key'
   /** Set by withDb middleware (Drizzle D1). */
-  db?: unknown
+  db?: KitDb
 }
 
 /** Client ids: req_ + 8–64 url-safe chars. Anything else is ignored (server mints). */

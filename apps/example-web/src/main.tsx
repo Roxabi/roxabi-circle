@@ -6,6 +6,7 @@ import { createRoot } from 'react-dom/client'
 import { toast } from 'sonner'
 import { ApiError, apiErrorToMessage } from './lib/api'
 import { meQueryKey } from './lib/auth'
+import { defaultLocale, t } from './lib/i18n'
 import { LocaleProvider } from './lib/locale'
 import { ThemeProvider, useTheme } from './lib/theme'
 import { routeTree } from './routeTree'
@@ -35,7 +36,8 @@ const queryClient = new QueryClient({
       onSessionUnauthorized(error)
       // Skip toast when mutation already defines onError (avoids double toasts).
       if (mutation.options.onError) return
-      toast.error(apiErrorToMessage(error, 'Error'))
+      // Catalog map for ErrorCode (default locale; local mutation onError usually wins).
+      toast.error(apiErrorToMessage(error, t(defaultLocale)))
     },
   }),
   defaultOptions: {

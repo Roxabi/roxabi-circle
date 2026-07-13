@@ -20,7 +20,15 @@ export function onError(err: Error, c: Context<{ Bindings: Env; Variables: AppVa
   // Ensure security headers on thrown-error responses (middleware finally may not bind).
   applySecurityHeaders(c)
   if (status === 429) {
-    c.header('Retry-After', '60')
+    const details =
+      err instanceof AppError && err.details && typeof err.details === 'object'
+        ? (err.details as { retryAfterSeconds?: number })
+        : undefined
+    const sec =
+      typeof details?.retryAfterSeconds === 'number' && details.retryAfterSeconds > 0
+        ? Math.floor(details.retryAfterSeconds)
+        : 60
+    c.header('Retry-After', String(sec))
   }
   return c.json(body, status as ContentfulStatusCode)
 }

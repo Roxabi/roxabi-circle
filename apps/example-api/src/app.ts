@@ -7,7 +7,7 @@ import { withDb } from './middleware/db'
 import { onError } from './middleware/error-handler'
 import { originGuard } from './middleware/origin-guard'
 import { requestIdMiddleware } from './middleware/request-id'
-import { securityHeaders } from './middleware/security-headers'
+import { applySecurityHeaders, securityHeaders } from './middleware/security-headers'
 import { authRoutes } from './routes/auth'
 import { demoRoutes } from './routes/demo'
 import { healthRoutes } from './routes/health'
@@ -43,6 +43,7 @@ export function createApp() {
   app.notFound((c) => {
     const requestId = c.get('requestId') || 'req_unknown'
     const { body, status } = toApiErrorBody(AppError.notFound(), requestId)
+    applySecurityHeaders(c)
     return c.json(body, status as ContentfulStatusCode)
   })
 

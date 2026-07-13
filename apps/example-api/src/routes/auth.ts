@@ -1,7 +1,6 @@
 import { parseOrThrow } from '@gosilex/core'
 import { Hono } from 'hono'
 import { z } from 'zod'
-import type { KitDb } from '../lib/db-type'
 import { assertRateLimit, clientIp } from '../lib/rate-limit'
 import { environmentName, getSecret, useSecureCookie } from '../lib/session-env'
 import * as authService from '../services/auth'
@@ -23,7 +22,7 @@ authRoutes.post('/api/auth/login', async (c) => {
 
   const raw = await c.req.json().catch(() => null)
   const body = parseOrThrow(loginSchema, raw, 'Invalid login body')
-  const db = c.get('db') as KitDb
+  const db = c.get('db')!
   const { cookie, subject } = await authService.loginWithPassword(
     db,
     getSecret(c.env),

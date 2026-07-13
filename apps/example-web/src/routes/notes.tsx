@@ -208,18 +208,26 @@ export function NotesPage() {
               }}
             </form.Field>
             <form.Field name="body">
-              {(field) => (
-                <Field>
-                  <FieldLabel htmlFor={field.name}>{m.body}</FieldLabel>
-                  <Textarea
-                    id={field.name}
-                    value={field.state.value}
-                    onChange={(e) => field.handleChange(e.target.value)}
-                    onBlur={field.handleBlur}
-                    rows={4}
-                  />
-                </Field>
-              )}
+              {(field) => {
+                const err = field.state.meta.errors[0]
+                const errId = `${field.name}-error`
+                const invalid = Boolean(err)
+                return (
+                  <Field>
+                    <FieldLabel htmlFor={field.name}>{m.body}</FieldLabel>
+                    <Textarea
+                      id={field.name}
+                      value={field.state.value}
+                      onChange={(e) => field.handleChange(e.target.value)}
+                      onBlur={field.handleBlur}
+                      rows={4}
+                      aria-invalid={invalid || undefined}
+                      aria-describedby={invalid ? errId : undefined}
+                    />
+                    {invalid ? <FieldError id={errId}>{String(err)}</FieldError> : null}
+                  </Field>
+                )
+              }}
             </form.Field>
           </form>
           <DialogFooter>
