@@ -4,6 +4,17 @@ export type Messages = {
   login: string
   loginTitle: string
   loginDesc: string
+  welcomeTitle: string
+  forgotPassword: string
+  forgotTitle: string
+  forgotDesc: string
+  forgotSubmit: string
+  forgotEmailHint: string
+  forgotEmailRequired: string
+  forgotSentTitle: string
+  forgotSentDesc: string
+  backToLogin: string
+  loginLegal: string
   email: string
   password: string
   submit: string
@@ -60,6 +71,8 @@ export type Messages = {
   navKeys: string
   navSettings: string
   navDesignSystem: string
+  navPlatform: string
+  navSecondary: string
   online: string
   offline: string
   account: string
@@ -85,6 +98,17 @@ export const fr: Messages = {
   login: 'Connexion',
   loginTitle: 'Connexion',
   loginDesc: 'Session cookie HttpOnly · credentials include',
+  welcomeTitle: 'Bienvenue sur GOSILEX Kit',
+  forgotPassword: 'Mot de passe oublié ?',
+  forgotTitle: 'Réinitialiser le mot de passe',
+  forgotDesc: 'Entrez votre e-mail — nous enverrons un lien de réinitialisation (bientôt).',
+  forgotSubmit: 'Envoyer le lien',
+  forgotEmailHint: 'UI prête ; l’envoi réel arrive avec Better Auth (M3).',
+  forgotEmailRequired: 'E-mail requis',
+  forgotSentTitle: 'Demande enregistrée',
+  forgotSentDesc: 'Si un compte existe, un e-mail sera envoyé (stub démo pour l’instant).',
+  backToLogin: 'Retour à la connexion',
+  loginLegal: 'En continuant, vous acceptez les conditions d’utilisation du kit démo.',
   email: 'E-mail',
   password: 'Mot de passe',
   submit: 'Se connecter',
@@ -142,6 +166,8 @@ export const fr: Messages = {
   navKeys: 'Clés API',
   navSettings: 'Paramètres',
   navDesignSystem: 'Design system',
+  navPlatform: 'Plateforme',
+  navSecondary: 'Plus',
   online: 'API OK',
   offline: 'API hors ligne',
   account: 'Compte',

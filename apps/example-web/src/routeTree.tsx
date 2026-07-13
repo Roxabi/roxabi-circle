@@ -2,6 +2,7 @@ import { createRootRoute, createRoute, Outlet } from '@tanstack/react-router'
 import { AdminGate, AuthGate } from './components/app-shell'
 import { DashboardPage } from './routes/dashboard'
 import { DesignSystemPage } from './routes/design-system'
+import { ForgotPasswordPage } from './routes/forgot-password'
 import { KeysPage } from './routes/keys'
 import { LoginPage } from './routes/login'
 import { NotesPage } from './routes/notes'
@@ -15,6 +16,12 @@ const loginRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/login',
   component: LoginPage,
+})
+
+const forgotPasswordRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/forgot-password',
+  component: ForgotPasswordPage,
 })
 
 const appLayoutRoute = createRoute({
@@ -63,5 +70,6 @@ const designSystemRoute = createRoute({
 
 export const routeTree = rootRoute.addChildren([
   loginRoute,
+  forgotPasswordRoute,
   appLayoutRoute.addChildren([indexRoute, notesRoute, keysRoute, settingsRoute, designSystemRoute]),
 ])

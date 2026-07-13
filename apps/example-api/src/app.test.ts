@@ -229,7 +229,8 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
   it('rejects expired API keys', async () => {
     const app = createApp()
     const env = createMemoryEnv()
-    const cookie = await loginAs(app, env, DEMO_EMAIL, DEMO_PASSWORD)
+    // Seed demo users via login (session cookie unused — we mint expired key directly)
+    await loginAs(app, env, DEMO_EMAIL, DEMO_PASSWORD)
     const { createDb } = await import('@gosilex/db')
     const { schema } = await import('./db/schema')
     const { mintApiKey } = await import('./services/auth')

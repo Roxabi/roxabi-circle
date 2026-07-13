@@ -16,12 +16,14 @@ import {
   SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
+  SidebarGroupLabel,
   SidebarHeader,
   SidebarInset,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarProvider,
+  SidebarRail,
   SidebarTrigger,
   Skeleton,
 } from '@gosilex/ui'
@@ -76,11 +78,21 @@ function ThemeCycleButton() {
   )
 }
 
+function pageTitle(pathname: string, m: ReturnType<typeof useLocale>['m']): string {
+  if (pathname.startsWith('/notes')) return m.navNotes
+  if (pathname.startsWith('/keys')) return m.navKeys
+  if (pathname.startsWith('/settings')) return m.navSettings
+  if (pathname.startsWith('/design-system')) return m.navDesignSystem
+  return m.navDashboard
+}
+
+/** dashboard-01 inspired shell: brand header, grouped nav, user footer, site header. */
 function ShellChrome({ children }: { children: ReactNode }) {
   const { m, locale, setLocale } = useLocale()
   const me = useMe()
   const navigate = useNavigate()
   const qc = useQueryClient()
+  const pathname = useRouterState({ select: (s) => s.location.pathname })
   const health = useQuery({
     queryKey: ['health'],
     queryFn: () => apiFetch<{ ok: boolean }>('/health'),
@@ -100,28 +112,47 @@ function ShellChrome({ children }: { children: ReactNode }) {
   }
 
   const initials = (me.data?.subject ?? 'U').slice(0, 2).toUpperCase()
+  const title = pageTitle(pathname, m)
 
   return (
     <>
-      <Sidebar collapsible="icon">
-        <SidebarHeader className="border-b border-sidebar-border">
-          <div className="flex items-center gap-2 px-1 py-1.5">
-            <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary text-xs font-bold text-sidebar-primary-foreground">
-              GX
-            </div>
-            <div className="min-w-0 group-data-[collapsible=icon]:hidden">
-              <div className="truncate text-sm font-semibold">{m.appTitle}</div>
-              <div className="truncate text-[11px] text-muted-foreground">{m.appSubtitle}</div>
-            </div>
-          </div>
+      <Sidebar collapsible="offcanvas" variant="inset">
+        <SidebarHeader>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                size="lg"
+                className="data-[slot=sidebar-menu-button]:p-1.5!"
+                render={<Link to="/" />}
+              >
+                <div className="flex size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+                  <span className="text-xs font-bold">GX</span>
+                </div>
+                <div className="grid flex-1 text-left text-sm leading-tight">
+                  <span className="truncate font-semibold">{m.appTitle}</span>
+                  <span className="truncate text-xs text-muted-foreground">{m.appSubtitle}</span>
+                </div>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
         </SidebarHeader>
+
         <SidebarContent>
           <SidebarGroup>
+            <SidebarGroupLabel>{m.navPlatform}</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 <NavItem to="/" label={m.navDashboard} icon={<LayoutDashboard />} />
                 <NavItem to="/notes" label={m.navNotes} icon={<FileText />} />
                 <NavItem to="/keys" label={m.navKeys} icon={<KeyRound />} />
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+
+          <SidebarGroup className="mt-auto">
+            <SidebarGroupLabel>{m.navSecondary}</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
                 <NavItem to="/settings" label={m.navSettings} icon={<Settings />} />
                 {isAdmin(me.data) ? (
                   <NavItem to="/design-system" label={m.navDesignSystem} icon={<Palette />} />
@@ -130,84 +161,115 @@ function ShellChrome({ children }: { children: ReactNode }) {
             </SidebarGroupContent>
           </SidebarGroup>
         </SidebarContent>
+
         <SidebarFooter>
-          <Badge
-            variant={health.data?.ok ? 'secondary' : 'destructive'}
-            className="w-full justify-center group-data-[collapsible=icon]:px-0"
-          >
-            {health.data?.ok ? m.online : m.offline}
-          </Badge>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <div className="flex items-center gap-2 px-1 py-1">
+                <Badge
+                  variant={health.data?.ok ? 'secondary' : 'destructive'}
+                  className="text-[10px]"
+                >
+                  {health.data?.ok ? m.online : m.offline}
+                </Badge>
+              </div>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  render={
+                    <SidebarMenuButton
+                      size="lg"
+                      className="aria-expanded:bg-muted data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+                    />
+                  }
+                >
+                  <Avatar className="size-8 rounded-lg">
+                    <AvatarFallback className="rounded-lg text-[10px]">{initials}</AvatarFallback>
+                  </Avatar>
+                  <div className="grid flex-1 text-left text-sm leading-tight">
+                    <span className="truncate font-medium">{me.data?.subject ?? '—'}</span>
+                    <span className="truncate text-xs text-muted-foreground">
+                      {me.data?.role ?? m.account}
+                    </span>
+                  </div>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  className="min-w-56 rounded-lg"
+                  side="bottom"
+                  align="end"
+                  sideOffset={4}
+                >
+                  <DropdownMenuGroup>
+                    <DropdownMenuLabel>{m.account}</DropdownMenuLabel>
+                    <div className="space-y-0.5 px-2 pb-1 text-xs text-muted-foreground">
+                      <div>{me.data?.subject ?? '—'}</div>
+                      {me.data?.role ? (
+                        <Badge variant="outline" className="text-[10px]">
+                          {me.data.role}
+                        </Badge>
+                      ) : null}
+                    </div>
+                  </DropdownMenuGroup>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuGroup>
+                    <DropdownMenuItem onClick={() => void navigate({ to: '/settings' })}>
+                      <Settings className="size-4" />
+                      {m.settings}
+                    </DropdownMenuItem>
+                    {isAdmin(me.data) ? (
+                      <DropdownMenuItem onClick={() => void navigate({ to: '/design-system' })}>
+                        <Palette className="size-4" />
+                        {m.navDesignSystem}
+                      </DropdownMenuItem>
+                    ) : null}
+                    <DropdownMenuItem onClick={() => void logout()}>
+                      <LogOut className="size-4" />
+                      {m.logout}
+                    </DropdownMenuItem>
+                  </DropdownMenuGroup>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </SidebarMenuItem>
+          </SidebarMenu>
         </SidebarFooter>
+        <SidebarRail />
       </Sidebar>
 
       <SidebarInset>
-        <header className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-border bg-background/80 px-4 backdrop-blur">
-          <SidebarTrigger />
-          <Separator orientation="vertical" className="h-6" />
-          <div className="flex flex-1 items-center justify-end gap-2">
-            <div className="hidden items-center gap-1 sm:flex">
-              <Button
-                type="button"
-                size="sm"
-                variant={locale === 'fr' ? 'secondary' : 'ghost'}
-                onClick={() => setLocale('fr')}
-              >
-                FR
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant={locale === 'en' ? 'secondary' : 'ghost'}
-                onClick={() => setLocale('en')}
-              >
-                EN
-              </Button>
+        <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
+          <div className="flex w-full items-center gap-2 px-4 lg:gap-3 lg:px-6">
+            <SidebarTrigger className="-ml-1" />
+            <Separator orientation="vertical" className="mx-1 data-[orientation=vertical]:h-4" />
+            <h1 className="text-sm font-medium">{title}</h1>
+            <div className="ml-auto flex items-center gap-2">
+              <div className="hidden items-center gap-1 sm:flex">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={locale === 'fr' ? 'secondary' : 'ghost'}
+                  onClick={() => setLocale('fr')}
+                >
+                  FR
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={locale === 'en' ? 'secondary' : 'ghost'}
+                  onClick={() => setLocale('en')}
+                >
+                  EN
+                </Button>
+              </div>
+              <ThemeCycleButton />
             </div>
-            <ThemeCycleButton />
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={
-                  <Button variant="ghost" size="icon-sm" className="rounded-full">
-                    <Avatar className="size-7">
-                      <AvatarFallback className="text-[10px]">{initials}</AvatarFallback>
-                    </Avatar>
-                  </Button>
-                }
-              />
-              <DropdownMenuContent align="end" className="w-52">
-                <DropdownMenuGroup>
-                  <DropdownMenuLabel>{m.account}</DropdownMenuLabel>
-                  <div className="space-y-0.5 px-2 pb-1 text-xs text-muted-foreground">
-                    <div>{me.data?.subject ?? '—'}</div>
-                    {me.data?.role ? (
-                      <Badge variant="outline" className="text-[10px]">
-                        {me.data.role}
-                      </Badge>
-                    ) : null}
-                  </div>
-                </DropdownMenuGroup>
-                <DropdownMenuSeparator />
-                <DropdownMenuGroup>
-                  {isAdmin(me.data) ? (
-                    <DropdownMenuItem onClick={() => void navigate({ to: '/design-system' })}>
-                      <Palette className="size-4" />
-                      {m.navDesignSystem}
-                    </DropdownMenuItem>
-                  ) : null}
-                  <DropdownMenuItem onClick={() => void navigate({ to: '/settings' })}>
-                    <Settings className="size-4" />
-                    {m.settings}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => void logout()}>
-                    <LogOut className="size-4" />
-                    {m.logout}
-                  </DropdownMenuItem>
-                </DropdownMenuGroup>
-              </DropdownMenuContent>
-            </DropdownMenu>
           </div>
         </header>
-        <main className="flex-1 p-4 md:p-6">{children}</main>
+        <div className="flex flex-1 flex-col">
+          <main className="@container/main flex flex-1 flex-col gap-2">
+            <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6 px-4 lg:px-6">{children}</div>
+          </main>
+        </div>
       </SidebarInset>
     </>
   )
@@ -231,9 +293,9 @@ export function PageHeader({
   actions?: ReactNode
 }) {
   return (
-    <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-      <div className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
+    <div className="mb-2 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      <div className="flex flex-col gap-1">
+        <h2 className="text-2xl font-semibold tracking-tight">{title}</h2>
         {description ? <p className="text-sm text-muted-foreground">{description}</p> : null}
       </div>
       {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
@@ -289,7 +351,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
   if (me.isLoading) {
     return (
       <div className="flex min-h-svh items-center justify-center p-8">
-        <div className="w-full max-w-sm space-y-3">
+        <div className="w-full max-w-sm flex flex-col gap-3">
           <Skeleton className="h-10 w-full" />
           <Skeleton className="h-24 w-full" />
           <p className="text-center text-sm text-muted-foreground">{m.loading}</p>
