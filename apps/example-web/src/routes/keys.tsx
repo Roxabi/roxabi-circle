@@ -103,6 +103,7 @@ export function KeysPage() {
                     type="button"
                     variant="outline"
                     size="icon-sm"
+                    aria-label={m.copyKey}
                     onClick={() => void copy()}
                   >
                     <Copy />

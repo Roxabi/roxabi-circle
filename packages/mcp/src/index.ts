@@ -24,11 +24,13 @@ export function assertExactKitTools(names: string[]): void {
 }
 
 export function extractBearerFromEnv(env: Record<string, string | undefined>): string | null {
-  return (
-    parseBearer(env.AUTHORIZATION ? `Bearer ${env.AUTHORIZATION}` : null) ??
-    (env.API_KEY?.startsWith('sk_') ? env.API_KEY : null) ??
-    null
-  )
+  const auth = env.AUTHORIZATION?.trim()
+  if (auth) {
+    // Accept bare sk_… or full "Bearer sk_…" without double-prefixing.
+    const fromBearer = parseBearer(auth) ?? parseBearer(`Bearer ${auth}`)
+    if (fromBearer) return fromBearer
+  }
+  return env.API_KEY?.startsWith('sk_') ? env.API_KEY : null
 }
 
 export async function handlePing(): Promise<{ ok: true }> {

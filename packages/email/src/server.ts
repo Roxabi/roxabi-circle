@@ -171,19 +171,5 @@ export async function sendSmtp(
   }
 }
 
-/** Log transport — always succeeds; for tests / fallback inspection. */
-export function sendLog(input: { to: string; subject: string; text: string }): {
-  ok: true
-  transport: 'log'
-} {
-  console.log(
-    JSON.stringify({
-      level: 'info',
-      transport: 'log',
-      to: input.to,
-      subject: input.subject,
-      body: input.text,
-    }),
-  )
-  return { ok: true, transport: 'log' }
-}
+/** Re-export edge-safe log transport for Node consumers of `/server`. */
+export { sendLog } from './index'

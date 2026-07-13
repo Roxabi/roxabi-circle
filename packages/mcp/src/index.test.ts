@@ -27,6 +27,13 @@ describe('mcp kit', () => {
     expect(extractBearerFromEnv({ API_KEY: 'sk_test' })).toBe('sk_test')
     expect(extractBearerFromEnv({ API_KEY: 'not-a-key' })).toBeNull()
   })
+
+  it('extracts AUTHORIZATION bare sk_ or Bearer-prefixed without double prefix', () => {
+    expect(extractBearerFromEnv({ AUTHORIZATION: 'sk_from_env_bare' })).toBe('sk_from_env_bare')
+    expect(extractBearerFromEnv({ AUTHORIZATION: 'Bearer sk_from_env_bearer' })).toBe(
+      'sk_from_env_bearer',
+    )
+  })
 })
 
 describe('handleWhoami verify via /api/me', () => {

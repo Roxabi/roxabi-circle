@@ -26,7 +26,7 @@
     "license:check": "bun run tools/licenseChecker.ts",
     "validate": "bun run lint && bun run typecheck && bun run test && bun run banlist && bun run extract-dry-run && bun run env:check",
     "validate:full": "bun run lint && bun run typecheck && bun run banlist && bun run extract-dry-run && bun run env:check && bun run test:coverage && bun run license:check",
-    "prepare": "lefthook install || true"
+    "prepare": "lefthook install"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.0.0",

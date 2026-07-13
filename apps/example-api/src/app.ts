@@ -1,6 +1,9 @@
+import { AppError, toApiErrorBody } from '@gosilex/core'
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
+import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import { corsAllowlist } from './lib/session-env'
+import { withDb } from './middleware/db'
 import { onError } from './middleware/error-handler'
 import { originGuard } from './middleware/origin-guard'
 import { requestIdMiddleware } from './middleware/request-id'
@@ -35,7 +38,13 @@ export function createApp() {
     }),
   )
   app.use('*', originGuard)
+  app.use('*', withDb)
   app.onError((err, c) => onError(err, c))
+  app.notFound((c) => {
+    const requestId = c.get('requestId') || 'req_unknown'
+    const { body, status } = toApiErrorBody(AppError.notFound(), requestId)
+    return c.json(body, status as ContentfulStatusCode)
+  })
 
   // routes → services → repos (secondary axis)
   app.route('/', healthRoutes)

@@ -34,7 +34,12 @@ function fromB64url(s: string): Uint8Array {
   return out
 }
 
+const MIN_SESSION_SECRET_LEN = 32
+
 async function hmacKey(secret: string): Promise<CryptoKey> {
+  if (secret.length < MIN_SESSION_SECRET_LEN) {
+    throw new Error(`session secret must be at least ${MIN_SESSION_SECRET_LEN} characters`)
+  }
   return crypto.subtle.importKey(
     'raw',
     new TextEncoder().encode(secret),

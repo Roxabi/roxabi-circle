@@ -18,8 +18,8 @@ import { apiErrorToMessage, apiFetch } from '../lib/api'
 import { meQueryKey, useMe } from '../lib/auth'
 import { useLocale } from '../lib/locale'
 
-const DEMO_EMAIL = 'demo@gosilex.local'
-const DEMO_PASSWORD = 'demo-password-change-me'
+/** Dev-only email prefill — never ship a password literal in the SPA bundle. */
+const DEV_DEMO_EMAIL = import.meta.env.DEV ? 'demo@gosilex.local' : ''
 
 /** login-05 chrome: centered brand + form (password + forgot, not email-only). */
 export function LoginPage() {
@@ -28,7 +28,6 @@ export function LoginPage() {
   const qc = useQueryClient()
   const [error, setError] = useState<string | null>(null)
   const me = useMe()
-  const demoPrefill = import.meta.env.DEV
 
   useEffect(() => {
     if (me.data) void navigate({ to: '/' })
@@ -36,8 +35,8 @@ export function LoginPage() {
 
   const form = useForm({
     defaultValues: {
-      email: demoPrefill ? DEMO_EMAIL : '',
-      password: demoPrefill ? DEMO_PASSWORD : '',
+      email: DEV_DEMO_EMAIL,
+      password: '',
     },
     onSubmit: async ({ value }) => {
       setError(null)
@@ -137,7 +136,7 @@ export function LoginPage() {
                 </Field>
               )}
             </form.Field>
-            {demoPrefill ? <FieldDescription>{m.demoCreds}</FieldDescription> : null}
+            {import.meta.env.DEV ? <FieldDescription>{m.demoCreds}</FieldDescription> : null}
             {error ? <FieldError>{error}</FieldError> : null}
             <Button type="submit" className="w-full">
               {m.submit}

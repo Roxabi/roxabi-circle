@@ -1,7 +1,6 @@
 import { AppError } from '@gosilex/core'
-import { createDb } from '@gosilex/db'
 import { Hono } from 'hono'
-import { schema } from '../db/schema'
+import type { KitDb } from '../lib/db-type'
 import { assertRateLimit } from '../lib/rate-limit'
 import { requireAuth } from '../middleware/require-auth'
 import * as authService from '../services/auth'
@@ -13,7 +12,10 @@ const MINT_WINDOW_MS = 60 * 60 * 1000
 
 export const meRoutes = new Hono<AppEnv>()
 
-meRoutes.use('*', requireAuth)
+// Path-scoped — do not use('*') when mounted at `/` (would auth every path including unknown).
+meRoutes.use('/api/me', requireAuth)
+meRoutes.use('/api/keys', requireAuth)
+meRoutes.use('/api/keys/*', requireAuth)
 
 meRoutes.get('/api/me', async (c) => {
   const subject = c.get('subject')!
@@ -26,7 +28,7 @@ meRoutes.get('/api/me', async (c) => {
 })
 
 meRoutes.get('/api/keys', async (c) => {
-  const db = createDb(c.env.DB, schema)
+  const db = c.get('db') as KitDb
   const subject = c.get('subject')!
   const keys = await authService.listApiKeys(db, subject)
   return c.json({ keys, requestId: c.get('requestId') })
@@ -40,7 +42,7 @@ meRoutes.post('/api/keys', async (c) => {
   const subject = c.get('subject')!
   assertRateLimit(`mint:${subject}`, MINT_LIMIT, MINT_WINDOW_MS)
 
-  const db = createDb(c.env.DB, schema)
+  const db = c.get('db') as KitDb
   const minted = await authService.mintApiKey(db, subject)
   return c.json({
     id: minted.id,
@@ -54,7 +56,7 @@ meRoutes.delete('/api/keys/:id', async (c) => {
   if (c.get('authMethod') !== 'session') {
     throw AppError.forbidden('API key revoke requires a session cookie')
   }
-  const db = createDb(c.env.DB, schema)
+  const db = c.get('db') as KitDb
   const subject = c.get('subject')!
   await authService.revokeApiKey(db, c.req.param('id'), subject)
   return c.json({ ok: true, requestId: c.get('requestId') })

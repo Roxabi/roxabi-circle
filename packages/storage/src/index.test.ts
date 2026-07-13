@@ -63,6 +63,15 @@ describe('joinObjectKey', () => {
   })
 })
 
+describe('free helpers reject unsafe keys', () => {
+  it('rejects path traversal on putObject/getObject/deleteObject', async () => {
+    const bucket = memoryBucket()
+    await expect(putObject(bucket, 'demo/../secret', 'x')).rejects.toThrow(/traversal/)
+    await expect(getObject(bucket, '../escape')).rejects.toThrow(/traversal/)
+    await expect(deleteObject(bucket, 'a/../../b')).rejects.toThrow(/traversal/)
+  })
+})
+
 describe('R2 put/get/delete round-trip under demo/', () => {
   it('writes and reads attachment via putObject/getObject', async () => {
     const bucket = memoryBucket()

@@ -1,22 +1,11 @@
-import { mkdirSync, writeFileSync } from 'node:fs'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { createApp } from './app'
-import { resetRateLimits } from './lib/rate-limit'
+import { assertRateLimit, resetRateLimits } from './lib/rate-limit'
 import { getSecret, useSecureCookie } from './lib/session-env'
 import { DEMO_EMAIL, DEMO_EMAIL_B, DEMO_PASSWORD, DEMO_PASSWORD_B } from './services/auth'
 import { createMemoryEnv } from './test/memory-env'
 
-const SCRATCH = process.env.SCRATCH || '/tmp/grok-goal-c818b205ecce/implementer'
 const ORIGIN = 'http://localhost:5173'
-
-function writeScratch(name: string, data: unknown) {
-  try {
-    mkdirSync(SCRATCH, { recursive: true })
-    writeFileSync(`${SCRATCH}/${name}`, JSON.stringify(data, null, 2))
-  } catch {
-    // non-fatal — tests still assert
-  }
-}
 
 /** Cookie-authenticated mutation headers (Origin required by originGuard). */
 function sessionMutation(cookie: string): Record<string, string> {
@@ -62,11 +51,32 @@ describe('createApp shipped entry — health & errors', () => {
     expect(body.requestId).toMatch(/^req_/)
     expect(res.headers.get('x-request-id')).toBe(body.requestId)
     expect(res.headers.get('x-content-type-options')).toBe('nosniff')
-    writeScratch('api-health.json', {
-      status: res.status,
-      body,
-      headers: { 'x-request-id': res.headers.get('x-request-id') },
-    })
+  })
+
+  it('unknown route returns nested NOT_FOUND envelope', async () => {
+    const app = createApp()
+    const env = createMemoryEnv()
+    const res = await app.request('/nope', {}, env)
+    expect(res.status).toBe(404)
+    const body = (await res.json()) as { error: { code: string }; requestId: string }
+    expect(body.error.code).toBe('NOT_FOUND')
+    expect(body.requestId).toMatch(/^req_/)
+    expect(res.headers.get('x-request-id')).toBe(body.requestId)
+    expect(res.headers.get('x-content-type-options')).toBe('nosniff')
+  })
+
+  it('ignores oversized or non-allowlisted client x-request-id', async () => {
+    const app = createApp()
+    const env = createMemoryEnv()
+    const res = await app.request(
+      '/health',
+      { headers: { 'x-request-id': 'not-a-valid-id<script>' } },
+      env,
+    )
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as { requestId: string }
+    expect(body.requestId).toMatch(/^req_/)
+    expect(body.requestId).not.toContain('<')
   })
 
   it('POST /api/notes without auth returns nested UNAUTHORIZED', async () => {
@@ -85,7 +95,6 @@ describe('createApp shipped entry — health & errors', () => {
     expect(body.error.code).toBe('UNAUTHORIZED')
     expect(body.requestId).toMatch(/^req_/)
     expect(JSON.stringify(body)).not.toMatch(/stack/i)
-    writeScratch('api-error.json', { status: res.status, body })
   })
 
   it('POST /api/auth/login with invalid body returns VALIDATION_ERROR', async () => {
@@ -362,6 +371,27 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     ).toBe('prod-session-secret-at-least-32-chars!!')
   })
 
+  it('getSecret rejects short secrets and kit placeholders outside dev|test', () => {
+    const base = { DB: {} as never, BUCKET: {} as never }
+    expect(() =>
+      getSecret({ ...base, ENVIRONMENT: 'development', SESSION_SECRET: 'too-short' }),
+    ).toThrow(/at least 32/)
+    expect(() =>
+      getSecret({
+        ...base,
+        ENVIRONMENT: 'production',
+        SESSION_SECRET: 'dev-session-secret-change-me-32chars!!',
+      }),
+    ).toThrow(/placeholder/)
+    expect(
+      getSecret({
+        ...base,
+        ENVIRONMENT: 'development',
+        SESSION_SECRET: 'dev-session-secret-change-me-32chars!!',
+      }),
+    ).toBe('dev-session-secret-change-me-32chars!!')
+  })
+
   it('useSecureCookie is false only for development|test', () => {
     const base = { DB: {} as never, BUCKET: {} as never }
     expect(useSecureCookie({ ...base, ENVIRONMENT: 'development' })).toBe(false)
@@ -386,14 +416,88 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
       '/api/auth/login',
       {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: { 'content-type': 'application/json', Origin: ORIGIN },
         body: JSON.stringify({ email: DEMO_EMAIL, password: DEMO_PASSWORD }),
       },
       env,
     )
     expect(login.status).toBe(200)
-    expect(login.headers.get('set-cookie')).toMatch(/Secure/i)
+    const setCookie = login.headers.get('set-cookie') ?? ''
+    expect(setCookie).toMatch(/Secure/i)
+    expect(setCookie).toMatch(/HttpOnly/i)
+    expect(setCookie).toMatch(/SameSite=Lax/i)
     expect(login.headers.get('strict-transport-security')).toMatch(/max-age/i)
+  })
+
+  it('logout clears cookie flags (HMAC session remains valid until exp — ADR-0002)', async () => {
+    const app = createApp()
+    const env = createMemoryEnv()
+    const cookie = await loginAs(app, env, DEMO_EMAIL, DEMO_PASSWORD)
+    const logout = await app.request(
+      '/api/auth/logout',
+      { method: 'POST', headers: sessionMutation(cookie) },
+      env,
+    )
+    expect(logout.status).toBe(200)
+    const clear = logout.headers.get('set-cookie') ?? ''
+    expect(clear).toMatch(/Max-Age=0/i)
+    expect(clear).toMatch(/HttpOnly/i)
+    expect(clear).toMatch(/SameSite=Lax/i)
+    // Stateless interim: server still accepts unexpired MAC if client re-sends cookie.
+    const me = await app.request('/api/me', { headers: { cookie } }, env)
+    expect(me.status).toBe(200)
+  })
+
+  it('CP-AUTH-DUAL: invalid Bearer wins over valid session cookie', async () => {
+    const app = createApp()
+    const env = createMemoryEnv()
+    const cookie = await loginAs(app, env, DEMO_EMAIL, DEMO_PASSWORD)
+    const res = await app.request(
+      '/api/me',
+      {
+        headers: {
+          cookie,
+          authorization: 'Bearer sk_deadbeef0001dead',
+        },
+      },
+      env,
+    )
+    expect(res.status).toBe(401)
+    const body = (await res.json()) as { error: { code: string } }
+    expect(body.error.code).toBe('UNAUTHORIZED')
+  })
+
+  it('assertRateLimit throws RATE_LIMITED after window exceeded', () => {
+    assertRateLimit('unit:test', 2, 60_000)
+    assertRateLimit('unit:test', 2, 60_000)
+    expect(() => assertRateLimit('unit:test', 2, 60_000)).toThrow(/Too many|RATE/i)
+  })
+
+  it('login returns 429 after rate limit exceeded', async () => {
+    const app = createApp()
+    const env = createMemoryEnv()
+    // Pre-fill the same bucket key as authRoutes (avoids 20× PBKDF2 in CI).
+    const windowMs = 15 * 60 * 1000
+    for (let i = 0; i < 20; i++) {
+      assertRateLimit('login:203.0.113.9', 20, windowMs)
+    }
+    const blocked = await app.request(
+      '/api/auth/login',
+      {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          Origin: ORIGIN,
+          'cf-connecting-ip': '203.0.113.9',
+        },
+        body: JSON.stringify({ email: 'nobody@example.com', password: 'x' }),
+      },
+      env,
+    )
+    expect(blocked.status).toBe(429)
+    const body = (await blocked.json()) as { error: { code: string } }
+    expect(body.error.code).toBe('RATE_LIMITED')
+    expect(blocked.headers.get('retry-after')).toBeTruthy()
   })
 
   it('login does not auto-seed demo users in production', async () => {
@@ -406,7 +510,7 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
       '/api/auth/login',
       {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: { 'content-type': 'application/json', Origin: ORIGIN },
         body: JSON.stringify({ email: DEMO_EMAIL, password: DEMO_PASSWORD }),
       },
       env,
@@ -420,19 +524,46 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
   it('protected routes reject unauthenticated without per-handler requireAuth calls', async () => {
     const app = createApp()
     const env = createMemoryEnv()
-    for (const path of ['/api/me', '/api/notes', '/api/keys'] as const) {
-      const method = path === '/api/keys' ? 'POST' : 'GET'
+    const cases: { method: string; path: string; body?: string }[] = [
+      { method: 'GET', path: '/api/me' },
+      { method: 'GET', path: '/api/notes' },
+      { method: 'GET', path: '/api/notes/fake-id' },
+      { method: 'DELETE', path: '/api/notes/fake-id' },
+      { method: 'POST', path: '/api/keys', body: '{}' },
+      { method: 'POST', path: '/api/demo/email', body: '{}' },
+    ]
+    for (const { method, path, body } of cases) {
       const res = await app.request(
         path,
         {
           method,
-          headers: path === '/api/keys' ? { 'content-type': 'application/json' } : undefined,
-          body: path === '/api/keys' ? '{}' : undefined,
+          headers: body ? { 'content-type': 'application/json' } : undefined,
+          body,
         },
         env,
       )
-      expect(res.status).toBe(401)
+      expect(res.status, `${method} ${path}`).toBe(401)
+      const json = (await res.json()) as { error: { code: string } }
+      expect(json.error.code).toBe('UNAUTHORIZED')
     }
+  })
+
+  it('authed note create rejects empty title with VALIDATION_ERROR', async () => {
+    const app = createApp()
+    const env = createMemoryEnv()
+    const cookie = await loginAs(app, env, DEMO_EMAIL, DEMO_PASSWORD)
+    const res = await app.request(
+      '/api/notes',
+      {
+        method: 'POST',
+        headers: sessionMutation(cookie),
+        body: JSON.stringify({ title: '' }),
+      },
+      env,
+    )
+    expect(res.status).toBe(400)
+    const body = (await res.json()) as { error: { code: string } }
+    expect(body.error.code).toBe('VALIDATION_ERROR')
   })
 
   it('CORS rejects unknown Origin (no reflect)', async () => {
