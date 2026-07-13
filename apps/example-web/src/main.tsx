@@ -11,23 +11,28 @@ import { ThemeProvider, useTheme } from './lib/theme'
 import { routeTree } from './routeTree'
 import './index.css'
 
-function clearSessionQueries(client: QueryClient) {
-  client.removeQueries({ queryKey: meQueryKey })
+/**
+ * On 401 from a *protected* resource, re-check session — but never
+ * `removeQueries(['me'])` while `useMe` is mounted: that drops the query,
+ * observers re-fetch immediately → 401 → remove → infinite GET /api/me loop
+ * (and can wipe a good session if a late 401 lands after login).
+ */
+function onSessionUnauthorized(error: unknown, sourceQueryKey?: readonly unknown[]) {
+  if (!(error instanceof ApiError) || error.status !== 401) return
+  // Anonymous bootstrap: LoginPage / AuthGate already treat me-error as logged-out.
+  if (sourceQueryKey?.[0] === meQueryKey[0]) return
+  void queryClient.invalidateQueries({ queryKey: meQueryKey })
 }
 
 const queryClient = new QueryClient({
   queryCache: new QueryCache({
-    onError: (error) => {
-      if (error instanceof ApiError && error.status === 401) {
-        clearSessionQueries(queryClient)
-      }
+    onError: (error, query) => {
+      onSessionUnauthorized(error, query.queryKey)
     },
   }),
   mutationCache: new MutationCache({
     onError: (error, _vars, _ctx, mutation) => {
-      if (error instanceof ApiError && error.status === 401) {
-        clearSessionQueries(queryClient)
-      }
+      onSessionUnauthorized(error)
       // Skip toast when mutation already defines onError (avoids double toasts).
       if (mutation.options.onError) return
       toast.error(apiErrorToMessage(error))
