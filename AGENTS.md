@@ -28,9 +28,25 @@ Ce repo est le **boilerplate Chemin A** : monorepo extractible, conventions + CI
 
 | App | Repo | Sync |
 |---|---|---|
-| silex-share | `go-silex/silex-share` · `~/projects/gosilex/silex-share/` | `git remote add upstream git@github.com:go-silex/silex-boilerplate.git` · `fetch` + `merge upstream/main` |
+| silex-share | `go-silex/silex-share` · `~/projects/gosilex/silex-share/` | `upstream` → ce repo · `fetch` + `merge upstream/main` |
 
 **Règle :** changements kit → **ici** d’abord · les products pullent. Ne pas inventer de features métier dans ce repo.
+
+#### Contrat consumer (obligatoire) — push upstream = DENY
+
+Tout repo produit qui prend **ce kit** comme `upstream` **doit** :
+
+1. **Fetch-only** sur `upstream` :
+   ```bash
+   git remote add upstream git@github.com:go-silex/silex-boilerplate.git   # si absent
+   git remote set-url --push upstream no_push
+   ```
+2. **Hook pre-push** qui refuse remote `upstream` **ou** toute URL `*silex-boilerplate*`  
+   (réf. product : `silex-share` → `scripts/deny-upstream-push.sh` + lefthook `deny-upstream`).
+3. **Jamais** `git push upstream` / `LEFTHOOK=0 git push upstream` depuis un clone produit.
+4. Kit only : coder et `git push origin` dans **`~/projects/gosilex/silex-boilerplate`**.
+
+Ce repo (boilerplate) **n’installe pas** le deny-hook sur *son* `origin` (ce serait le kit lui-même). Le deny vit **dans chaque product**.
 
 **Barre qualité = audits** (Spark, Metalyde) : sécu, coverage, god files, couches, CI, linter — **par défaut** tooling+CI.
 

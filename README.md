@@ -8,7 +8,7 @@ SSoT kit for product apps (e.g. **silex-share** pulls this via git `upstream`).
 |---|---|
 | **GitHub** | [`go-silex/silex-boilerplate`](https://github.com/go-silex/silex-boilerplate) (private) |
 | **Local** | `~/projects/gosilex/silex-boilerplate/` |
-| **Consumer example** | [`go-silex/silex-share`](https://github.com/go-silex/silex-share) · `git fetch upstream && git merge upstream/main` |
+| **Consumer example** | [`go-silex/silex-share`](https://github.com/go-silex/silex-share) · `git fetch upstream && git merge upstream/main` · **push upstream = DENY** (product-side hook + `no_push`) |
 | **Goal** | [`artifacts/goals/001-chemin-a-boilerplate-goal.md`](artifacts/goals/001-chemin-a-boilerplate-goal.md) |
 | **Axial ADR** | [`docs/architecture/adr/0001-primary-axis-packages-compose-apps.md`](docs/architecture/adr/0001-primary-axis-packages-compose-apps.md) |
 | **Agent** | [`AGENTS.md`](AGENTS.md) |
