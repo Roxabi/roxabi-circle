@@ -5,8 +5,14 @@ Same role as **roxabi-ci** on the Roxabi org: ephemeral tokens for **merge-on-gr
 **No classic PAT.** Prefer this App org-wide for all `go-silex/*` private repos on Free plan.
 
 > **Why this matters:** auto-merge (label `reviewed` + green checks → merge commit) needs this App.
-> Without credentials, `merge-on-green` **soft-skips mint/merge** (job stays green, notice in log).
-> Human merge + quality CI still work. Install the App below to enable hands-free merge.
+>
+> | State | How you know | Merge |
+> |---|---|---|
+> | **App not set** | Job green + **warning** `Manual merge required` + Job Summary « gosilex-ci: not configured » | **Human** (`gh pr merge --merge` or UI) |
+> | **App set** | Mint step runs; merge attributed to `gosilex-ci[bot]` | Auto when `reviewed` + CI green |
+>
+> Gate flag = **non-secret** org/repo var `GOSILEX_CI_APP_ID` (never check secrets in `if:`).
+> Private key stays in secret `GOSILEX_CI_APP_PRIVATE_KEY` and is only used when the var is set.
 
 ## 1. Create the App (UI — one-time)
 
@@ -51,24 +57,36 @@ Same role as **roxabi-ci** on the Roxabi org: ephemeral tokens for **merge-on-gr
 ## 3. Store credentials (org-level preferred)
 
 ```bash
-# App ID → org variable (non-secret)
+# App ID → org **variable** (non-secret) — this is the enable flag for merge-on-green
 gh variable set GOSILEX_CI_APP_ID --org go-silex --body '<APP_ID>' --visibility all
 
-# Private key PEM → org secret
+# Private key PEM → org **secret**
 gh secret set GOSILEX_CI_APP_PRIVATE_KEY --org go-silex --visibility all < /path/to/gosilex-ci.pem
 ```
 
-Repo-only alternative (if you prefer not org-wide):
+Repo-only alternative (if you prefer not org-wide / product fork outside org inheritance):
 
 ```bash
-# Kit repo
-gh variable set GOSILEX_CI_APP_ID -R go-silex/silex-boilerplate --body '<APP_ID>'
-gh secret set GOSILEX_CI_APP_PRIVATE_KEY -R go-silex/silex-boilerplate < /path/to/gosilex-ci.pem
-
-# Product consumers (same pattern)
-# gh variable set GOSILEX_CI_APP_ID -R go-silex/silex-share --body '<APP_ID>'
-# gh secret set GOSILEX_CI_APP_PRIVATE_KEY -R go-silex/silex-share < /path/to/gosilex-ci.pem
+# Kit or product repo
+gh variable set GOSILEX_CI_APP_ID -R go-silex/<repo> --body '<APP_ID>'
+gh secret set GOSILEX_CI_APP_PRIVATE_KEY -R go-silex/<repo> < /path/to/gosilex-ci.pem
 ```
+
+### New product repo from this kit (checklist)
+
+When spinning a product consumer (fork / new repo + `upstream` → this kit):
+
+1. [ ] Create GitHub private repo under `go-silex`
+2. [ ] Clone kit as starting point; set remotes:
+   ```bash
+   git remote add upstream git@github.com:go-silex/silex-boilerplate.git
+   git remote set-url --push upstream no_push
+   # + product pre-push deny-upstream hook (see silex-share)
+   ```
+3. [ ] `bun install` · `bunx lefthook install` · copy `.dev.vars.example`
+4. [ ] **CI App:** either inherit org-level `GOSILEX_CI_APP_*` (preferred) **or** set repo-level var+secret (step 3)
+5. [ ] Confirm: open a draft PR → **Merge on Green** Summary shows `gosilex-ci: configured` **or** explicit `not configured` (manual merge)
+6. [ ] Product domain only under `apps/<product>-*`; never push kit changes via product `upstream`
 
 Verify inheritance (org-level vars may not show on `gh variable list -R`):
 
