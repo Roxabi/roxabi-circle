@@ -51,19 +51,31 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      # Soft-skip mint when App is not installed (avoids permanent red noise on Free before setup).
-      # Evaluate still runs with GITHUB_TOKEN; auto-merge only when App credentials exist.
-      # Setup: docs/gosilex-ci-app-setup.md · org var GOSILEX_CI_APP_ID + secret GOSILEX_CI_APP_PRIVATE_KEY
-      - name: Notice when gosilex-ci App is not configured
-        if: ${{ vars.GOSILEX_CI_APP_ID == '' || secrets.GOSILEX_CI_APP_PRIVATE_KEY == '' }}
+      # Gate auto-merge on **non-secret var only**.
+      # Do NOT put secrets in `if:` — GitHub treats them unreliably there (always empty /
+      # always set depending on context) and that caused permanent red mint steps.
+      # Flag: vars.GOSILEX_CI_APP_ID set → try mint + merge.
+      # Secret GOSILEX_CI_APP_PRIVATE_KEY is only passed into the mint action when enabled.
+      # Setup: docs/gosilex-ci-app-setup.md
+      - name: Resolve gosilex-ci availability
+        id: cfg
+        env:
+          APP_ID: ${{ vars.GOSILEX_CI_APP_ID }}
         run: |
-          echo "::notice title=gosilex-ci::App credentials missing — evaluate-only (no auto-merge). Install App + set GOSILEX_CI_APP_ID / GOSILEX_CI_APP_PRIVATE_KEY (docs/gosilex-ci-app-setup.md)."
+          if [ -n "$APP_ID" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+            echo "gosilex-ci: App ID present → auto-merge enabled"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=gosilex-ci not configured::Auto-merge OFF (evaluate-only). Human merge + quality CI still work. Install App + set org var GOSILEX_CI_APP_ID and secret GOSILEX_CI_APP_PRIVATE_KEY — docs/gosilex-ci-app-setup.md"
+            echo "::warning title=Manual merge required::Label reviewed will NOT auto-merge until gosilex-ci is set up."
+          fi
 
       # gosilex-ci App token (ephemeral, ~1 h) — same role as roxabi-ci on Roxabi org.
       # Merges workflow-file PRs + re-triggers push workflows (GITHUB_TOKEN cannot).
       - name: Mint app token (gosilex-ci)
         id: app
-        if: ${{ vars.GOSILEX_CI_APP_ID != '' && secrets.GOSILEX_CI_APP_PRIVATE_KEY != '' }}
+        if: steps.cfg.outputs.enabled == 'true'
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           app-id: ${{ vars.GOSILEX_CI_APP_ID }}
@@ -177,8 +189,9 @@ jobs:
             if (toMerge.length === 0) core.info('No PRs ready to merge.');
 
       - name: Merge green PRs
-        # Only when App mint succeeded (skipped when credentials missing → no auto-merge, job stays green).
+        # Only when App is configured AND mint succeeded (otherwise evaluate-only, job green).
         if: >-
+          steps.cfg.outputs.enabled == 'true' &&
           steps.app.outcome == 'success' &&
           steps.evaluate.outputs.to_merge != '' &&
           steps.evaluate.outputs.to_merge != '[]'
@@ -201,6 +214,24 @@ jobs:
                 core.warning(`${tag}: merge failed: ${e.message}`);
               }
             }
+
+      - name: Summary
+        if: always()
+        env:
+          ENABLED: ${{ steps.cfg.outputs.enabled }}
+          TO_MERGE: ${{ steps.evaluate.outputs.to_merge }}
+        run: |
+          {
+            echo "## Merge on Green"
+            echo ""
+            if [ "$ENABLED" = "true" ]; then
+              echo "- **gosilex-ci:** configured (auto-merge ON)"
+            else
+              echo "- **gosilex-ci:** **not configured** (auto-merge OFF — manual merge)"
+              echo "- Setup: \`docs/gosilex-ci-app-setup.md\`"
+            fi
+            echo "- Candidates: \`${TO_MERGE:-[]}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
 
   close-linked-issues:
     name: Close linked issues

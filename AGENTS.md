@@ -497,7 +497,7 @@ Règles : guard first · Zod double frontière · pas de god file · packages �
 - [x] **Merge-on-green** — `.github/workflows/merge-on-green.yml` (label `reviewed` + checks green)  
 - [x] Label **`reviewed`** créé sur le repo  
 - [x] Merge token = **GitHub App `gosilex-ci`** (pas de PAT) — setup : [`docs/gosilex-ci-app-setup.md`](docs/gosilex-ci-app-setup.md)  
-- [ ] Créer/installer App + set `GOSILEX_CI_APP_ID` / `GOSILEX_CI_APP_PRIVATE_KEY` (org)  
+- [ ] Créer/installer App + set `GOSILEX_CI_APP_ID` (var) / `GOSILEX_CI_APP_PRIVATE_KEY` (secret) — sans ça = **merge manuel** (job green + warning, pas d’auto-merge) · [`docs/gosilex-ci-app-setup.md`](docs/gosilex-ci-app-setup.md)  
 - [ ] Branch protection / rulesets — **bloqué plan Free privé** (voir § GitHub Free)  
 - [x] Bun workspaces + Turbo  
 - [x] Biome + CI app (`validate:full` incl. build:kit + smoke:mcp) — local pre-push + GH job `validate-full`
@@ -540,16 +540,17 @@ Quand la CI app existera : l’ajouter dans `workflow_run.workflows` de `merge-o
 
 ### Suite
 
-- [ ] Better Auth + cookies (M3)  
-- [ ] packages/ui Base UI + example-web  
-- [ ] i18n FR/EN (Paraglide)  
-- [ ] FastMCP share-mcp + skill  
-- [ ] Email : React Email + **Mailpit/Mailcatcher** local (+ staging) · Resend/CF prod  
+- [ ] **Better Auth + cookies (M3)** — remplace HMAC interim (ADR-0002) · GitHub OAuth + org membership  
+- [x] packages/ui Base UI + example-web (kit shell live)  
+- [x] i18n FR/EN catalogs (Paraglide optional later)  
+- [ ] FastMCP product tools + skill (hors kit strings)  
+- [ ] **Email prod** — React Email templates FR/EN · local Mailpit OK · Resend et/ou CF Email prod (`@gosilex/email` edge vs `/server`)  
+- [ ] **Submit feedback** (pattern Spark `FeedbackButton` → ticket space) — package kit + wire example-web · target space configurable  
+- [ ] **Plausible** — sites publics GOSILEX déjà `analytics.gosilex.com` (self-host VPS) · intégration SPA = script/snippet + domain per app · **SSoT hub** (un Plausible multi-sites, pas un instance par app) · package thin `@gosilex/analytics` ou doc only  
 - [ ] Sentry + Better Stack (prod)  
-- [ ] Plausible si surface publique  
 - [ ] CodeRabbit (ou équiv.) sur PR  
-- [ ] Playwright e2e  
-- [ ] Extract dry-run CI (drop share-* → green)  
+- [ ] Playwright e2e en CI  
+- [ ] Extract dry-run « suite green after drop product » (aujourd’hui structure only)  
 
 **Critère extractible :** supprimer `apps/share-*` → examples + packages verts, 0 string métier share.
 
