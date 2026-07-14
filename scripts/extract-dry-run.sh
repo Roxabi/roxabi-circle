@@ -41,6 +41,8 @@ required=(
   apps/example-web/package.json
   apps/mcp-example/package.json
   docs/architecture/adr/0001-primary-axis-packages-compose-apps.md
+  config/zero-edit-zones.json
+  scripts/check-zero-edit-zones.sh
 )
 
 for f in "${required[@]}"; do

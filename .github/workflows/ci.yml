@@ -32,7 +32,7 @@ jobs:
         run: bun install --frozen-lockfile
 
       # Single entrypoint = local pre-push (docs/testing.md).
-      # Includes lint · typecheck · banlist · extract · env · coverage · license · build:kit · smoke:mcp
+      # Includes lint · typecheck · banlist · extract · zero-edit · env · coverage · license · build:kit · smoke:mcp
       - name: Validate full
         run: bun run validate:full
 

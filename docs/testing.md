@@ -46,12 +46,13 @@ merge-on-green (label reviewed + checks)
 ```bash
 bunx lefthook install          # once per clone
 
-bun run validate               # lint · typecheck · test · banlist · extract · env:check
+bun run validate               # lint · typecheck · test · banlist · extract · zero-edit · env:check
+bun run zero-edit              # product must not diverge kit paths without exception (kit = config only)
 bun run env:check              # schema ↔ .dev.vars.example (DX only)
 bun run i18n:check             # messages contract (also in turbo test)
 bun run license:check          # dependency SPDX allowlist (UNKNOWN = warn)
 bun run test:coverage          # floors + HTML under coverage/<pkg>/
-bun run validate:full          # lint · typecheck · banlist · extract · env · test:coverage · license · build:kit · smoke:mcp (= pre-push; CI same)
+bun run validate:full          # lint · typecheck · banlist · extract · zero-edit · env · test:coverage · license · build:kit · smoke:mcp (= pre-push; CI same)
 
 # Before opening a PR (explicit habit even if hooks installed):
 bun run validate:full
@@ -92,7 +93,7 @@ Floors are enforced by Vitest (`packages/config/vitest-coverage.mjs` + per-packa
 | **`packages/*`** | Public API of the capability (crypto, AppError, `joinObjectKey`, UI primitive contracts, MCP allowlist) | Share product scenarios (artefact, slug 409, private_key product mode) |
 | **`apps/example-*`** | Composition: Hono + D1/R2, dual auth wire, demo IDOR, CORS, cookies, design-system smoke | Re-implement package crypto N times |
 | **`apps/share-*` (P1 later)** | Product risks (upload modes, zip-slip, org membership, serve) | Forks of `@gosilex/*` stacks |
-| **`scripts/*` / `tools/*`** | Architecture gates: banlist, extract, env:check, license:check, coverage | Domain behaviour |
+| **`scripts/*` / `tools/*`** | Architecture gates: banlist, extract, zero-edit, env:check, license:check, coverage | Domain behaviour |
 
 ### Design-system e2e
 
@@ -141,6 +142,7 @@ Machine-enforced today via full `validate` + `test:coverage` + package tests. Pr
 | **CP-MCP** | tool allowlist; live stdio `tools/list` exact `ping`/`whoami` | `packages/mcp` unit + `bun run smoke:mcp` (in `validate:full` / CI) |
 | **CP-BAN** | no product-share strings in packages / examples | `scripts/check-banned-strings.sh` |
 | **CP-EXTRACT** | structural extractability: required tree, banlist, import graph, orphan packages, ADRs (does **not** re-run lint/typecheck/test after a simulated drop) | `scripts/extract-dry-run.sh` |
+| **CP-ZERO-EDIT** | product consumers do not dual-edit kit paths; design overrides preferred; exceptions time-boxed + ticketed | `scripts/check-zero-edit-zones.sh` · `config/zero-edit-zones.json` · [`product-consumer-contract.md`](./product-consumer-contract.md) |
 | **CP-ENV** | Worker string env keys documented in `.dev.vars.example` (SSoT Zod schema); no real secrets in examples | `bun run env:check` — **DX only**, not “prod secrets validated” |
 | **CP-LICENSE** | third-party deps on allowlist; disallowed SPDX fails | `bun run license:check` — **compliance hygiene**, not malware audit |
 | **CP-I18N** | FR/EN non-empty copy; key parity via TypeScript `Messages` | `messages.contract.test.ts` / `i18n:check` — **not** semantic/security review |
