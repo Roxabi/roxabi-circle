@@ -25,7 +25,9 @@
     "i18n:check": "bun run --filter @gosilex/example-web test -- src/messages/messages.contract.test.ts",
     "license:check": "bun run tools/licenseChecker.ts",
     "validate": "bun run lint && bun run typecheck && bun run test && bun run banlist && bun run extract-dry-run && bun run env:check",
-    "validate:full": "bun run lint && bun run typecheck && bun run banlist && bun run extract-dry-run && bun run env:check && bun run test:coverage && bun run license:check",
+    "build:kit": "turbo run build --filter=@gosilex/example-api --filter=@gosilex/example-web",
+    "smoke:mcp": "bun run --filter @gosilex/mcp-example smoke:stdio",
+    "validate:full": "bun run lint && bun run typecheck && bun run banlist && bun run extract-dry-run && bun run env:check && bun run test:coverage && bun run license:check && bun run build:kit && bun run smoke:mcp",
     "prepare": "lefthook install"
   },
   "devDependencies": {

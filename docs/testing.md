@@ -38,7 +38,7 @@ merge-on-green (label reviewed + checks)
 | Layer | Role | Cost expectation |
 |---|---|---|
 | **Lefthook pre-push** | **Primary quality gate** — `validate:full` | Accept wall-clock; fix here |
-| **CI** (`lint-typecheck-test`) | **Secondary** — same suite if someone skipped hooks or local env lied | Should almost always be green if pre-push ran |
+| **CI** (`validate-full` job) | **Secondary** — same `validate:full` if hooks skipped or local env lied | Should almost always be green if pre-push ran |
 | **Secret scan** | Orthogonal security | Always |
 
 ### Commands
@@ -51,7 +51,7 @@ bun run env:check              # schema ↔ .dev.vars.example (DX only)
 bun run i18n:check             # messages contract (also in turbo test)
 bun run license:check          # dependency SPDX allowlist (UNKNOWN = warn)
 bun run test:coverage          # floors + HTML under coverage/<pkg>/
-bun run validate:full          # lint · typecheck · banlist · extract · env · test:coverage · license (= pre-push; CI uses same entrypoint)
+bun run validate:full          # lint · typecheck · banlist · extract · env · test:coverage · license · build:kit · smoke:mcp (= pre-push; CI same)
 
 # Before opening a PR (explicit habit even if hooks installed):
 bun run validate:full
@@ -138,7 +138,7 @@ Machine-enforced today via full `validate` + `test:coverage` + package tests. Pr
 | **CP-SECRET** | fail-closed `SESSION_SECRET` outside development\|test | example-api |
 | **CP-R2** | keys under intended prefix; `joinObjectKey` rejects traversal | `packages/storage`, example-api |
 | **CP-FE-CRED** | `apiFetch` always `credentials: 'include'`; maps UNAUTHORIZED | example-web |
-| **CP-MCP** | tool allowlist; no share-domain tools in kit | `packages/mcp`, mcp-example |
+| **CP-MCP** | tool allowlist; live stdio `tools/list` exact `ping`/`whoami` | `packages/mcp` unit + `bun run smoke:mcp` (in `validate:full` / CI) |
 | **CP-BAN** | no product-share strings in packages / examples | `scripts/check-banned-strings.sh` |
 | **CP-EXTRACT** | structural extractability: required tree, banlist, import graph, orphan packages, ADRs (does **not** re-run lint/typecheck/test after a simulated drop) | `scripts/extract-dry-run.sh` |
 | **CP-ENV** | Worker string env keys documented in `.dev.vars.example` (SSoT Zod schema); no real secrets in examples | `bun run env:check` — **DX only**, not “prod secrets validated” |
