@@ -12,7 +12,7 @@ describe('ApiError', () => {
     expect(err.status).toBe(401)
   })
 
-  it('apiErrorToMessage prefers ApiError.message', () => {
+  it('apiErrorToMessage prefers ApiError.message without catalog', () => {
     const err = new ApiError(400, {
       error: { code: 'VALIDATION_ERROR', message: 'Invalid note' },
       requestId: 'req_x',
@@ -20,6 +20,19 @@ describe('ApiError', () => {
     expect(apiErrorToMessage(err)).toBe('Invalid note')
     expect(apiErrorToMessage(new Error('boom'))).toBe('boom')
     expect(apiErrorToMessage(null, 'fallback')).toBe('fallback')
+  })
+
+  it('apiErrorToMessage maps ErrorCode via Messages catalog', () => {
+    const catalog = {
+      error: 'Erreur',
+      errUnauthorized: 'Session expirée ou non authentifié',
+      errValidation: 'Données invalides',
+    } as import('../messages/fr').Messages
+    const err = new ApiError(401, {
+      error: { code: 'UNAUTHORIZED', message: 'Unauthorized' },
+      requestId: 'req_x',
+    })
+    expect(apiErrorToMessage(err, catalog)).toBe('Session expirée ou non authentifié')
   })
 })
 

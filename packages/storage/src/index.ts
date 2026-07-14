@@ -53,20 +53,34 @@ export function joinObjectKey(prefix: string, ...parts: string[]): string {
   return segments.join('/')
 }
 
+/**
+ * Reject empty keys and `..` segments on free helpers.
+ * Prefer {@link StorageClient} for prefix-enforced product keys.
+ */
+export function assertObjectKey(key: string): void {
+  if (!key?.trim()) {
+    throw new StorageError('PATH_TRAVERSAL', 'empty object key rejected')
+  }
+  pushPathSegments([], key)
+}
+
 export async function putObject(
   bucket: KitR2Bucket,
   key: string,
   body: KitR2Body,
   options?: { httpMetadata?: { contentType?: string } },
 ): Promise<unknown> {
+  assertObjectKey(key)
   return bucket.put(key, body, options)
 }
 
 export async function getObject(bucket: KitR2Bucket, key: string): Promise<KitR2ObjectBody | null> {
+  assertObjectKey(key)
   return bucket.get(key)
 }
 
 export async function deleteObject(bucket: KitR2Bucket, key: string): Promise<void> {
+  assertObjectKey(key)
   await bucket.delete(key)
 }
 

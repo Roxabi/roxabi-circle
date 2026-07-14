@@ -51,7 +51,7 @@ bun run env:check              # schema ↔ .dev.vars.example (DX only)
 bun run i18n:check             # messages contract (also in turbo test)
 bun run license:check          # dependency SPDX allowlist (UNKNOWN = warn)
 bun run test:coverage          # floors + HTML under coverage/<pkg>/
-bun run validate:full          # validate + coverage + license  (= pre-push)
+bun run validate:full          # lint · typecheck · banlist · extract · env · test:coverage · license (= pre-push; CI uses same entrypoint)
 
 # Before opening a PR (explicit habit even if hooks installed):
 bun run validate:full
@@ -140,7 +140,7 @@ Machine-enforced today via full `validate` + `test:coverage` + package tests. Pr
 | **CP-FE-CRED** | `apiFetch` always `credentials: 'include'`; maps UNAUTHORIZED | example-web |
 | **CP-MCP** | tool allowlist; no share-domain tools in kit | `packages/mcp`, mcp-example |
 | **CP-BAN** | no product-share strings in packages / examples | `scripts/check-banned-strings.sh` |
-| **CP-EXTRACT** | drop share apps → examples + packages still green; packages used | `scripts/extract-dry-run.sh` |
+| **CP-EXTRACT** | structural extractability: required tree, banlist, import graph, orphan packages, ADRs (does **not** re-run lint/typecheck/test after a simulated drop) | `scripts/extract-dry-run.sh` |
 | **CP-ENV** | Worker string env keys documented in `.dev.vars.example` (SSoT Zod schema); no real secrets in examples | `bun run env:check` — **DX only**, not “prod secrets validated” |
 | **CP-LICENSE** | third-party deps on allowlist; disallowed SPDX fails | `bun run license:check` — **compliance hygiene**, not malware audit |
 | **CP-I18N** | FR/EN non-empty copy; key parity via TypeScript `Messages` | `messages.contract.test.ts` / `i18n:check` — **not** semantic/security review |
@@ -160,12 +160,14 @@ Worker env SSoT: `apps/example-api/src/env.schema.ts`. Bindings `DB` / `BUCKET` 
 
 | Gap | Status |
 |---|---|
-| Origin/CSRF middleware on mutations | Documented in AGENTS; **implement + test** when dual-host cookies force it |
+| Origin/CSRF middleware on mutations | **Shipped** — `originGuard` + tests (cookie mutations require trusted Origin) |
+| Seed/demo users disabled outside dev/test | **Shipped** — `ensureDemoUsers` env-gated; production login does not auto-seed |
+| Rate-limit 429 wire + Bearer-vs-cookie exclusivity | Covered by tests after 2026-07 review fix pass; still demo in-memory only |
 | Server RBAC (`role` is demo/SPA-facing today) | Do not treat SPA `isAdmin` as security; server checks when admin APIs exist |
-| Seed/demo users disabled outside dev/test | Prefer invariant test when seed hardens |
 | Zip-slip / `private_key` → 404 | **Product** when `share-*` exists |
 | Playwright cookie journey in CI | Phase B6 — Chromium smoke; until then local e2e scripts |
 | Mutation testing on `packages/auth` | Optional **nightly / manual**, not PR gate until cheap |
+| Stateless HMAC logout | ADR-0002 interim — cookie clear only; Better Auth M3 for server sessions |
 
 ---
 

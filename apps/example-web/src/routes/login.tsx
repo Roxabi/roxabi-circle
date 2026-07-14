@@ -17,9 +17,14 @@ import { toast } from 'sonner'
 import { apiErrorToMessage, apiFetch } from '../lib/api'
 import { meQueryKey, useMe } from '../lib/auth'
 import { useLocale } from '../lib/locale'
+import { loginSchema } from '../lib/schemas'
 
-const DEMO_EMAIL = 'demo@gosilex.local'
-const DEMO_PASSWORD = 'demo-password-change-me'
+/** Dev-only email prefill — never put demo password in message catalogs or prod bundle. */
+const DEV_DEMO_EMAIL = import.meta.env.DEV ? 'demo@gosilex.local' : ''
+/** DEV-only hint; no password string (seed docs own the password). Vite drops this in prod. */
+const DEV_DEMO_HINT = import.meta.env.DEV
+  ? 'Local demo email prefilled — password is in API seed / .dev.vars docs, not in this UI.'
+  : ''
 
 /** login-05 chrome: centered brand + form (password + forgot, not email-only). */
 export function LoginPage() {
@@ -28,7 +33,6 @@ export function LoginPage() {
   const qc = useQueryClient()
   const [error, setError] = useState<string | null>(null)
   const me = useMe()
-  const demoPrefill = import.meta.env.DEV
 
   useEffect(() => {
     if (me.data) void navigate({ to: '/' })
@@ -36,8 +40,22 @@ export function LoginPage() {
 
   const form = useForm({
     defaultValues: {
-      email: demoPrefill ? DEMO_EMAIL : '',
-      password: demoPrefill ? DEMO_PASSWORD : '',
+      email: DEV_DEMO_EMAIL,
+      password: '',
+    },
+    validators: {
+      onSubmit: ({ value }) => {
+        const parsed = loginSchema.safeParse(value)
+        if (parsed.success) return undefined
+        const flat = parsed.error.flatten().fieldErrors
+        return {
+          form: m.errValidation,
+          fields: {
+            email: flat.email?.[0] ? m.errEmailInvalid : undefined,
+            password: flat.password?.[0] ? m.errPasswordRequired : undefined,
+          },
+        }
+      },
     },
     onSubmit: async ({ value }) => {
       setError(null)
@@ -50,7 +68,7 @@ export function LoginPage() {
         toast.success(m.login, { description: value.email })
         await navigate({ to: '/' })
       } catch (e) {
-        const msg = apiErrorToMessage(e, m.error)
+        const msg = apiErrorToMessage(e, m)
         setError(msg)
         toast.error(m.error, { description: msg })
       }
@@ -97,51 +115,69 @@ export function LoginPage() {
         >
           <FieldGroup>
             <form.Field name="email">
-              {(field) => (
-                <Field>
-                  <FieldLabel htmlFor={field.name}>{m.email}</FieldLabel>
-                  <Input
-                    id={field.name}
-                    type="email"
-                    autoComplete="username"
-                    placeholder="m@example.com"
-                    value={field.state.value}
-                    onBlur={field.handleBlur}
-                    onChange={(e) => field.handleChange(e.target.value)}
-                    required
-                  />
-                </Field>
-              )}
+              {(field) => {
+                const err = field.state.meta.errors[0]
+                const errId = `${field.name}-error`
+                const invalid = Boolean(err)
+                return (
+                  <Field>
+                    <FieldLabel htmlFor={field.name}>{m.email}</FieldLabel>
+                    <Input
+                      id={field.name}
+                      type="email"
+                      autoComplete="username"
+                      placeholder="m@example.com"
+                      value={field.state.value}
+                      onBlur={field.handleBlur}
+                      onChange={(e) => field.handleChange(e.target.value)}
+                      aria-invalid={invalid || undefined}
+                      aria-describedby={invalid ? errId : undefined}
+                    />
+                    {invalid ? <FieldError id={errId}>{String(err)}</FieldError> : null}
+                  </Field>
+                )
+              }}
             </form.Field>
             <form.Field name="password">
-              {(field) => (
-                <Field>
-                  <div className="flex items-center gap-2">
-                    <FieldLabel htmlFor={field.name}>{m.password}</FieldLabel>
-                    <Link
-                      to="/forgot-password"
-                      className="ml-auto text-sm underline-offset-4 hover:underline"
-                    >
-                      {m.forgotPassword}
-                    </Link>
-                  </div>
-                  <Input
-                    id={field.name}
-                    type="password"
-                    autoComplete="current-password"
-                    value={field.state.value}
-                    onBlur={field.handleBlur}
-                    onChange={(e) => field.handleChange(e.target.value)}
-                    required
-                  />
-                </Field>
-              )}
+              {(field) => {
+                const err = field.state.meta.errors[0]
+                const errId = `${field.name}-error`
+                const invalid = Boolean(err)
+                return (
+                  <Field>
+                    <div className="flex items-center gap-2">
+                      <FieldLabel htmlFor={field.name}>{m.password}</FieldLabel>
+                      <Link
+                        to="/forgot-password"
+                        className="ml-auto text-sm underline-offset-4 hover:underline"
+                      >
+                        {m.forgotPassword}
+                      </Link>
+                    </div>
+                    <Input
+                      id={field.name}
+                      type="password"
+                      autoComplete="current-password"
+                      value={field.state.value}
+                      onBlur={field.handleBlur}
+                      onChange={(e) => field.handleChange(e.target.value)}
+                      aria-invalid={invalid || undefined}
+                      aria-describedby={invalid ? errId : undefined}
+                    />
+                    {invalid ? <FieldError id={errId}>{String(err)}</FieldError> : null}
+                  </Field>
+                )
+              }}
             </form.Field>
-            {demoPrefill ? <FieldDescription>{m.demoCreds}</FieldDescription> : null}
+            {DEV_DEMO_HINT ? <FieldDescription>{DEV_DEMO_HINT}</FieldDescription> : null}
             {error ? <FieldError>{error}</FieldError> : null}
-            <Button type="submit" className="w-full">
-              {m.submit}
-            </Button>
+            <form.Subscribe selector={(s) => s.isSubmitting}>
+              {(isSubmitting) => (
+                <Button type="submit" className="w-full" disabled={isSubmitting}>
+                  {m.submit}
+                </Button>
+              )}
+            </form.Subscribe>
           </FieldGroup>
         </form>
 

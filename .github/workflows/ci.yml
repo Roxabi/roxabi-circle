@@ -10,47 +10,33 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# Least privilege — same spirit as secret-scan / merge-on-green.
+permissions:
+  contents: read
+
 jobs:
   quality:
     name: lint-typecheck-test
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      # Pin SHAs (supply-chain); tags float.
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4
 
-      - uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@735343b667d3e6f658f44d0eca948eb6282f2b76 # v2.0.2
         with:
           bun-version: 1.3.14
 
       - name: Install
         run: bun install --frozen-lockfile
 
-      - name: Lint
-        run: bun run lint
-
-      - name: Typecheck
-        run: bun run typecheck
-
-      - name: Env check
-        run: bun run env:check
-
-      - name: Test
-        run: bun run test
-
-      - name: Coverage (thresholds)
-        run: bun run test:coverage
-
-      - name: License check
-        run: bun run license:check
-
-      - name: Banlist + extract dry-run
-        run: |
-          bun run banlist
-          bun run extract-dry-run
+      # Single entrypoint = local pre-push (docs/testing.md). No double test suite.
+      - name: Validate full
+        run: bun run validate:full
 
       - name: Upload coverage HTML
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: coverage-html
           path: coverage/

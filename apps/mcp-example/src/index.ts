@@ -10,28 +10,22 @@
  * - MCP_ALLOWED_HOSTS=localhost,127.0.0.1  (optional override, comma-separated)
  */
 import {
-  assertExactKitTools,
+  assertToolsMatchAllowlist,
   extractBearerFromEnv,
   handlePing,
   handleWhoami,
-  MCP_TOOL_NAMES,
 } from '@gosilex/mcp'
 import { FastMCP } from 'fastmcp'
 import { z } from 'zod'
 
 /**
- * Single source of truth for registered tool names.
+ * App-local SSoT for registered tool names (not package law).
  * Every entry here is addTool'd below — do not register tools outside this list.
  */
 export const REGISTERED_TOOL_NAMES = ['ping', 'whoami'] as const
 
-// Fail boot if allowlist and registration list diverge
-assertExactKitTools([...REGISTERED_TOOL_NAMES])
-if (
-  JSON.stringify([...REGISTERED_TOOL_NAMES].sort()) !== JSON.stringify([...MCP_TOOL_NAMES].sort())
-) {
-  throw new Error('REGISTERED_TOOL_NAMES must match @gosilex/mcp MCP_TOOL_NAMES')
-}
+// Fail boot if registration list drifts from this allowlist
+assertToolsMatchAllowlist([...REGISTERED_TOOL_NAMES], REGISTERED_TOOL_NAMES)
 
 const server = new FastMCP({
   name: 'gosilex-mcp-example',
@@ -74,4 +68,4 @@ if (import.meta.main) {
   server.start({ transportType: 'stdio' })
 }
 
-export { MCP_TOOL_NAMES, server }
+export { server }

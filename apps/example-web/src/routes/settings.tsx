@@ -90,8 +90,6 @@ export function SettingsPage() {
               <Label>{m.authMethod}</Label>
               <span className="text-muted-foreground">{me.data?.authMethod}</span>
             </div>
-            <Separator />
-            <p className="text-xs text-muted-foreground">{m.demoCreds}</p>
           </CardContent>
         </Card>
       </div>

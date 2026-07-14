@@ -72,7 +72,14 @@ function ThemeCycleButton() {
   const Icon = theme === 'dark' ? Moon : theme === 'light' ? Sun : SunMoon
   const label = theme === 'dark' ? m.themeDark : theme === 'light' ? m.themeLight : m.themeSystem
   return (
-    <Button type="button" variant="outline" size="icon-sm" onClick={next} title={label}>
+    <Button
+      type="button"
+      variant="outline"
+      size="icon-sm"
+      onClick={next}
+      title={label}
+      aria-label={label}
+    >
       <Icon />
     </Button>
   )

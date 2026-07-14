@@ -37,6 +37,14 @@ export async function ensureDemoUser(db: Db, opts?: { environment?: string | nul
   await ensureDemoUsers(db, opts)
 }
 
+/**
+ * Fixed dummy PBKDF2 hash so unknown emails still pay full KDF cost
+ * (reduces remote account-enumeration timing oracle).
+ * salt=16 zero bytes, hash=32 zero bytes, iters=100_000.
+ */
+const DUMMY_PASSWORD_HASH =
+  'pbkdf2$100000$00000000000000000000000000000000$0000000000000000000000000000000000000000000000000000000000000000'
+
 export async function loginWithPassword(
   db: Db,
   secret: string,
@@ -51,9 +59,9 @@ export async function loginWithPassword(
   const sessions = opts?.sessions ?? defaultSessionPort
   await ensureDemoUsers(db, { environment: opts?.environment })
   const user = await usersRepo.findUserByEmail(db, email)
-  if (!user) throw AppError.unauthorized('Invalid credentials')
-  const ok = await verifyPassword(password, user.passwordHash)
-  if (!ok) throw AppError.unauthorized('Invalid credentials')
+  // Always run PBKDF2 (dummy hash when user missing) before branching on existence.
+  const ok = await verifyPassword(password, user?.passwordHash ?? DUMMY_PASSWORD_HASH)
+  if (!user || !ok) throw AppError.unauthorized('Invalid credentials')
   const token = await sessions.sign(
     {
       sub: user.id,

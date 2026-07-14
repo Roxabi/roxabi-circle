@@ -1,5 +1,8 @@
 # Copy to .dev.vars (gitignored). Placeholders only — never commit real secrets.
+# ENVIRONMENT must be set for local HMAC fallback / demo seed (not in wrangler [vars]).
 ENVIRONMENT=development
+# Known kit placeholder — accepted only when ENVIRONMENT=development|test.
+# Production/staging: generate a unique secret (openssl rand -base64 48) via CF secrets.
 SESSION_SECRET=dev-session-secret-change-me-32chars!!
 CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 DEMO_USER_EMAIL=demo@gosilex.local

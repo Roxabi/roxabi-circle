@@ -10,7 +10,7 @@ import {
   verifyApiKey,
   verifyPassword,
 } from './keys'
-import { signSession, verifySession } from './session'
+import { SESSION_COOKIE, signSession, verifySession } from './session'
 import { createHmacSessionPort, defaultSessionPort } from './session-port'
 
 function b64urlJson(obj: unknown): string {
@@ -178,6 +178,36 @@ describe('resolveDualAuth', () => {
       }),
     ).rejects.toMatchObject({ code: 'UNAUTHORIZED' })
   })
+
+  it('CP-AUTH-DUAL: invalid Bearer fails closed even with valid session cookie', async () => {
+    const { resolveDualAuth } = await import('./require-auth')
+    const secret = 'test-secret-at-least-32-characters!!'
+    const token = await signSession(
+      { sub: 'u1', email: 'a@b.c', exp: Math.floor(Date.now() / 1000) + 3600 },
+      secret,
+    )
+    const cookie = `${SESSION_COOKIE}=${token}`
+    await expect(
+      resolveDualAuth('Bearer sk_deadbeef0001', cookie, {
+        secret,
+        findApiKeyByPrefix: async () => null,
+      }),
+    ).rejects.toMatchObject({ code: 'UNAUTHORIZED' })
+  })
+
+  it('CP-AUTH-DUAL: valid session cookie alone succeeds', async () => {
+    const { resolveDualAuth } = await import('./require-auth')
+    const secret = 'test-secret-at-least-32-characters!!'
+    const token = await signSession(
+      { sub: 'u1', email: 'a@b.c', exp: Math.floor(Date.now() / 1000) + 3600 },
+      secret,
+    )
+    const r = await resolveDualAuth(null, `${SESSION_COOKIE}=${token}`, {
+      secret,
+      findApiKeyByPrefix: async () => null,
+    })
+    expect(r).toMatchObject({ subject: 'u1', method: 'session' })
+  })
 })
 
 describe('SessionPort (HMAC adapter)', () => {
@@ -191,9 +221,21 @@ describe('SessionPort (HMAC adapter)', () => {
     )
     const payload = await port.verify(token, secret)
     expect(payload?.sub).toBe('u1')
-    expect(port.cookieHeader(token, { secure: true })).toMatch(/HttpOnly/)
-    expect(port.cookieHeader(token, { secure: true })).toMatch(/Secure/)
-    expect(port.clearCookieHeader()).toMatch(/Max-Age=0/)
+    const set = port.cookieHeader(token, { secure: true })
+    expect(set).toMatch(/HttpOnly/)
+    expect(set).toMatch(/Secure/)
+    expect(set).toMatch(/SameSite=Lax/i)
+    expect(set).toMatch(/Path=\//)
+    const clear = port.clearCookieHeader({ secure: true })
+    expect(clear).toMatch(/Max-Age=0/)
+    expect(clear).toMatch(/HttpOnly/)
+    expect(clear).toMatch(/SameSite=Lax/i)
+  })
+
+  it('rejects short session secrets', async () => {
+    await expect(
+      signSession({ sub: 'u', email: 'a@b.c', exp: Math.floor(Date.now() / 1000) + 60 }, 'short'),
+    ).rejects.toThrow(/at least 32/)
   })
 
   it('defaultSessionPort is the HMAC adapter', async () => {

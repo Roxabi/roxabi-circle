@@ -1,34 +1,58 @@
 import { parseBearer } from '@gosilex/auth'
 
-export type McpToolName = 'ping' | 'whoami'
+/**
+ * Assert registered tool names equal an app-supplied allowlist (order-insensitive).
+ * Kit purity (no product-domain tools) is enforced by scripts/check-banned-strings.sh,
+ * not by hardcoding product lexicon in this package.
+ */
+export function assertToolsMatchAllowlist(names: string[], allowlist: readonly string[]): void {
+  const sorted = [...names].sort()
+  const expected = [...allowlist].sort()
+  if (sorted.length !== expected.length || sorted.some((n, i) => n !== expected[i])) {
+    throw new Error(
+      `MCP tools must be exactly ${expected.join(',')}; got ${sorted.join(',') || '(none)'}`,
+    )
+  }
+}
 
-/** Allowlist — kit MCP tools only. Keep in sync with apps/mcp-example registration. */
-export const MCP_TOOL_NAMES: McpToolName[] = ['ping', 'whoami']
+/**
+ * @deprecated Use {@link assertToolsMatchAllowlist} with an app-local allowlist.
+ * Kept as thin alias so older call sites keep compiling during migrate.
+ */
+export function assertExactKitTools(names: string[]): void {
+  // Default example allowlist only — products must pass their own list.
+  assertToolsMatchAllowlist(names, ['ping', 'whoami'])
+}
 
+/** @deprecated Prefer banlist script + app allowlist; no product tokens in kit package. */
 export function assertNoShareTools(names: string[]): void {
   for (const n of names) {
-    if (n.startsWith('share_') || n.includes('artifact')) {
-      throw new Error(`product MCP tool forbidden in kit: ${n}`)
+    // Generic: reject empty / non-identifier tool names only (not product lexicon).
+    if (!n || !/^[a-z][a-z0-9_]*$/i.test(n)) {
+      throw new Error(`invalid MCP tool name: ${n}`)
     }
   }
 }
 
-/** Assert exact kit allowlist (order-insensitive). */
-export function assertExactKitTools(names: string[]): void {
-  assertNoShareTools(names)
-  const sorted = [...names].sort()
-  const expected = [...MCP_TOOL_NAMES].sort()
-  if (sorted.length !== expected.length || sorted.some((n, i) => n !== expected[i])) {
-    throw new Error(`MCP tools must be exactly ${expected.join(',')}; got ${sorted.join(',')}`)
-  }
+/** Example kit tool names — for docs/tests; apps own registration SSoT. */
+export const MCP_TOOL_NAMES = ['ping', 'whoami'] as const
+export type McpToolName = (typeof MCP_TOOL_NAMES)[number]
+
+function asSkKey(token: string | null | undefined): string | null {
+  if (!token?.startsWith('sk_')) return null
+  return token
 }
 
 export function extractBearerFromEnv(env: Record<string, string | undefined>): string | null {
-  return (
-    parseBearer(env.AUTHORIZATION ? `Bearer ${env.AUTHORIZATION}` : null) ??
-    (env.API_KEY?.startsWith('sk_') ? env.API_KEY : null) ??
-    null
-  )
+  const auth = env.AUTHORIZATION?.trim()
+  if (auth) {
+    // Accept bare sk_… or full "Bearer sk_…" without double-prefixing.
+    // Only sk_ machine keys — same contract as API_KEY.
+    const fromBearer = parseBearer(auth) ?? parseBearer(`Bearer ${auth}`)
+    const sk = asSkKey(fromBearer)
+    if (sk) return sk
+  }
+  return asSkKey(env.API_KEY)
 }
 
 export async function handlePing(): Promise<{ ok: true }> {

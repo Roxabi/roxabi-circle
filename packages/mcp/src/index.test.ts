@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   assertExactKitTools,
   assertNoShareTools,
+  assertToolsMatchAllowlist,
   extractBearerFromEnv,
   handlePing,
   handleWhoami,
@@ -10,22 +11,43 @@ import {
 } from './index'
 
 describe('mcp kit', () => {
-  it('only allows ping and whoami', () => {
-    expect(MCP_TOOL_NAMES).toEqual(['ping', 'whoami'])
+  it('assertToolsMatchAllowlist is app-driven (not fixed product set)', () => {
+    expect(() => assertToolsMatchAllowlist(['ping', 'whoami'], MCP_TOOL_NAMES)).not.toThrow()
+    expect(() => assertToolsMatchAllowlist(['whoami', 'ping'], ['ping', 'whoami'])).not.toThrow()
+    expect(() => assertToolsMatchAllowlist(['ping', 'whoami', 'extra'], MCP_TOOL_NAMES)).toThrow(
+      /exactly/,
+    )
+    // Product apps may register their own allowlist without package forbidding the names.
+    expect(() => assertToolsMatchAllowlist(['alpha', 'beta'], ['alpha', 'beta'])).not.toThrow()
+  })
+
+  it('deprecated assertExactKitTools still matches example allowlist', () => {
+    expect(() => assertExactKitTools(['ping', 'whoami'])).not.toThrow()
+    expect(() => assertExactKitTools(['ping'])).toThrow(/exactly/)
+  })
+
+  it('assertNoShareTools only validates identifier shape', () => {
     expect(() => assertNoShareTools(['ping', 'whoami'])).not.toThrow()
-    expect(() => assertExactKitTools(['whoami', 'ping'])).not.toThrow()
-    expect(() => assertExactKitTools(['ping', 'whoami', 'extra'])).toThrow(/exactly/)
-    expect(() => assertNoShareTools([`share${'_'}publish`])).toThrow(/forbidden/)
-    expect(() => assertNoShareTools(['list_artifact'])).toThrow(/forbidden/)
+    expect(() => assertNoShareTools(['bad name'])).toThrow(/invalid/)
   })
 
   it('ping works', async () => {
     expect(await handlePing()).toEqual({ ok: true })
   })
 
-  it('extracts API_KEY from env', () => {
+  it('extracts API_KEY from env only when sk_', () => {
     expect(extractBearerFromEnv({ API_KEY: 'sk_test' })).toBe('sk_test')
     expect(extractBearerFromEnv({ API_KEY: 'not-a-key' })).toBeNull()
+  })
+
+  it('extracts AUTHORIZATION bare sk_ or Bearer-prefixed without double prefix', () => {
+    expect(extractBearerFromEnv({ AUTHORIZATION: 'sk_from_env_bare' })).toBe('sk_from_env_bare')
+    expect(extractBearerFromEnv({ AUTHORIZATION: 'Bearer sk_from_env_bearer' })).toBe(
+      'sk_from_env_bearer',
+    )
+    // Non-sk_ bearer rejected (parity with API_KEY).
+    expect(extractBearerFromEnv({ AUTHORIZATION: 'Bearer other_token' })).toBeNull()
+    expect(extractBearerFromEnv({ AUTHORIZATION: 'not-a-key' })).toBeNull()
   })
 })
 

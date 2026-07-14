@@ -1,8 +1,6 @@
 import { parseOrThrow } from '@gosilex/core'
-import { createDb } from '@gosilex/db'
 import { Hono } from 'hono'
 import { z } from 'zod'
-import { schema } from '../db/schema'
 import { requireAuth } from '../middleware/require-auth'
 import * as notesService from '../services/notes'
 import type { AppEnv } from '../types'
@@ -15,10 +13,12 @@ const createNoteSchema = z.object({
 
 export const notesRoutes = new Hono<AppEnv>()
 
-notesRoutes.use('*', requireAuth)
+// Path-scoped — avoid use('*') on a router mounted at `/`.
+notesRoutes.use('/api/notes', requireAuth)
+notesRoutes.use('/api/notes/*', requireAuth)
 
 notesRoutes.get('/api/notes', async (c) => {
-  const db = createDb(c.env.DB, schema)
+  const db = c.get('db')!
   const notes = await notesService.listNotes(db, c.get('subject')!)
   return c.json({ notes, requestId: c.get('requestId') })
 })
@@ -26,13 +26,13 @@ notesRoutes.get('/api/notes', async (c) => {
 notesRoutes.post('/api/notes', async (c) => {
   const raw = await c.req.json().catch(() => null)
   const data = parseOrThrow(createNoteSchema, raw, 'Invalid note')
-  const db = createDb(c.env.DB, schema)
+  const db = c.get('db')!
   const note = await notesService.createNote(db, c.env.BUCKET, c.get('subject')!, data)
   return c.json({ note, requestId: c.get('requestId') }, 201)
 })
 
 notesRoutes.get('/api/notes/:id', async (c) => {
-  const db = createDb(c.env.DB, schema)
+  const db = c.get('db')!
   const note = await notesService.getNoteWithAttachment(
     db,
     c.env.BUCKET,
@@ -43,7 +43,7 @@ notesRoutes.get('/api/notes/:id', async (c) => {
 })
 
 notesRoutes.delete('/api/notes/:id', async (c) => {
-  const db = createDb(c.env.DB, schema)
+  const db = c.get('db')!
   await notesService.removeNote(db, c.env.BUCKET, c.req.param('id'), c.get('subject')!)
   return c.json({ ok: true, requestId: c.get('requestId') })
 })

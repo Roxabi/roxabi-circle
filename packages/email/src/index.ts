@@ -16,6 +16,23 @@ export function buildDemoEmailText(params: { to: string; subjectId: string }): {
   }
 }
 
+/** Log transport — edge-safe; always succeeds (Workers, tests, fallback inspection). */
+export function sendLog(input: { to: string; subject: string; text: string }): {
+  ok: true
+  transport: 'log'
+} {
+  console.log(
+    JSON.stringify({
+      level: 'info',
+      transport: 'log',
+      to: input.to,
+      subject: input.subject,
+      body: input.text,
+    }),
+  )
+  return { ok: true, transport: 'log' }
+}
+
 export { DemoEmail } from './templates/demo'
 
 export type EmailTransport = 'smtp' | 'log' | 'resend'

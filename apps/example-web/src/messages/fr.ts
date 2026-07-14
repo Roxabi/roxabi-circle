@@ -41,12 +41,12 @@ export type Messages = {
   me: string
   sendEmail: string
   emailSent: string
+  mailpit: string
   health: string
   empty: string
   error: string
   loadFailed: string
   retry: string
-  demoCreds: string
   dashboard: string
   session: string
   authMethod: string
@@ -61,6 +61,7 @@ export type Messages = {
   keysList: string
   emptyKeys: string
   revokeKey: string
+  confirmRevoke: string
   bearerTitle: string
   bearerDesc: string
   bearerHelp: string
@@ -90,6 +91,19 @@ export type Messages = {
   dsOnThisPage: string
   forbidden: string
   forbiddenDesc: string
+  /** Stable ErrorCode → UI copy (API codes stay English; FE translates). */
+  errUnauthorized: string
+  errForbidden: string
+  errNotFound: string
+  errValidation: string
+  errConflict: string
+  errInternal: string
+  errRateLimited: string
+  errEmailInvalid: string
+  errPasswordRequired: string
+  errTitleRequired: string
+  errSupportCta: string
+  errPageTitle: string
 }
 
 export const fr: Messages = {
@@ -135,12 +149,12 @@ export const fr: Messages = {
   me: 'Compte',
   sendEmail: 'Envoyer e-mail démo',
   emailSent: 'E-mail démo envoyé (voir Mailpit :8025)',
+  mailpit: 'Mailpit',
   health: 'API',
   empty: 'Aucune note pour l’instant',
   error: 'Erreur',
   loadFailed: 'Chargement impossible',
   retry: 'Réessayer',
-  demoCreds: 'Démo : demo@gosilex.local / demo-password-change-me',
   dashboard: 'Tableau de bord',
   session: 'Session',
   authMethod: 'Méthode',
@@ -155,6 +169,7 @@ export const fr: Messages = {
   keysList: 'Clés actives',
   emptyKeys: 'Aucune clé active',
   revokeKey: 'Révoquer',
+  confirmRevoke: 'Révoquer cette clé API ? Elle ne pourra plus être utilisée.',
   bearerTitle: 'Bearer',
   bearerDesc: 'Authorization: Bearer sk_…',
   bearerHelp:
@@ -186,4 +201,16 @@ export const fr: Messages = {
   dsOnThisPage: 'Sur cette page',
   forbidden: 'Accès refusé',
   forbiddenDesc: 'Cette page est réservée aux administrateurs.',
+  errUnauthorized: 'Session expirée ou non authentifié',
+  errForbidden: 'Action non autorisée',
+  errNotFound: 'Ressource introuvable',
+  errValidation: 'Données invalides',
+  errConflict: 'Conflit — ressource déjà existante',
+  errInternal: 'Erreur interne — réessayez plus tard',
+  errRateLimited: 'Trop de requêtes — patientez un moment',
+  errEmailInvalid: 'Adresse e-mail invalide',
+  errPasswordRequired: 'Mot de passe requis',
+  errTitleRequired: 'Titre requis',
+  errSupportCta: 'Contacter le support',
+  errPageTitle: 'Une erreur est survenue',
 }

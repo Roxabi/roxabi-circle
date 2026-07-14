@@ -1,21 +1,39 @@
 import { AppError } from '@gosilex/core'
 
-/** In-memory sliding window (demo Worker single-isolate). Not multi-region. */
+/**
+ * In-memory sliding window — **demo / single-isolate only**.
+ *
+ * Product multi-region: replace with Durable Object, KV, D1 counter, or
+ * Cloudflare Rate Limiting binding. Same `assertRateLimit` call sites.
+ * Do not treat this Map as a production auth control across isolates.
+ */
 const buckets = new Map<string, number[]>()
 
 /**
  * Fail closed when `limit` hits occur within `windowMs` for `key`.
- * Throws `AppError.rateLimited` (429).
+ * Throws `AppError.rateLimited` (429) with `retryAfterSeconds` ≈ window.
  */
 export function assertRateLimit(key: string, limit: number, windowMs: number): void {
   const now = Date.now()
   const prev = buckets.get(key) ?? []
   const hits = prev.filter((t) => now - t < windowMs)
   if (hits.length >= limit) {
-    throw AppError.rateLimited()
+    buckets.set(key, hits)
+    const retryAfterSeconds = Math.max(1, Math.ceil(windowMs / 1000))
+    throw AppError.rateLimited('Too many requests', { retryAfterSeconds })
   }
   hits.push(now)
   buckets.set(key, hits)
+}
+
+/**
+ * Client IP for rate limits. Prefer Cloudflare `cf-connecting-ip`.
+ * Do not trust raw `X-Forwarded-For` (spoofable without a trusted proxy strip).
+ */
+export function clientIp(headers: { header: (name: string) => string | undefined }): string {
+  const cf = headers.header('cf-connecting-ip')?.trim()
+  if (cf) return cf
+  return 'local'
 }
 
 /** Test helper — clear all buckets. */

@@ -23,26 +23,53 @@ BANNED=(
   'share\.gosilex\.com'
 )
 
+# rg: 0=matches, 1=no match, 2+=error. grep: 0=matches, 1=no match, 2+=error.
+# Never treat tool failure as clean.
 search() {
   local pat="$1"
   shift
+  local out ec
   if command -v rg >/dev/null 2>&1; then
-    rg -n --hidden \
+    set +e
+    out="$(rg -n --hidden \
       --glob '!**/.git/**' \
       --glob '!**/node_modules/**' \
       --glob '!**/dist/**' \
       --glob '!**/.wrangler/**' \
       --glob '!**/*.test.ts' \
-      -i "$pat" "$@" 2>/dev/null || true
-  else
-    grep -RInE \
-      --exclude-dir=node_modules \
-      --exclude-dir=.git \
-      --exclude-dir=dist \
-      --exclude-dir=.wrangler \
-      --exclude='*.test.ts' \
-      -e "$pat" "$@" 2>/dev/null || true
+      -i "$pat" "$@" 2>&1)"
+    ec=$?
+    set -e
+    if [[ "$ec" -eq 0 ]]; then
+      printf '%s\n' "$out"
+      return 0
+    fi
+    if [[ "$ec" -eq 1 ]]; then
+      return 1
+    fi
+    echo "check-banned-strings: rg failed (exit $ec) for /$pat/: $out" >&2
+    return 2
   fi
+
+  set +e
+  out="$(grep -RInE \
+    --exclude-dir=node_modules \
+    --exclude-dir=.git \
+    --exclude-dir=dist \
+    --exclude-dir=.wrangler \
+    --exclude='*.test.ts' \
+    -e "$pat" "$@" 2>&1)"
+  ec=$?
+  set -e
+  if [[ "$ec" -eq 0 ]]; then
+    printf '%s\n' "$out"
+    return 0
+  fi
+  if [[ "$ec" -eq 1 ]]; then
+    return 1
+  fi
+  echo "check-banned-strings: grep failed (exit $ec) for /$pat/: $out" >&2
+  return 2
 }
 
 fail=0
@@ -51,8 +78,15 @@ for target in "${TARGETS[@]}"; do
     continue
   fi
   for pat in "${BANNED[@]}"; do
+    set +e
     hits="$(search "$pat" "$target")"
-    if [[ -n "$hits" ]]; then
+    ec=$?
+    set -e
+    if [[ "$ec" -eq 2 ]]; then
+      fail=1
+      continue
+    fi
+    if [[ "$ec" -eq 0 && -n "$hits" ]]; then
       echo "$hits"
       echo "BANLIST HIT: pattern /$pat/ under $target" >&2
       fail=1
@@ -60,8 +94,13 @@ for target in "${TARGETS[@]}"; do
   done
 done
 
-hits="$(search "joinObjectKey\\(['\"]share" packages apps || true)"
-if [[ -n "${hits:-}" ]]; then
+set +e
+hits="$(search "joinObjectKey\\(['\"]share" packages apps)"
+ec=$?
+set -e
+if [[ "$ec" -eq 2 ]]; then
+  fail=1
+elif [[ "$ec" -eq 0 && -n "${hits:-}" ]]; then
   echo "$hits"
   echo "BANLIST HIT: R2 share/ prefix in code" >&2
   fail=1

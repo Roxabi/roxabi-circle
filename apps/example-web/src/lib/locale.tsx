@@ -23,9 +23,16 @@ function readStored(): Locale {
 }
 
 export function LocaleProvider({ children }: { children: ReactNode }) {
-  const [locale, setLocaleState] = useState<Locale>(() =>
-    typeof window === 'undefined' ? defaultLocale : readStored(),
-  )
+  const [locale, setLocaleState] = useState<Locale>(() => {
+    if (typeof window === 'undefined') return defaultLocale
+    const initial = readStored()
+    try {
+      document.documentElement.lang = initial
+    } catch {
+      /* ignore */
+    }
+    return initial
+  })
 
   const setLocale = useCallback((l: Locale) => {
     setLocaleState(l)

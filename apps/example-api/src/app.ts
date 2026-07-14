@@ -1,10 +1,13 @@
+import { AppError, toApiErrorBody } from '@gosilex/core'
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
+import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import { corsAllowlist } from './lib/session-env'
+import { withDb } from './middleware/db'
 import { onError } from './middleware/error-handler'
 import { originGuard } from './middleware/origin-guard'
 import { requestIdMiddleware } from './middleware/request-id'
-import { securityHeaders } from './middleware/security-headers'
+import { applySecurityHeaders, securityHeaders } from './middleware/security-headers'
 import { authRoutes } from './routes/auth'
 import { demoRoutes } from './routes/demo'
 import { healthRoutes } from './routes/health'
@@ -31,11 +34,19 @@ export function createApp() {
       },
       credentials: true,
       allowHeaders: ['Content-Type', 'Authorization', 'x-request-id'],
-      exposeHeaders: ['x-request-id'],
+      // SPA must be able to read Retry-After on 429 (credentials + expose).
+      exposeHeaders: ['x-request-id', 'Retry-After'],
     }),
   )
   app.use('*', originGuard)
+  app.use('*', withDb)
   app.onError((err, c) => onError(err, c))
+  app.notFound((c) => {
+    const requestId = c.get('requestId') || 'req_unknown'
+    const { body, status } = toApiErrorBody(AppError.notFound(), requestId)
+    applySecurityHeaders(c)
+    return c.json(body, status as ContentfulStatusCode)
+  })
 
   // routes → services → repos (secondary axis)
   app.route('/', healthRoutes)

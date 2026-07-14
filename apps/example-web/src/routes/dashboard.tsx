@@ -13,7 +13,7 @@ import { Link } from '@tanstack/react-router'
 import { Activity, FileText, KeyRound, Mail } from 'lucide-react'
 import { toast } from 'sonner'
 import { PageHeader } from '../components/app-shell'
-import { apiFetch } from '../lib/api'
+import { apiErrorToMessage, apiFetch } from '../lib/api'
 import { useMe } from '../lib/auth'
 import { useLocale } from '../lib/locale'
 
@@ -34,7 +34,7 @@ export function DashboardPage() {
   const sendEmail = useMutation({
     mutationFn: () => apiFetch('/api/demo/email', { method: 'POST', body: '{}' }),
     onSuccess: () => toast.success(m.emailSent),
-    onError: (e) => toast.error(m.error, { description: String(e) }),
+    onError: (e) => toast.error(m.error, { description: apiErrorToMessage(e, m) }),
   })
 
   return (
@@ -100,9 +100,9 @@ export function DashboardPage() {
           <CardHeader className="pb-2">
             <CardDescription className="flex items-center gap-2">
               <Mail className="size-4" />
-              Email
+              {m.email}
             </CardDescription>
-            <CardTitle className="text-base font-medium">Mailpit</CardTitle>
+            <CardTitle className="text-base font-medium">{m.mailpit}</CardTitle>
           </CardHeader>
           <CardContent>
             <Button

@@ -49,7 +49,7 @@ export function KeysPage() {
       toast.success(m.keyMinted)
       await qc.invalidateQueries({ queryKey: ['keys'] })
     },
-    onError: (e) => toast.error(m.error, { description: apiErrorToMessage(e) }),
+    onError: (e) => toast.error(m.error, { description: apiErrorToMessage(e, m) }),
   })
 
   const revoke = useMutation({
@@ -58,7 +58,7 @@ export function KeysPage() {
       toast.success(m.keyRevoked)
       await qc.invalidateQueries({ queryKey: ['keys'] })
     },
-    onError: (e) => toast.error(m.error, { description: apiErrorToMessage(e) }),
+    onError: (e) => toast.error(m.error, { description: apiErrorToMessage(e, m) }),
   })
 
   const copy = async () => {
@@ -69,7 +69,7 @@ export function KeysPage() {
       // Clear plaintext from UI after successful copy
       setMinted(null)
     } catch (e) {
-      toast.error(m.error, { description: apiErrorToMessage(e, m.error) })
+      toast.error(m.error, { description: apiErrorToMessage(e, m) })
     }
   }
 
@@ -103,6 +103,7 @@ export function KeysPage() {
                     type="button"
                     variant="outline"
                     size="icon-sm"
+                    aria-label={m.copyKey}
                     onClick={() => void copy()}
                   >
                     <Copy />
@@ -134,7 +135,10 @@ export function KeysPage() {
                         variant="ghost"
                         aria-label={m.revokeKey}
                         disabled={revoke.isPending}
-                        onClick={() => revoke.mutate(k.id)}
+                        onClick={() => {
+                          if (!window.confirm(m.confirmRevoke)) return
+                          revoke.mutate(k.id)
+                        }}
                       >
                         <Trash2 className="text-destructive" />
                       </Button>

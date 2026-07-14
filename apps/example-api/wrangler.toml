@@ -3,6 +3,11 @@ main = "src/index.ts"
 compatibility_date = "2026-07-01"
 compatibility_flags = ["nodejs_compat"]
 
+# Local bindings only. For remote deploy: set real database_id / bucket names and
+# CF secrets (SESSION_SECRET). Do NOT put ENVIRONMENT=development in deployable vars —
+# missing SESSION_SECRET + development would use the public kit HMAC fallback.
+# Local: copy .dev.vars.example → .dev.vars (ENVIRONMENT=development, SESSION_SECRET=…).
+
 [[d1_databases]]
 binding = "DB"
 database_name = "example-api-local"
@@ -13,7 +18,7 @@ migrations_dir = "migrations"
 binding = "BUCKET"
 bucket_name = "example-api-local"
 
+# Non-secret defaults for local/dev tooling. Secrets stay in .dev.vars / CF secrets.
 [vars]
-ENVIRONMENT = "development"
 DEMO_USER_EMAIL = "demo@gosilex.local"
 CORS_ORIGINS = "http://localhost:5173,http://127.0.0.1:5173"

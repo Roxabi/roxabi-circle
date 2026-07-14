@@ -1,4 +1,4 @@
-import { SESSION_COOKIE } from '@gosilex/auth'
+import { parseCookie, SESSION_COOKIE } from '@gosilex/auth'
 import { AppError } from '@gosilex/core'
 import type { MiddlewareHandler } from 'hono'
 import { corsAllowlist } from '../lib/session-env'
@@ -30,8 +30,8 @@ export const originGuard: MiddlewareHandler<AppEnv> = async (c, next) => {
     return
   }
 
-  const cookie = c.req.header('Cookie') ?? ''
-  if (cookie.includes(`${SESSION_COOKIE}=`)) {
+  const cookie = c.req.header('Cookie')
+  if (parseCookie(cookie, SESSION_COOKIE)) {
     throw AppError.forbidden('Origin required for cookie-authenticated mutations')
   }
 

@@ -1,4 +1,5 @@
-import type { ApiErrorBody } from '@gosilex/types'
+import type { ApiErrorBody, ErrorCodeName } from '@gosilex/types'
+import type { Messages } from '../messages/fr'
 
 const API_BASE = import.meta.env.VITE_API_URL ?? ''
 
@@ -18,15 +19,35 @@ export class ApiError extends Error {
   }
 }
 
-/** Map API / unknown errors to a short user-facing string (i18n can wrap later). */
-export function apiErrorToMessage(err: unknown, fallback = 'Error'): string {
+const CODE_TO_MSG: Record<ErrorCodeName, keyof Messages> = {
+  UNAUTHORIZED: 'errUnauthorized',
+  FORBIDDEN: 'errForbidden',
+  NOT_FOUND: 'errNotFound',
+  VALIDATION_ERROR: 'errValidation',
+  CONFLICT: 'errConflict',
+  INTERNAL_ERROR: 'errInternal',
+  RATE_LIMITED: 'errRateLimited',
+}
+
+/**
+ * Map API / unknown errors to a user-facing string.
+ * Prefer ErrorCode → catalog (`m`); fall back to wire message then code.
+ */
+export function apiErrorToMessage(err: unknown, fallback: string | Messages = 'Error'): string {
+  const m = typeof fallback === 'string' ? null : fallback
+  const fb = typeof fallback === 'string' ? fallback : fallback.error
+
   if (err instanceof ApiError) {
-    return err.message || err.code || fallback
+    if (m) {
+      const key = CODE_TO_MSG[err.code as ErrorCodeName]
+      if (key && m[key]) return m[key] as string
+    }
+    return err.message || err.code || fb
   }
   if (err instanceof Error && err.message) {
     return err.message
   }
-  return fallback
+  return fb
 }
 
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
