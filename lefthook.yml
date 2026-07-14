@@ -20,7 +20,9 @@ commit-msg:
 # Full suite before code leaves the machine (= validate:full).
 # Intentional cost: local SoT; CI re-runs as guardrail (skip hooks / env drift).
 # validate:full = lint · typecheck · banlist · extract · env · test:coverage · license
-# (no separate turbo `test` — coverage suites are the test gate)
+#                 · build:kit (example-api wrangler dry-run + example-web vite)
+#                 · smoke:mcp (mcp-example stdio allowlist)
+# (no separate turbo `test` for all pkgs — coverage suites are the unit gate)
 pre-push:
   parallel: false
   commands:

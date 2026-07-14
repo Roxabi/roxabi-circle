@@ -16,9 +16,10 @@ permissions:
 
 jobs:
   quality:
-    name: lint-typecheck-test
+    # Name is matched by merge-on-green (regex validate-full). Do not rename without updating that workflow.
+    name: validate-full
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       # Pin SHAs (supply-chain); tags float.
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4
@@ -30,7 +31,8 @@ jobs:
       - name: Install
         run: bun install --frozen-lockfile
 
-      # Single entrypoint = local pre-push (docs/testing.md). No double test suite.
+      # Single entrypoint = local pre-push (docs/testing.md).
+      # Includes lint · typecheck · banlist · extract · env · coverage · license · build:kit · smoke:mcp
       - name: Validate full
         run: bun run validate:full
 

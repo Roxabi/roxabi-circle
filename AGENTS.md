@@ -347,7 +347,7 @@ Roxabi : Docker Postgres en local — même esprit : **services dev dans `docker
 | Tests | **Vitest** + `@cloudflare/vitest-pool-workers` | S0 |
 | E2E | **Playwright** | P1 |
 | Hooks | **Lefthook** (pre-commit Biome · **pre-push = validate:full** primary gate) + commitlint · CI = garde-fou | S0 |
-| CI | GH Actions lint · typecheck · test · build — **bloquant** | S0 |
+| CI | GH Actions `validate:full` (= lint · typecheck · coverage · banlist · extract · env · license · **build:kit** · **smoke:mcp**) + secret-scan — **bloquant** | S0 |
 | Security headers | HSTS, X-Frame-Options, nosniff, Referrer-Policy (ShipFast) | S0/M0 |
 | Schema validation | Zod partout (ShipFast security) | S0 |
 
@@ -500,7 +500,7 @@ Règles : guard first · Zod double frontière · pas de god file · packages �
 - [ ] Créer/installer App + set `GOSILEX_CI_APP_ID` / `GOSILEX_CI_APP_PRIVATE_KEY` (org)  
 - [ ] Branch protection / rulesets — **bloqué plan Free privé** (voir § GitHub Free)  
 - [x] Bun workspaces + Turbo  
-- [x] Biome + CI app (lint/typecheck/test/build) — local `validate:full` + GH workflows  
+- [x] Biome + CI app (`validate:full` incl. build:kit + smoke:mcp) — local pre-push + GH job `validate-full`
 - [x] AppError + requestId + middleware Hono  
 - [x] Vitest (core + auth + example-api paths critiques + floors)  
 - [x] D1 migrations versionnées (`apps/example-api/migrations`)  

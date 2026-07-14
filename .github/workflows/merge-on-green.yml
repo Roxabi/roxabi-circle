@@ -51,10 +51,19 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      # Soft-skip mint when App is not installed (avoids permanent red noise on Free before setup).
+      # Evaluate still runs with GITHUB_TOKEN; auto-merge only when App credentials exist.
+      # Setup: docs/gosilex-ci-app-setup.md · org var GOSILEX_CI_APP_ID + secret GOSILEX_CI_APP_PRIVATE_KEY
+      - name: Notice when gosilex-ci App is not configured
+        if: ${{ vars.GOSILEX_CI_APP_ID == '' || secrets.GOSILEX_CI_APP_PRIVATE_KEY == '' }}
+        run: |
+          echo "::notice title=gosilex-ci::App credentials missing — evaluate-only (no auto-merge). Install App + set GOSILEX_CI_APP_ID / GOSILEX_CI_APP_PRIVATE_KEY (docs/gosilex-ci-app-setup.md)."
+
       # gosilex-ci App token (ephemeral, ~1 h) — same role as roxabi-ci on Roxabi org.
       # Merges workflow-file PRs + re-triggers push workflows (GITHUB_TOKEN cannot).
       - name: Mint app token (gosilex-ci)
         id: app
+        if: ${{ vars.GOSILEX_CI_APP_ID != '' && secrets.GOSILEX_CI_APP_PRIVATE_KEY != '' }}
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           app-id: ${{ vars.GOSILEX_CI_APP_ID }}
@@ -126,13 +135,13 @@ jobs:
                 core.info(`${tag}: no check runs on head — skip (fail-closed).`);
                 continue;
               }
-              // Require secret-scan check (TruffleHog job name OR workflow "Secret scan")
-              // AND app quality CI job (name: lint-typecheck-test; often appears as "CI / lint-typecheck-test").
+              // Require secret-scan (TruffleHog / Secret scan) AND quality CI job.
+              // Job name is `validate-full` (was lint-typecheck-test) — match both during transition.
               const hasSecret = others.some((r) =>
                 /TruffleHog|Secret scan/i.test(r.name || ''),
               );
               const hasCi = others.some((r) =>
-                /lint-typecheck-test/i.test(r.name || ''),
+                /validate-full|lint-typecheck-test/i.test(r.name || ''),
               );
               if (!hasSecret || !hasCi) {
                 core.info(
@@ -168,7 +177,11 @@ jobs:
             if (toMerge.length === 0) core.info('No PRs ready to merge.');
 
       - name: Merge green PRs
-        if: steps.evaluate.outputs.to_merge != '' && steps.evaluate.outputs.to_merge != '[]'
+        # Only when App mint succeeded (skipped when credentials missing → no auto-merge, job stays green).
+        if: >-
+          steps.app.outcome == 'success' &&
+          steps.evaluate.outputs.to_merge != '' &&
+          steps.evaluate.outputs.to_merge != '[]'
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           TO_MERGE: ${{ steps.evaluate.outputs.to_merge }}
