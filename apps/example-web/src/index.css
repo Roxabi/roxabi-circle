@@ -1,6 +1,17 @@
 /* Official shadcn Base (base-nova) tokens + utilities from @gosilex/ui */
 @import "@gosilex/ui/styles.css";
 
+/*
+ * Product theming (zero-edit): do NOT patch packages/ui.
+ * After the kit import, override CSS variables in a product file, e.g.:
+ *
+ *   @import "@gosilex/ui/styles.css";
+ *   @import "./theme/product-tokens.css";  // :root { --primary: … }
+ *
+ * Compose product shells in apps/<product>-web/src/components (wrap @gosilex/ui).
+ * See docs/product-consumer-contract.md + config/zero-edit-zones.json design_overrides.
+ */
+
 /* Monorepo content detection — package + app sources */
 @source "../../../packages/ui/src/**/*.{ts,tsx}";
 @source "./**/*.{ts,tsx}";

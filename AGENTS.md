@@ -32,7 +32,9 @@ Ce repo est le **boilerplate Chemin A** : monorepo extractible, conventions + CI
 
 **Règle :** changements kit → **ici** d’abord · les products pullent. Ne pas inventer de features métier dans ce repo.
 
-#### Contrat consumer (obligatoire) — push upstream = DENY
+#### Contrat consumer (obligatoire) — zero-edit upstream + push DENY
+
+**SSoT détaillé :** [`docs/product-consumer-contract.md`](docs/product-consumer-contract.md)
 
 Tout repo produit qui prend **ce kit** comme `upstream` **doit** :
 
@@ -41,12 +43,22 @@ Tout repo produit qui prend **ce kit** comme `upstream` **doit** :
    git remote add upstream git@github.com:go-silex/silex-boilerplate.git   # si absent
    git remote set-url --push upstream no_push
    ```
-2. **Hook pre-push** qui refuse remote `upstream` **ou** toute URL `*silex-boilerplate*`  
-   (réf. product : `silex-share` → `scripts/deny-upstream-push.sh` + lefthook `deny-upstream`).
-3. **Jamais** `git push upstream` / `LEFTHOOK=0 git push upstream` depuis un clone produit.
-4. Kit only : coder et `git push origin` dans **`~/projects/gosilex/silex-boilerplate`**.
+2. **Ne pas modifier les fichiers kit** pour configurer le produit (CI, lefthook, package.json racine, `packages/*`, `apps/example-*`).  
+   Config = **vars/secrets GH**, **`.dev.vars`**, apps **`apps/<product>-*`** (fichiers **nouveaux**).
+3. **Deny push kit** : livré **dans le kit** (`scripts/deny-upstream-push.sh` + lefthook pre-push) — no-op si `origin` = boilerplate ; bloque product → kit.  
+   **Ne pas forker** une copie divergente dans le product.
+4. **Jamais** `git push upstream` / `LEFTHOOK=0 git push upstream` depuis un clone produit.
+5. Kit only : coder les changements partagés et `git push origin` dans **`~/projects/gosilex/silex-boilerplate`**.
 
-Ce repo (boilerplate) **n’installe pas** le deny-hook sur *son* `origin` (ce serait le kit lui-même). Le deny vit **dans chaque product**.
+| Produit peut | Produit ne doit pas |
+|---|---|
+| Ajouter `apps/<product>-*` | Éditer `lefthook.yml` / workflows kit / `packages/*` pour le métier |
+| Ajouter `docs/product/*`, `product-*.yml` | Brancher le produit en patchant `example-web` |
+| Design: CSS tokens + wrap `@gosilex/ui` dans l’app | Patcher `packages/ui` pour la marque |
+| Exception zero-edit time-boxed (dernier recours) | Dual-edit permanent sans ticket / `expires` |
+| Vars `GOSILEX_CI_*`, secrets CF | Commit de secrets / wrangler prod dans le kit |
+
+Gate machine: `bun run zero-edit` · SSoT [`docs/product-consumer-contract.md`](docs/product-consumer-contract.md) · `config/zero-edit-zones.json`.
 
 **Barre qualité = audits** (Spark, Metalyde) : sécu, coverage, god files, couches, CI, linter — **par défaut** tooling+CI.
 
@@ -347,7 +359,7 @@ Roxabi : Docker Postgres en local — même esprit : **services dev dans `docker
 | Tests | **Vitest** + `@cloudflare/vitest-pool-workers` | S0 |
 | E2E | **Playwright** | P1 |
 | Hooks | **Lefthook** (pre-commit Biome · **pre-push = validate:full** primary gate) + commitlint · CI = garde-fou | S0 |
-| CI | GH Actions `validate:full` (= lint · typecheck · coverage · banlist · extract · env · license · **build:kit** · **smoke:mcp**) + secret-scan — **bloquant** | S0 |
+| CI | GH Actions `validate:full` (= lint · typecheck · coverage · banlist · extract · **zero-edit** · env · license · **build:kit** · **smoke:mcp**) + secret-scan — **bloquant** | S0 |
 | Security headers | HSTS, X-Frame-Options, nosniff, Referrer-Policy (ShipFast) | S0/M0 |
 | Schema validation | Zod partout (ShipFast security) | S0 |
 
@@ -625,8 +637,8 @@ Règles dures pour tout agent (humain qui drive l’IA) :
 pre-commit (Lefthook) → Biome format/lint (staged)
          ↓
 pre-push (Lefthook)   → bun run validate:full
-                        (lint · typecheck · test · banlist · extract · env:check
-                         · coverage floors · license:check)
+                        (lint · typecheck · banlist · extract · zero-edit · env:check
+                         · coverage floors · license:check · build:kit · smoke:mcp)
          ↓
 PR CI                 → même suite (garde-fou) · secret scan
          ↓
@@ -643,6 +655,7 @@ deploy CD             → pull après CI verte
 | Biome | style + bugs triviaux |
 | Vitest + floors T0 (`test:coverage`) | régressions + baisse sous le floor auth/api |
 | banlist + extract-dry-run | fuite domaine share dans le kit |
+| zero-edit (`check-zero-edit-zones`) | dual-edit kit paths in product forks (exceptions time-boxed) |
 | Branch protection / merge-on-green | merge sans checks (Free = process + workflow) |
 | CODEOWNERS (option) | paths `auth/`, `mcp/`, `migrations/` → review requise |
 

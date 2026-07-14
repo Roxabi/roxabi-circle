@@ -74,19 +74,21 @@ gh secret set GOSILEX_CI_APP_PRIVATE_KEY -R go-silex/<repo> < /path/to/gosilex-c
 
 ### New product repo from this kit (checklist)
 
+Full **zero-edit** contract: [`product-consumer-contract.md`](./product-consumer-contract.md).
+
 When spinning a product consumer (fork / new repo + `upstream` → this kit):
 
 1. [ ] Create GitHub private repo under `go-silex`
-2. [ ] Clone kit as starting point; set remotes:
+2. [ ] Clone kit as starting point; set remotes (**no kit file edits**):
    ```bash
    git remote add upstream git@github.com:go-silex/silex-boilerplate.git
    git remote set-url --push upstream no_push
-   # + product pre-push deny-upstream hook (see silex-share)
+   # deny-upstream is already in kit lefthook — do not copy a divergent hook
    ```
-3. [ ] `bun install` · `bunx lefthook install` · copy `.dev.vars.example`
-4. [ ] **CI App:** either inherit org-level `GOSILEX_CI_APP_*` (preferred) **or** set repo-level var+secret (step 3)
-5. [ ] Confirm: open a draft PR → **Merge on Green** Summary shows `gosilex-ci: configured` **or** explicit `not configured` (manual merge)
-6. [ ] Product domain only under `apps/<product>-*`; never push kit changes via product `upstream`
+3. [ ] `bun install` · `bunx lefthook install` · copy `.dev.vars.example` → gitignored local only
+4. [ ] **CI App:** inherit org-level `GOSILEX_CI_APP_*` (preferred) **or** set repo-level var+secret — **never** edit `merge-on-green.yml`
+5. [ ] Confirm: draft PR → **Merge on Green** Summary shows `gosilex-ci: configured` **or** `not configured`
+6. [ ] Product domain only under **new** `apps/<product>-*`; never patch `example-*` / `packages/*` for métier
 
 Verify inheritance (org-level vars may not show on `gh variable list -R`):
 
