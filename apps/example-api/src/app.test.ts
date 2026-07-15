@@ -362,6 +362,36 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     expect(evil.status).toBe(403)
   })
 
+  it('AUTH_SESSION_ADAPTER=better-auth fails closed without secret in production', async () => {
+    const app = createApp()
+    const env = createMemoryEnv({
+      ENVIRONMENT: 'production',
+      AUTH_SESSION_ADAPTER: 'better-auth',
+      SESSION_SECRET: 'prod-session-secret-at-least-32-chars!!',
+      // BETTER_AUTH_SECRET intentionally omitted
+    })
+    const res = await app.request('/api/health', {}, env)
+    expect(res.status).toBe(500)
+  })
+
+  it('hmac adapter still serves POST /api/auth/login by default', async () => {
+    const app = createApp()
+    const env = createMemoryEnv({ AUTH_SESSION_ADAPTER: 'hmac' })
+    const res = await app.request(
+      '/api/auth/login',
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: DEMO_EMAIL, password: DEMO_PASSWORD }),
+      },
+      env,
+    )
+    expect(res.status).toBe(200)
+    expect(res.headers.get('set-cookie')).toMatch(/gosilex_session=/)
+    expect(res.headers.get('set-cookie')).toMatch(/HttpOnly/i)
+    expect(res.headers.get('set-cookie')).toMatch(/SameSite=Lax/i)
+  })
+
   it('D1 notes CRUD + R2 attachment under demo/ prefix', async () => {
     const app = createApp()
     const env = createMemoryEnv()

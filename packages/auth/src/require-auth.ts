@@ -1,6 +1,6 @@
 import { AppError } from '@gosilex/core'
 import { apiKeyPrefix, parseBearer, verifyApiKey } from './keys'
-import { parseCookie, SESSION_COOKIE } from './session'
+import { SESSION_COOKIE } from './session'
 import { defaultSessionPort, type SessionPort } from './session-port'
 
 export type AuthMethod = 'session' | 'api_key'
@@ -19,7 +19,13 @@ export type ApiKeyRecord = {
 }
 
 export type DualAuthPorts = {
-  secret: string
+  /**
+   * HMAC session secret. Optional when the SessionPort resolves via Better Auth
+   * without a bare-token secret (adapter owns config).
+   */
+  secret?: string
+  /** Session cookie name SSoT (default: SESSION_COOKIE / gosilex_session). */
+  cookieName?: string
   sessions?: SessionPort
   /** Lookup by sk_ prefix (unique index). */
   findApiKeyByPrefix: (prefix: string) => Promise<ApiKeyRecord | null>
@@ -28,6 +34,7 @@ export type DualAuthPorts = {
 /**
  * Pure dual-path auth: Bearer sk_ (prefix + hash + expiry/revoke) or session cookie.
  * Throws AppError.unauthorized for invalid bearer; returns null when no credentials.
+ * Bearer wins when both are present (unchanged order).
  */
 export async function resolveDualAuth(
   authorization: string | null | undefined,
@@ -35,6 +42,7 @@ export async function resolveDualAuth(
   ports: DualAuthPorts,
 ): Promise<AuthIdentity | null> {
   const sessions = ports.sessions ?? defaultSessionPort
+  const cookieName = ports.cookieName ?? SESSION_COOKIE
   const bearer = parseBearer(authorization)
   if (bearer) {
     let prefix: string
@@ -51,11 +59,12 @@ export async function resolveDualAuth(
     return { subject: row.subject, method: 'api_key' }
   }
 
-  const token = parseCookie(cookieHeader, SESSION_COOKIE)
-  if (token) {
-    const payload = await sessions.verify(token, ports.secret)
-    if (payload) return { subject: payload.sub, method: 'session' }
-  }
+  const payload = await sessions.resolveSession({
+    cookieHeader,
+    secret: ports.secret,
+    cookieName,
+  })
+  if (payload) return { subject: payload.sub, method: 'session' }
 
   return null
 }
@@ -68,7 +77,7 @@ export type RequireAuthContext = {
 
 /**
  * Hono middleware factory: dual-path auth with injected ports.
- * Usage: `app.use('*', createRequireAuth((c) => ({ secret, findApiKeyByPrefix, sessions })))`
+ * Usage: `app.use('*', createRequireAuth((c) => ({ secret, cookieName, findApiKeyByPrefix, sessions })))`
  */
 export function createRequireAuth<C extends RequireAuthContext>(
   getPorts: (c: C) => DualAuthPorts | Promise<DualAuthPorts>,

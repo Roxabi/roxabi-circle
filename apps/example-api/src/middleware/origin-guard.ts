@@ -1,7 +1,7 @@
-import { parseCookie, SESSION_COOKIE } from '@gosilex/auth'
+import { parseCookie } from '@gosilex/auth'
 import { AppError } from '@gosilex/core'
 import type { MiddlewareHandler } from 'hono'
-import { corsAllowlist } from '../lib/session-env'
+import { corsAllowlist, sessionCookieName } from '../lib/session-env'
 import type { AppEnv } from '../types'
 
 const SAFE = new Set(['GET', 'HEAD', 'OPTIONS'])
@@ -11,6 +11,7 @@ const SAFE = new Set(['GET', 'HEAD', 'OPTIONS'])
  * - If Origin is present → must be in CORS allowlist.
  * - If session cookie present and Origin missing → reject.
  * - Bearer / login without cookie may omit Origin (CLI, tests, MCP).
+ * Cookie name from SSoT (sessionCookieName) — not hardcoded.
  */
 export const originGuard: MiddlewareHandler<AppEnv> = async (c, next) => {
   const method = c.req.method.toUpperCase()
@@ -31,7 +32,8 @@ export const originGuard: MiddlewareHandler<AppEnv> = async (c, next) => {
   }
 
   const cookie = c.req.header('Cookie')
-  if (parseCookie(cookie, SESSION_COOKIE)) {
+  const name = sessionCookieName(c.env)
+  if (parseCookie(cookie, name)) {
     throw AppError.forbidden('Origin required for cookie-authenticated mutations')
   }
 

@@ -1,3 +1,4 @@
+import { type AuthSessionAdapter, sessionCookieName as cookieNameFromAuth } from '@gosilex/auth'
 import { AppError } from '@gosilex/core'
 import type { Env } from '../env'
 
@@ -66,4 +67,41 @@ export function corsAllowlist(env: Env): string[] {
 /** Secure cookies on HTTPS-like envs; local HTTP only for explicit development|test. */
 export function useSecureCookie(env: Env): boolean {
   return !isDevLike(env)
+}
+
+/**
+ * AUTH_SESSION_ADAPTER SSoT (spec D4).
+ * Unset → `hmac` (back-compat for existing demos).
+ * `better-auth` without BETTER_AUTH_SECRET → fail closed via assertBetterAuthConfigured.
+ */
+export function authSessionAdapter(env: Env): AuthSessionAdapter {
+  const raw = env.AUTH_SESSION_ADAPTER?.trim().toLowerCase()
+  if (!raw || raw === 'hmac') return 'hmac'
+  if (raw === 'better-auth') return 'better-auth'
+  throw AppError.internal(
+    `AUTH_SESSION_ADAPTER must be "hmac" or "better-auth" (got ${JSON.stringify(raw)})`,
+  )
+}
+
+/** Session cookie name SSoT for dual-auth + originGuard. */
+export function sessionCookieName(env: Env): string {
+  return cookieNameFromAuth({ name: env.SESSION_COOKIE_NAME })
+}
+
+/** Better Auth secret (min 32). Required when adapter=better-auth. */
+export function getBetterAuthSecret(env: Env): string {
+  const secret = env.BETTER_AUTH_SECRET?.trim()
+  if (secret && secret.length >= 32) return secret
+  if (isDevLike(env) && !secret) {
+    // Dev convenience: reuse session secret shape if BA secret unset
+    return getSecret(env)
+  }
+  throw AppError.internal(
+    'BETTER_AUTH_SECRET is required (min 32 chars) when AUTH_SESSION_ADAPTER=better-auth',
+  )
+}
+
+export function assertBetterAuthConfigured(env: Env): void {
+  if (authSessionAdapter(env) !== 'better-auth') return
+  getBetterAuthSecret(env)
 }

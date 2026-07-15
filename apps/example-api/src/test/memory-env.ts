@@ -116,6 +116,10 @@ export type EnvLike = {
   DEMO_USER_EMAIL?: string
   SMTP_HOST?: string
   SMTP_PORT?: string
+  AUTH_SESSION_ADAPTER?: string
+  SESSION_COOKIE_NAME?: string
+  BETTER_AUTH_SECRET?: string
+  BETTER_AUTH_URL?: string
 }
 
 /** Fresh in-memory SQLite + R2 for each test (same createApp entry as Worker). */

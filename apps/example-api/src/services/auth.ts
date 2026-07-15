@@ -4,10 +4,13 @@ import {
   generateApiKey,
   hashApiKey,
   resolveDualAuth,
+  SESSION_COOKIE,
   type SessionPort,
+  sessionCookieName,
   verifyApiKey,
   verifyPassword,
 } from '@gosilex/auth'
+import type { Env } from '../env'
 
 // re-export crypto helpers used by tests
 export { hashApiKey, verifyApiKey }
@@ -45,6 +48,10 @@ export async function ensureDemoUser(db: Db, opts?: { environment?: string | nul
 const DUMMY_PASSWORD_HASH =
   'pbkdf2$100000$00000000000000000000000000000000$0000000000000000000000000000000000000000000000000000000000000000'
 
+export function cookieNameFromEnv(env: Env): string {
+  return sessionCookieName({ name: env.SESSION_COOKIE_NAME })
+}
+
 export async function loginWithPassword(
   db: Db,
   secret: string,
@@ -54,9 +61,11 @@ export async function loginWithPassword(
     secureCookie?: boolean
     environment?: string | null
     sessions?: SessionPort
+    cookieName?: string
   },
 ): Promise<{ cookie: string; subject: string }> {
   const sessions = opts?.sessions ?? defaultSessionPort
+  const cookieName = opts?.cookieName ?? SESSION_COOKIE
   await ensureDemoUsers(db, { environment: opts?.environment })
   const user = await usersRepo.findUserByEmail(db, email)
   // Always run PBKDF2 (dummy hash when user missing) before branching on existence.
@@ -70,15 +79,29 @@ export async function loginWithPassword(
     },
     secret,
   )
+  const setCookie = sessions.cookieHeader(token, { secure: opts?.secureCookie ?? false })
+  // Ensure cookie name SSoT if port still emits default SESSION_COOKIE
+  const cookie =
+    cookieName === SESSION_COOKIE
+      ? setCookie
+      : setCookie.replace(`${SESSION_COOKIE}=`, `${cookieName}=`)
   return {
     subject: user.id,
-    cookie: sessions.cookieHeader(token, { secure: opts?.secureCookie ?? false }),
+    cookie,
   }
 }
 
-export function logoutCookie(opts?: { secureCookie?: boolean; sessions?: SessionPort }): string {
+export function logoutCookie(opts?: {
+  secureCookie?: boolean
+  sessions?: SessionPort
+  cookieName?: string
+}): string {
   const sessions = opts?.sessions ?? defaultSessionPort
-  return sessions.clearCookieHeader({ secure: opts?.secureCookie ?? false })
+  const cookieName = opts?.cookieName ?? SESSION_COOKIE
+  const clear = sessions.clearCookieHeader({ secure: opts?.secureCookie ?? false })
+  return cookieName === SESSION_COOKIE
+    ? clear
+    : clear.replace(`${SESSION_COOKIE}=`, `${cookieName}=`)
 }
 
 export async function mintApiKey(
@@ -119,10 +142,11 @@ export async function resolveAuth(
   secret: string,
   authorization: string | null,
   cookieHeader: string | null,
-  opts?: { sessions?: SessionPort },
+  opts?: { sessions?: SessionPort; cookieName?: string },
 ): Promise<{ subject: string; method: 'session' | 'api_key' } | null> {
   return resolveDualAuth(authorization, cookieHeader, {
     secret,
+    cookieName: opts?.cookieName ?? SESSION_COOKIE,
     sessions: opts?.sessions ?? defaultSessionPort,
     findApiKeyByPrefix: async (prefix) => {
       const row = await keysRepo.findApiKeyByPrefix(db, prefix)

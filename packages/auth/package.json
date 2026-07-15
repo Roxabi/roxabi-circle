@@ -19,6 +19,14 @@
   "dependencies": {
     "@gosilex/core": "workspace:*"
   },
+  "peerDependencies": {
+    "better-auth": ">=1.2.0"
+  },
+  "peerDependenciesMeta": {
+    "better-auth": {
+      "optional": true
+    }
+  },
   "devDependencies": {
     "typescript": "^5.9.0",
     "vitest": "^3.2.0"

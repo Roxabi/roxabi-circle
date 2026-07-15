@@ -22,6 +22,7 @@
     "@gosilex/feedback": "workspace:*",
     "@gosilex/storage": "workspace:*",
     "@gosilex/types": "workspace:*",
+    "better-auth": "^1.6.23",
     "drizzle-orm": "^0.44.0",
     "hono": "^4.7.0",
     "zod": "^3.25.0"

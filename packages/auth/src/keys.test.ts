@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest'
+import { type BetterAuthLike, createBetterAuthSessionPort } from './better-auth-port'
+import { sessionCookieName } from './cookie-name'
 import {
   apiKeyPrefix,
   generateApiKey,
@@ -10,6 +12,7 @@ import {
   verifyApiKey,
   verifyPassword,
 } from './keys'
+import { resolveDualAuth } from './require-auth'
 import { SESSION_COOKIE, signSession, verifySession } from './session'
 import { createHmacSessionPort, defaultSessionPort } from './session-port'
 
@@ -244,5 +247,103 @@ describe('SessionPort (HMAC adapter)', () => {
       secret,
     )
     expect(await defaultSessionPort.verify(token, secret)).toMatchObject({ sub: 'u2' })
+  })
+
+  it('resolveSession reads cookieName + secret', async () => {
+    const port = createHmacSessionPort()
+    const token = await port.sign(
+      { sub: 'u3', email: 'c@d.e', exp: Math.floor(Date.now() / 1000) + 3600 },
+      secret,
+    )
+    const ok = await port.resolveSession({
+      cookieHeader: `${SESSION_COOKIE}=${token}`,
+      secret,
+      cookieName: SESSION_COOKIE,
+    })
+    expect(ok?.sub).toBe('u3')
+    const miss = await port.resolveSession({
+      cookieHeader: `other=${token}`,
+      secret,
+      cookieName: SESSION_COOKIE,
+    })
+    expect(miss).toBeNull()
+  })
+})
+
+describe('sessionCookieName SSoT', () => {
+  it('defaults to gosilex_session', () => {
+    expect(sessionCookieName()).toBe(SESSION_COOKIE)
+    expect(sessionCookieName({ name: '  ' })).toBe(SESSION_COOKIE)
+  })
+  it('accepts override', () => {
+    expect(sessionCookieName({ name: 'ba_session' })).toBe('ba_session')
+  })
+})
+
+describe('SessionPort (Better Auth adapter)', () => {
+  it('resolveSession maps getSession user to SessionPayload', async () => {
+    const exp = new Date(Date.now() + 3600_000)
+    const mockAuth: BetterAuthLike = {
+      api: {
+        getSession: async () => ({
+          user: { id: 'ba-user-1', email: 'ba@gosilex.local' },
+          session: { expiresAt: exp },
+        }),
+      },
+    }
+    const port = createBetterAuthSessionPort({ getAuth: () => mockAuth })
+    const payload = await port.resolveSession({
+      cookieHeader: 'gosilex_session=opaque',
+      cookieName: SESSION_COOKIE,
+    })
+    expect(payload).toMatchObject({ sub: 'ba-user-1', email: 'ba@gosilex.local' })
+    expect(payload!.exp).toBeGreaterThan(Math.floor(Date.now() / 1000))
+  })
+
+  it('resolveDualAuth works with BA port without secret', async () => {
+    const mockAuth: BetterAuthLike = {
+      api: {
+        getSession: async () => ({
+          user: { id: 'ba-2', email: 'x@y.z' },
+          session: { expiresAt: new Date(Date.now() + 60_000) },
+        }),
+      },
+    }
+    const port = createBetterAuthSessionPort({ getAuth: () => mockAuth })
+    const r = await resolveDualAuth(null, 'gosilex_session=x', {
+      sessions: port,
+      cookieName: SESSION_COOKIE,
+      findApiKeyByPrefix: async () => null,
+    })
+    expect(r).toMatchObject({ subject: 'ba-2', method: 'session' })
+  })
+
+  it('sign throws — BA handler owns issuance', async () => {
+    const port = createBetterAuthSessionPort({
+      getAuth: () => ({
+        api: { getSession: async () => null },
+      }),
+    })
+    await expect(port.sign({ sub: 'u', email: 'a@b.c', exp: 1 }, 'x'.repeat(32))).rejects.toThrow(
+      /does not sign/,
+    )
+  })
+})
+
+describe('resolveDualAuth cookieName inject', () => {
+  it('uses custom cookie name with HMAC port', async () => {
+    const secret = 'test-secret-at-least-32-characters!!'
+    const port = createHmacSessionPort()
+    const token = await port.sign(
+      { sub: 'cust', email: 'c@d.e', exp: Math.floor(Date.now() / 1000) + 3600 },
+      secret,
+    )
+    const r = await resolveDualAuth(null, `my_sess=${token}`, {
+      secret,
+      cookieName: 'my_sess',
+      sessions: port,
+      findApiKeyByPrefix: async () => null,
+    })
+    expect(r).toMatchObject({ subject: 'cust', method: 'session' })
   })
 })
