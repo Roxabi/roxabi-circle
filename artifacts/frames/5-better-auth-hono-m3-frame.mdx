@@ -1,0 +1,59 @@
+---
+title: Better Auth on Hono (M3) — replace interim HMAC session
+issue: 5
+status: approved
+tier: F-full
+date: 2026-07-15
+---
+
+## Problem
+
+The Chemin A kit ships an **intentional interim** session path: HMAC-signed cookies via `@gosilex/auth` (`SessionPort` / `createHmacSessionPort`), documented in ADR-0002. That unblocked dual-auth demos (browser cookie + Bearer `sk_…`) without pulling Better Auth schema/adapters into the kit exit bar.
+
+Product frame **M3** (and consumers such as silex-share) need a real session stack: **Better Auth on Hono**, GitHub OAuth + org membership, and stable session cookies — without forking `packages/auth`. Today, product apps either stay on HMAC forever or reimplement session outside the kit promote path, breaking **zero-edit** and the SessionPort swap recipe.
+
+**Why now:** kit polish (feedback, modules) continues on example-api/web while session remains HMAC-only; each product that needs OAuth risks dual-edit of kit auth. Landing Better Auth as the **kit session path** (or a clean promote path behind `SessionPort`) is the M3 unlock for all Chemin A products.
+
+## Who
+
+- **Primary:** GOSILEX kit maintainers and product app developers (e.g. silex-share) who need UI session + OAuth without forking `@gosilex/auth`
+- **Secondary:** MCP/skill clients that keep using Bearer `sk_…` only (must remain unbroken)
+
+## Constraints
+
+- Cloudflare Workers: Better Auth instance **per request** (bindings pattern — not a global singleton)
+- Prefer / extend **`SessionPort`** before a hard cutover (apps inject adapter; FE contract stays `credentials: 'include'`)
+- Cookie flags: **HttpOnly** · **Secure** (prod) · **SameSite=Lax** · `Path=/`
+- Dual-path guards stay: session cookie **or** Bearer `sk_…` (`requireAuth` / equivalent)
+- Zero-edit consumer contract: no product fork of kit auth packages; config via env / new product apps only
+- Supersede or amend **ADR-0002** with migration notes
+- Tests: session create/verify, CSRF/origin on mutations, 401 path
+- Refs: better-auth-cloudflare, Hono Better Auth on Cloudflare examples; product tracking `go-silex/silex-share#12`
+
+## Out of Scope
+
+- Full share org recheck cron product rules (product slice, not kit demo)
+- Clerk / non-default auth providers
+- Changing machine API key model (`sk_…` hash-at-rest stays)
+- Product-only UI/branding beyond `example-api` / `example-web` demo login path
+
+## Premise Validity
+
+**Success in 6 months:** Product apps use Better Auth sessions without forking `packages/auth` — `example-*` and consumers (e.g. silex-share) authenticate UI via Better Auth cookies; HMAC interim is gone or dead-code path; dual-path `sk_…` still works.
+
+**Failure in 6 months:** Better Auth has landed in the kit, but dual-path is broken — session cookies or Bearer `sk_…` fail in example tests / CI, or products cannot mint and use API keys alongside sessions. Observable within the M3 delivery window as red auth tests or broken example dual-auth demos.
+
+**Simplest alternative:** Keep polishing the HMAC `SessionPort` forever (no Better Auth install).
+
+**Why not simplest:** M3 needs GitHub OAuth + org membership and the Better Auth ecosystem (adapters, cookie/session lifecycle). HMAC alone forces each product to reimplement OAuth/session outside the kit promote path and violates the long-term dual-auth design.
+
+## Complexity
+
+**Tier: F-full** — multi-domain (packages/auth + example-api + example-web + ADR + tests + CF bindings), new pattern (Better Auth on Workers per-request), unknowns around D1 adapter / cookie name migration.
+
+Signals:
+
+- Touches kit package + API + SPA login path
+- Architecture decision superseding ADR-0002
+- Auth/security surface requires tests + human review
+- Cross-repo product interest (`silex-share#12`) without product-domain strings in kit

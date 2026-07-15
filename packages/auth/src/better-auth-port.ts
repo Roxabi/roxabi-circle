@@ -1,0 +1,86 @@
+import type { SessionPayload } from './session'
+import { clearSessionCookieHeader, SESSION_COOKIE, sessionCookieHeader } from './session'
+import type { ResolveSessionInput, SessionPort } from './session-port'
+
+/**
+ * Minimal Better Auth surface used by the kit SessionPort adapter.
+ * Apps pass a per-request `auth` instance (CF bindings pattern).
+ */
+export type BetterAuthLike = {
+  api: {
+    getSession: (opts: { headers: Headers }) => Promise<{
+      user: { id: string; email?: string | null }
+      session: { expiresAt?: Date | string | null }
+    } | null>
+  }
+}
+
+export type CreateBetterAuthSessionPortOpts = {
+  getAuth: () => BetterAuthLike | Promise<BetterAuthLike>
+  cookieName?: string
+}
+
+function headersFromInput(input: ResolveSessionInput): Headers {
+  if (input.headers) return input.headers
+  const h = new Headers()
+  if (input.cookieHeader) h.set('cookie', input.cookieHeader)
+  return h
+}
+
+/** Parse BA expiresAt; return null if missing/unparseable (fail closed). */
+function expFromSession(expiresAt: Date | string | null | undefined): number | null {
+  if (expiresAt instanceof Date) {
+    const n = Math.floor(expiresAt.getTime() / 1000)
+    return Number.isFinite(n) ? n : null
+  }
+  if (typeof expiresAt === 'string') {
+    const t = Date.parse(expiresAt)
+    if (!Number.isNaN(t)) return Math.floor(t / 1000)
+  }
+  return null
+}
+
+/**
+ * SessionPort adapter for Better Auth.
+ * - `resolveSession` → `auth.api.getSession({ headers })`
+ * - missing/unparseable expiresAt → null (fail closed)
+ * - `sign` throws — session issuance owned by BA HTTP handler
+ */
+export function createBetterAuthSessionPort(opts: CreateBetterAuthSessionPortOpts): SessionPort {
+  const cookieName = opts.cookieName ?? SESSION_COOKIE
+
+  return {
+    async sign() {
+      throw new Error(
+        'Better Auth SessionPort does not sign tokens — use BA handler /api/auth/* for session issuance',
+      )
+    },
+    async verify() {
+      return null
+    },
+    async resolveSession(input) {
+      try {
+        const auth = await opts.getAuth()
+        const session = await auth.api.getSession({ headers: headersFromInput(input) })
+        if (!session?.user?.id) return null
+        const exp = expFromSession(session.session?.expiresAt)
+        if (exp == null) return null
+        if (exp < Math.floor(Date.now() / 1000)) return null
+        return {
+          sub: session.user.id,
+          email: session.user.email ?? '',
+          exp,
+        } satisfies SessionPayload
+      } catch {
+        // Treat auth-layer failures as no session (401). Infra misconfig surfaces earlier at factory.
+        return null
+      }
+    },
+    cookieHeader(token, headerOpts) {
+      return sessionCookieHeader(token, headerOpts).replace(`${SESSION_COOKIE}=`, `${cookieName}=`)
+    },
+    clearCookieHeader(headerOpts) {
+      return clearSessionCookieHeader(headerOpts).replace(`${SESSION_COOKIE}=`, `${cookieName}=`)
+    },
+  }
+}

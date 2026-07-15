@@ -109,7 +109,12 @@ function ShellChrome({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     try {
-      await apiFetch('/api/auth/logout', { method: 'POST', body: '{}' })
+      const health = await apiFetch<{ authAdapter?: string }>('/health')
+      if (health.authAdapter === 'better-auth') {
+        await apiFetch('/api/auth/sign-out', { method: 'POST', body: '{}' })
+      } else {
+        await apiFetch('/api/auth/logout', { method: 'POST', body: '{}' })
+      }
     } catch {
       /* still clear client cache */
     }

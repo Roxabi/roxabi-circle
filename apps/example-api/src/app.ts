@@ -3,6 +3,7 @@ import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import { corsAllowlist } from './lib/session-env'
+import { withBetterAuth } from './middleware/better-auth'
 import { withDb } from './middleware/db'
 import { onError } from './middleware/error-handler'
 import { originGuard } from './middleware/origin-guard'
@@ -43,6 +44,7 @@ export function createApp() {
   )
   app.use('*', originGuard)
   app.use('*', withDb)
+  app.use('*', withBetterAuth)
   app.onError((err, c) => onError(err, c))
   app.notFound((c) => {
     const requestId = c.get('requestId') || 'req_unknown'

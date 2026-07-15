@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { environmentName, isDevLikeEnvironment } from '../lib/session-env'
+import { authSessionAdapter, environmentName, isDevLikeEnvironment } from '../lib/session-env'
 import { SEED_USERS } from '../seed/demo-data'
 import type { AppEnv } from '../types'
 
@@ -14,12 +14,15 @@ healthRoutes.get('/health', (c) => {
     service: string
     requestId: string
     environment: string
+    /** Session stack — SPA can adapt login/logout paths. */
+    authAdapter: 'hmac' | 'better-auth'
     demoLogin?: { email: string; password: string; role: string }
   } = {
     ok: true,
     service: 'example-api',
     requestId: c.get('requestId'),
     environment,
+    authAdapter: authSessionAdapter(c.env),
   }
 
   // Kit local DX only — public /health; never returned in staging/production.

@@ -1,6 +1,6 @@
 import { AppError } from '@gosilex/core'
 import { apiKeyPrefix, parseBearer, verifyApiKey } from './keys'
-import { parseCookie, SESSION_COOKIE } from './session'
+import { SESSION_COOKIE } from './session'
 import { defaultSessionPort, type SessionPort } from './session-port'
 
 export type AuthMethod = 'session' | 'api_key'
@@ -10,7 +10,6 @@ export type AuthIdentity = {
   method: AuthMethod
 }
 
-/** Active key row needed for dual-auth (app supplies D1 lookup). */
 export type ApiKeyRecord = {
   subject: string
   keyHash: string
@@ -19,15 +18,17 @@ export type ApiKeyRecord = {
 }
 
 export type DualAuthPorts = {
-  secret: string
+  secret?: string
+  cookieName?: string
+  /** Full request headers for BA getSession (preferred over cookie-only). */
+  headers?: Headers
   sessions?: SessionPort
-  /** Lookup by sk_ prefix (unique index). */
   findApiKeyByPrefix: (prefix: string) => Promise<ApiKeyRecord | null>
 }
 
 /**
- * Pure dual-path auth: Bearer sk_ (prefix + hash + expiry/revoke) or session cookie.
- * Throws AppError.unauthorized for invalid bearer; returns null when no credentials.
+ * Pure dual-path auth: Bearer sk_ or session cookie.
+ * Bearer wins when both are present.
  */
 export async function resolveDualAuth(
   authorization: string | null | undefined,
@@ -35,6 +36,7 @@ export async function resolveDualAuth(
   ports: DualAuthPorts,
 ): Promise<AuthIdentity | null> {
   const sessions = ports.sessions ?? defaultSessionPort
+  const cookieName = ports.cookieName ?? SESSION_COOKIE
   const bearer = parseBearer(authorization)
   if (bearer) {
     let prefix: string
@@ -51,35 +53,39 @@ export async function resolveDualAuth(
     return { subject: row.subject, method: 'api_key' }
   }
 
-  const token = parseCookie(cookieHeader, SESSION_COOKIE)
-  if (token) {
-    const payload = await sessions.verify(token, ports.secret)
-    if (payload) return { subject: payload.sub, method: 'session' }
-  }
+  const payload = await sessions.resolveSession({
+    cookieHeader,
+    headers: ports.headers,
+    secret: ports.secret,
+    cookieName,
+  })
+  if (payload) return { subject: payload.sub, method: 'session' }
 
   return null
 }
 
-/** Minimal Hono-like context for the middleware factory (avoids hard Workers typing). */
 export type RequireAuthContext = {
-  req: { header: (name: string) => string | undefined }
+  req: {
+    header: (name: string) => string | undefined
+    /** Hono raw Request — used to forward Headers to BA getSession. */
+    raw?: { headers: Headers }
+  }
   set: (key: 'subject' | 'authMethod', value: string) => void
 }
 
-/**
- * Hono middleware factory: dual-path auth with injected ports.
- * Usage: `app.use('*', createRequireAuth((c) => ({ secret, findApiKeyByPrefix, sessions })))`
- */
 export function createRequireAuth<C extends RequireAuthContext>(
   getPorts: (c: C) => DualAuthPorts | Promise<DualAuthPorts>,
 ): (c: C, next: () => Promise<void>) => Promise<void> {
   return async (c, next) => {
     const ports = await getPorts(c)
-    const auth = await resolveDualAuth(
-      c.req.header('authorization') ?? null,
-      c.req.header('cookie') ?? null,
-      ports,
-    )
+    const cookieHeader = c.req.header('cookie') ?? null
+    // Prefer explicit ports.headers; else request raw headers for BA
+    const headers =
+      ports.headers ?? (c.req.raw?.headers ? new Headers(c.req.raw.headers) : undefined)
+    const auth = await resolveDualAuth(c.req.header('authorization') ?? null, cookieHeader, {
+      ...ports,
+      headers,
+    })
     if (!auth) throw AppError.unauthorized()
     c.set('subject', auth.subject)
     c.set('authMethod', auth.method)

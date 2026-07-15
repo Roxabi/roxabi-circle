@@ -27,6 +27,22 @@ export const workerStringEnvSchema = z.object({
   DEMO_USER_EMAIL: z.string().optional(),
   SMTP_HOST: z.string().optional(),
   SMTP_PORT: z.string().optional(),
+  /**
+   * Session stack: `hmac` (default) | `better-auth`.
+   * SSoT — do not infer from secret presence.
+   */
+  AUTH_SESSION_ADAPTER: z.string().optional(),
+  /** Override session cookie name (default gosilex_session). */
+  SESSION_COOKIE_NAME: z.string().optional(),
+  /** Better Auth secret (min 32) when AUTH_SESSION_ADAPTER=better-auth. */
+  BETTER_AUTH_SECRET: z.string().optional(),
+  /** Public app URL for Better Auth baseURL (e.g. http://localhost:8787). */
+  BETTER_AUTH_URL: z.string().optional(),
+  /**
+   * When `true`, Better Auth public email sign-up is enabled.
+   * Default off (disableSignUp) — seed or admin-only create for kit.
+   */
+  ALLOW_PUBLIC_SIGNUP: z.string().optional(),
 })
 
 export type WorkerStringEnv = z.infer<typeof workerStringEnvSchema>

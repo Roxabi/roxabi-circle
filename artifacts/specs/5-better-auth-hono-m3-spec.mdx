@@ -1,0 +1,214 @@
+---
+title: Better Auth on Hono (M3) — kit session path
+issue: 5
+status: approved
+tier: F-full
+date: 2026-07-15
+shape: 1-session-port-ba
+---
+
+## Context
+
+- **Issue:** [#5](https://github.com/go-silex/silex-boilerplate/issues/5)
+- **Frame:** [5-better-auth-hono-m3-frame.mdx](../frames/5-better-auth-hono-m3-frame.mdx) (approved)
+- **Analysis:** [5-better-auth-hono-m3-analysis.mdx](../analyses/5-better-auth-hono-m3-analysis.mdx) — **Shape 1** recommended
+- **ADR:** [0002-session-hmac-interim-vs-better-auth.md](../../docs/architecture/adr/0002-session-hmac-interim-vs-better-auth.md) → supersede/amend
+- **Axial:** [0001](../../docs/architecture/adr/0001-primary-axis-packages-compose-apps.md) — BA capability in `@gosilex/auth`; apps own mount + migrations
+
+## Goal
+
+Ship Better Auth as the kit UI session path behind an extended **`SessionPort`**, with dual-path **Bearer `sk_…`** unchanged, so product apps promote without forking `@gosilex/auth`.
+
+**Kit M3 subset (this issue):** BA email/password + dual-path green + exported BA adapter. Optional env-gated GitHub provider OK. **OAuth org membership gate + recheck cron = product** (`silex-share#12`), not kit done.
+
+## Users
+
+- **Primary:** kit maintainers + product app devs (compose BA + inject port)
+- **Secondary:** MCP/skill clients (Bearer only — must keep working)
+- **Demo:** example-web users logging in with email/password
+
+## Locked decisions (from analysis OQs + expert review)
+
+| # | Decision |
+|---|----------|
+| D1 | **Cookie SSoT** — `sessionCookieName` (default `gosilex_session`) used by `resolveDualAuth` + `originGuard`. Configure BA to that name when supported. |
+| D2 | **Deps** — `better-auth` (+ CF adapter) as **optional peer** of `@gosilex/auth`; export `createBetterAuthSessionPort` (and thin `createAuth` helper if needed) from `@gosilex/auth` or `@gosilex/auth/better-auth`. **Apps apply** BA D1 migrations; package should export **schema/SQL artifact or versioned helper** so products compose (not re-copy tables). |
+| D3 | **Kit done bar** — email/password via BA + dual-path green. GitHub OAuth env-gated optional. |
+| D4 | **Adapter SSoT** — `AUTH_SESSION_ADAPTER=hmac \| better-auth` **required** (no “secret presence” inference). Fail closed if `better-auth` selected without required BA env. |
+| D5 | **SessionPort contract (locked shapes)** — see below. |
+| D6 | **Single login surface** — when adapter=`better-auth`, only BA handler under `/api/auth/*`; HMAC login route **not mounted**. |
+
+### D5 — Extended port API (normative for S0)
+
+```ts
+// Conceptual — exact names in plan may alias, semantics locked
+
+type SessionPayload = { sub: string; email: string; exp: number }
+
+type SessionPort = {
+  /** HMAC path: sign payload → token. BA path: may throw or be unused (handler issues cookie). */
+  sign(payload: SessionPayload, secret: string): Promise<string>
+  /** HMAC path: verify bare token. BA path: may be unused if resolveSession is implemented. */
+  verify(token: string, secret: string): Promise<SessionPayload | null>
+  /** Preferred session resolve for dual-auth (BA: getSession({ headers })). HMAC: parse cookie + verify. */
+  resolveSession(input: {
+    cookieHeader?: string | null
+    headers?: Headers
+    secret?: string
+    cookieName: string
+  }): Promise<SessionPayload | null>
+  cookieHeader(token: string, opts?: { secure?: boolean; maxAge?: number }): string
+  clearCookieHeader(opts?: { secure?: boolean }): string
+}
+
+type DualAuthPorts = {
+  /** HMAC session secret; optional when adapter uses BA-only resolveSession without secret. */
+  secret?: string
+  cookieName: string
+  sessions?: SessionPort
+  findApiKeyByPrefix: (prefix: string) => Promise<ApiKeyRecord | null>
+}
+```
+
+- HMAC adapter: implements all methods; `resolveSession` = parse cookieName + `verify`.
+- BA adapter: `resolveSession` → `auth.api.getSession({ headers })` → map user/session to `SessionPayload`; `sign` unused; cookie set/clear via BA handler (cookieHeader/clear may clear-by-name only).
+- `resolveDualAuth`: Bearer first (unchanged); else `sessions.resolveSession(...)` — **never** hardcode cookie name.
+
+## Expected Behavior
+
+1. Env sets `AUTH_SESSION_ADAPTER=better-auth` + BA secrets + D1; migrations include BA schema.
+2. User opens example-web `/login`, submits email/password.
+3. Request hits BA routes under `/api/auth/*` (per-request auth instance with CF bindings).
+4. BA sets HttpOnly session cookie (`Secure` when not local, `SameSite=Lax`, `Path=/`, name = SSoT).
+5. Subsequent API calls with `credentials: 'include'` pass `requireAuth` → subject from BA session.
+6. MCP client with `Authorization: Bearer sk_…` still authenticates via hash lookup; mint/revoke keys still require **session** method.
+7. Mutations with session cookie require Origin allowlist (`originGuard` using same cookie name).
+8. Logout clears BA session; subsequent `/api/me` → 401 with existing error envelope.
+9. Product app: mount BA + inject port + own migrations — **no kit source fork**.
+
+## Data Model & Consumers
+
+**Data structure:** [session + keys model](../visuals/5-better-auth-hono-m3-data-model.html)  
+**Consumer map:** [AuthIdentity consumers](../visuals/5-better-auth-hono-m3-consumers.html)
+
+| Consumer | Fields | When | Status |
+|---|---|---|---|
+| `requireAuth` / `resolveDualAuth` | subject, method | every protected route | this issue |
+| `/api/me` | subject | session or sk_ | this issue |
+| `/api/keys` mint/revoke | subject, method=session | session only | this issue |
+| `/api/notes` | subject | either method | this issue |
+| feedback / modules / integrations | subject, method=session | session only | this issue |
+| MCP / skill | sk_ only | machine | this issue (unchanged) |
+| GitHub OAuth org gate | membership claims | product M3 | future |
+| Org recheck cron | key revoke | product | out of scope |
+
+### Identity / seed (locked)
+
+- When adapter=`better-auth`, **BA user id is `AuthIdentity.subject`** for session path.
+- Demo seed creates BA-compatible user (BA admin API or direct seed into BA tables) so login subject is stable for `api_keys` / notes.
+- Kit legacy `users` PBKDF2 table: **not used for session login** when adapter=BA; may remain for hmac adapter mode only. No dual-login against both tables.
+
+## Breadboard
+
+### API affordances
+
+| ID | Affordance | Handler | Data |
+|---|---|---|---|
+| A1 | `ALL /api/auth/*` | BA `auth.handler(req)` per-request | BA D1 session/user |
+| A2 | Dual-path guard | `createRequireAuth` + BA SessionPort | cookieName + sk_ prefix |
+| A3 | Origin guard | `originGuard` + cookieName SSoT | CORS allowlist |
+| A4 | `GET /api/me` | existing | AuthIdentity |
+| A5 | `POST /api/keys` | existing (session-only) | api_keys |
+| A6 | Logout | BA sign-out | session cleared |
+| A7 | HMAC login routes | mounted **only** if adapter=`hmac` | HMAC users table |
+| M1 | D1 migrations BA tables | example-api migrations | BA schema |
+
+### Package affordances
+
+| ID | Affordance | Module |
+|---|---|---|
+| P1 | Extended SessionPort + DualAuthPorts | `@gosilex/auth` |
+| P2 | `createBetterAuthSessionPort` (+ peers) | `@gosilex/auth` |
+| P3 | HMAC `createHmacSessionPort` retained | `@gosilex/auth` |
+| P4 | `sessionCookieName` / cookie helper SSoT | `@gosilex/auth` |
+
+### UI affordances
+
+| ID | Affordance | Surface |
+|---|---|---|
+| U1 | Login form | example-web → BA email sign-in endpoint (`/api/auth/sign-in/email` or kit wrapper that proxies to BA — pin path in plan) |
+| U2 | Logout control | app-shell → BA sign-out |
+| U3 | 401 → /login | routeTree (unchanged) |
+| U4 | `credentials: 'include'` | api client (unchanged) |
+
+### Mount exclusivity
+
+| `AUTH_SESSION_ADAPTER` | Mounted | Not mounted |
+|---|---|---|
+| `better-auth` | A1 BA handler, A2 with BA port | A7 HMAC login/logout |
+| `hmac` | A7 HMAC login/logout, A2 with HMAC port | A1 BA handler |
+
+## Slices
+
+| Slice | Demo-able outcome | Affordances | Deps |
+|---|---|---|---|
+| **S0** Port + cookie SSoT | Unit tests: `resolveSession`, cookieName inject; HMAC green; originGuard reads SSoT | P1, P3, P4, A3 (name only) | — |
+| **S1** BA factory + migrations | example-api migrates BA tables; peers resolve | P2, M1 | S0 |
+| **S2** Mount BA only | adapter=better-auth → A1 only (A7 off); email/password sets cookie; logout clears cookie | A1, A6, A7, U1, U2 | S1 |
+| **S3** Wire requireAuth | BA cookie authenticates `/api/me` + notes; sk_ dual-path green; mint session-only | A2, A4, A5 | S2 |
+| **S4** FE + seed polish + CSRF tests | FE login path; demo BA user seed; originGuard mutation tests with BA cookie | U3, U4, A3, seed | S3 |
+| **S5** ADR + product recipe | ADR-0002 supersede/amend; inject snippet | — | S4 |
+
+## Success Criteria
+
+- [ ] Extended `SessionPort` / `DualAuthPorts` match D5 (cookieName + `resolveSession`); unit tests for HMAC + mock BA port
+- [ ] `@gosilex/auth` exports BA adapter factory with peer deps documented; HMAC adapter still unit-tested
+- [ ] `AUTH_SESSION_ADAPTER` is sole switch; `better-auth` without required env **fails closed** (boot or first request error — not silent HMAC)
+- [ ] When adapter=`better-auth`, BA instance is created **per request** (factory called inside request middleware — code review + smoke)
+- [ ] BA routes mounted under `/api/auth/*`; **automated** test: email/password sign-in sets session cookie; sign-out clears it
+- [ ] Dual-path automated tests: BA session cookie **and** Bearer `sk_…` both succeed on a protected route; key mint rejects `api_key` method
+- [ ] Session `Set-Cookie` asserts: HttpOnly, SameSite=Lax, Path=/, Secure when not local (test or integration assert on header)
+- [ ] `originGuard`: mutation with BA session cookie and missing/forbidden Origin → forbidden; allowed Origin → pass
+- [ ] Invalid/missing session → **401** with existing `{ error: { code, message }, requestId }` envelope
+- [ ] When adapter=`better-auth`, HMAC login route is not registered (test or route table assert)
+- [ ] Demo seed produces BA user whose `sub` is stable for mint key + notes after login
+- [ ] ADR-0002 amended/superseded with product inject recipe (mount + port + migrations)
+- [ ] Zero-edit: product recipe does not require editing `packages/*` sources (documented checklist)
+- [ ] `bun run typecheck` + `@gosilex/auth` + `example-api` tests green
+
+## Edge cases
+
+| Case | Handling |
+|---|---|
+| adapter=better-auth, missing BA secret | Fail closed |
+| Expired BA session | resolveSession → null → 401 |
+| Bearer + cookie both present | Prefer Bearer (current order) |
+| Cookie name mismatch | Impossible if SSoT used everywhere — tests enforce |
+| GitHub env absent | OAuth unused; email/password works |
+| adapter=hmac | Current HMAC login path preserved for break-glass / tests |
+
+## Out of scope
+
+- Org membership recheck cron / product ACL
+- Clerk / non-default providers beyond optional GitHub
+- Changing `sk_` hash model
+- Full product share domain strings in kit
+
+## Pre-check
+
+| Check | Result |
+|---|---|
+| Testable criteria | pass (14 binary checkboxes; login path requires automated test) |
+| No dangling breadboard IDs | pass (A*/P*/U*/M1 in slices) |
+| Ambiguity budget | pass (0 χ — D4/D5 locked) |
+| Slice coverage | pass |
+| Edge completeness | pass |
+
+## Expert review notes
+
+| Reviewer | Verdict | Incorporated |
+|---|---|---|
+| architect | needs improvement | D5 API locked; A3 SSoT in S0; A7 demote in S2; S2/S3 demo split; seed/subject; mount exclusivity table |
+| product-lead | needs improvement | soft AC tightened; D4 single SSoT; kit M3 subset in Goal; fail-closed AC |
+| doc-writer | good | D4 residual closed |
+| axial-adr-review | good | package axis correct; migration helper to avoid N×M table copy (D2 tightened) |
