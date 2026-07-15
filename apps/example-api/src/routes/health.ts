@@ -22,6 +22,7 @@ healthRoutes.get('/health', (c) => {
     environment,
   }
 
+  // Kit local DX only — public /health; never returned in staging/production.
   if (isDevLikeEnvironment(c.env)) {
     body.demoLogin = {
       email: ADMIN_SEED.email,

@@ -753,6 +753,37 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     expect(body.error.details?.configPath).toBe('/settings/integrations/feedback')
   })
 
+  it('GET /api/integrations/feedback requires admin', async () => {
+    const app = createApp()
+    const env = createMemoryEnv()
+    const cookieB = await loginAs(app, env, DEMO_EMAIL_B, DEMO_PASSWORD_B)
+    const res = await app.request(
+      '/api/integrations/feedback',
+      { headers: { cookie: cookieB } },
+      env,
+    )
+    expect(res.status).toBe(403)
+  })
+
+  it('PUT /api/integrations/feedback requires admin', async () => {
+    const app = createApp()
+    const env = createMemoryEnv()
+    const cookieB = await loginAs(app, env, DEMO_EMAIL_B, DEMO_PASSWORD_B)
+    const res = await app.request(
+      '/api/integrations/feedback',
+      {
+        method: 'PUT',
+        headers: sessionMutation(cookieB),
+        body: JSON.stringify({
+          sparkUrl: 'http://localhost:3939',
+          sparkApiKey: 'spk_test_key_12',
+        }),
+      },
+      env,
+    )
+    expect(res.status).toBe(403)
+  })
+
   it('PATCH /api/modules/:id requires admin', async () => {
     const app = createApp()
     const env = createMemoryEnv()

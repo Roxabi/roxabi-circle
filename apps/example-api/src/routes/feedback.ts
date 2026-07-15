@@ -21,15 +21,14 @@ feedbackRoutes.post('/api/report', async (c) => {
   const subject = c.get('subject')!
   assertRateLimit(`feedback:${subject}`, FEEDBACK_LIMIT, FEEDBACK_WINDOW_MS)
   const db = c.get('db')!
+  await modulesService.ensureKitModules(db)
   const spark = await modulesService.getFeedbackSparkRuntime(db)
+  const moduleOn = await modulesService.isModuleEnabled(db, 'feedback')
   return handleFeedbackReport(c, {
     getAuthor: () => subject,
+    enabled: () => moduleOn && spark !== null,
     sparkUrl: spark?.sparkUrl,
     apiKey: spark?.sparkApiKey,
-    enabled: async () => {
-      await modulesService.ensureKitModules(db)
-      return modulesService.isModuleEnabled(db, 'feedback')
-    },
     disabledMessage: 'Le module feedback est désactivé.',
   })
 })

@@ -48,6 +48,16 @@ describe('AppError', () => {
     expect(body.error.details).toEqual({ fieldErrors: { title: ['Required'] } })
   })
 
+  it('maps integrationNotConfigured to 400 with details', () => {
+    const err = AppError.integrationNotConfigured('Configure first', {
+      configPath: '/settings/integrations/feedback',
+    })
+    const { body, status } = toApiErrorBody(err, 'req_int')
+    expect(status).toBe(400)
+    expect(body.error.code).toBe('INTEGRATION_NOT_CONFIGURED')
+    expect(body.error.details).toEqual({ configPath: '/settings/integrations/feedback' })
+  })
+
   it('maps rateLimited to 429', () => {
     const { body, status } = toApiErrorBody(AppError.rateLimited(), 'req_rl')
     expect(status).toBe(429)
