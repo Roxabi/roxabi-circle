@@ -17,7 +17,7 @@ export {
   SPARK_UPLOAD_PATH,
 } from './constants'
 export type { FeedbackEnv } from './env'
-export { isFeedbackEnabled, readSparkEnv } from './env'
+export { isFeedbackEnabled, isTruthyEnvFlag, readSparkEnv } from './env'
 
 export {
   buildClientFormData,

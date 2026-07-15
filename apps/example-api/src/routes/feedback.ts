@@ -1,3 +1,4 @@
+import { AppError } from '@gosilex/core'
 import {
   type FeedbackEnvSlice,
   handleFeedbackReport,
@@ -17,6 +18,9 @@ export const feedbackRoutes = new Hono<AppEnv>()
 feedbackRoutes.use('/api/report', requireAuth)
 
 feedbackRoutes.post('/api/report', async (c) => {
+  if (c.get('authMethod') !== 'session') {
+    throw AppError.forbidden('Feedback report requires a session cookie')
+  }
   const subject = c.get('subject')!
   assertRateLimit(`feedback:${subject}`, FEEDBACK_LIMIT, FEEDBACK_WINDOW_MS)
   return handleFeedbackReport(c, {

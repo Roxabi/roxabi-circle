@@ -640,6 +640,56 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     expect(ok.headers.get('access-control-allow-origin')).toBe('http://localhost:5173')
   })
 
+  it('POST /api/report returns 401 without auth', async () => {
+    const app = createApp()
+    const env = createMemoryEnv({ FEEDBACK_ENABLED: 'true', SPARK_API_KEY: 'spk_test' })
+    const fd = new FormData()
+    fd.append('title', 'Bug')
+    const res = await app.request('/api/report', { method: 'POST', body: fd }, env)
+    expect(res.status).toBe(401)
+  })
+
+  it('POST /api/report returns 503 when FEEDBACK_ENABLED is off', async () => {
+    const app = createApp()
+    const env = createMemoryEnv({ SPARK_API_KEY: 'spk_test' })
+    const cookie = await loginAs(app, env, DEMO_EMAIL, DEMO_PASSWORD)
+    const fd = new FormData()
+    fd.append('title', 'Bug')
+    const res = await app.request(
+      '/api/report',
+      { method: 'POST', headers: { cookie, Origin: ORIGIN }, body: fd },
+      env,
+    )
+    expect(res.status).toBe(503)
+    const body = (await res.json()) as { error: string }
+    expect(body.error).toContain('désactivés')
+  })
+
+  it('POST /api/report rejects Bearer sk_ (session-only)', async () => {
+    const app = createApp()
+    const env = createMemoryEnv({ FEEDBACK_ENABLED: 'true', SPARK_API_KEY: 'spk_test' })
+    const cookie = await loginAs(app, env, DEMO_EMAIL, DEMO_PASSWORD)
+    const mint = await app.request(
+      '/api/keys',
+      { method: 'POST', headers: sessionMutation(cookie) },
+      env,
+    )
+    expect(mint.status).toBe(200)
+    const { key } = (await mint.json()) as { key: string }
+    const fd = new FormData()
+    fd.append('title', 'Bug')
+    const res = await app.request(
+      '/api/report',
+      {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${key}` },
+        body: fd,
+      },
+      env,
+    )
+    expect(res.status).toBe(403)
+  })
+
   it('notes are subject-scoped (IDOR: B cannot read A note)', async () => {
     const app = createApp()
     const env = createMemoryEnv()

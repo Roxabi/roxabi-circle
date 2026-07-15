@@ -11,10 +11,14 @@ export type FeedbackEnv = FeedbackEnvSlice
 
 const TRUTHY = new Set(['true', '1', 'yes', 'on'])
 
+/** Shared truthy parse for Worker env and Vite `import.meta.env` flags. */
+export function isTruthyEnvFlag(value: string | undefined): boolean {
+  return TRUTHY.has((value ?? '').trim().toLowerCase())
+}
+
 /** Kill-switch / feature gate (Worker string env). Off by default in kit. */
 export function isFeedbackEnabled(env: FeedbackEnvSlice): boolean {
-  const v = (env.FEEDBACK_ENABLED ?? '').trim().toLowerCase()
-  return TRUTHY.has(v)
+  return isTruthyEnvFlag(env.FEEDBACK_ENABLED)
 }
 
 export function readSparkEnv(source: FeedbackEnvSlice): {

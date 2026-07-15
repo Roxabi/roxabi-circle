@@ -116,6 +116,9 @@ export type EnvLike = {
   DEMO_USER_EMAIL?: string
   SMTP_HOST?: string
   SMTP_PORT?: string
+  FEEDBACK_ENABLED?: string
+  SPARK_URL?: string
+  SPARK_API_KEY?: string
 }
 
 /** Fresh in-memory SQLite + R2 for each test (same createApp entry as Worker). */

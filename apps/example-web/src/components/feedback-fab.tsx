@@ -1,16 +1,12 @@
+import { isTruthyEnvFlag } from '@gosilex/feedback'
 import { FeedbackButton } from '@gosilex/feedback/react'
 import '@gosilex/feedback/styles.css'
 import { useLocale } from '../lib/locale'
 
-function isFeedbackUiEnabled(): boolean {
-  const v = (import.meta.env.VITE_FEEDBACK_ENABLED ?? '').trim().toLowerCase()
-  return v === 'true' || v === '1' || v === 'yes' || v === 'on'
-}
-
 /** Floating « Signaler » — gated by VITE_FEEDBACK_ENABLED (mirror API FEEDBACK_ENABLED). */
 export function FeedbackFab() {
   const { m } = useLocale()
-  if (!isFeedbackUiEnabled()) return null
+  if (!isTruthyEnvFlag(import.meta.env.VITE_FEEDBACK_ENABLED)) return null
 
   return (
     <FeedbackButton
