@@ -8,7 +8,8 @@
       "!**/.wrangler",
       "!**/node_modules",
       "!**/coverage",
-      "!**/*.lock"
+      "!**/*.lock",
+      "!**/artifacts/visuals"
     ]
   },
   "formatter": {

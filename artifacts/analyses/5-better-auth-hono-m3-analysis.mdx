@@ -1,0 +1,167 @@
+---
+title: "Better Auth on Hono (M3) — replace interim HMAC session"
+description: "Technical shapes for kit session path via Better Auth while keeping SessionPort + dual-path sk_"
+issue: 5
+type: analysis
+tier: F-full
+date: 2026-07-15
+---
+
+## Source
+
+GitHub [#5](https://github.com/go-silex/silex-boilerplate/issues/5) — *feat(auth): Better Auth on Hono (M3) — replace interim HMAC session*
+
+> Land Better Auth as the **kit session path** (or a clean promote path) so product apps can swap without forking `packages/auth`.
+
+Frame: `artifacts/frames/5-better-auth-hono-m3-frame.mdx` (approved, F-full).  
+ADR: `docs/architecture/adr/0002-session-hmac-interim-vs-better-auth.md` (HMAC interim intentional).
+
+## Problem
+
+Today the kit’s UI session is **HMAC-signed cookies** (`signSession` / `verifySession`, cookie `gosilex_session`) exposed behind **`SessionPort`** and **`resolveDualAuth`** (cookie **or** Bearer `sk_…`). That matches ADR-0002 and keeps Workers demos light.
+
+What is missing for M3:
+
+1. **No Better Auth** in the monorepo — no OAuth/session store/adapters.
+2. **Product promote path is documented, not proven** — products risk forking auth instead of injecting a BA `SessionPort`.
+3. **example login** is custom `POST /api/auth/login` + PBKDF2 demo users — not BA’s handler surface products will use for GitHub OAuth + org membership later.
+
+Stable pieces that must not break: FE `credentials: 'include'`, dual-path guards, originGuard CSRF pattern, `sk_` mint/revoke session-only, zero-edit kit zones.
+
+## Outcome
+
+Product apps (and kit examples) can authenticate the SPA with **Better Auth sessions** without forking `packages/auth`. Machine clients keep **Bearer `sk_…`**. Dual-path tests stay green. ADR-0002 is superseded/amended with a migration recipe.
+
+**Kit demo bar (this issue):** email/password via BA + dual-path cookie/`sk_` green + SessionPort BA adapter exported for products. **GitHub OAuth** env-gated stub OK; full org membership / recheck cron = product (`silex-share#12`), not kit “done”.
+
+## Appetite
+
+**~1–2 week kit cycle** for Shape 1 (port + mount + email/password demo + dual-path tests + ADR).  
+GitHub OAuth + org membership **wiring in example** may be **env-gated stubs** in this cycle if secrets/bindings are heavy; product OAuth depth stays on `silex-share#12`. Full org-recheck cron remains out of scope (frame).
+
+## Shapes
+
+**Diagram:** [Three shapes](../visuals/5-better-auth-hono-m3-shapes.html)
+
+### Shape 1: Better Auth behind SessionPort (recommended)
+
+Implement `createBetterAuthSessionPort` (or equivalent) that:
+
+- **verify**: maps request cookie → BA `api.getSession({ headers })` → `{ sub, email, exp }`
+- **cookieHeader / clear**: thin wrappers or no-ops if BA sets `Set-Cookie` itself on login/logout handlers
+- **sign**: either delegates to BA session creation or is unused when login goes through BA handler only
+
+In `example-api`:
+
+- **Per-request** `createAuth(env, cf, baseURL)` (better-auth-cloudflare / Hono pattern)
+- Mount `app.all('/api/auth/*', … handler)` for BA routes
+- Inject BA SessionPort into `createRequireAuth` / `requireAuth`
+- Keep `findApiKeyByPrefix` + `sk_` path unchanged
+- Migrations: BA schema on D1 (drizzle adapter / CLI-generated tables)
+- Demo path: email/password via BA (replace or re-route current login); optional GitHub provider when env present
+
+HMAC adapter **remains exported** for unit tests and as escape hatch until products migrate.
+
+**Trade-offs:**
+
+- Pro: honors ADR-0002 SessionPort recipe; dual-path preserved; zero-edit promote for products
+- Pro: matches CF docs (per-request auth, D1, credentials CORS)
+- Con: cookie name may change (`gosilex_session` → BA default) — FE must not hardcode name; originGuard must read actual session cookie name
+- Con: BA schema + deps surface area; Workers bundle size
+
+**Rough scope:** L
+
+### Shape 2: Full cutover — BA is the only kit session
+
+Replace `defaultSessionPort` with BA; remove or demote HMAC to test-only dead code in the same PR. All login/logout only via BA. Cookie contract is whatever BA ships.
+
+**Trade-offs:**
+
+- Pro: single session stack; less dual-maintenance
+- Con: larger blast radius on tests/examples; harder rollback; higher risk of dual-path breakage (failure mode from frame)
+- Con: products mid-migrate cannot keep HMAC without forking
+
+**Rough scope:** XL
+
+### Shape 3: Parallel stacks (HMAC login + BA mount)
+
+Keep `POST /api/auth/login` HMAC as today; add BA under a second prefix (`/api/auth/ba/*`). Dual cookies / dual verify paths.
+
+**Trade-offs:**
+
+- Pro: incremental experiment; low risk to current demos
+- Con: **fails promote path** — products still dual-edit or pick the wrong stack
+- Con: CSRF/origin and cookie naming become ambiguous; violates “kit session path” goal
+
+**Rough scope:** M (but wrong fit)
+
+## Fit Check
+
+**Diagram:** [Recommended data flow](../visuals/5-better-auth-hono-m3-data-flow.html)
+
+| Constraint | Shape 1 | Shape 2 | Shape 3 |
+|---|---|---|---|
+| SessionPort first | yes | weak (port = BA only) | weak (two ports) |
+| Dual-path sk_ | yes | yes if careful | yes |
+| Zero-edit promote | yes | yes after cut | no |
+| Per-request CF | yes | yes | yes |
+| Risk dual-path broken | medium | high | medium |
+| Appetite 1–2w | fits | overshoots | fits but wrong goal |
+
+**Recommendation: Shape 1.**  
+Shape 3 eliminated (promote path / zero-edit). Shape 2 deferred as a later follow-up once Shape 1 is green and products have migrated.
+
+### Files impacted (indicative, ≥3)
+
+| Path | Role |
+|---|---|
+| `packages/auth/src/session-port.ts` | extend / export BA adapter factory |
+| `packages/auth/src/require-auth.ts` | cookie name / port injection remains |
+| `packages/auth/src/session.ts` | HMAC kept; cookie constant may become configurable |
+| `packages/auth/package.json` | optional peer/deps strategy for `better-auth` |
+| `apps/example-api/src/routes/auth.ts` | BA mount vs legacy login |
+| `apps/example-api/src/middleware/require-auth.ts` | inject BA port |
+| `apps/example-api/src/middleware/origin-guard.ts` | session cookie name alignment |
+| `apps/example-api/src/services/auth.ts` | login/logout via BA or thin wrapper |
+| `apps/example-api/migrations/*` | BA D1 tables |
+| `apps/example-api/src/app.ts` | per-request auth middleware |
+| `apps/example-web/src/routes/login.tsx` | BA client endpoints if path changes |
+| `apps/example-web/src/lib/api.ts` | credentials already include — verify |
+| `docs/architecture/adr/0002-…` | supersede/amend |
+| `packages/auth/src/keys.test.ts` + example-api tests | session + dual-path + 401 |
+
+### Risks
+
+| Risk | Mitigation |
+|---|---|
+| Cookie name / dual CSRF drift | single SSoT cookie name helper; originGuard uses it |
+| BA instance not per-request | enforce factory on each request (docs pattern) |
+| Bundle size / Workers limits | tree-shake providers; optional OAuth plugins |
+| Dual-path regression | keep existing sk_ tests; add BA session create/verify |
+| Product OAuth expectations | document env-gated GitHub in kit; deep org rules on product issue |
+| `better-auth` + D1 schema drift | version pin + migration in example-api only |
+
+### Open questions for /spec
+
+1. Cookie name: keep `gosilex_session` via BA advanced config vs accept BA default? (must SSoT with originGuard)
+2. Where do BA deps live: `@gosilex/auth` peer + factory vs adapter only in `example-api`? (**product success hinge** — example-only soft-forks promote path)
+3. Kit demo bar: email/password only vs GitHub OAuth required for “done”? (**recommend email/password + env-gated GitHub**)
+4. HMAC: explicit flag when BA missing vs silent dual stack (avoid Shape 3 by accident)
+5. **SessionPort contract:** extend for header-based resolve (`verifyFromHeaders` / cookie name) — current `verify(token, secret)` + hardcoded `SESSION_COOKIE` in `resolveDualAuth` cannot host BA cleanly
+6. Product migration snippet: inject port + mount BA + own D1 migrations (apps own schema)
+
+### Spec must lock (architect)
+
+- Extend SessionPort / dual-auth for header-based session + cookie name SSoT
+- Deps placement (auth peer vs app adapter)
+- Single login surface (BA handler); HMAC login demoted, not parallel
+- Cookie name + originGuard alignment
+- Explicit env/flag for HMAC fallback — not silent dual stack
+
+## Expert review notes
+
+| Reviewer | Verdict | Key takeaways |
+|---|---|---|
+| architect | needs improvement → addressed in OQs | SessionPort is HMAC-centric; `resolveDualAuth` hardcodes cookie; `ports.secret` wrong axis for BA; deps placement load-bearing; single login surface |
+| product-lead | good (caveats) | Shape 1 → product success iff BA adapter ships in `@gosilex/auth` (or peer re-export); kit done bar explicit; appetite OK if OAuth gated |
+| doc-writer | good | Structure clear; add done-criteria + freeze OAuth boundary before `/spec` |
