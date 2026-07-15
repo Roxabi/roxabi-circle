@@ -1,12 +1,14 @@
 import type { QueryClient } from '@tanstack/react-query'
 import { createRootRouteWithContext, createRoute, Outlet, redirect } from '@tanstack/react-router'
 import { AdminGate, AuthGate } from './components/app-shell'
+import { EnvBanner } from './components/env-banner'
 import { RouteErrorComponent } from './components/route-error'
 import { apiFetch } from './lib/api'
 import { isAdmin, isUnauthorized, type MeResponse, meQueryKey } from './lib/auth'
 import { DashboardPage } from './routes/dashboard'
 import { DesignSystemPage } from './routes/design-system'
 import { ForgotPasswordPage } from './routes/forgot-password'
+import { IntegrationFeedbackPage } from './routes/integration-feedback'
 import { KeysPage } from './routes/keys'
 import { LoginPage } from './routes/login'
 import { NotesPage } from './routes/notes'
@@ -24,7 +26,14 @@ async function ensureMe(queryClient: QueryClient): Promise<MeResponse> {
 }
 
 const rootRoute = createRootRouteWithContext<RouterContext>()({
-  component: () => <Outlet />,
+  component: () => (
+    <div className="flex min-h-svh flex-col">
+      <EnvBanner />
+      <div className="flex min-h-0 flex-1 flex-col">
+        <Outlet />
+      </div>
+    </div>
+  ),
   errorComponent: RouteErrorComponent,
 })
 
@@ -84,6 +93,26 @@ const settingsRoute = createRoute({
   component: SettingsPage,
 })
 
+const integrationFeedbackRoute = createRoute({
+  getParentRoute: () => appLayoutRoute,
+  path: '/settings/integrations/feedback',
+  beforeLoad: async ({ context }) => {
+    let me: MeResponse
+    try {
+      me = await ensureMe(context.queryClient)
+    } catch (e) {
+      if (isUnauthorized(e)) throw redirect({ to: '/login' })
+      throw e
+    }
+    if (!isAdmin(me)) throw redirect({ to: '/settings' })
+  },
+  component: () => (
+    <AdminGate>
+      <IntegrationFeedbackPage />
+    </AdminGate>
+  ),
+})
+
 const designSystemRoute = createRoute({
   getParentRoute: () => appLayoutRoute,
   path: '/design-system',
@@ -107,5 +136,12 @@ const designSystemRoute = createRoute({
 export const routeTree = rootRoute.addChildren([
   loginRoute,
   forgotPasswordRoute,
-  appLayoutRoute.addChildren([indexRoute, notesRoute, keysRoute, settingsRoute, designSystemRoute]),
+  appLayoutRoute.addChildren([
+    indexRoute,
+    notesRoute,
+    keysRoute,
+    settingsRoute,
+    integrationFeedbackRoute,
+    designSystemRoute,
+  ]),
 ])

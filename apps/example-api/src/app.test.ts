@@ -17,6 +17,44 @@ function sessionMutation(cookie: string): Record<string, string> {
   }
 }
 
+async function saveFeedbackIntegration(
+  app: ReturnType<typeof createApp>,
+  env: ReturnType<typeof createMemoryEnv>,
+  cookie: string,
+) {
+  const res = await app.request(
+    '/api/integrations/feedback',
+    {
+      method: 'PUT',
+      headers: sessionMutation(cookie),
+      body: JSON.stringify({
+        sparkUrl: 'http://localhost:3939',
+        sparkApiKey: 'spk_test_key_12',
+      }),
+    },
+    env,
+  )
+  expect(res.status).toBe(200)
+}
+
+async function enableFeedbackModule(
+  app: ReturnType<typeof createApp>,
+  env: ReturnType<typeof createMemoryEnv>,
+  cookie: string,
+) {
+  await saveFeedbackIntegration(app, env, cookie)
+  const res = await app.request(
+    '/api/modules/feedback',
+    {
+      method: 'PATCH',
+      headers: sessionMutation(cookie),
+      body: JSON.stringify({ enabled: true }),
+    },
+    env,
+  )
+  expect(res.status).toBe(200)
+}
+
 async function loginAs(
   app: ReturnType<typeof createApp>,
   env: ReturnType<typeof createMemoryEnv>,
@@ -47,11 +85,49 @@ describe('createApp shipped entry — health & errors', () => {
     const env = createMemoryEnv()
     const res = await app.request('/health', {}, env)
     expect(res.status).toBe(200)
-    const body = (await res.json()) as { ok: boolean; requestId: string }
+    const body = (await res.json()) as {
+      ok: boolean
+      requestId: string
+      environment: string
+      demoLogin?: { email: string; password: string; role: string }
+    }
     expect(body.ok).toBe(true)
+    expect(body.environment).toBe('test')
+    expect(body.demoLogin).toEqual({
+      email: 'demo@gosilex.local',
+      password: 'demo-password-change-me',
+      role: 'admin',
+    })
     expect(body.requestId).toMatch(/^req_/)
     expect(res.headers.get('x-request-id')).toBe(body.requestId)
     expect(res.headers.get('x-content-type-options')).toBe('nosniff')
+  })
+
+  it('GET /health exposes demoLogin only in development|test', async () => {
+    const app = createApp()
+    const staging = createMemoryEnv({
+      ENVIRONMENT: 'staging',
+      SESSION_SECRET: 'staging-session-secret-at-least-32ch!',
+    })
+    const stagingRes = await app.request('/health', {}, staging)
+    const stagingBody = (await stagingRes.json()) as {
+      environment: string
+      demoLogin?: unknown
+    }
+    expect(stagingBody.environment).toBe('staging')
+    expect(stagingBody.demoLogin).toBeUndefined()
+
+    const prod = createMemoryEnv({
+      ENVIRONMENT: 'production',
+      SESSION_SECRET: 'production-session-secret-at-least-32ch!',
+    })
+    const prodRes = await app.request('/health', {}, prod)
+    const prodBody = (await prodRes.json()) as {
+      environment: string
+      demoLogin?: unknown
+    }
+    expect(prodBody.environment).toBe('production')
+    expect(prodBody.demoLogin).toBeUndefined()
   })
 
   it('unknown route returns nested NOT_FOUND envelope', async () => {
@@ -640,19 +716,73 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     expect(ok.headers.get('access-control-allow-origin')).toBe('http://localhost:5173')
   })
 
+  it('GET /api/modules returns feedback disabled until configured', async () => {
+    const app = createApp()
+    const env = createMemoryEnv()
+    const cookie = await loginAs(app, env, DEMO_EMAIL, DEMO_PASSWORD)
+    const res = await app.request('/api/modules', { headers: { cookie } }, env)
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as {
+      modules: { feedback: { enabled: boolean; configured: boolean; configPath: string } }
+    }
+    expect(body.modules.feedback).toMatchObject({
+      enabled: false,
+      configured: false,
+      configPath: '/settings/integrations/feedback',
+    })
+  })
+
+  it('PATCH /api/modules/feedback rejects enable when integration missing', async () => {
+    const app = createApp()
+    const env = createMemoryEnv()
+    const cookie = await loginAs(app, env, DEMO_EMAIL, DEMO_PASSWORD)
+    const res = await app.request(
+      '/api/modules/feedback',
+      {
+        method: 'PATCH',
+        headers: sessionMutation(cookie),
+        body: JSON.stringify({ enabled: true }),
+      },
+      env,
+    )
+    expect(res.status).toBe(400)
+    const body = (await res.json()) as {
+      error: { code: string; details?: { configPath?: string } }
+    }
+    expect(body.error.code).toBe('INTEGRATION_NOT_CONFIGURED')
+    expect(body.error.details?.configPath).toBe('/settings/integrations/feedback')
+  })
+
+  it('PATCH /api/modules/:id requires admin', async () => {
+    const app = createApp()
+    const env = createMemoryEnv()
+    const cookieB = await loginAs(app, env, DEMO_EMAIL_B, DEMO_PASSWORD_B)
+    const res = await app.request(
+      '/api/modules/feedback',
+      {
+        method: 'PATCH',
+        headers: sessionMutation(cookieB),
+        body: JSON.stringify({ enabled: false }),
+      },
+      env,
+    )
+    expect(res.status).toBe(403)
+  })
+
   it('POST /api/report returns 401 without auth', async () => {
     const app = createApp()
-    const env = createMemoryEnv({ FEEDBACK_ENABLED: 'true', SPARK_API_KEY: 'spk_test' })
+    const env = createMemoryEnv()
     const fd = new FormData()
     fd.append('title', 'Bug')
     const res = await app.request('/api/report', { method: 'POST', body: fd }, env)
     expect(res.status).toBe(401)
   })
 
-  it('POST /api/report returns 503 when FEEDBACK_ENABLED is off', async () => {
+  it('POST /api/report returns 503 when feedback module is off', async () => {
     const app = createApp()
-    const env = createMemoryEnv({ SPARK_API_KEY: 'spk_test' })
+    const env = createMemoryEnv()
     const cookie = await loginAs(app, env, DEMO_EMAIL, DEMO_PASSWORD)
+    await saveFeedbackIntegration(app, env, cookie)
     const fd = new FormData()
     fd.append('title', 'Bug')
     const res = await app.request(
@@ -662,13 +792,14 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     )
     expect(res.status).toBe(503)
     const body = (await res.json()) as { error: string }
-    expect(body.error).toContain('désactivés')
+    expect(body.error).toContain('désactivé')
   })
 
   it('POST /api/report rejects Bearer sk_ (session-only)', async () => {
     const app = createApp()
-    const env = createMemoryEnv({ FEEDBACK_ENABLED: 'true', SPARK_API_KEY: 'spk_test' })
+    const env = createMemoryEnv()
     const cookie = await loginAs(app, env, DEMO_EMAIL, DEMO_PASSWORD)
+    await enableFeedbackModule(app, env, cookie)
     const mint = await app.request(
       '/api/keys',
       { method: 'POST', headers: sessionMutation(cookie) },

@@ -18,9 +18,13 @@ export function environmentName(env: Env): string | undefined {
   return n || undefined
 }
 
-function isDevLike(env: Env): boolean {
+export function isDevLikeEnvironment(env: Env): boolean {
   const name = environmentName(env)
   return name === 'development' || name === 'test'
+}
+
+function isDevLike(env: Env): boolean {
+  return isDevLikeEnvironment(env)
 }
 
 /**

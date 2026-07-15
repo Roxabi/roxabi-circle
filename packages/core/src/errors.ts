@@ -9,6 +9,7 @@ const CODE_STATUS: Record<ErrorCodeName, number> = {
   CONFLICT: 409,
   INTERNAL_ERROR: 500,
   RATE_LIMITED: 429,
+  INTEGRATION_NOT_CONFIGURED: 400,
 }
 
 export class AppError extends Error {
@@ -53,6 +54,13 @@ export class AppError extends Error {
     details?: { retryAfterSeconds?: number },
   ): AppError {
     return new AppError(ErrorCode.RATE_LIMITED, message, undefined, details)
+  }
+
+  static integrationNotConfigured(
+    message = 'Integration is not configured',
+    details?: { configPath?: string; moduleId?: string },
+  ): AppError {
+    return new AppError(ErrorCode.INTEGRATION_NOT_CONFIGURED, message, undefined, details)
   }
 }
 

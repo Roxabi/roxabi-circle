@@ -1,12 +1,13 @@
-import { isTruthyEnvFlag } from '@gosilex/feedback'
 import { FeedbackButton } from '@gosilex/feedback/react'
 import '@gosilex/feedback/styles.css'
 import { useLocale } from '../lib/locale'
+import { isModuleOn, useModules } from '../lib/modules'
 
-/** Floating « Signaler » — gated by VITE_FEEDBACK_ENABLED (mirror API FEEDBACK_ENABLED). */
+/** Floating « Signaler » — gated by D1 kit_modules.feedback (GET /api/modules). */
 export function FeedbackFab() {
   const { m } = useLocale()
-  if (!isTruthyEnvFlag(import.meta.env.VITE_FEEDBACK_ENABLED)) return null
+  const modules = useModules()
+  if (!isModuleOn(modules.data?.modules, 'feedback')) return null
 
   return (
     <FeedbackButton

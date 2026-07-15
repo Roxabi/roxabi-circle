@@ -27,6 +27,7 @@ const CODE_TO_MSG: Record<ErrorCodeName, keyof Messages> = {
   CONFLICT: 'errConflict',
   INTERNAL_ERROR: 'errInternal',
   RATE_LIMITED: 'errRateLimited',
+  INTEGRATION_NOT_CONFIGURED: 'errIntegrationNotConfigured',
 }
 
 /**

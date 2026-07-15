@@ -1,12 +1,9 @@
 import { AppError } from '@gosilex/core'
-import {
-  type FeedbackEnvSlice,
-  handleFeedbackReport,
-  isFeedbackEnabled,
-} from '@gosilex/feedback/hono'
+import { handleFeedbackReport } from '@gosilex/feedback/hono'
 import { Hono } from 'hono'
 import { assertRateLimit } from '../lib/rate-limit'
 import { requireAuth } from '../middleware/require-auth'
+import * as modulesService from '../services/modules'
 import type { AppEnv } from '../types'
 
 /** 20 signalements / subject / hour (demo in-memory). */
@@ -23,8 +20,16 @@ feedbackRoutes.post('/api/report', async (c) => {
   }
   const subject = c.get('subject')!
   assertRateLimit(`feedback:${subject}`, FEEDBACK_LIMIT, FEEDBACK_WINDOW_MS)
+  const db = c.get('db')!
+  const spark = await modulesService.getFeedbackSparkRuntime(db)
   return handleFeedbackReport(c, {
     getAuthor: () => subject,
-    enabled: () => isFeedbackEnabled(c.env as FeedbackEnvSlice),
+    sparkUrl: spark?.sparkUrl,
+    apiKey: spark?.sparkApiKey,
+    enabled: async () => {
+      await modulesService.ensureKitModules(db)
+      return modulesService.isModuleEnabled(db, 'feedback')
+    },
+    disabledMessage: 'Le module feedback est désactivé.',
   })
 })

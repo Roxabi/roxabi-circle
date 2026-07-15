@@ -7,6 +7,7 @@ export const ErrorCode = {
   CONFLICT: 'CONFLICT',
   INTERNAL_ERROR: 'INTERNAL_ERROR',
   RATE_LIMITED: 'RATE_LIMITED',
+  INTEGRATION_NOT_CONFIGURED: 'INTEGRATION_NOT_CONFIGURED',
 } as const
 
 export type ErrorCodeName = (typeof ErrorCode)[keyof typeof ErrorCode]

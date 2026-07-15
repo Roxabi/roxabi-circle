@@ -13,31 +13,30 @@ Kit SSoT — bouton **Signaler** + proxy Hono → Spark Pilotage (`POST /api/v1/
 
 ```
 Browser  →  POST /api/report (session cookie, example-api)
-                 ↓ handleFeedbackReport
+                 ↓ handleFeedbackReport (sparkUrl/apiKey from D1)
             Spark  POST /api/v1/feedback  (Bearer spk_…)
 ```
 
 La clé `spk_…` **ne sort jamais** du Worker. Le client Spark est **déduit de la clé**.
 
-## Env (Worker)
+## Activation (kit — tout en D1)
 
-| Variable | Rôle |
-|----------|------|
-| `FEEDBACK_ENABLED` | `true` pour activer (off par défaut) |
-| `SPARK_URL` | Base Spark — local `../spark` : `http://localhost:3939` |
-| `SPARK_API_KEY` | `spk_…` (scope `tickets:write`) |
+| Couche | Mécanisme |
+|--------|-----------|
+| Toggle module | `kit_modules.enabled` — admin **Paramètres → Modules** |
+| Config Spark | `kit_modules.config_json` — admin **`/settings/integrations/feedback`** |
+| UI FAB | `GET /api/modules` → `feedback.enabled` + `configured` |
 
-Alias : `SPARK_FEEDBACK_API_URL` / `SPARK_FEEDBACK_API_KEY`.
+Défaut : **désactivé** et **non configuré**. Impossible d’activer sans URL + clé enregistrées (`INTEGRATION_NOT_CONFIGURED`).
 
-## Env (Vite)
-
-| Variable | Rôle |
-|----------|------|
-| `VITE_FEEDBACK_ENABLED` | Affiche le bouton (miroir API) |
+`SPARK_URL` / `SPARK_API_KEY` en `.env` : **non utilisés** par example-api.  
+`isFeedbackEnabled(env)` reste exporté pour produits legacy.
 
 ## example-api
 
-Voir `apps/example-api/src/routes/feedback.ts` — `requireAuth` + rate-limit + `handleFeedbackReport`.
+- `routes/feedback.ts` — session-only + rate-limit + config D1
+- `routes/integrations.ts` — `PUT /api/integrations/feedback` (admin)
+- `routes/modules.ts` — `GET/PATCH /api/modules`
 
 ## Spark legacy
 

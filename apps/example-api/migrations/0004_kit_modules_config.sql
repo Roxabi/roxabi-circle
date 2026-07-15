@@ -1,0 +1,1 @@
+ALTER TABLE kit_modules ADD COLUMN config_json TEXT;
