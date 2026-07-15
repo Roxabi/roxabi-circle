@@ -104,6 +104,52 @@ export type Messages = {
   errTitleRequired: string
   errSupportCta: string
   errPageTitle: string
+  feedbackTrigger: string
+  feedbackTitle: string
+  feedbackSuccess: string
+  feedbackSuccessSub: string
+  feedbackHint: string
+  feedbackTypeBug: string
+  feedbackTypeFeature: string
+  feedbackPriorityUrgent: string
+  feedbackPriorityNormal: string
+  feedbackPriorityLater: string
+  feedbackTitlePlaceholderBug: string
+  feedbackTitlePlaceholderFeature: string
+  feedbackBodyPlaceholder: string
+  feedbackAddCapture: string
+  feedbackRemoveImage: string
+  feedbackClose: string
+  feedbackSend: string
+  feedbackSending: string
+  feedbackTitleRequired: string
+  feedbackSendFailed: string
+  envBannerLocal: string
+  envBannerStaging: string
+  envBannerAdmin: string
+  modulesTitle: string
+  modulesDesc: string
+  moduleFeedback: string
+  moduleFeedbackDesc: string
+  moduleOn: string
+  moduleOff: string
+  moduleFeedbackEnabled: string
+  moduleFeedbackDisabled: string
+  moduleConfigureFirst: string
+  moduleConfigureLink: string
+  integrationFeedbackTitle: string
+  integrationFeedbackDesc: string
+  integrationFeedbackFormTitle: string
+  integrationFeedbackFormDesc: string
+  integrationSparkUrl: string
+  integrationSparkUrlHint: string
+  integrationSparkApiKey: string
+  integrationSparkApiKeyHint: string
+  integrationSparkApiKeyKeep: string
+  integrationSparkApiKeyCurrent: string
+  integrationSaved: string
+  backToSettings: string
+  errIntegrationNotConfigured: string
 }
 
 export const fr: Messages = {
@@ -213,4 +259,51 @@ export const fr: Messages = {
   errTitleRequired: 'Titre requis',
   errSupportCta: 'Contacter le support',
   errPageTitle: 'Une erreur est survenue',
+  feedbackTrigger: 'Signaler',
+  feedbackTitle: 'Signaler un bug ou une idée',
+  feedbackSuccess: 'Merci ! Signalement envoyé.',
+  feedbackSuccessSub: "L'équipe le retrouve dans le Pilotage Spark.",
+  feedbackHint: 'Envoyé avec la page en cours.',
+  feedbackTypeBug: 'Bug',
+  feedbackTypeFeature: 'Amélioration',
+  feedbackPriorityUrgent: 'Urgent',
+  feedbackPriorityNormal: 'Normal',
+  feedbackPriorityLater: 'Plus tard',
+  feedbackTitlePlaceholderBug: "Que s'est-il passé ?",
+  feedbackTitlePlaceholderFeature: 'Quelle amélioration ?',
+  feedbackBodyPlaceholder: 'Détaille un peu (étapes, ce que tu attendais…)',
+  feedbackAddCapture: 'Ajouter une capture',
+  feedbackRemoveImage: "Retirer l'image",
+  feedbackClose: 'Fermer',
+  feedbackSend: 'Envoyer',
+  feedbackSending: 'Envoi…',
+  feedbackTitleRequired: 'Donne un titre court.',
+  feedbackSendFailed: "Échec de l'envoi.",
+  envBannerLocal: 'Environnement local — données de démo uniquement',
+  envBannerStaging: 'Environnement staging — ne pas utiliser pour de vraies données',
+  envBannerAdmin: 'Compte admin seed',
+  modulesTitle: 'Modules',
+  modulesDesc: 'Activation des fonctionnalités optionnelles (D1 kit_modules)',
+  moduleFeedback: 'Signaler (feedback)',
+  moduleFeedbackDesc: 'Bouton flottant → Spark Pilotage via POST /api/report',
+  moduleOn: 'Activé',
+  moduleOff: 'Désactivé',
+  moduleFeedbackEnabled: 'Module feedback activé',
+  moduleFeedbackDisabled: 'Module feedback désactivé',
+  moduleConfigureFirst: 'Configure l’intégration avant activation —',
+  moduleConfigureLink: 'Paramètres Spark',
+  integrationFeedbackTitle: 'Intégration Spark (feedback)',
+  integrationFeedbackDesc: 'URL et clé API M2M — stockées en D1, jamais dans .env',
+  integrationFeedbackFormTitle: 'Connexion Spark',
+  integrationFeedbackFormDesc:
+    'Local : ../spark sur http://localhost:3939 · clé spk_… (tickets:write)',
+  integrationSparkUrl: 'URL Spark',
+  integrationSparkUrlHint: 'Base du service Pilotage (sans slash final).',
+  integrationSparkApiKey: 'Clé API Spark',
+  integrationSparkApiKeyHint: 'spk_… — requise au premier enregistrement.',
+  integrationSparkApiKeyKeep: 'Laisser vide pour conserver la clé actuelle',
+  integrationSparkApiKeyCurrent: 'Clé enregistrée',
+  integrationSaved: 'Intégration enregistrée',
+  backToSettings: 'Retour paramètres',
+  errIntegrationNotConfigured: 'Configure l’intégration avant d’activer ce module',
 }

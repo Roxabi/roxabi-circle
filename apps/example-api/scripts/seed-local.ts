@@ -21,7 +21,7 @@ import { seedDemoDatabase } from '../src/seed/seed-db'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const API_ROOT = join(__dirname, '..')
-const MIGRATIONS = join(API_ROOT, 'migrations/0001_init.sql')
+const MIGRATIONS_DIR = join(API_ROOT, 'migrations')
 const D1_DIR = join(API_ROOT, '.wrangler/state/v3/d1/miniflare-D1DatabaseObject')
 
 const args = new Set(process.argv.slice(2))
@@ -68,7 +68,11 @@ function openLocalD1() {
   // Prefer existing wrangler D1 file; otherwise create a stable local seed DB.
   const path = files[0] ?? join(D1_DIR, 'example-api-seed.sqlite')
   const sqlite = new Database(path)
-  sqlite.exec(readFileSync(MIGRATIONS, 'utf8'))
+  for (const name of readdirSync(MIGRATIONS_DIR)
+    .filter((f) => f.endsWith('.sql'))
+    .sort()) {
+    sqlite.exec(readFileSync(join(MIGRATIONS_DIR, name), 'utf8'))
+  }
   const d1 = {
     prepare(sql: string) {
       return makeStatement(sqlite, sql)
@@ -88,7 +92,7 @@ async function main() {
   const { d1, path, sqlite } = openLocalD1()
   try {
     const db = createDb(d1, schema)
-    const result = await seedDemoDatabase(db, { reset: RESET })
+    const result = await seedDemoDatabase(db, { reset: RESET, environment: 'development' })
 
     if (JSON_OUT) {
       console.log(JSON.stringify({ ok: true, db: path, ...result }, null, 2))
@@ -113,6 +117,13 @@ async function main() {
     }
     console.log('')
     console.log(`Seed notes defined: ${SEED_NOTES.length}`)
+    console.log('')
+    console.log('Modules (kit_modules):')
+    for (const mod of result.modules) {
+      const flag = mod.created ? '+ created' : '= exists'
+      console.log(`  ${flag}  ${mod.id}  enabled=${mod.enabled}  configured=${mod.configured}`)
+    }
+    console.log('')
     console.log('Next: cd apps/example-api && bun run dev')
   } finally {
     sqlite.close()

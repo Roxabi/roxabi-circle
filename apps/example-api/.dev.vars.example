@@ -8,3 +8,4 @@ CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 DEMO_USER_EMAIL=demo@gosilex.local
 SMTP_HOST=127.0.0.1
 SMTP_PORT=1025
+# Integrations (Spark feedback, etc.) → D1 kit_modules.config_json — configure in admin UI.

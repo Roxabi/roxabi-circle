@@ -1,6 +1,8 @@
 import { hashPassword } from '@gosilex/auth'
 import type { DrizzleD1Database } from 'drizzle-orm/d1'
 import { apiKeys, demoNotes, demoUsers, type schema } from '../db/schema'
+import * as modulesRepo from '../repos/modules'
+import * as modulesService from '../services/modules'
 import { SEED_NOTES, SEED_USERS } from './demo-data'
 
 type Db = DrizzleD1Database<typeof schema>
@@ -9,6 +11,7 @@ export type SeedResult = {
   reset: boolean
   users: { id: string; email: string; role: string; created: boolean }[]
   notes: { id: string; subject: string; title: string; created: boolean }[]
+  modules: { id: string; enabled: boolean; configured: boolean; created: boolean }[]
 }
 
 /** Wipe demo tables (local/dev only). Order: keys → notes → users. */
@@ -25,7 +28,7 @@ export async function resetDemoTables(db: Db): Promise<void> {
  */
 export async function seedDemoDatabase(
   db: Db,
-  opts?: { reset?: boolean; now?: number; notes?: boolean },
+  opts?: { reset?: boolean; now?: number; notes?: boolean; environment?: string | null },
 ): Promise<SeedResult> {
   const reset = opts?.reset ?? false
   const withNotes = opts?.notes ?? true
@@ -80,7 +83,17 @@ export async function seedDemoDatabase(
     }
   }
 
-  return { reset, users, notes }
+  const beforeIds = new Set((await modulesRepo.listKitModules(db)).map((r) => r.id))
+  await modulesService.ensureKitModules(db)
+  const modulesAfter = await modulesService.getModulesState(db)
+  const modules = Object.entries(modulesAfter).map(([id, state]) => ({
+    id,
+    enabled: state.enabled,
+    configured: state.configured,
+    created: !beforeIds.has(id),
+  }))
+
+  return { reset, users, notes, modules }
 }
 
 /**
@@ -96,5 +109,5 @@ export async function ensureDemoUsers(
   if (env !== 'development' && env !== 'test') {
     return
   }
-  await seedDemoDatabase(db, { reset: false, notes: false })
+  await seedDemoDatabase(db, { reset: false, notes: false, environment: env })
 }

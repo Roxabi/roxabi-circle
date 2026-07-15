@@ -1,13 +1,4 @@
-import {
-  Button,
-  cn,
-  Field,
-  FieldDescription,
-  FieldError,
-  FieldGroup,
-  FieldLabel,
-  Input,
-} from '@gosilex/ui'
+import { Button, cn, Field, FieldError, FieldGroup, FieldLabel, Input } from '@gosilex/ui'
 import { useForm } from '@tanstack/react-form'
 import { useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from '@tanstack/react-router'
@@ -19,12 +10,8 @@ import { meQueryKey, useMe } from '../lib/auth'
 import { useLocale } from '../lib/locale'
 import { loginSchema } from '../lib/schemas'
 
-/** Dev-only email prefill — never put demo password in message catalogs or prod bundle. */
+/** Dev-only email prefill — password shown in env banner via GET /health (API dev|test only). */
 const DEV_DEMO_EMAIL = import.meta.env.DEV ? 'demo@gosilex.local' : ''
-/** DEV-only hint; no password string (seed docs own the password). Vite drops this in prod. */
-const DEV_DEMO_HINT = import.meta.env.DEV
-  ? 'Local demo email prefilled — password is in API seed / .dev.vars docs, not in this UI.'
-  : ''
 
 /** login-05 chrome: centered brand + form (password + forgot, not email-only). */
 export function LoginPage() {
@@ -169,7 +156,6 @@ export function LoginPage() {
                 )
               }}
             </form.Field>
-            {DEV_DEMO_HINT ? <FieldDescription>{DEV_DEMO_HINT}</FieldDescription> : null}
             {error ? <FieldError>{error}</FieldError> : null}
             <form.Subscribe selector={(s) => s.isSubmitting}>
               {(isSubmitting) => (

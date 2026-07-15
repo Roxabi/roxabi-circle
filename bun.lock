@@ -22,6 +22,7 @@
         "@gosilex/core": "workspace:*",
         "@gosilex/db": "workspace:*",
         "@gosilex/email": "workspace:*",
+        "@gosilex/feedback": "workspace:*",
         "@gosilex/storage": "workspace:*",
         "@gosilex/types": "workspace:*",
         "drizzle-orm": "^0.44.0",
@@ -41,6 +42,7 @@
       "name": "@gosilex/example-web",
       "version": "0.0.1",
       "dependencies": {
+        "@gosilex/feedback": "workspace:*",
         "@gosilex/i18n": "workspace:*",
         "@gosilex/types": "workspace:*",
         "@gosilex/ui": "workspace:*",
@@ -132,6 +134,30 @@
         "typescript": "^5.9.0",
         "vitest": "^3.2.0",
       },
+    },
+    "packages/feedback": {
+      "name": "@gosilex/feedback",
+      "version": "0.1.0",
+      "devDependencies": {
+        "@types/node": "^22.15.0",
+        "@types/react": "^19.1.0",
+        "@types/react-dom": "^19.1.0",
+        "hono": "^4.7.0",
+        "react": "^19.1.0",
+        "react-dom": "^19.1.0",
+        "typescript": "^5.9.0",
+        "vitest": "^3.2.0",
+      },
+      "peerDependencies": {
+        "hono": "^4.7.0",
+        "react": ">=18",
+        "react-dom": ">=18",
+      },
+      "optionalPeers": [
+        "hono",
+        "react",
+        "react-dom",
+      ],
     },
     "packages/i18n": {
       "name": "@gosilex/i18n",
@@ -431,6 +457,8 @@
     "@gosilex/example-api": ["@gosilex/example-api@workspace:apps/example-api"],
 
     "@gosilex/example-web": ["@gosilex/example-web@workspace:apps/example-web"],
+
+    "@gosilex/feedback": ["@gosilex/feedback@workspace:packages/feedback"],
 
     "@gosilex/i18n": ["@gosilex/i18n@workspace:packages/i18n"],
 

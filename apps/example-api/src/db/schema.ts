@@ -27,4 +27,13 @@ export const demoUsers = sqliteTable('demo_users', {
   createdAt: integer('created_at', { mode: 'number' }).notNull(),
 })
 
-export const schema = { demoNotes, apiKeys, demoUsers }
+/** Feature modules toggled at runtime (not .env). */
+export const kitModules = sqliteTable('kit_modules', {
+  id: text('id').primaryKey(),
+  enabled: integer('enabled', { mode: 'boolean' }).notNull().default(false),
+  /** JSON integration settings (e.g. Spark URL + API key for feedback). */
+  configJson: text('config_json'),
+  updatedAt: integer('updated_at', { mode: 'number' }).notNull(),
+})
+
+export const schema = { demoNotes, apiKeys, demoUsers, kitModules }
