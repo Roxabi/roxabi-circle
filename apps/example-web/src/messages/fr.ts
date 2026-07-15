@@ -104,6 +104,26 @@ export type Messages = {
   errTitleRequired: string
   errSupportCta: string
   errPageTitle: string
+  feedbackTrigger: string
+  feedbackTitle: string
+  feedbackSuccess: string
+  feedbackSuccessSub: string
+  feedbackHint: string
+  feedbackTypeBug: string
+  feedbackTypeFeature: string
+  feedbackPriorityUrgent: string
+  feedbackPriorityNormal: string
+  feedbackPriorityLater: string
+  feedbackTitlePlaceholderBug: string
+  feedbackTitlePlaceholderFeature: string
+  feedbackBodyPlaceholder: string
+  feedbackAddCapture: string
+  feedbackRemoveImage: string
+  feedbackClose: string
+  feedbackSend: string
+  feedbackSending: string
+  feedbackTitleRequired: string
+  feedbackSendFailed: string
 }
 
 export const fr: Messages = {
@@ -213,4 +233,24 @@ export const fr: Messages = {
   errTitleRequired: 'Titre requis',
   errSupportCta: 'Contacter le support',
   errPageTitle: 'Une erreur est survenue',
+  feedbackTrigger: 'Signaler',
+  feedbackTitle: 'Signaler un bug ou une idée',
+  feedbackSuccess: 'Merci ! Signalement envoyé.',
+  feedbackSuccessSub: "L'équipe le retrouve dans le Pilotage Spark.",
+  feedbackHint: 'Envoyé avec la page en cours.',
+  feedbackTypeBug: 'Bug',
+  feedbackTypeFeature: 'Amélioration',
+  feedbackPriorityUrgent: 'Urgent',
+  feedbackPriorityNormal: 'Normal',
+  feedbackPriorityLater: 'Plus tard',
+  feedbackTitlePlaceholderBug: "Que s'est-il passé ?",
+  feedbackTitlePlaceholderFeature: 'Quelle amélioration ?',
+  feedbackBodyPlaceholder: 'Détaille un peu (étapes, ce que tu attendais…)',
+  feedbackAddCapture: 'Ajouter une capture',
+  feedbackRemoveImage: "Retirer l'image",
+  feedbackClose: 'Fermer',
+  feedbackSend: 'Envoyer',
+  feedbackSending: 'Envoi…',
+  feedbackTitleRequired: 'Donne un titre court.',
+  feedbackSendFailed: "Échec de l'envoi.",
 }

@@ -47,6 +47,7 @@ import { apiFetch } from '../lib/api'
 import { isAdmin, isUnauthorized, meQueryKey, useMe } from '../lib/auth'
 import { useLocale } from '../lib/locale'
 import { type Theme, useTheme } from '../lib/theme'
+import { FeedbackFab } from './feedback-fab'
 
 function NavItem({ to, label, icon }: { to: string; label: string; icon: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname })
@@ -380,5 +381,10 @@ export function AuthGate({ children }: { children: ReactNode }) {
     return null
   }
 
-  return <AppShell>{children}</AppShell>
+  return (
+    <>
+      <AppShell>{children}</AppShell>
+      <FeedbackFab />
+    </>
+  )
 }

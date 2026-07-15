@@ -19,6 +19,7 @@
     "@gosilex/core": "workspace:*",
     "@gosilex/db": "workspace:*",
     "@gosilex/email": "workspace:*",
+    "@gosilex/feedback": "workspace:*",
     "@gosilex/storage": "workspace:*",
     "@gosilex/types": "workspace:*",
     "drizzle-orm": "^0.44.0",

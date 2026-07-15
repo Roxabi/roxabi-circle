@@ -27,6 +27,15 @@ export const workerStringEnvSchema = z.object({
   DEMO_USER_EMAIL: z.string().optional(),
   SMTP_HOST: z.string().optional(),
   SMTP_PORT: z.string().optional(),
+  /** `true` enables POST /api/report → Spark M2M (off by default). */
+  FEEDBACK_ENABLED: z.string().optional(),
+  /** Spark base URL — local ../spark dev: http://localhost:3939 */
+  SPARK_URL: z.string().optional(),
+  /** Alias accepted by @gosilex/feedback */
+  SPARK_FEEDBACK_API_URL: z.string().optional(),
+  /** spk_… scope tickets:write — never expose to the browser */
+  SPARK_API_KEY: z.string().optional(),
+  SPARK_FEEDBACK_API_KEY: z.string().optional(),
 })
 
 export type WorkerStringEnv = z.infer<typeof workerStringEnvSchema>

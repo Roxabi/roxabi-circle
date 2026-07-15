@@ -10,6 +10,7 @@ import { requestIdMiddleware } from './middleware/request-id'
 import { applySecurityHeaders, securityHeaders } from './middleware/security-headers'
 import { authRoutes } from './routes/auth'
 import { demoRoutes } from './routes/demo'
+import { feedbackRoutes } from './routes/feedback'
 import { healthRoutes } from './routes/health'
 import { meRoutes } from './routes/me'
 import { notesRoutes } from './routes/notes'
@@ -54,6 +55,7 @@ export function createApp() {
   app.route('/', meRoutes)
   app.route('/', notesRoutes)
   app.route('/', demoRoutes)
+  app.route('/', feedbackRoutes)
 
   return app
 }
