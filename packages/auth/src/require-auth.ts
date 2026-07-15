@@ -10,7 +10,6 @@ export type AuthIdentity = {
   method: AuthMethod
 }
 
-/** Active key row needed for dual-auth (app supplies D1 lookup). */
 export type ApiKeyRecord = {
   subject: string
   keyHash: string
@@ -19,22 +18,17 @@ export type ApiKeyRecord = {
 }
 
 export type DualAuthPorts = {
-  /**
-   * HMAC session secret. Optional when the SessionPort resolves via Better Auth
-   * without a bare-token secret (adapter owns config).
-   */
   secret?: string
-  /** Session cookie name SSoT (default: SESSION_COOKIE / gosilex_session). */
   cookieName?: string
+  /** Full request headers for BA getSession (preferred over cookie-only). */
+  headers?: Headers
   sessions?: SessionPort
-  /** Lookup by sk_ prefix (unique index). */
   findApiKeyByPrefix: (prefix: string) => Promise<ApiKeyRecord | null>
 }
 
 /**
- * Pure dual-path auth: Bearer sk_ (prefix + hash + expiry/revoke) or session cookie.
- * Throws AppError.unauthorized for invalid bearer; returns null when no credentials.
- * Bearer wins when both are present (unchanged order).
+ * Pure dual-path auth: Bearer sk_ or session cookie.
+ * Bearer wins when both are present.
  */
 export async function resolveDualAuth(
   authorization: string | null | undefined,
@@ -61,6 +55,7 @@ export async function resolveDualAuth(
 
   const payload = await sessions.resolveSession({
     cookieHeader,
+    headers: ports.headers,
     secret: ports.secret,
     cookieName,
   })
@@ -69,26 +64,28 @@ export async function resolveDualAuth(
   return null
 }
 
-/** Minimal Hono-like context for the middleware factory (avoids hard Workers typing). */
 export type RequireAuthContext = {
-  req: { header: (name: string) => string | undefined }
+  req: {
+    header: (name: string) => string | undefined
+    /** Hono raw Request — used to forward Headers to BA getSession. */
+    raw?: { headers: Headers }
+  }
   set: (key: 'subject' | 'authMethod', value: string) => void
 }
 
-/**
- * Hono middleware factory: dual-path auth with injected ports.
- * Usage: `app.use('*', createRequireAuth((c) => ({ secret, cookieName, findApiKeyByPrefix, sessions })))`
- */
 export function createRequireAuth<C extends RequireAuthContext>(
   getPorts: (c: C) => DualAuthPorts | Promise<DualAuthPorts>,
 ): (c: C, next: () => Promise<void>) => Promise<void> {
   return async (c, next) => {
     const ports = await getPorts(c)
-    const auth = await resolveDualAuth(
-      c.req.header('authorization') ?? null,
-      c.req.header('cookie') ?? null,
-      ports,
-    )
+    const cookieHeader = c.req.header('cookie') ?? null
+    // Prefer explicit ports.headers; else request raw headers for BA
+    const headers =
+      ports.headers ?? (c.req.raw?.headers ? new Headers(c.req.raw.headers) : undefined)
+    const auth = await resolveDualAuth(c.req.header('authorization') ?? null, cookieHeader, {
+      ...ports,
+      headers,
+    })
     if (!auth) throw AppError.unauthorized()
     c.set('subject', auth.subject)
     c.set('authMethod', auth.method)

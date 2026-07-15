@@ -47,10 +47,19 @@ export function LoginPage() {
     onSubmit: async ({ value }) => {
       setError(null)
       try {
-        await apiFetch('/api/auth/login', {
-          method: 'POST',
-          body: JSON.stringify(value),
-        })
+        // Adapter-aware login: BA uses sign-in/email; HMAC uses kit /api/auth/login
+        const health = await apiFetch<{ authAdapter?: string }>('/health')
+        if (health.authAdapter === 'better-auth') {
+          await apiFetch('/api/auth/sign-in/email', {
+            method: 'POST',
+            body: JSON.stringify({ email: value.email, password: value.password }),
+          })
+        } else {
+          await apiFetch('/api/auth/login', {
+            method: 'POST',
+            body: JSON.stringify(value),
+          })
+        }
         await qc.invalidateQueries({ queryKey: meQueryKey })
         toast.success(m.login, { description: value.email })
         await navigate({ to: '/' })

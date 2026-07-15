@@ -7,9 +7,10 @@ SESSION_SECRET=dev-session-secret-change-me-32chars!!
 # Session stack: hmac (default kit demo) | better-auth
 AUTH_SESSION_ADAPTER=hmac
 # SESSION_COOKIE_NAME=gosilex_session
-# When AUTH_SESSION_ADAPTER=better-auth (min 32 chars):
+# When AUTH_SESSION_ADAPTER=better-auth (min 32 chars; no kit placeholders in prod):
 # BETTER_AUTH_SECRET=dev-better-auth-secret-change-me-32c!!
 # BETTER_AUTH_URL=http://localhost:8787
+# ALLOW_PUBLIC_SIGNUP=true   # default off — open registration is a security risk
 CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 DEMO_USER_EMAIL=demo@gosilex.local
 SMTP_HOST=127.0.0.1

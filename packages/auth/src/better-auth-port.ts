@@ -5,10 +5,6 @@ import type { ResolveSessionInput, SessionPort } from './session-port'
 /**
  * Minimal Better Auth surface used by the kit SessionPort adapter.
  * Apps pass a per-request `auth` instance (CF bindings pattern).
- *
- * Kept structural (no hard dependency on `better-auth` types) so
- * `@gosilex/auth` stays installable without the optional peer at typecheck
- * for consumers that only use HMAC.
  */
 export type BetterAuthLike = {
   api: {
@@ -20,12 +16,7 @@ export type BetterAuthLike = {
 }
 
 export type CreateBetterAuthSessionPortOpts = {
-  /**
-   * Resolve the Better Auth instance for this request.
-   * Must be per-request on Workers (bindings / D1).
-   */
   getAuth: () => BetterAuthLike | Promise<BetterAuthLike>
-  /** Cookie name for clear/set helpers (SSoT with dual-auth). */
   cookieName?: string
 }
 
@@ -36,22 +27,24 @@ function headersFromInput(input: ResolveSessionInput): Headers {
   return h
 }
 
-function expFromSession(expiresAt: Date | string | null | undefined): number {
-  if (expiresAt instanceof Date) return Math.floor(expiresAt.getTime() / 1000)
+/** Parse BA expiresAt; return null if missing/unparseable (fail closed). */
+function expFromSession(expiresAt: Date | string | null | undefined): number | null {
+  if (expiresAt instanceof Date) {
+    const n = Math.floor(expiresAt.getTime() / 1000)
+    return Number.isFinite(n) ? n : null
+  }
   if (typeof expiresAt === 'string') {
     const t = Date.parse(expiresAt)
     if (!Number.isNaN(t)) return Math.floor(t / 1000)
   }
-  // Fallback: 7d from now if BA omits expiry on the wire shape we map
-  return Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 7
+  return null
 }
 
 /**
  * SessionPort adapter for Better Auth.
  * - `resolveSession` → `auth.api.getSession({ headers })`
- * - `sign` throws — session issuance is owned by BA HTTP handler
- * - `verify` is unused for dual-auth (prefer resolveSession)
- * - cookie helpers use the shared cookie name for clear-by-name logout fallback
+ * - missing/unparseable expiresAt → null (fail closed)
+ * - `sign` throws — session issuance owned by BA HTTP handler
  */
 export function createBetterAuthSessionPort(opts: CreateBetterAuthSessionPortOpts): SessionPort {
   const cookieName = opts.cookieName ?? SESSION_COOKIE
@@ -70,20 +63,20 @@ export function createBetterAuthSessionPort(opts: CreateBetterAuthSessionPortOpt
         const auth = await opts.getAuth()
         const session = await auth.api.getSession({ headers: headersFromInput(input) })
         if (!session?.user?.id) return null
-        const email = session.user.email ?? ''
-        const payload: SessionPayload = {
+        const exp = expFromSession(session.session?.expiresAt)
+        if (exp == null) return null
+        if (exp < Math.floor(Date.now() / 1000)) return null
+        return {
           sub: session.user.id,
-          email,
-          exp: expFromSession(session.session?.expiresAt),
-        }
-        if (payload.exp < Math.floor(Date.now() / 1000)) return null
-        return payload
+          email: session.user.email ?? '',
+          exp,
+        } satisfies SessionPayload
       } catch {
+        // Treat auth-layer failures as no session (401). Infra misconfig surfaces earlier at factory.
         return null
       }
     },
     cookieHeader(token, headerOpts) {
-      // BA usually sets Set-Cookie itself; helper kept for parity / tests.
       return sessionCookieHeader(token, headerOpts).replace(`${SESSION_COOKIE}=`, `${cookieName}=`)
     },
     clearCookieHeader(headerOpts) {

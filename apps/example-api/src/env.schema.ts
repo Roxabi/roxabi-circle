@@ -38,6 +38,11 @@ export const workerStringEnvSchema = z.object({
   BETTER_AUTH_SECRET: z.string().optional(),
   /** Public app URL for Better Auth baseURL (e.g. http://localhost:8787). */
   BETTER_AUTH_URL: z.string().optional(),
+  /**
+   * When `true`, Better Auth public email sign-up is enabled.
+   * Default off (disableSignUp) — seed or admin-only create for kit.
+   */
+  ALLOW_PUBLIC_SIGNUP: z.string().optional(),
 })
 
 export type WorkerStringEnv = z.infer<typeof workerStringEnvSchema>

@@ -328,6 +328,78 @@ describe('SessionPort (Better Auth adapter)', () => {
       /does not sign/,
     )
   })
+
+  it('resolveSession returns null for missing session / missing expiresAt / expired / throw', async () => {
+    const nullPort = createBetterAuthSessionPort({
+      getAuth: () => ({ api: { getSession: async () => null } }),
+    })
+    expect(
+      await nullPort.resolveSession({ cookieHeader: 'x=1', cookieName: SESSION_COOKIE }),
+    ).toBeNull()
+
+    const noExp = createBetterAuthSessionPort({
+      getAuth: () => ({
+        api: {
+          getSession: async () => ({
+            user: { id: 'u', email: 'a@b.c' },
+            session: {},
+          }),
+        },
+      }),
+    })
+    expect(
+      await noExp.resolveSession({ cookieHeader: 'x=1', cookieName: SESSION_COOKIE }),
+    ).toBeNull()
+
+    const expired = createBetterAuthSessionPort({
+      getAuth: () => ({
+        api: {
+          getSession: async () => ({
+            user: { id: 'u', email: 'a@b.c' },
+            session: { expiresAt: new Date(Date.now() - 60_000) },
+          }),
+        },
+      }),
+    })
+    expect(
+      await expired.resolveSession({ cookieHeader: 'x=1', cookieName: SESSION_COOKIE }),
+    ).toBeNull()
+
+    const throws = createBetterAuthSessionPort({
+      getAuth: () => ({
+        api: {
+          getSession: async () => {
+            throw new Error('boom')
+          },
+        },
+      }),
+    })
+    expect(
+      await throws.resolveSession({ cookieHeader: 'x=1', cookieName: SESSION_COOKIE }),
+    ).toBeNull()
+  })
+
+  it('resolveSession forwards cookie headers into getSession', async () => {
+    let seenCookie: string | null = null
+    const port = createBetterAuthSessionPort({
+      getAuth: () => ({
+        api: {
+          getSession: async ({ headers }) => {
+            seenCookie = headers.get('cookie')
+            return {
+              user: { id: 'hdr', email: 'h@x.y' },
+              session: { expiresAt: new Date(Date.now() + 60_000) },
+            }
+          },
+        },
+      }),
+    })
+    await port.resolveSession({
+      cookieHeader: 'gosilex_session=opaque-token',
+      cookieName: SESSION_COOKIE,
+    })
+    expect(seenCookie).toBe('gosilex_session=opaque-token')
+  })
 })
 
 describe('resolveDualAuth cookieName inject', () => {

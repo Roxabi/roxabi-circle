@@ -1,4 +1,4 @@
-import { parseOrThrow } from '@gosilex/core'
+import { AppError, parseOrThrow } from '@gosilex/core'
 import { Hono } from 'hono'
 import { z } from 'zod'
 import { assertRateLimit, clientIp } from '../lib/rate-limit'
@@ -15,14 +15,15 @@ const loginSchema = z.object({
 const LOGIN_LIMIT = 20
 const LOGIN_WINDOW_MS = 15 * 60 * 1000
 
+const BA_SENSITIVE =
+  /\/api\/auth\/(sign-in|sign-up|sign-out|forget-password|reset-password|change-password)/i
+
 export const authRoutes = new Hono<AppEnv>()
 
 /**
  * Mount exclusivity (spec D6):
- * - better-auth → ALL /api/auth/* via BA handler; no HMAC login routes
+ * - better-auth → ALL /api/auth/* via BA handler; HMAC login returns notFound
  * - hmac → POST login/logout HMAC only
- *
- * BA catch-all registered first when adapter is better-auth.
  */
 authRoutes.all('/api/auth/*', async (c, next) => {
   if (authSessionAdapter(c.env) !== 'better-auth') {
@@ -31,18 +32,18 @@ authRoutes.all('/api/auth/*', async (c, next) => {
   }
   const auth = c.get('betterAuth')
   if (!auth) {
-    return c.json({ error: { code: 'INTERNAL', message: 'Better Auth not initialized' } }, 500)
+    throw AppError.internal('Better Auth not initialized')
+  }
+  // Rate-limit sensitive BA auth endpoints (parity with HMAC login)
+  if (BA_SENSITIVE.test(c.req.path)) {
+    assertRateLimit(`ba-auth:${clientIp(c.req)}`, LOGIN_LIMIT, LOGIN_WINDOW_MS)
   }
   return auth.handler(c.req.raw)
 })
 
 authRoutes.post('/api/auth/login', async (c) => {
   if (authSessionAdapter(c.env) === 'better-auth') {
-    // Should have been handled by BA catch-all; fail closed if not
-    return c.json(
-      { error: { code: 'NOT_FOUND', message: 'Use Better Auth sign-in endpoints' } },
-      404,
-    )
+    throw AppError.notFound('Use Better Auth sign-in endpoints')
   }
 
   assertRateLimit(`login:${clientIp(c.req)}`, LOGIN_LIMIT, LOGIN_WINDOW_MS)
@@ -67,10 +68,7 @@ authRoutes.post('/api/auth/login', async (c) => {
 
 authRoutes.post('/api/auth/logout', async (c) => {
   if (authSessionAdapter(c.env) === 'better-auth') {
-    return c.json(
-      { error: { code: 'NOT_FOUND', message: 'Use Better Auth sign-out endpoints' } },
-      404,
-    )
+    throw AppError.notFound('Use Better Auth sign-out endpoints')
   }
   c.header(
     'Set-Cookie',

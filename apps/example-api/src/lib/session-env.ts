@@ -5,12 +5,15 @@ import type { Env } from '../env'
 const DEFAULT_CORS = 'http://localhost:5173,http://127.0.0.1:5173'
 /** Local-only fallback — never accepted outside explicit development|test. */
 const DEV_SESSION_FALLBACK = 'dev-session-secret-change-me-32chars!!'
+const DEV_BA_FALLBACK = 'dev-better-auth-secret-change-me-32c!!'
 
-/** Kit placeholders that must never ship as production SESSION_SECRET. */
+/** Kit placeholders that must never ship as production secrets. */
 const WEAK_SESSION_SECRETS = new Set([
   DEV_SESSION_FALLBACK,
+  DEV_BA_FALLBACK,
   'dev-session-secret-change-me-32chars!!',
   'change-me-session-secret-min-32-chars!!',
+  'dev-better-auth-secret-change-me-32c!!',
 ])
 
 /** Explicit env only — missing ENVIRONMENT is not treated as development. */
@@ -28,26 +31,28 @@ function isDevLike(env: Env): boolean {
   return isDevLikeEnvironment(env)
 }
 
+function assertStrongSecret(label: string, secret: string, env: Env): string {
+  if (secret.length < 32) {
+    throw AppError.internal(`${label} must be at least 32 characters`)
+  }
+  if (WEAK_SESSION_SECRETS.has(secret) && !isDevLike(env)) {
+    throw AppError.internal(
+      `${label} is a known kit placeholder; generate a unique secret for this environment`,
+    )
+  }
+  return secret
+}
+
 /**
  * SESSION_SECRET:
  * - Prefer real secret (min 32) always when set.
  * - Reject known kit placeholders outside development|test.
- * - Reject short non-empty secrets (do not silently fall back).
  * - Known fallback only when ENVIRONMENT is **explicitly** `development` | `test` and secret unset.
- * - Missing ENVIRONMENT or production/staging → fail closed without secret.
  */
 export function getSecret(env: Env): string {
   const secret = env.SESSION_SECRET?.trim()
   if (secret) {
-    if (secret.length < 32) {
-      throw AppError.internal('SESSION_SECRET must be at least 32 characters')
-    }
-    if (WEAK_SESSION_SECRETS.has(secret) && !isDevLike(env)) {
-      throw AppError.internal(
-        'SESSION_SECRET is a known kit placeholder; generate a unique secret for this environment',
-      )
-    }
-    return secret
+    return assertStrongSecret('SESSION_SECRET', secret, env)
   }
   if (isDevLike(env)) {
     return DEV_SESSION_FALLBACK
@@ -72,7 +77,6 @@ export function useSecureCookie(env: Env): boolean {
 /**
  * AUTH_SESSION_ADAPTER SSoT (spec D4).
  * Unset → `hmac` (back-compat for existing demos).
- * `better-auth` without BETTER_AUTH_SECRET → fail closed via assertBetterAuthConfigured.
  */
 export function authSessionAdapter(env: Env): AuthSessionAdapter {
   const raw = env.AUTH_SESSION_ADAPTER?.trim().toLowerCase()
@@ -88,20 +92,35 @@ export function sessionCookieName(env: Env): string {
   return cookieNameFromAuth({ name: env.SESSION_COOKIE_NAME })
 }
 
-/** Better Auth secret (min 32). Required when adapter=better-auth. */
+/**
+ * Better Auth secret (min 32 + same weak denylist as SESSION_SECRET).
+ * Required when adapter=better-auth (no silent reuse of SESSION_SECRET outside explicit unset+dev).
+ */
 export function getBetterAuthSecret(env: Env): string {
   const secret = env.BETTER_AUTH_SECRET?.trim()
-  if (secret && secret.length >= 32) return secret
-  if (isDevLike(env) && !secret) {
-    // Dev convenience: reuse session secret shape if BA secret unset
-    return getSecret(env)
+  if (secret) {
+    return assertStrongSecret('BETTER_AUTH_SECRET', secret, env)
+  }
+  if (isDevLike(env)) {
+    // Dev-only fallback — never a production path
+    return DEV_BA_FALLBACK
   }
   throw AppError.internal(
     'BETTER_AUTH_SECRET is required (min 32 chars) when AUTH_SESSION_ADAPTER=better-auth',
   )
 }
 
+/** Public BA sign-up allowed only when explicitly enabled (default off — security). */
+export function allowPublicSignup(env: Env): boolean {
+  return env.ALLOW_PUBLIC_SIGNUP?.trim().toLowerCase() === 'true'
+}
+
 export function assertBetterAuthConfigured(env: Env): void {
   if (authSessionAdapter(env) !== 'better-auth') return
   getBetterAuthSecret(env)
+  if (!isDevLike(env) && !env.BETTER_AUTH_URL?.trim()) {
+    throw AppError.internal(
+      'BETTER_AUTH_URL is required when AUTH_SESSION_ADAPTER=better-auth outside development|test',
+    )
+  }
 }

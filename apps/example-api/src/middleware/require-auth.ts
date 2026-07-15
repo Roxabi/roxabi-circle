@@ -2,7 +2,6 @@ import {
   createBetterAuthSessionPort,
   createHmacSessionPort,
   createRequireAuth,
-  defaultSessionPort,
 } from '@gosilex/auth'
 import { AppError } from '@gosilex/core'
 import type { MiddlewareHandler } from 'hono'
@@ -55,7 +54,7 @@ export const requireAuth: MiddlewareHandler<AppEnv> = createRequireAuth((c) => {
   return {
     secret: getSecret(c.env),
     cookieName,
-    sessions: defaultSessionPort ?? createHmacSessionPort(),
+    sessions: createHmacSessionPort(),
     findApiKeyByPrefix: async (prefix) => {
       const row = await keysRepo.findApiKeyByPrefix(db, prefix)
       if (!row) return null

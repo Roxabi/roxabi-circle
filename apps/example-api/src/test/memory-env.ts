@@ -120,6 +120,7 @@ export type EnvLike = {
   SESSION_COOKIE_NAME?: string
   BETTER_AUTH_SECRET?: string
   BETTER_AUTH_URL?: string
+  ALLOW_PUBLIC_SIGNUP?: string
 }
 
 /** Fresh in-memory SQLite + R2 for each test (same createApp entry as Worker). */
