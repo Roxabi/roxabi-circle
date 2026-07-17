@@ -207,6 +207,14 @@ describe('org RBAC (ADR-0003 Phase A) — IDOR matrix', () => {
     expect(mint.status).toBe(200)
     const { key } = (await mint.json()) as { key: string }
 
+    // positive control: key works on its org
+    const okAcme = await app.request(
+      '/api/orgs/org_acme',
+      { headers: { authorization: `Bearer ${key}`, Origin: ORIGIN } },
+      env,
+    )
+    expect(okAcme.status).toBe(200)
+
     // staff is also member of beta — key must not authorize beta routes
     const hop = await app.request(
       '/api/orgs/org_beta',
@@ -244,7 +252,7 @@ describe('org RBAC (ADR-0003 Phase A) — IDOR matrix', () => {
   it('super_admin cannot write tenant modules without break-glass', async () => {
     const { app, env } = await seedEnv()
     const cookie = await signIn(app, env, 'super@gosilex.local')
-    // super is not a member of org_solo; write default off → 404/403
+    // super is not a member of org_solo; write default off → 404 (no membership leak path)
     const res = await app.request(
       '/api/orgs/org_solo/modules/feedback',
       {
@@ -258,7 +266,7 @@ describe('org RBAC (ADR-0003 Phase A) — IDOR matrix', () => {
       },
       env,
     )
-    expect([403, 404]).toContain(res.status)
+    expect(res.status).toBe(404)
   })
 
   it('super_admin can read foreign org with allowSuperAdmin route', async () => {

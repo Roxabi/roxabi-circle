@@ -55,6 +55,7 @@ export async function listApiKeysForSubject(db: Db, subject: string) {
       id: apiKeys.id,
       subject: apiKeys.subject,
       keyPrefix: apiKeys.keyPrefix,
+      organizationId: apiKeys.organizationId,
       name: apiKeys.name,
       createdAt: apiKeys.createdAt,
       expiresAt: apiKeys.expiresAt,

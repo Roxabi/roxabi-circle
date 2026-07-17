@@ -31,7 +31,12 @@ orgsRoutes.use('/api/platform/*', requireBaAdapter, requireAuth)
 orgsRoutes.get('/api/orgs', async (c) => {
   const db = c.get('db')!
   const subject = c.get('subject')!
-  const orgs = await orgsService.listOrgsForSubject(db, subject)
+  let orgs = await orgsService.listOrgsForSubject(db, subject)
+  // D11 — org-bound sk_ only sees its org in the list
+  const keyOrg = c.get('keyOrganizationId')
+  if (c.get('authMethod') === 'api_key' && keyOrg) {
+    orgs = orgs.filter((o) => o.id === keyOrg)
+  }
   return c.json({ orgs, requestId: c.get('requestId') })
 })
 

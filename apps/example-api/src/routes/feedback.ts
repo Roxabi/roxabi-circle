@@ -4,6 +4,7 @@ import { Hono } from 'hono'
 import { assertRateLimit } from '../lib/rate-limit'
 import { requireAuth } from '../middleware/require-auth'
 import * as modulesService from '../services/modules'
+import * as platformModulesService from '../services/platform-modules'
 import type { AppEnv } from '../types'
 
 /** 20 signalements / subject / hour (demo in-memory). */
@@ -23,7 +24,16 @@ feedbackRoutes.post('/api/report', async (c) => {
   const db = c.get('db')!
   await modulesService.ensureKitModules(db)
   const spark = await modulesService.getFeedbackSparkRuntime(db)
-  const moduleOn = await modulesService.isModuleEnabled(db, 'feedback')
+
+  // Dual-level when X-Org-Id present (ADR D7); else platform catalogue only (SPA HMAC demos)
+  const orgId = c.req.header('x-org-id')?.trim()
+  let moduleOn: boolean
+  if (orgId) {
+    moduleOn = await platformModulesService.isModuleEffective(db, orgId, 'feedback')
+  } else {
+    moduleOn = await modulesService.isModuleEnabled(db, 'feedback')
+  }
+
   return handleFeedbackReport(c, {
     getAuthor: () => subject,
     enabled: () => moduleOn && spark !== null,

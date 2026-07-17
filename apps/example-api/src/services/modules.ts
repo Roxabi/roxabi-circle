@@ -10,26 +10,18 @@ import {
   maskApiKey,
   parseFeedbackConfig,
 } from '../lib/integration-config'
-import {
-  isKitModuleId,
-  KIT_MODULE_DEFAULTS,
-  KIT_MODULE_IDS,
-  type KitModuleId,
-} from '../lib/kit-modules'
+import { isKitModuleId, KIT_MODULE_IDS, type KitModuleId } from '../lib/kit-modules'
 import * as modulesRepo from '../repos/modules'
 import * as platformModulesRepo from '../repos/platform-modules'
 import * as platformModulesService from './platform-modules'
 
 type Db = DrizzleD1Database<typeof schema>
 
-/** Idempotent bootstrap — kit_modules (legacy) + platform_modules (ADR-0003). */
+/**
+ * Idempotent bootstrap — platform_modules SSoT only (ADR-0003 residual fix).
+ * Name kept for call-site compatibility; no longer writes kit_modules.
+ */
 export async function ensureKitModules(db: Db): Promise<void> {
-  const now = Date.now()
-  for (const mod of KIT_MODULE_DEFAULTS) {
-    const row = await modulesRepo.getKitModule(db, mod.id)
-    if (row) continue
-    await modulesRepo.insertKitModule(db, mod.id, false, null, now)
-  }
   await platformModulesService.ensurePlatformModules(db)
 }
 

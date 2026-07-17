@@ -162,7 +162,11 @@ export async function resolveAuth(
   authorization: string | null,
   cookieHeader: string | null,
   opts?: { sessions?: SessionPort; cookieName?: string },
-): Promise<{ subject: string; method: 'session' | 'api_key' } | null> {
+): Promise<{
+  subject: string
+  method: 'session' | 'api_key'
+  organizationId?: string | null
+} | null> {
   return resolveDualAuth(authorization, cookieHeader, {
     secret,
     cookieName: opts?.cookieName ?? SESSION_COOKIE,
@@ -170,11 +174,19 @@ export async function resolveAuth(
     findApiKeyByPrefix: async (prefix) => {
       const row = await keysRepo.findApiKeyByPrefix(db, prefix)
       if (!row) return null
+      if (row.organizationId) {
+        const { findMembership, findOrgById } = await import('../repos/orgs')
+        const org = await findOrgById(db, row.organizationId)
+        if (org?.status !== 'active') return null
+        const membership = await findMembership(db, row.organizationId, row.subject)
+        if (!membership) return null
+      }
       return {
         subject: row.subject,
         keyHash: row.keyHash,
         revokedAt: row.revokedAt ?? null,
         expiresAt: row.expiresAt ?? null,
+        organizationId: row.organizationId ?? null,
       }
     },
   })

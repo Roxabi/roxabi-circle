@@ -45,10 +45,15 @@ export function requireOrgContext(opts: OrgContextOpts = {}): MiddlewareHandler<
       throw AppError.forbidden('organization id mismatch')
     }
 
-    // D11 — org-bound sk_ cannot hop tenants even if subject is multi-member
-    const keyOrg = c.get('keyOrganizationId')
-    if (c.get('authMethod') === 'api_key' && keyOrg && keyOrg !== orgId) {
-      throw AppError.forbidden('API key is bound to a different organization')
+    // D11 — tenant routes require org-bound keys; no hop across memberships
+    if (c.get('authMethod') === 'api_key') {
+      const keyOrg = c.get('keyOrganizationId')
+      if (!keyOrg) {
+        throw AppError.forbidden('API key must be organization-bound for tenant routes')
+      }
+      if (keyOrg !== orgId) {
+        throw AppError.forbidden('API key is bound to a different organization')
+      }
     }
 
     const db = dbOf(c)
@@ -134,9 +139,9 @@ export function requireOrgCapability(
 ): MiddlewareHandler<AppEnv> {
   return async (c, next) => {
     if (c.get('orgBypass')) {
-      // Never grant delete_org via bypass without explicit write flag (checked upstream)
+      // Super_admin bypass never grants delete_org (no break-glass path for delete)
       if (capability === 'delete_org') {
-        throw AppError.forbidden('Super admin cannot delete org without break-glass write')
+        throw AppError.forbidden('Super admin cannot delete organization via break-glass')
       }
       await next()
       return
