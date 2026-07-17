@@ -10,64 +10,84 @@ import {
   maskApiKey,
   parseFeedbackConfig,
 } from '../lib/integration-config'
-import {
-  isKitModuleId,
-  KIT_MODULE_DEFAULTS,
-  KIT_MODULE_IDS,
-  type KitModuleId,
-} from '../lib/kit-modules'
+import { isKitModuleId, KIT_MODULE_IDS, type KitModuleId } from '../lib/kit-modules'
 import * as modulesRepo from '../repos/modules'
+import * as platformModulesRepo from '../repos/platform-modules'
+import * as platformModulesService from './platform-modules'
 
 type Db = DrizzleD1Database<typeof schema>
 
-/** Idempotent bootstrap — inserts missing rows (disabled, no config). */
+/**
+ * Idempotent bootstrap — platform_modules SSoT only (ADR-0003 residual fix).
+ * Name kept for call-site compatibility; no longer writes kit_modules.
+ */
 export async function ensureKitModules(db: Db): Promise<void> {
-  const now = Date.now()
-  for (const mod of KIT_MODULE_DEFAULTS) {
-    const row = await modulesRepo.getKitModule(db, mod.id)
-    if (row) continue
-    await modulesRepo.insertKitModule(db, mod.id, false, null, now)
+  await platformModulesService.ensurePlatformModules(db)
+}
+
+/** Prefer platform catalogue; fall back to kit_modules for pre-migration DBs. */
+async function readModuleRow(db: Db, id: KitModuleId) {
+  const platform = await platformModulesRepo.getPlatformModule(db, id)
+  if (platform) {
+    return {
+      enabled: Boolean(platform.available),
+      configJson: platform.configJson,
+      source: 'platform' as const,
+    }
+  }
+  const kit = await modulesRepo.getKitModule(db, id)
+  return {
+    enabled: Boolean(kit?.enabled),
+    configJson: kit?.configJson ?? null,
+    source: 'kit' as const,
   }
 }
 
 export async function getModulesState(db: Db): Promise<Record<KitModuleId, ModulePublicState>> {
-  const rows = await modulesRepo.listKitModules(db)
-  const byId = new Map(rows.map((r) => [r.id, r]))
+  await ensureKitModules(db)
   return Object.fromEntries(
-    KIT_MODULE_IDS.map((id) => {
-      const row = byId.get(id)
-      return [
-        id,
-        {
-          enabled: Boolean(row?.enabled),
-          configured: isModuleConfigured(id, row?.configJson),
-          configPath: INTEGRATION_CONFIG_PATHS[id],
-        },
-      ]
-    }),
+    await Promise.all(
+      KIT_MODULE_IDS.map(async (id) => {
+        const row = await readModuleRow(db, id)
+        return [
+          id,
+          {
+            // SPA "enabled" maps to platform.available in dual-level model (legacy path)
+            enabled: row.enabled,
+            configured: isModuleConfigured(id, row.configJson),
+            configPath: INTEGRATION_CONFIG_PATHS[id],
+          },
+        ] as const
+      }),
+    ),
   ) as Record<KitModuleId, ModulePublicState>
 }
 
 export async function isModuleEnabled(db: Db, id: KitModuleId): Promise<boolean> {
-  const row = await modulesRepo.getKitModule(db, id)
-  return Boolean(row?.enabled)
+  const row = await readModuleRow(db, id)
+  return row.enabled
 }
 
 export async function setModuleEnabled(db: Db, id: string, enabled: boolean): Promise<void> {
   if (!isKitModuleId(id)) {
     throw AppError.notFound('Unknown module')
   }
-  const row = await modulesRepo.getKitModule(db, id)
-  if (!row) {
-    throw AppError.notFound('Unknown module')
-  }
+  await ensureKitModules(db)
+  const row = await readModuleRow(db, id)
   if (enabled && !isModuleConfigured(id, row.configJson)) {
     throw AppError.integrationNotConfigured(
       'Configure the integration before enabling this module',
       { moduleId: id, configPath: INTEGRATION_CONFIG_PATHS[id] },
     )
   }
-  await modulesRepo.setKitModuleEnabled(db, id, enabled, Date.now())
+  const now = Date.now()
+  // Platform SSoT (ADR-0003 / review fix) — no kit_modules write
+  await platformModulesRepo.upsertPlatformModule(db, {
+    moduleId: id,
+    available: enabled,
+    configJson: row.configJson,
+    updatedAt: now,
+  })
 }
 
 export type FeedbackIntegrationPublic = {
@@ -79,8 +99,9 @@ export type FeedbackIntegrationPublic = {
 }
 
 export async function getFeedbackIntegrationPublic(db: Db): Promise<FeedbackIntegrationPublic> {
-  const row = await modulesRepo.getKitModule(db, 'feedback')
-  const parsed = parseFeedbackConfig(row?.configJson)
+  await ensureKitModules(db)
+  const row = await readModuleRow(db, 'feedback')
+  const parsed = parseFeedbackConfig(row.configJson)
   return {
     id: 'feedback',
     configured: parsed !== null,
@@ -100,9 +121,7 @@ export async function saveFeedbackIntegration(
   }
 
   await ensureKitModules(db)
-  const row = await modulesRepo.getKitModule(db, 'feedback')
-  if (!row) throw AppError.notFound('Unknown module')
-
+  const row = await readModuleRow(db, 'feedback')
   const existing = parseFeedbackConfig(row.configJson)
   const apiKey = parsed.data.sparkApiKey?.trim() || existing?.sparkApiKey || ''
   if (!apiKey) {
@@ -113,15 +132,24 @@ export async function saveFeedbackIntegration(
     sparkUrl: parsed.data.sparkUrl,
     sparkApiKey: apiKey,
   }
-  await modulesRepo.setKitModuleConfig(db, 'feedback', JSON.stringify(next), Date.now())
+  const json = JSON.stringify(next)
+  const now = Date.now()
+  // Platform SSoT only
+  await platformModulesRepo.upsertPlatformModule(db, {
+    moduleId: 'feedback',
+    available: row.enabled,
+    configJson: json,
+    updatedAt: now,
+  })
   return getFeedbackIntegrationPublic(db)
 }
 
 export async function getFeedbackSparkRuntime(
   db: Db,
 ): Promise<{ sparkUrl: string; sparkApiKey: string } | null> {
-  const row = await modulesRepo.getKitModule(db, 'feedback')
-  const parsed = parseFeedbackConfig(row?.configJson)
+  await ensureKitModules(db)
+  const row = await readModuleRow(db, 'feedback')
+  const parsed = parseFeedbackConfig(row.configJson)
   if (!parsed) return null
   return { sparkUrl: parsed.sparkUrl, sparkApiKey: parsed.sparkApiKey }
 }

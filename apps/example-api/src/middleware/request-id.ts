@@ -11,6 +11,13 @@ export type AppVariables = {
   db?: KitDb
   /** Per-request Better Auth instance (AUTH_SESSION_ADAPTER=better-auth). */
   betterAuth?: KitBetterAuth
+  /** ADR-0003 org context (requireOrgContext). */
+  orgId?: string
+  orgRole?: string
+  platformRole?: string | null
+  orgBypass?: boolean
+  /** Org pin from Bearer sk_ (ADR-0003 D11). */
+  keyOrganizationId?: string
 }
 
 /** Client ids: req_ + 8–64 url-safe chars. Anything else is ignored (server mints). */

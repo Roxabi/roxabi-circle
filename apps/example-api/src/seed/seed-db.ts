@@ -2,8 +2,11 @@ import { hashPassword } from '@gosilex/auth'
 import type { DrizzleD1Database } from 'drizzle-orm/d1'
 import { apiKeys, demoNotes, demoUsers, type schema } from '../db/schema'
 import * as modulesRepo from '../repos/modules'
+import * as platformRolesRepo from '../repos/platform-roles'
 import * as modulesService from '../services/modules'
+import * as platformModulesService from '../services/platform-modules'
 import { SEED_NOTES, SEED_USERS } from './demo-data'
+import { seedTenancyDemo, type TenancySeedResult } from './seed-tenancy'
 
 type Db = DrizzleD1Database<typeof schema>
 
@@ -12,6 +15,7 @@ export type SeedResult = {
   users: { id: string; email: string; role: string; created: boolean }[]
   notes: { id: string; subject: string; title: string; created: boolean }[]
   modules: { id: string; enabled: boolean; configured: boolean; created: boolean }[]
+  tenancy?: TenancySeedResult
 }
 
 /** Wipe demo tables (local/dev only). Order: keys → notes → users. */
@@ -59,6 +63,16 @@ export async function seedDemoDatabase(
     users.push({ id: u.id, email: u.email, role: u.role, created: true })
   }
 
+  // Kit demo admin → platform super_admin for catalogue ops (HMAC + dual demos)
+  const admin = SEED_USERS.find((u) => u.role === 'admin')
+  if (admin) {
+    try {
+      await platformRolesRepo.setPlatformRole(db, admin.id, 'super_admin', now)
+    } catch {
+      /* table may be missing on pre-migration */
+    }
+  }
+
   const notes: SeedResult['notes'] = []
   if (withNotes) {
     const existingNotes = await db.select().from(demoNotes).all()
@@ -85,6 +99,8 @@ export async function seedDemoDatabase(
 
   const beforeIds = new Set((await modulesRepo.listKitModules(db)).map((r) => r.id))
   await modulesService.ensureKitModules(db)
+  // ADR-0003 dual-level catalogue (migrated from kit_modules via SQL + ensure)
+  await platformModulesService.ensurePlatformModules(db)
   const modulesAfter = await modulesService.getModulesState(db)
   const modules = Object.entries(modulesAfter).map(([id, state]) => ({
     id,
@@ -93,7 +109,16 @@ export async function seedDemoDatabase(
     created: !beforeIds.has(id),
   }))
 
-  return { reset, users, notes, modules }
+  // Multi-tenant BA personas/orgs (dev|test only)
+  let tenancy: TenancySeedResult | undefined
+  try {
+    tenancy = await seedTenancyDemo(db, { environment: opts?.environment ?? 'test' })
+  } catch {
+    // Pre-migration or incomplete BA schema — skip tenancy seed
+    tenancy = undefined
+  }
+
+  return { reset, users, notes, modules, tenancy }
 }
 
 /**

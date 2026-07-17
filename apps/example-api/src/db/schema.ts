@@ -1,4 +1,5 @@
-import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
+import { integer, primaryKey, sqliteTable, text } from 'drizzle-orm/sqlite-core'
+import { betterAuthDrizzleSchema } from './better-auth-schema'
 
 export const demoNotes = sqliteTable('demo_notes', {
   id: text('id').primaryKey(),
@@ -14,6 +15,8 @@ export const apiKeys = sqliteTable('api_keys', {
   /** Lookup index — first 12 chars of plaintext sk_ (never the full key). */
   keyPrefix: text('key_prefix').notNull().unique(),
   subject: text('subject').notNull(),
+  /** ADR-0003 — multi-tenant keys are org-bound. */
+  organizationId: text('organization_id'),
   name: text('name'),
   createdAt: integer('created_at', { mode: 'number' }).notNull(),
   expiresAt: integer('expires_at', { mode: 'number' }),
@@ -27,7 +30,7 @@ export const demoUsers = sqliteTable('demo_users', {
   createdAt: integer('created_at', { mode: 'number' }).notNull(),
 })
 
-/** Feature modules toggled at runtime (not .env). */
+/** Feature modules toggled at runtime (not .env). Legacy — prefer platform_modules. */
 export const kitModules = sqliteTable('kit_modules', {
   id: text('id').primaryKey(),
   enabled: integer('enabled', { mode: 'boolean' }).notNull().default(false),
@@ -36,4 +39,42 @@ export const kitModules = sqliteTable('kit_modules', {
   updatedAt: integer('updated_at', { mode: 'number' }).notNull(),
 })
 
-export const schema = { demoNotes, apiKeys, demoUsers, kitModules }
+/** ADR-0003 platform plane roles (not BA user additionalFields). */
+export const userPlatformRoles = sqliteTable('user_platform_roles', {
+  userId: text('user_id').primaryKey(),
+  role: text('role').notNull(),
+  updatedAt: integer('updated_at', { mode: 'number' }).notNull(),
+})
+
+/** ADR-0003 level-1 module catalogue. */
+export const platformModules = sqliteTable('platform_modules', {
+  moduleId: text('module_id').primaryKey(),
+  available: integer('available', { mode: 'boolean' }).notNull().default(false),
+  configJson: text('config_json'),
+  updatedAt: integer('updated_at', { mode: 'number' }).notNull(),
+})
+
+/** ADR-0003 level-2 per-organization module enablement. */
+export const organizationModules = sqliteTable(
+  'organization_modules',
+  {
+    organizationId: text('organization_id').notNull(),
+    moduleId: text('module_id').notNull(),
+    enabled: integer('enabled', { mode: 'boolean' }).notNull().default(false),
+    locked: integer('locked', { mode: 'boolean' }).notNull().default(false),
+    configJson: text('config_json'),
+    updatedAt: integer('updated_at', { mode: 'number' }).notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.organizationId, t.moduleId] })],
+)
+
+export const schema = {
+  demoNotes,
+  apiKeys,
+  demoUsers,
+  kitModules,
+  userPlatformRoles,
+  platformModules,
+  organizationModules,
+  ...betterAuthDrizzleSchema,
+}

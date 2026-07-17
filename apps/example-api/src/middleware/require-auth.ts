@@ -38,16 +38,7 @@ export const requireAuth: MiddlewareHandler<AppEnv> = createRequireAuth((c) => {
         cookieName,
         getAuth: () => auth,
       }),
-      findApiKeyByPrefix: async (prefix) => {
-        const row = await keysRepo.findApiKeyByPrefix(db, prefix)
-        if (!row) return null
-        return {
-          subject: row.subject,
-          keyHash: row.keyHash,
-          revokedAt: row.revokedAt ?? null,
-          expiresAt: row.expiresAt ?? null,
-        }
-      },
+      findApiKeyByPrefix: async (prefix) => findKeyRecord(db, prefix),
     }
   }
 
@@ -55,15 +46,29 @@ export const requireAuth: MiddlewareHandler<AppEnv> = createRequireAuth((c) => {
     secret: getSecret(c.env),
     cookieName,
     sessions: createHmacSessionPort(),
-    findApiKeyByPrefix: async (prefix) => {
-      const row = await keysRepo.findApiKeyByPrefix(db, prefix)
-      if (!row) return null
-      return {
-        subject: row.subject,
-        keyHash: row.keyHash,
-        revokedAt: row.revokedAt ?? null,
-        expiresAt: row.expiresAt ?? null,
-      }
-    },
+    findApiKeyByPrefix: async (prefix) => findKeyRecord(db, prefix),
   }
 }) as MiddlewareHandler<AppEnv>
+
+/**
+ * Org-bound keys: re-check membership + active org (ADR-0003 D11).
+ * Propagates organizationId so requireOrgContext can pin request tenant.
+ */
+async function findKeyRecord(db: KitDb, prefix: string) {
+  const row = await keysRepo.findApiKeyByPrefix(db, prefix)
+  if (!row) return null
+  if (row.organizationId) {
+    const { findMembership, findOrgById } = await import('../repos/orgs')
+    const org = await findOrgById(db, row.organizationId)
+    if (org?.status !== 'active') return null
+    const membership = await findMembership(db, row.organizationId, row.subject)
+    if (!membership) return null
+  }
+  return {
+    subject: row.subject,
+    keyHash: row.keyHash,
+    revokedAt: row.revokedAt ?? null,
+    expiresAt: row.expiresAt ?? null,
+    organizationId: row.organizationId ?? null,
+  }
+}

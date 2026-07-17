@@ -1,8 +1,8 @@
 import { AppError } from '@gosilex/core'
 import { Hono } from 'hono'
 import { isKitModuleId } from '../lib/kit-modules'
+import { requirePlatformRole } from '../middleware/org-context'
 import { requireAuth } from '../middleware/require-auth'
-import { roleForSubject } from '../services/auth'
 import * as modulesService from '../services/modules'
 import type { AppEnv } from '../types'
 
@@ -11,17 +11,10 @@ export const integrationsRoutes = new Hono<AppEnv>()
 integrationsRoutes.use('/api/integrations', requireAuth)
 integrationsRoutes.use('/api/integrations/*', requireAuth)
 
-function requireAdmin(c: { get: (k: 'subject') => string }) {
-  if (roleForSubject(c.get('subject')) !== 'admin') {
-    throw AppError.forbidden('Integration settings require admin role')
-  }
-}
-
-integrationsRoutes.get('/api/integrations/:id', async (c) => {
+integrationsRoutes.get('/api/integrations/:id', requirePlatformRole('super_admin'), async (c) => {
   if (c.get('authMethod') !== 'session') {
     throw AppError.forbidden('Integration settings require a session cookie')
   }
-  requireAdmin(c)
   const id = c.req.param('id')
   if (!isKitModuleId(id)) throw AppError.notFound('Unknown integration')
 
@@ -36,11 +29,10 @@ integrationsRoutes.get('/api/integrations/:id', async (c) => {
   throw AppError.notFound('Unknown integration')
 })
 
-integrationsRoutes.put('/api/integrations/:id', async (c) => {
+integrationsRoutes.put('/api/integrations/:id', requirePlatformRole('super_admin'), async (c) => {
   if (c.get('authMethod') !== 'session') {
     throw AppError.forbidden('Integration settings require a session cookie')
   }
-  requireAdmin(c)
   const id = c.req.param('id')
   if (!isKitModuleId(id)) throw AppError.notFound('Unknown integration')
 
