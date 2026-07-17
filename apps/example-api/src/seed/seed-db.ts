@@ -3,7 +3,9 @@ import type { DrizzleD1Database } from 'drizzle-orm/d1'
 import { apiKeys, demoNotes, demoUsers, type schema } from '../db/schema'
 import * as modulesRepo from '../repos/modules'
 import * as modulesService from '../services/modules'
+import * as platformModulesService from '../services/platform-modules'
 import { SEED_NOTES, SEED_USERS } from './demo-data'
+import { seedTenancyDemo, type TenancySeedResult } from './seed-tenancy'
 
 type Db = DrizzleD1Database<typeof schema>
 
@@ -12,6 +14,7 @@ export type SeedResult = {
   users: { id: string; email: string; role: string; created: boolean }[]
   notes: { id: string; subject: string; title: string; created: boolean }[]
   modules: { id: string; enabled: boolean; configured: boolean; created: boolean }[]
+  tenancy?: TenancySeedResult
 }
 
 /** Wipe demo tables (local/dev only). Order: keys → notes → users. */
@@ -85,6 +88,8 @@ export async function seedDemoDatabase(
 
   const beforeIds = new Set((await modulesRepo.listKitModules(db)).map((r) => r.id))
   await modulesService.ensureKitModules(db)
+  // ADR-0003 dual-level catalogue (migrated from kit_modules via SQL + ensure)
+  await platformModulesService.ensurePlatformModules(db)
   const modulesAfter = await modulesService.getModulesState(db)
   const modules = Object.entries(modulesAfter).map(([id, state]) => ({
     id,
@@ -93,7 +98,16 @@ export async function seedDemoDatabase(
     created: !beforeIds.has(id),
   }))
 
-  return { reset, users, notes, modules }
+  // Multi-tenant BA personas/orgs (idempotent; safe if BA tables exist)
+  let tenancy: TenancySeedResult | undefined
+  try {
+    tenancy = await seedTenancyDemo(db)
+  } catch {
+    // Pre-migration or incomplete BA schema — skip tenancy seed
+    tenancy = undefined
+  }
+
+  return { reset, users, notes, modules, tenancy }
 }
 
 /**

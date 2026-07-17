@@ -97,6 +97,12 @@
         "typescript": "^5.9.0",
         "vitest": "^3.2.0",
       },
+      "peerDependencies": {
+        "better-auth": ">=1.2.0",
+      },
+      "optionalPeers": [
+        "better-auth",
+      ],
     },
     "packages/config": {
       "name": "@gosilex/config",

@@ -19,6 +19,21 @@ export {
   verifyPassword,
 } from './keys'
 export {
+  isOrgRoleKey,
+  isPlatformRole,
+  ORG_KINDS,
+  ORG_ROLE_KEYS,
+  ORG_STATUSES,
+  type OrgCapability,
+  type OrgKind,
+  type OrgRoleKey,
+  type OrgStatus,
+  PLATFORM_ROLES,
+  type PlatformRole,
+  roleAtLeast,
+  roleHasCapability,
+} from './org-roles'
+export {
   type ApiKeyRecord,
   type AuthIdentity,
   type AuthMethod,

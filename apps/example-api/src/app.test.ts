@@ -491,12 +491,28 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     const meBody = (await me.json()) as { subject?: string }
     expect(meBody.subject).toBeTruthy()
 
+    // Multi-tenant: mint requires organizationId under BA adapter
+    const orgRes = await app.request(
+      '/api/orgs',
+      {
+        method: 'POST',
+        headers: { cookie, 'content-type': 'application/json', Origin: 'http://localhost:5173' },
+        body: JSON.stringify({
+          name: 'Key Org',
+          slug: `key-org-${crypto.randomUUID().slice(0, 6)}`,
+        }),
+      },
+      env,
+    )
+    expect(orgRes.status).toBe(201)
+    const { org } = (await orgRes.json()) as { org: { id: string } }
+
     const mint = await app.request(
       '/api/keys',
       {
         method: 'POST',
         headers: { cookie, 'content-type': 'application/json', Origin: 'http://localhost:5173' },
-        body: '{}',
+        body: JSON.stringify({ organizationId: org.id }),
       },
       env,
     )

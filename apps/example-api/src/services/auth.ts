@@ -107,8 +107,26 @@ export function logoutCookie(opts?: {
 export async function mintApiKey(
   db: Db,
   subject: string,
-  opts?: { name?: string; expiresAt?: number | null; ttlMs?: number },
-): Promise<{ id: string; key: string; keyPrefix: string }> {
+  opts?: {
+    name?: string
+    expiresAt?: number | null
+    ttlMs?: number
+    /** ADR-0003 — required for multi-tenant (BA) keys; optional on HMAC legacy. */
+    organizationId?: string | null
+    requireOrganization?: boolean
+  },
+): Promise<{ id: string; key: string; keyPrefix: string; organizationId: string | null }> {
+  const organizationId = opts?.organizationId?.trim() || null
+  if (opts?.requireOrganization && !organizationId) {
+    throw AppError.validation('organizationId is required to mint an API key')
+  }
+  if (organizationId) {
+    const { findMembership, findOrgById } = await import('../repos/orgs')
+    const org = await findOrgById(db, organizationId)
+    if (org?.status !== 'active') throw AppError.notFound('Organization not found')
+    const membership = await findMembership(db, organizationId, subject)
+    if (!membership) throw AppError.forbidden('Not a member of this organization')
+  }
   const key = generateApiKey()
   const keyHash = await hashApiKey(key)
   const keyPrefix = apiKeyPrefix(key)
@@ -121,11 +139,12 @@ export async function mintApiKey(
     keyHash,
     keyPrefix,
     subject,
+    organizationId,
     name: opts?.name ?? null,
     createdAt,
     expiresAt,
   })
-  return { id, key, keyPrefix }
+  return { id, key, keyPrefix, organizationId }
 }
 
 export async function listApiKeys(db: Db, subject: string) {

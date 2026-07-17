@@ -11,6 +11,7 @@ export async function insertApiKey(
     keyHash: string
     keyPrefix: string
     subject: string
+    organizationId?: string | null
     name?: string | null
     createdAt: number
     expiresAt?: number | null
@@ -23,6 +24,7 @@ export async function insertApiKey(
       keyHash: row.keyHash,
       keyPrefix: row.keyPrefix,
       subject: row.subject,
+      organizationId: row.organizationId ?? null,
       name: row.name ?? null,
       createdAt: row.createdAt,
       expiresAt: row.expiresAt ?? null,

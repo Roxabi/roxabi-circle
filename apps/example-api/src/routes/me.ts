@@ -1,6 +1,8 @@
 import { AppError } from '@gosilex/core'
 import { Hono } from 'hono'
+import { z } from 'zod'
 import { assertRateLimit } from '../lib/rate-limit'
+import { authSessionAdapter } from '../lib/session-env'
 import { requireAuth } from '../middleware/require-auth'
 import * as authService from '../services/auth'
 import type { AppEnv } from '../types'
@@ -41,12 +43,31 @@ meRoutes.post('/api/keys', async (c) => {
   const subject = c.get('subject')!
   assertRateLimit(`mint:${subject}`, MINT_LIMIT, MINT_WINDOW_MS)
 
+  const body = z
+    .object({
+      name: z.string().max(80).optional(),
+      organizationId: z.string().min(1).optional(),
+    })
+    .safeParse(await c.req.json().catch(() => ({})))
+  if (!body.success) {
+    throw AppError.validation('Invalid key mint payload', body.error.flatten().fieldErrors)
+  }
+
+  const orgFromHeader = c.req.header('x-org-id')?.trim()
+  const organizationId = body.data.organizationId?.trim() || orgFromHeader || null
+  const requireOrganization = authSessionAdapter(c.env) === 'better-auth'
+
   const db = c.get('db')!
-  const minted = await authService.mintApiKey(db, subject)
+  const minted = await authService.mintApiKey(db, subject, {
+    name: body.data.name,
+    organizationId,
+    requireOrganization,
+  })
   return c.json({
     id: minted.id,
     key: minted.key,
     keyPrefix: minted.keyPrefix,
+    organizationId: minted.organizationId,
     requestId: c.get('requestId'),
   })
 })

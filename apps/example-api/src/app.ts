@@ -17,6 +17,7 @@ import { integrationsRoutes } from './routes/integrations'
 import { meRoutes } from './routes/me'
 import { modulesRoutes } from './routes/modules'
 import { notesRoutes } from './routes/notes'
+import { orgsRoutes } from './routes/orgs'
 import type { AppEnv } from './types'
 
 export { corsAllowlist, environmentName, getSecret, useSecureCookie } from './lib/session-env'
@@ -37,7 +38,7 @@ export function createApp() {
         return list.includes(origin) ? origin : null
       },
       credentials: true,
-      allowHeaders: ['Content-Type', 'Authorization', 'x-request-id'],
+      allowHeaders: ['Content-Type', 'Authorization', 'x-request-id', 'X-Org-Id'],
       // SPA must be able to read Retry-After on 429 (credentials + expose).
       exposeHeaders: ['x-request-id', 'Retry-After'],
     }),
@@ -58,6 +59,7 @@ export function createApp() {
   app.route('/', authRoutes)
   app.route('/', meRoutes)
   app.route('/', modulesRoutes)
+  app.route('/', orgsRoutes)
   app.route('/', integrationsRoutes)
   app.route('/', notesRoutes)
   app.route('/', demoRoutes)
