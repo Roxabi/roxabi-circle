@@ -18,6 +18,13 @@ const LOGIN_WINDOW_MS = 15 * 60 * 1000
 const BA_SENSITIVE =
   /\/api\/auth\/(sign-in|sign-up|sign-out|forget-password|reset-password|change-password)/i
 
+/**
+ * Phase A (ADR-0003 D10): block BA organization mutation / invite surface.
+ * Allow session, credential, and read-only / set-active org paths only.
+ */
+const BA_ORG_MUTATION_DENY =
+  /\/api\/auth\/organization\/(create|update|delete|invite-member|accept-invitation|reject-invitation|cancel-invitation|remove-member|update-member-role|leave|set-member-role)/i
+
 export const authRoutes = new Hono<AppEnv>()
 
 /**
@@ -33,6 +40,9 @@ authRoutes.all('/api/auth/*', async (c, next) => {
   const auth = c.get('betterAuth')
   if (!auth) {
     throw AppError.internal('Better Auth not initialized')
+  }
+  if (BA_ORG_MUTATION_DENY.test(c.req.path)) {
+    throw AppError.notFound('Organization mutations use kit APIs or seed (Phase A)')
   }
   // Rate-limit sensitive BA auth endpoints (parity with HMAC login)
   if (BA_SENSITIVE.test(c.req.path)) {

@@ -50,7 +50,10 @@ export const requireAuth: MiddlewareHandler<AppEnv> = createRequireAuth((c) => {
   }
 }) as MiddlewareHandler<AppEnv>
 
-/** Org-bound keys: re-check membership + active org (ADR-0003 D11). */
+/**
+ * Org-bound keys: re-check membership + active org (ADR-0003 D11).
+ * Propagates organizationId so requireOrgContext can pin request tenant.
+ */
 async function findKeyRecord(db: KitDb, prefix: string) {
   const row = await keysRepo.findApiKeyByPrefix(db, prefix)
   if (!row) return null
@@ -66,5 +69,6 @@ async function findKeyRecord(db: KitDb, prefix: string) {
     keyHash: row.keyHash,
     revokedAt: row.revokedAt ?? null,
     expiresAt: row.expiresAt ?? null,
+    organizationId: row.organizationId ?? null,
   }
 }

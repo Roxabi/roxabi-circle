@@ -16,6 +16,8 @@ export type AppVariables = {
   orgRole?: string
   platformRole?: string | null
   orgBypass?: boolean
+  /** Org pin from Bearer sk_ (ADR-0003 D11). */
+  keyOrganizationId?: string
 }
 
 /** Client ids: req_ + 8–64 url-safe chars. Anything else is ignored (server mints). */

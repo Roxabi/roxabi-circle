@@ -89,14 +89,13 @@ export async function setModuleEnabled(db: Db, id: string, enabled: boolean): Pr
     )
   }
   const now = Date.now()
-  // Dual-write: platform.available is SSoT; kit_modules kept in sync during transition
+  // Platform SSoT (ADR-0003 / review fix) — no kit_modules write
   await platformModulesRepo.upsertPlatformModule(db, {
     moduleId: id,
     available: enabled,
     configJson: row.configJson,
     updatedAt: now,
   })
-  await modulesRepo.setKitModuleEnabled(db, id, enabled, now)
 }
 
 export type FeedbackIntegrationPublic = {
@@ -143,18 +142,13 @@ export async function saveFeedbackIntegration(
   }
   const json = JSON.stringify(next)
   const now = Date.now()
+  // Platform SSoT only
   await platformModulesRepo.upsertPlatformModule(db, {
     moduleId: 'feedback',
     available: row.enabled,
     configJson: json,
     updatedAt: now,
   })
-  // Transition dual-write
-  try {
-    await modulesRepo.setKitModuleConfig(db, 'feedback', json, now)
-  } catch {
-    /* kit row may be absent post-drop */
-  }
   return getFeedbackIntegrationPublic(db)
 }
 

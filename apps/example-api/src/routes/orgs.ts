@@ -15,7 +15,7 @@ import type { AppEnv } from '../types'
 const createSchema = z.object({
   name: z.string().min(1).max(120),
   slug: z.string().min(1).max(48).optional(),
-  kind: z.enum(['client', 'internal']).optional(),
+  // kind is server-forced to client for public create (review fix)
 })
 
 const patchModuleSchema = z.object({
@@ -47,9 +47,10 @@ orgsRoutes.post('/api/orgs', async (c) => {
   const org = await orgsService.createOrganization(db, {
     name: parsed.data.name,
     slug: parsed.data.slug,
-    kind: parsed.data.kind,
+    kind: 'client',
     ownerUserId: c.get('subject')!,
   })
+  c.header('Location', `/api/orgs/${org.id}`)
   return c.json({ org, requestId: c.get('requestId') }, 201)
 })
 
@@ -104,15 +105,11 @@ orgsRoutes.patch(
   },
 )
 
-orgsRoutes.get(
-  '/api/platform/modules',
-  requirePlatformRole(['super_admin', 'staff']),
-  async (c) => {
-    const db = c.get('db')!
-    const modules = await platformModulesService.listPlatformPublic(db)
-    return c.json({ modules, requestId: c.get('requestId') })
-  },
-)
+orgsRoutes.get('/api/platform/modules', requirePlatformRole('super_admin', 'staff'), async (c) => {
+  const db = c.get('db')!
+  const modules = await platformModulesService.listPlatformPublic(db)
+  return c.json({ modules, requestId: c.get('requestId') })
+})
 
 orgsRoutes.patch(
   '/api/platform/modules/:moduleId',

@@ -96,27 +96,32 @@ export async function upsertOrgModule(
     organizationId: string
     moduleId: string
     enabled: boolean
+    /** Only updated when provided (avoid clobber on enable-only PATCH). */
     locked?: boolean
     configJson?: string | null
     updatedAt: number
   },
 ) {
+  const existing = await getOrgModule(db, row.organizationId, row.moduleId)
+  const locked = row.locked !== undefined ? row.locked : (existing?.locked ?? false)
+  const configJson = row.configJson !== undefined ? row.configJson : (existing?.configJson ?? null)
+
   await db
     .insert(organizationModules)
     .values({
       organizationId: row.organizationId,
       moduleId: row.moduleId,
       enabled: row.enabled,
-      locked: row.locked ?? false,
-      configJson: row.configJson ?? null,
+      locked,
+      configJson,
       updatedAt: row.updatedAt,
     })
     .onConflictDoUpdate({
       target: [organizationModules.organizationId, organizationModules.moduleId],
       set: {
         enabled: row.enabled,
-        locked: row.locked ?? false,
-        configJson: row.configJson ?? null,
+        locked,
+        configJson,
         updatedAt: row.updatedAt,
       },
     })

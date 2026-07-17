@@ -2,8 +2,10 @@ import { type OrgRoleKey, type PlatformRole, roleAtLeast, roleHasCapability } fr
 import { AppError } from '@gosilex/core'
 import type { MiddlewareHandler } from 'hono'
 import type { KitDb } from '../lib/db-type'
+import type { KitModuleId } from '../lib/kit-modules'
 import * as orgsRepo from '../repos/orgs'
 import * as platformRolesRepo from '../repos/platform-roles'
+import * as platformModulesService from '../services/platform-modules'
 import type { AppEnv } from '../types'
 
 function dbOf(c: { get: (k: 'db') => KitDb | undefined }): KitDb {
@@ -12,16 +14,21 @@ function dbOf(c: { get: (k: 'db') => KitDb | undefined }): KitDb {
   return db
 }
 
+function isSafeMethod(method: string): boolean {
+  return method === 'GET' || method === 'HEAD' || method === 'OPTIONS'
+}
+
 export type OrgContextOpts = {
-  /** Super_admin may read without membership (audited by caller). */
+  /** Super_admin may read without membership (audit logged). */
   allowSuperAdmin?: boolean
-  /** Super_admin may write without membership — default false (ADR-0003). */
+  /** Super_admin may write without membership — default false (ADR-0003 D9). */
   allowSuperAdminWrite?: boolean
 }
 
 /**
- * Resolve org id: path param `orgId` > header `X-Org-Id` > (optional) BA active org later.
+ * Resolve org id: path param `orgId` > header `X-Org-Id`.
  * Fail closed on mismatch / inactive org / missing membership.
+ * API keys: path/header org must equal keyOrganizationId (D11).
  */
 export function requireOrgContext(opts: OrgContextOpts = {}): MiddlewareHandler<AppEnv> {
   return async (c, next) => {
@@ -36,6 +43,12 @@ export function requireOrgContext(opts: OrgContextOpts = {}): MiddlewareHandler<
     }
     if (pathOrg && headerOrg && pathOrg !== headerOrg) {
       throw AppError.forbidden('organization id mismatch')
+    }
+
+    // D11 — org-bound sk_ cannot hop tenants even if subject is multi-member
+    const keyOrg = c.get('keyOrganizationId')
+    if (c.get('authMethod') === 'api_key' && keyOrg && keyOrg !== orgId) {
+      throw AppError.forbidden('API key is bound to a different organization')
     }
 
     const db = dbOf(c)
@@ -57,28 +70,44 @@ export function requireOrgContext(opts: OrgContextOpts = {}): MiddlewareHandler<
       return
     }
 
-    const wantWrite = opts.allowSuperAdminWrite === true
-    const wantRead = opts.allowSuperAdmin === true || wantWrite
-    if (platformRole === 'super_admin' && wantRead) {
-      if (wantWrite || c.req.method === 'GET' || c.req.method === 'HEAD') {
-        if (wantWrite || opts.allowSuperAdmin) {
-          // write only if allowSuperAdminWrite
-          if (!['GET', 'HEAD', 'OPTIONS'].includes(c.req.method) && !opts.allowSuperAdminWrite) {
-            throw AppError.forbidden('Super admin write requires break-glass flag')
-          }
-          c.set('orgId', orgId)
-          c.set('orgRole', 'owner')
-          c.set('orgBypass', true)
-          await next()
-          return
-        }
-      }
-      if (opts.allowSuperAdmin && ['GET', 'HEAD', 'OPTIONS'].includes(c.req.method)) {
+    // Super_admin break-glass (no synthetic membership role)
+    const method = c.req.method
+    if (platformRole === 'super_admin') {
+      if (isSafeMethod(method) && opts.allowSuperAdmin) {
         c.set('orgId', orgId)
-        c.set('orgRole', 'owner')
         c.set('orgBypass', true)
+        // do not set orgRole — capabilities use orgBypass only
+        console.info(
+          JSON.stringify({
+            level: 'info',
+            msg: 'super_admin_org_bypass',
+            action: 'read',
+            actor: subject,
+            orgId,
+            requestId: c.get('requestId'),
+          }),
+        )
         await next()
         return
+      }
+      if (!isSafeMethod(method) && opts.allowSuperAdminWrite) {
+        c.set('orgId', orgId)
+        c.set('orgBypass', true)
+        console.info(
+          JSON.stringify({
+            level: 'info',
+            msg: 'super_admin_org_bypass',
+            action: 'write',
+            actor: subject,
+            orgId,
+            requestId: c.get('requestId'),
+          }),
+        )
+        await next()
+        return
+      }
+      if (!isSafeMethod(method) && opts.allowSuperAdmin && !opts.allowSuperAdminWrite) {
+        throw AppError.forbidden('Super admin write requires break-glass flag')
       }
     }
 
@@ -104,7 +133,11 @@ export function requireOrgCapability(
   capability: 'read' | 'write' | 'manage_members' | 'manage_modules' | 'delete_org',
 ): MiddlewareHandler<AppEnv> {
   return async (c, next) => {
-    if (c.get('orgBypass') && capability !== 'delete_org') {
+    if (c.get('orgBypass')) {
+      // Never grant delete_org via bypass without explicit write flag (checked upstream)
+      if (capability === 'delete_org') {
+        throw AppError.forbidden('Super admin cannot delete org without break-glass write')
+      }
       await next()
       return
     }
@@ -116,8 +149,9 @@ export function requireOrgCapability(
   }
 }
 
-export function requirePlatformRole(min: PlatformRole | PlatformRole[]): MiddlewareHandler<AppEnv> {
-  const allowed = Array.isArray(min) ? min : [min]
+export function requirePlatformRole(...roles: PlatformRole[]): MiddlewareHandler<AppEnv> {
+  const allowed =
+    roles.length === 1 && Array.isArray(roles[0]) ? (roles[0] as PlatformRole[]) : roles
   return async (c, next) => {
     const subject = c.get('subject')
     if (!subject) throw AppError.unauthorized()
@@ -127,12 +161,32 @@ export function requirePlatformRole(min: PlatformRole | PlatformRole[]): Middlew
     if (!role || !allowed.includes(role)) {
       throw AppError.forbidden('Platform role required')
     }
-    // staff is not super_admin
-    if (allowed.includes('super_admin') && role !== 'super_admin' && allowed.length === 1) {
-      throw AppError.forbidden('Super admin required')
+    await next()
+  }
+}
+
+/** ADR-0003 D12 G5 — effective module access for current org context. */
+export function requireModule(
+  moduleId: KitModuleId,
+  op: 'read' | 'write' = 'read',
+): MiddlewareHandler<AppEnv> {
+  return async (c, next) => {
+    const orgId = c.get('orgId')
+    if (!orgId) throw AppError.forbidden('Organization context required')
+    const db = dbOf(c)
+    const effective = await platformModulesService.isModuleEffective(db, orgId, moduleId)
+    if (!effective) {
+      throw AppError.notFound('Module not available')
     }
-    if (min === 'super_admin' && role !== 'super_admin') {
-      throw AppError.forbidden('Super admin required')
+    if (op === 'write') {
+      const role = c.get('orgRole')
+      if (c.get('orgBypass')) {
+        await next()
+        return
+      }
+      if (!role || !roleHasCapability(role, 'write')) {
+        throw AppError.forbidden('Insufficient organization capability')
+      }
     }
     await next()
   }

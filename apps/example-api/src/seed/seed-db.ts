@@ -2,6 +2,7 @@ import { hashPassword } from '@gosilex/auth'
 import type { DrizzleD1Database } from 'drizzle-orm/d1'
 import { apiKeys, demoNotes, demoUsers, type schema } from '../db/schema'
 import * as modulesRepo from '../repos/modules'
+import * as platformRolesRepo from '../repos/platform-roles'
 import * as modulesService from '../services/modules'
 import * as platformModulesService from '../services/platform-modules'
 import { SEED_NOTES, SEED_USERS } from './demo-data'
@@ -62,6 +63,16 @@ export async function seedDemoDatabase(
     users.push({ id: u.id, email: u.email, role: u.role, created: true })
   }
 
+  // Kit demo admin → platform super_admin for catalogue ops (HMAC + dual demos)
+  const admin = SEED_USERS.find((u) => u.role === 'admin')
+  if (admin) {
+    try {
+      await platformRolesRepo.setPlatformRole(db, admin.id, 'super_admin', now)
+    } catch {
+      /* table may be missing on pre-migration */
+    }
+  }
+
   const notes: SeedResult['notes'] = []
   if (withNotes) {
     const existingNotes = await db.select().from(demoNotes).all()
@@ -98,10 +109,10 @@ export async function seedDemoDatabase(
     created: !beforeIds.has(id),
   }))
 
-  // Multi-tenant BA personas/orgs (idempotent; safe if BA tables exist)
+  // Multi-tenant BA personas/orgs (dev|test only)
   let tenancy: TenancySeedResult | undefined
   try {
-    tenancy = await seedTenancyDemo(db)
+    tenancy = await seedTenancyDemo(db, { environment: opts?.environment ?? 'test' })
   } catch {
     // Pre-migration or incomplete BA schema — skip tenancy seed
     tenancy = undefined

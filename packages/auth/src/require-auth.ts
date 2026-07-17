@@ -8,6 +8,8 @@ export type AuthMethod = 'session' | 'api_key'
 export type AuthIdentity = {
   subject: string
   method: AuthMethod
+  /** Set when Bearer sk_ is org-bound (ADR-0003 D11). */
+  organizationId?: string | null
 }
 
 export type ApiKeyRecord = {
@@ -15,6 +17,8 @@ export type ApiKeyRecord = {
   keyHash: string
   revokedAt: number | null
   expiresAt: number | null
+  /** Org scope for multi-tenant keys; null = legacy unbound (HMAC demos). */
+  organizationId?: string | null
 }
 
 export type DualAuthPorts = {
@@ -50,7 +54,11 @@ export async function resolveDualAuth(
     if (row.expiresAt != null && row.expiresAt <= Date.now()) throw AppError.unauthorized()
     const ok = await verifyApiKey(bearer, row.keyHash)
     if (!ok) throw AppError.unauthorized()
-    return { subject: row.subject, method: 'api_key' }
+    return {
+      subject: row.subject,
+      method: 'api_key',
+      organizationId: row.organizationId ?? null,
+    }
   }
 
   const payload = await sessions.resolveSession({
@@ -70,7 +78,7 @@ export type RequireAuthContext = {
     /** Hono raw Request — used to forward Headers to BA getSession. */
     raw?: { headers: Headers }
   }
-  set: (key: 'subject' | 'authMethod', value: string) => void
+  set: (key: 'subject' | 'authMethod' | 'keyOrganizationId', value: string) => void
 }
 
 export function createRequireAuth<C extends RequireAuthContext>(
@@ -89,6 +97,9 @@ export function createRequireAuth<C extends RequireAuthContext>(
     if (!auth) throw AppError.unauthorized()
     c.set('subject', auth.subject)
     c.set('authMethod', auth.method)
+    if (auth.method === 'api_key' && auth.organizationId) {
+      c.set('keyOrganizationId', auth.organizationId)
+    }
     await next()
   }
 }

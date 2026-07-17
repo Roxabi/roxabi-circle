@@ -19,8 +19,22 @@ export type TenancySeedResult = {
 /**
  * Idempotent multi-tenant seed for BA adapter demos (ADR-0003 personas).
  * Inserts BA user + credential account, platform roles, orgs, memberships, org modules.
+ * Gated to development|test unless `force: true`.
  */
-export async function seedTenancyDemo(db: Db, opts?: { now?: Date }): Promise<TenancySeedResult> {
+export async function seedTenancyDemo(
+  db: Db,
+  opts?: { now?: Date; environment?: string | null; force?: boolean },
+): Promise<TenancySeedResult> {
+  const env = opts?.environment?.trim().toLowerCase()
+  if (!opts?.force && env !== 'development' && env !== 'test' && env !== undefined) {
+    // When environment omitted (direct test calls), allow; only block staging/prod when set.
+  }
+  if (env === 'staging' || env === 'production') {
+    return { users: [], orgs: [], platformRoles: [] }
+  }
+  if (!opts?.force && env && env !== 'development' && env !== 'test') {
+    return { users: [], orgs: [], platformRoles: [] }
+  }
   const now = opts?.now ?? new Date()
   const ts = now.getTime()
 

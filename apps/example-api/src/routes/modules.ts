@@ -1,8 +1,8 @@
 import { AppError } from '@gosilex/core'
 import { Hono } from 'hono'
 import { z } from 'zod'
+import { requirePlatformRole } from '../middleware/org-context'
 import { requireAuth } from '../middleware/require-auth'
-import { roleForSubject } from '../services/auth'
 import * as modulesService from '../services/modules'
 import type { AppEnv } from '../types'
 
@@ -15,6 +15,7 @@ export const modulesRoutes = new Hono<AppEnv>()
 modulesRoutes.use('/api/modules', requireAuth)
 modulesRoutes.use('/api/modules/*', requireAuth)
 
+/** Legacy read shape for SPA — maps platform.available → enabled. */
 modulesRoutes.get('/api/modules', async (c) => {
   const db = c.get('db')!
   await modulesService.ensureKitModules(db)
@@ -22,13 +23,10 @@ modulesRoutes.get('/api/modules', async (c) => {
   return c.json({ modules, requestId: c.get('requestId') })
 })
 
-modulesRoutes.patch('/api/modules/:id', async (c) => {
+/** Platform catalogue write — super_admin only (was kit demo admin role). */
+modulesRoutes.patch('/api/modules/:id', requirePlatformRole('super_admin'), async (c) => {
   if (c.get('authMethod') !== 'session') {
     throw AppError.forbidden('Module settings require a session cookie')
-  }
-  const subject = c.get('subject')!
-  if (roleForSubject(subject) !== 'admin') {
-    throw AppError.forbidden('Module settings require admin role')
   }
 
   const parsed = patchSchema.safeParse(await c.req.json().catch(() => null))

@@ -117,10 +117,15 @@ export async function setOrgModuleEnabled(
       { moduleId, configPath: INTEGRATION_CONFIG_PATHS[moduleId] },
     )
   }
+  const existing = await platformModulesRepo.getOrgModule(db, organizationId, moduleId)
+  if (existing?.locked) {
+    throw AppError.forbidden('Module is locked for this organization')
+  }
   await platformModulesRepo.upsertOrgModule(db, {
     organizationId,
     moduleId,
     enabled,
+    // preserve locked/configJson via repo partial update
     updatedAt: Date.now(),
   })
 }

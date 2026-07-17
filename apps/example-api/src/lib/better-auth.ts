@@ -67,6 +67,10 @@ export function createBetterAuth(env: Env, baseURL: string) {
           member: memberAc,
           reader: readerAc,
         },
+        // Phase A: kit owns create/memberships (seed + POST /api/orgs); BA plugin = schema + AC only.
+        allowUserToCreateOrganization: false,
+        disableOrganizationDeletion: true,
+        invitationLimit: 0,
         schema: {
           organization: {
             additionalFields: {
@@ -74,13 +78,14 @@ export function createBetterAuth(env: Env, baseURL: string) {
                 type: 'string',
                 required: true,
                 defaultValue: 'client',
-                input: true,
+                // Server-only — not client-writable (review fix)
+                input: false,
               },
               status: {
                 type: 'string',
                 required: true,
                 defaultValue: 'active',
-                input: true,
+                input: false,
               },
             },
           },

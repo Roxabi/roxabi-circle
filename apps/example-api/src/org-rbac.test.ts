@@ -1,6 +1,8 @@
 import { createDb } from '@gosilex/db'
+import { eq } from 'drizzle-orm'
 import { describe, expect, it } from 'vitest'
 import { createApp } from './app'
+import { baMember, baOrganization } from './db/better-auth-schema'
 import { schema } from './db/schema'
 import { seedTenancyDemo } from './seed/seed-tenancy'
 import { createMemoryEnv } from './test/memory-env'
@@ -10,43 +12,41 @@ const BA_ENV = {
   BETTER_AUTH_SECRET: 'test-better-auth-secret-at-least-32!!',
   BETTER_AUTH_URL: 'http://localhost:8787',
   ALLOW_PUBLIC_SIGNUP: 'true',
+  ENVIRONMENT: 'test',
 }
 
-async function baSession(
+const ORIGIN = 'http://localhost:5173'
+
+async function signIn(
   app: ReturnType<typeof createApp>,
   env: ReturnType<typeof createMemoryEnv>,
+  email: string,
+  password = 'demo-password-change-me',
 ) {
-  const email = `org-${crypto.randomUUID().slice(0, 8)}@gosilex.local`
-  const password = 'ba-password-change-me-1'
-  const signup = await app.request(
-    '/api/auth/sign-up/email',
+  const res = await app.request(
+    '/api/auth/sign-in/email',
     {
       method: 'POST',
-      headers: { 'content-type': 'application/json', Origin: 'http://localhost:5173' },
-      body: JSON.stringify({ email, password, name: 'Org User' }),
+      headers: { 'content-type': 'application/json', Origin: ORIGIN },
+      body: JSON.stringify({ email, password }),
     },
     env,
   )
-  let cookie = signup.headers.get('set-cookie') ?? ''
-  if (signup.status >= 400 || !cookie) {
-    const signin = await app.request(
-      '/api/auth/sign-in/email',
-      {
-        method: 'POST',
-        headers: { 'content-type': 'application/json', Origin: 'http://localhost:5173' },
-        body: JSON.stringify({ email, password }),
-      },
-      env,
-    )
-    if (signin.status >= 400) {
-      return { cookie: '', email, ok: false as const }
-    }
-    cookie = signin.headers.get('set-cookie') ?? ''
-  }
-  return { cookie, email, ok: Boolean(cookie) as true }
+  expect(res.status, `sign-in ${email}`).toBeLessThan(400)
+  const cookie = res.headers.get('set-cookie') ?? ''
+  expect(cookie, `cookie for ${email}`).toBeTruthy()
+  return cookie
 }
 
-describe('org RBAC (ADR-0003 Phase A)', () => {
+async function seedEnv() {
+  const app = createApp()
+  const env = createMemoryEnv(BA_ENV)
+  const db = createDb(env.DB as unknown as D1Database, schema)
+  await seedTenancyDemo(db, { environment: 'test', force: true })
+  return { app, env, db }
+}
+
+describe('org RBAC (ADR-0003 Phase A) — IDOR matrix', () => {
   it('HMAC adapter fail-closes org routes', async () => {
     const app = createApp()
     const env = createMemoryEnv({ AUTH_SESSION_ADAPTER: 'hmac' })
@@ -54,157 +54,143 @@ describe('org RBAC (ADR-0003 Phase A)', () => {
     expect(res.status).toBe(404)
   })
 
-  it('BA user can create org and list memberships; foreign org is 404', async () => {
-    const app = createApp()
-    const envA = createMemoryEnv(BA_ENV)
-    const a = await baSession(app, envA)
-    if (!a.ok) {
-      // BA signup path unavailable in this runtime — soft skip
-      expect(a.ok).toBe(false)
-      return
-    }
-
-    const create = await app.request(
-      '/api/orgs',
+  it('BA org mutation paths are denied (Phase A seed-only)', async () => {
+    const { app, env } = await seedEnv()
+    const cookie = await signIn(app, env, 'staff@gosilex.local')
+    const res = await app.request(
+      '/api/auth/organization/create',
       {
         method: 'POST',
         headers: {
-          cookie: a.cookie,
+          cookie,
           'content-type': 'application/json',
-          Origin: 'http://localhost:5173',
+          Origin: ORIGIN,
         },
-        body: JSON.stringify({
-          name: 'Acme Client',
-          slug: `acme-${crypto.randomUUID().slice(0, 6)}`,
-        }),
-      },
-      envA,
-    )
-    expect(create.status).toBe(201)
-    const { org } = (await create.json()) as { org: { id: string; slug: string } }
-    expect(org.id).toMatch(/^org_/)
-
-    const list = await app.request(
-      '/api/orgs',
-      { headers: { cookie: a.cookie, Origin: 'http://localhost:5173' } },
-      envA,
-    )
-    expect(list.status).toBe(200)
-    const listBody = (await list.json()) as { orgs: { id: string }[] }
-    expect(listBody.orgs.some((o) => o.id === org.id)).toBe(true)
-
-    const get = await app.request(
-      `/api/orgs/${org.id}`,
-      { headers: { cookie: a.cookie, Origin: 'http://localhost:5173' } },
-      envA,
-    )
-    expect(get.status).toBe(200)
-
-    // Second user / env cannot see orgA
-    const envB = createMemoryEnv(BA_ENV)
-    const b = await baSession(app, envB)
-    if (!b.ok) return
-    const denied = await app.request(
-      `/api/orgs/${org.id}`,
-      { headers: { cookie: b.cookie, Origin: 'http://localhost:5173' } },
-      envB,
-    )
-    expect(denied.status).toBe(404)
-  })
-
-  it('platform modules require super_admin for PATCH available', async () => {
-    const app = createApp()
-    const env = createMemoryEnv(BA_ENV)
-    const a = await baSession(app, env)
-    if (!a.ok) return
-
-    const patch = await app.request(
-      '/api/platform/modules/feedback',
-      {
-        method: 'PATCH',
-        headers: {
-          cookie: a.cookie,
-          'content-type': 'application/json',
-          Origin: 'http://localhost:5173',
-        },
-        body: JSON.stringify({ available: true }),
+        body: JSON.stringify({ name: 'Evil', slug: 'evil' }),
       },
       env,
     )
-    // no platform role → 403
-    expect(patch.status).toBe(403)
+    expect(res.status).toBe(404)
   })
 
-  it('seed tenancy personas + staff isolation + org-bound key', async () => {
-    const app = createApp()
-    const env = createMemoryEnv(BA_ENV)
-    const db = createDb(env.DB as unknown as D1Database, schema)
-    const seeded = await seedTenancyDemo(db)
-    expect(seeded.users.length).toBeGreaterThanOrEqual(5)
-    expect(seeded.orgs.some((o) => o.id === 'org_acme')).toBe(true)
-
-    // Staff can open acme, not solo
-    const signin = await app.request(
-      '/api/auth/sign-in/email',
-      {
-        method: 'POST',
-        headers: { 'content-type': 'application/json', Origin: 'http://localhost:5173' },
-        body: JSON.stringify({
-          email: 'staff@gosilex.local',
-          password: 'demo-password-change-me',
-        }),
-      },
-      env,
-    )
-    expect(signin.status).toBeLessThan(400)
-    const cookie = signin.headers.get('set-cookie') ?? ''
-    expect(cookie).toBeTruthy()
-
-    const acme = await app.request(
+  it('staff can open acme membership org', async () => {
+    const { app, env } = await seedEnv()
+    const cookie = await signIn(app, env, 'staff@gosilex.local')
+    const res = await app.request(
       '/api/orgs/org_acme',
-      { headers: { cookie, Origin: 'http://localhost:5173' } },
+      { headers: { cookie, Origin: ORIGIN } },
       env,
     )
-    expect(acme.status).toBe(200)
+    expect(res.status).toBe(200)
+  })
 
-    const solo = await app.request(
+  it('staff without membership gets 404 on solo org', async () => {
+    const { app, env } = await seedEnv()
+    const cookie = await signIn(app, env, 'staff@gosilex.local')
+    const res = await app.request(
       '/api/orgs/org_solo',
-      { headers: { cookie, Origin: 'http://localhost:5173' } },
+      { headers: { cookie, Origin: ORIGIN } },
       env,
     )
-    expect(solo.status).toBe(404)
+    expect(res.status).toBe(404)
+  })
 
-    // team reader cannot manage modules
-    const readerSignin = await app.request(
-      '/api/auth/sign-in/email',
-      {
-        method: 'POST',
-        headers: { 'content-type': 'application/json', Origin: 'http://localhost:5173' },
-        body: JSON.stringify({
-          email: 'team-reader@gosilex.local',
-          password: 'demo-password-change-me',
-        }),
-      },
-      env,
-    )
-    expect(readerSignin.status).toBeLessThan(400)
-    const readerCookie = readerSignin.headers.get('set-cookie') ?? ''
-    const readerPatch = await app.request(
+  it('team reader cannot PATCH org modules', async () => {
+    const { app, env } = await seedEnv()
+    const cookie = await signIn(app, env, 'team-reader@gosilex.local')
+    const res = await app.request(
       '/api/orgs/org_team/modules/feedback',
       {
         method: 'PATCH',
         headers: {
-          cookie: readerCookie,
+          cookie,
           'content-type': 'application/json',
-          Origin: 'http://localhost:5173',
+          Origin: ORIGIN,
         },
         body: JSON.stringify({ enabled: true }),
       },
       env,
     )
-    expect(readerPatch.status).toBe(403)
+    expect(res.status).toBe(403)
+  })
 
-    // org-bound key: mint for acme, cannot use after membership would fail if wrong org stored
+  it('non-super platform PATCH modules is 403', async () => {
+    const { app, env } = await seedEnv()
+    const cookie = await signIn(app, env, 'staff@gosilex.local')
+    const res = await app.request(
+      '/api/platform/modules/feedback',
+      {
+        method: 'PATCH',
+        headers: {
+          cookie,
+          'content-type': 'application/json',
+          Origin: ORIGIN,
+        },
+        body: JSON.stringify({ available: true }),
+      },
+      env,
+    )
+    expect(res.status).toBe(403)
+  })
+
+  it('path vs X-Org-Id mismatch returns 403', async () => {
+    const { app, env } = await seedEnv()
+    const cookie = await signIn(app, env, 'staff@gosilex.local')
+    const res = await app.request(
+      '/api/orgs/org_acme',
+      {
+        headers: {
+          cookie,
+          Origin: ORIGIN,
+          'X-Org-Id': 'org_beta',
+        },
+      },
+      env,
+    )
+    expect(res.status).toBe(403)
+  })
+
+  it('BA mint requires organizationId', async () => {
+    const { app, env } = await seedEnv()
+    const cookie = await signIn(app, env, 'staff@gosilex.local')
+    const res = await app.request(
+      '/api/keys',
+      {
+        method: 'POST',
+        headers: {
+          cookie,
+          'content-type': 'application/json',
+          Origin: ORIGIN,
+        },
+        body: '{}',
+      },
+      env,
+    )
+    expect(res.status).toBe(400)
+  })
+
+  it('mint for non-member org is forbidden', async () => {
+    const { app, env } = await seedEnv()
+    const cookie = await signIn(app, env, 'staff@gosilex.local')
+    const res = await app.request(
+      '/api/keys',
+      {
+        method: 'POST',
+        headers: {
+          cookie,
+          'content-type': 'application/json',
+          Origin: ORIGIN,
+        },
+        body: JSON.stringify({ organizationId: 'org_solo' }),
+      },
+      env,
+    )
+    expect(res.status).toBe(403)
+  })
+
+  it('org-bound key cannot hop to another membership org', async () => {
+    const { app, env, db } = await seedEnv()
+    const cookie = await signIn(app, env, 'staff@gosilex.local')
     const mint = await app.request(
       '/api/keys',
       {
@@ -212,35 +198,89 @@ describe('org RBAC (ADR-0003 Phase A)', () => {
         headers: {
           cookie,
           'content-type': 'application/json',
-          Origin: 'http://localhost:5173',
+          Origin: ORIGIN,
         },
         body: JSON.stringify({ organizationId: 'org_acme' }),
       },
       env,
     )
     expect(mint.status).toBe(200)
-    const { key, organizationId } = (await mint.json()) as {
-      key: string
-      organizationId: string
-    }
-    expect(organizationId).toBe('org_acme')
-    const me = await app.request('/api/me', { headers: { authorization: `Bearer ${key}` } }, env)
-    expect(me.status).toBe(200)
+    const { key } = (await mint.json()) as { key: string }
 
-    // mint without org under BA → validation error
-    const mintBare = await app.request(
-      '/api/keys',
+    // staff is also member of beta — key must not authorize beta routes
+    const hop = await app.request(
+      '/api/orgs/org_beta',
       {
-        method: 'POST',
         headers: {
-          cookie,
-          'content-type': 'application/json',
-          Origin: 'http://localhost:5173',
+          authorization: `Bearer ${key}`,
+          Origin: ORIGIN,
         },
-        body: '{}',
       },
       env,
     )
-    expect(mintBare.status).toBe(400)
+    expect(hop.status).toBe(403)
+
+    // membership removed → key dead
+    await db.delete(baMember).where(eq(baMember.id, 'mem_org_acme_user_staff'))
+    const dead = await app.request('/api/me', { headers: { authorization: `Bearer ${key}` } }, env)
+    expect(dead.status).toBe(401)
+  })
+
+  it('suspended org is denied', async () => {
+    const { app, env, db } = await seedEnv()
+    await db
+      .update(baOrganization)
+      .set({ status: 'suspended' })
+      .where(eq(baOrganization.id, 'org_acme'))
+    const cookie = await signIn(app, env, 'staff@gosilex.local')
+    const res = await app.request(
+      '/api/orgs/org_acme',
+      { headers: { cookie, Origin: ORIGIN } },
+      env,
+    )
+    expect(res.status).toBe(403)
+  })
+
+  it('super_admin cannot write tenant modules without break-glass', async () => {
+    const { app, env } = await seedEnv()
+    const cookie = await signIn(app, env, 'super@gosilex.local')
+    // super is not a member of org_solo; write default off → 404/403
+    const res = await app.request(
+      '/api/orgs/org_solo/modules/feedback',
+      {
+        method: 'PATCH',
+        headers: {
+          cookie,
+          'content-type': 'application/json',
+          Origin: ORIGIN,
+        },
+        body: JSON.stringify({ enabled: true }),
+      },
+      env,
+    )
+    expect([403, 404]).toContain(res.status)
+  })
+
+  it('super_admin can read foreign org with allowSuperAdmin route', async () => {
+    const { app, env } = await seedEnv()
+    const cookie = await signIn(app, env, 'super@gosilex.local')
+    // GET /api/orgs/:id uses allowSuperAdmin: true
+    const res = await app.request(
+      '/api/orgs/org_solo',
+      { headers: { cookie, Origin: ORIGIN } },
+      env,
+    )
+    expect(res.status).toBe(200)
+  })
+
+  it('team owner can list own org members', async () => {
+    const { app, env } = await seedEnv()
+    const cookie = await signIn(app, env, 'team-owner@gosilex.local')
+    const res = await app.request(
+      '/api/orgs/org_team/members',
+      { headers: { cookie, Origin: ORIGIN } },
+      env,
+    )
+    expect(res.status).toBe(200)
   })
 })
