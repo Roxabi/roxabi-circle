@@ -291,4 +291,73 @@ describe('org RBAC (ADR-0003 Phase A) — IDOR matrix', () => {
     )
     expect(res.status).toBe(200)
   })
+
+  it('super_admin can list platform modules; staff can list too', async () => {
+    const { app, env } = await seedEnv()
+    const superCookie = await signIn(app, env, 'super@gosilex.local')
+    const staffCookie = await signIn(app, env, 'staff@gosilex.local')
+    const s = await app.request(
+      '/api/platform/modules',
+      { headers: { cookie: superCookie, Origin: ORIGIN } },
+      env,
+    )
+    expect(s.status).toBe(200)
+    const st = await app.request(
+      '/api/platform/modules',
+      { headers: { cookie: staffCookie, Origin: ORIGIN } },
+      env,
+    )
+    expect(st.status).toBe(200)
+  })
+
+  it('team owner can GET org modules effective shape', async () => {
+    const { app, env } = await seedEnv()
+    const cookie = await signIn(app, env, 'team-owner@gosilex.local')
+    const res = await app.request(
+      '/api/orgs/org_team/modules',
+      { headers: { cookie, Origin: ORIGIN } },
+      env,
+    )
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as {
+      modules: { feedback: { available: boolean; effective: boolean } }
+    }
+    expect(body.modules.feedback).toHaveProperty('available')
+    expect(body.modules.feedback).toHaveProperty('effective')
+  })
+
+  it('key list includes organizationId; org list scoped for bound key', async () => {
+    const { app, env } = await seedEnv()
+    const cookie = await signIn(app, env, 'staff@gosilex.local')
+    const mint = await app.request(
+      '/api/keys',
+      {
+        method: 'POST',
+        headers: {
+          cookie,
+          'content-type': 'application/json',
+          Origin: ORIGIN,
+        },
+        body: JSON.stringify({ organizationId: 'org_acme', name: 'acme-bot' }),
+      },
+      env,
+    )
+    expect(mint.status).toBe(200)
+    const { key } = (await mint.json()) as { key: string }
+    const list = await app.request('/api/keys', { headers: { cookie, Origin: ORIGIN } }, env)
+    expect(list.status).toBe(200)
+    const listBody = (await list.json()) as {
+      keys: { organizationId: string | null; name: string | null }[]
+    }
+    expect(listBody.keys.some((k) => k.organizationId === 'org_acme')).toBe(true)
+
+    const orgs = await app.request(
+      '/api/orgs',
+      { headers: { authorization: `Bearer ${key}`, Origin: ORIGIN } },
+      env,
+    )
+    expect(orgs.status).toBe(200)
+    const orgsBody = (await orgs.json()) as { orgs: { id: string }[] }
+    expect(orgsBody.orgs.every((o) => o.id === 'org_acme')).toBe(true)
+  })
 })
