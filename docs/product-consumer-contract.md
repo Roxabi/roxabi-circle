@@ -140,6 +140,61 @@ Env:
 
 ---
 
+## CI zero-edit base (product Actions)
+
+GitHub Actions on a **product** repo has:
+
+- **No `upstream` remote** (checkout only clones `origin`)
+- Often a **shallow** history unless you ask for full depth
+
+Kit `ci.yml` therefore:
+
+1. Checks out with **`fetch-depth: 0`** (full history — kit tip SHAs must be reachable after merge).
+2. If `github.repository` is **not** `go-silex/silex-boilerplate`:
+   - requires product file **`docs/product/kit-baseline`**
+   - exports `ZERO_EDIT_BASE_REF` from that file (single line = full SHA)
+   - verifies the SHA exists: `git rev-parse --verify "${SHA}^{commit}"`
+   - then runs `bun run validate:full`
+3. Kit origin skips the block (zero-edit **kit** mode — config only).
+
+### Product file: `docs/product/kit-baseline`
+
+```text
+# Single line: full SHA of last-merged kit tip (upstream/main after merge).
+# Template (kit): docs/templates/kit-baseline.example
+268536b3874aefd82cc795c6f1c28f445644b5af
+```
+
+After every `git merge upstream/main`:
+
+```bash
+git rev-parse upstream/main > docs/product/kit-baseline
+# or: git rev-parse HEAD^{/merge.*upstream} — prefer the merged kit tip SHA
+git rev-parse upstream/main | tr -d '\n' > docs/product/kit-baseline
+echo >> docs/product/kit-baseline   # optional trailing newline is stripped by CI
+```
+
+Commit the file with the merge (or immediately after). Stale baseline → false zero-edit failures or silent drift against an old tip.
+
+### Local / product-validate parity
+
+```bash
+# Local clone with upstream remote — default base is fine:
+bun run zero-edit
+
+# CI-like (no upstream remote):
+export ZERO_EDIT_BASE_REF="$(tr -d '[:space:]' < docs/product/kit-baseline)"
+bun run zero-edit
+
+# Product scripts may fall back to kit-baseline when upstream is missing:
+#   apps/<product>-api/scripts/product-validate.sh
+```
+
+Do **not** dual-edit kit `ci.yml` for this — the pattern lives in the kit.  
+Do **not** rely on org secrets to fetch private `upstream` solely for zero-edit when the kit tip is already in product history after merge.
+
+---
+
 ## Git remotes (every product clone)
 
 ```bash
@@ -171,11 +226,14 @@ Optional product-only files (safe for upstream merge):
 apps/<product>-api/
 apps/<product>-web/
 apps/<product>-mcp/
-docs/product/                              # AGENTS, frames, zero-edit-exceptions.json
+docs/product/                              # AGENTS, frames, zero-edit-exceptions.json, kit-baseline
+docs/product/kit-baseline                  # full SHA of last-merged kit tip (required for Actions zero-edit)
 .github/workflows/product-*.yml
 scripts/product/                           # product helpers; not required by kit
 apps/<product>-web/src/theme/*.css         # design token overrides
 ```
+
+Template for `docs/product/kit-baseline`: [`docs/templates/kit-baseline.example`](./templates/kit-baseline.example).
 
 ### Optional product CI (pattern)
 
@@ -249,6 +307,7 @@ If product build breaks after pull → fix product code or contribute a kit fix 
 
 - [ ] No uncommitted product changes on kit paths  
 - [ ] `git merge upstream/main` last time only touched product paths or pure kit updates  
+- [ ] `docs/product/kit-baseline` updated to new `upstream/main` SHA (Actions zero-edit)  
 - [ ] Product apps don’t import from other product apps via kit packages  
 - [ ] CI vars/secrets only — no forked workflow diffs  
 - [ ] Deny-upstream hook active (kit lefthook; no product fork of the file)  

@@ -22,7 +22,10 @@ jobs:
     timeout-minutes: 25
     steps:
       # Pin SHAs (supply-chain); tags float.
+      # fetch-depth 0: product zero-edit needs kit baseline commit reachable (docs/product/kit-baseline).
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4
+        with:
+          fetch-depth: 0
 
       - uses: oven-sh/setup-bun@735343b667d3e6f658f44d0eca948eb6282f2b76 # v2.0.2
         with:
@@ -31,10 +34,26 @@ jobs:
       - name: Install
         run: bun install --frozen-lockfile
 
-      # Single entrypoint = local pre-push (docs/testing.md).
-      # Includes lint · typecheck · banlist · extract · zero-edit · env · coverage · license · build:kit · smoke:mcp
+      # Kit origin: zero-edit kit mode (config only). Product clones: no upstream remote on
+      # Actions — point ZERO_EDIT_BASE_REF at last-merged kit tip (docs/product/kit-baseline).
+      # See docs/product-consumer-contract.md § CI zero-edit base.
       - name: Validate full
-        run: bun run validate:full
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.repository }}" != "go-silex/silex-boilerplate" ]]; then
+            if [[ ! -f docs/product/kit-baseline ]]; then
+              echo "::error::missing docs/product/kit-baseline (kit tip SHA after last upstream merge)"
+              exit 1
+            fi
+            export ZERO_EDIT_BASE_REF
+            ZERO_EDIT_BASE_REF="$(tr -d '[:space:]' < docs/product/kit-baseline)"
+            if ! git rev-parse --verify "${ZERO_EDIT_BASE_REF}^{commit}" >/dev/null 2>&1; then
+              echo "::error::kit-baseline ${ZERO_EDIT_BASE_REF} not in history — fetch-depth/full history or re-merge upstream"
+              exit 1
+            fi
+            echo "ZERO_EDIT_BASE_REF=${ZERO_EDIT_BASE_REF}"
+          fi
+          bun run validate:full
 
       - name: Upload coverage HTML
         if: always()

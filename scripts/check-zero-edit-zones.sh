@@ -200,9 +200,11 @@ const baseRef = process.env.ZERO_EDIT_BASE_REF || defaultBase
 if (!refExists(baseRef)) {
   die(
     `base ref "${baseRef}" not found.\n` +
-      `  Product clones must:\n` +
+      `  Product clones must provide a reachable kit base via one of:\n` +
       `    git remote add upstream git@github.com:go-silex/silex-boilerplate.git\n` +
       `    git fetch upstream\n` +
+      `    docs/product/kit-baseline  # CI: full SHA of last-merged kit tip\n` +
+      `    ZERO_EDIT_BASE_REF env\n` +
       `  Override: ZERO_EDIT_BASE_REF=upstream/main bun run zero-edit`,
   )
 }
