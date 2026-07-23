@@ -596,10 +596,14 @@ Objectif : l’IA accélère, **ne contourne pas** les garde-fous. Même barre q
 
 ### 2. Configuration agents (SSoT)
 
+Machine-readable stack + Claude plugins live in **`.claude/stack.yml`** and **`.claude/settings.json`** (tracked; local-only files ignored). `CLAUDE.md` includes both `@.claude/stack.yml` and `@AGENTS.md`.
+
 | Artefact | Rôle |
 |---|---|
 | **`AGENTS.md`** (ce fichier) | stack, couches, anti-patterns, sécu, dual-mission |
-| **`CLAUDE.md` → `@AGENTS.md`** | point d’entrée Claude / Grok |
+| **`.claude/stack.yml`** | monorepo map machine-readable (paths, commands, packages) |
+| **`.claude/settings.json`** | plugins + marketplaces Claude Code |
+| **`CLAUDE.md` → stack + AGENTS** | point d’entrée Claude / Grok |
 | **Frame** | règles produit non négociables |
 | **Skills** | utiliser la skill existante (`/code-review`, issue-triage…) plutôt que réinventer |
 | **Hooks** | Lefthook : lint/format/typecheck avant commit — **l’IA ne passe pas `--no-verify`** |

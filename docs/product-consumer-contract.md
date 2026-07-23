@@ -177,6 +177,34 @@ scripts/product/                           # product helpers; not required by ki
 apps/<product>-web/src/theme/*.css         # design token overrides
 ```
 
+### Optional product CI (pattern)
+
+Kit `ci.yml` / `validate:full` stay kit-only and must not fail when product apps are absent. Products that need extra gates **add** a new workflow file:
+
+```text
+.github/workflows/product-ci.yml           # product-only; never edit kit ci.yml
+apps/<product>-api/scripts/product-validate.sh
+```
+
+Typical `product-validate.sh` shape:
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
+cd "$ROOT"
+
+bun run zero-edit
+bun run --filter @gosilex/<product>-api typecheck
+bun run --filter @gosilex/<product>-api test
+bun run --filter @gosilex/<product>-web typecheck
+bun run --filter @gosilex/<product>-web test
+bun run --filter @gosilex/<product>-api build   # e.g. wrangler dry-run
+```
+
+Workflow job: checkout → setup-bun → `bun install --frozen-lockfile` → `bash apps/<product>-api/scripts/product-validate.sh`.  
+Do **not** add a kit workflow that filters product package names (it would go red on bare kit clones).
+
 ---
 
 ## Pulling kit upgrades

@@ -1,0 +1,70 @@
+schema_version: "1.0"
+name: silex-boilerplate
+runtime: bun
+package_manager: bun
+bun_version: "1.3.14"
+
+backend:
+  framework: hono
+  orm: drizzle
+  db: d1
+  path: apps/example-api
+frontend:
+  framework: vite
+  router: tanstack-router
+  path: apps/example-web
+  ui_package: packages/ui
+  ui_src: packages/ui/src
+shared:
+  types: packages/types
+  ui: packages/ui
+  auth: packages/auth
+  db: packages/db
+  core: packages/core
+  storage: packages/storage
+  email: packages/email
+  feedback: packages/feedback
+  i18n: packages/i18n
+  mcp: packages/mcp
+build:
+  orchestrator: turbo
+  formatter: biome
+  formatter_config: biome.json
+  formatter_fix_cmd: "bun run lint:fix"
+testing:
+  unit: vitest
+  e2e: design-system-script
+hooks:
+  tool: lefthook
+deploy:
+  platform: cloudflare
+  secrets_cmd: "wrangler secret put <KEY> --config apps/<app>/wrangler.toml"
+commands:
+  dev: bun run dev
+  build: bun run build
+  test: bun run test
+  lint: bun run lint
+  typecheck: bun run typecheck
+  install: bun install
+  validate: bun run validate
+  validate_full: bun run validate:full
+  zero_edit: bun run zero-edit
+  db_migrate: bun run db:migrate
+  db_seed: bun run db:seed
+  build_kit: bun run build:kit
+  smoke_mcp: bun run smoke:mcp
+artifacts:
+  analyses: artifacts/analyses
+  specs: artifacts/specs
+  frames: artifacts/frames
+  plans: artifacts/plans
+  goals: artifacts/goals
+standards:
+  testing: docs/testing.md
+  product_contract: docs/product-consumer-contract.md
+  observability: docs/observability.md
+  architecture: docs/architecture/adr/
+  issue_management: AGENTS.md
+  dev_process: AGENTS.md
+  contributing: README.md
+  agent_entry: CLAUDE.md

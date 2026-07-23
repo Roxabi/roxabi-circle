@@ -1,0 +1,37 @@
+{
+  "enabledPlugins": {
+    "dev-core@roxabi-marketplace": true,
+    "dev-init@roxabi-marketplace": true,
+    "roxabi-issues@roxabi-live-marketplace": true,
+    "improve@improve": true,
+    "impeccable@impeccable": true,
+    "forge@roxabi-forge": true,
+    "typescript-lsp@claude-plugins-official": true,
+    "cocoindex-code@cocoindex-code": true,
+    "frontend-design@claude-plugins-official": true,
+    "security-guidance@claude-plugins-official": true
+  },
+  "extraKnownMarketplaces": {
+    "roxabi-marketplace": {
+      "source": { "source": "github", "repo": "Roxabi/roxabi-plugins" }
+    },
+    "roxabi-live-marketplace": {
+      "source": { "source": "github", "repo": "roxabi/roxabi-live" }
+    },
+    "improve": {
+      "source": { "source": "github", "repo": "shadcn/improve" }
+    },
+    "impeccable": {
+      "source": { "source": "github", "repo": "pbakaus/impeccable" }
+    },
+    "roxabi-forge": {
+      "source": { "source": "github", "repo": "Roxabi/roxabi-forge" }
+    },
+    "claude-plugins-official": {
+      "source": { "source": "github", "repo": "anthropics/claude-plugins-official" }
+    },
+    "cocoindex-code": {
+      "source": { "source": "github", "repo": "Roxabi/cocoindex-code" }
+    }
+  }
+}

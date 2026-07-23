@@ -1,7 +1,7 @@
 import Database from 'better-sqlite3'
 import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 import { describe, expect, it } from 'vitest'
-import { createDb } from './index'
+import { createDb, D1_IN_ARRAY_CHUNK, mapInChunks } from './index'
 
 const notes = sqliteTable('demo_notes', {
   id: text('id').primaryKey(),
@@ -67,5 +67,19 @@ describe('createDb', () => {
     expect(rows[0]?.title).toBe('hello')
     expect(rows[0]?.body).toBe('world')
     expect(rows[0]?.createdAt).toBe(42)
+  })
+})
+
+describe('mapInChunks', () => {
+  it('chunks ids and concatenates results', async () => {
+    expect(D1_IN_ARRAY_CHUNK).toBe(80)
+    const ids = [1, 2, 3, 4, 5]
+    const seen: number[][] = []
+    const out = await mapInChunks(ids, 2, async (chunk) => {
+      seen.push(chunk)
+      return chunk.map((n) => n * 10)
+    })
+    expect(seen).toEqual([[1, 2], [3, 4], [5]])
+    expect(out).toEqual([10, 20, 30, 40, 50])
   })
 })

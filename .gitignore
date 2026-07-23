@@ -2,8 +2,10 @@
 .DS_Store
 Thumbs.db
 
-# Editor / agent local
-.claude/
+# Claude / agent — track settings.json + stack.yml; ignore local-only
+.claude/worktrees/
+.claude/*.lock
+.claude/settings.local.json
 .grok/
 *.bak
 
