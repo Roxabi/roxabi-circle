@@ -13,25 +13,47 @@
   },
   "extraKnownMarketplaces": {
     "roxabi-marketplace": {
-      "source": { "source": "github", "repo": "Roxabi/roxabi-plugins" }
+      "source": {
+        "source": "github",
+        "repo": "Roxabi/roxabi-plugins"
+      },
+      "autoUpdate": true
     },
     "roxabi-live-marketplace": {
-      "source": { "source": "github", "repo": "roxabi/roxabi-live" }
+      "source": {
+        "source": "github",
+        "repo": "roxabi/roxabi-live"
+      }
     },
     "improve": {
-      "source": { "source": "github", "repo": "shadcn/improve" }
+      "source": {
+        "source": "github",
+        "repo": "shadcn/improve"
+      }
     },
     "impeccable": {
-      "source": { "source": "github", "repo": "pbakaus/impeccable" }
+      "source": {
+        "source": "github",
+        "repo": "pbakaus/impeccable"
+      }
     },
     "roxabi-forge": {
-      "source": { "source": "github", "repo": "Roxabi/roxabi-forge" }
+      "source": {
+        "source": "github",
+        "repo": "Roxabi/roxabi-forge"
+      }
     },
     "claude-plugins-official": {
-      "source": { "source": "github", "repo": "anthropics/claude-plugins-official" }
+      "source": {
+        "source": "github",
+        "repo": "anthropics/claude-plugins-official"
+      }
     },
     "cocoindex-code": {
-      "source": { "source": "github", "repo": "Roxabi/cocoindex-code" }
+      "source": {
+        "source": "github",
+        "repo": "Roxabi/cocoindex-code"
+      }
     }
   }
 }
