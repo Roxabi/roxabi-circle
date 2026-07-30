@@ -1,5 +1,8 @@
 import { hashPassword } from '@gosilex/auth'
+import { hashPassword as baHashPassword } from 'better-auth/crypto'
+import { eq } from 'drizzle-orm'
 import type { DrizzleD1Database } from 'drizzle-orm/d1'
+import { baAccount, baUser } from '../db/better-auth-schema'
 import { apiKeys, demoNotes, demoUsers, type schema } from '../db/schema'
 import * as modulesRepo from '../repos/modules'
 import * as platformRolesRepo from '../repos/platform-roles'
@@ -23,6 +26,45 @@ export async function resetDemoTables(db: Db): Promise<void> {
   await db.delete(apiKeys).run()
   await db.delete(demoNotes).run()
   await db.delete(demoUsers).run()
+}
+
+/**
+ * BA credential accounts for SEED_USERS (ADR-0002 BA-only login).
+ * Idempotent — same ids as demo_users for roleForSubject / notes ownership.
+ */
+export async function seedBaDemoUsers(
+  db: Db,
+  opts?: { now?: Date },
+): Promise<{ id: string; email: string; created: boolean }[]> {
+  const now = opts?.now ?? new Date()
+  const out: { id: string; email: string; created: boolean }[] = []
+  for (const u of SEED_USERS) {
+    const existing = await db.select().from(baUser).where(eq(baUser.id, u.id)).limit(1)
+    if (existing[0]) {
+      out.push({ id: u.id, email: u.email, created: false })
+      continue
+    }
+    const passwordHash = await baHashPassword(u.password)
+    await db.insert(baUser).values({
+      id: u.id,
+      name: u.email.split('@')[0] ?? u.id,
+      email: u.email,
+      emailVerified: true,
+      createdAt: now,
+      updatedAt: now,
+    })
+    await db.insert(baAccount).values({
+      id: `acc_${u.id}`,
+      accountId: u.id,
+      providerId: 'credential',
+      userId: u.id,
+      password: passwordHash,
+      createdAt: now,
+      updatedAt: now,
+    })
+    out.push({ id: u.id, email: u.email, created: true })
+  }
+  return out
 }
 
 /**
@@ -63,7 +105,7 @@ export async function seedDemoDatabase(
     users.push({ id: u.id, email: u.email, role: u.role, created: true })
   }
 
-  // Kit demo admin → platform super_admin for catalogue ops (HMAC + dual demos)
+  // Kit demo admin → platform super_admin for catalogue ops
   const admin = SEED_USERS.find((u) => u.role === 'admin')
   if (admin) {
     try {
@@ -71,6 +113,13 @@ export async function seedDemoDatabase(
     } catch {
       /* table may be missing on pre-migration */
     }
+  }
+
+  // BA-only login: mirror SEED_USERS into Better Auth credential accounts
+  try {
+    await seedBaDemoUsers(db, { now: new Date(now) })
+  } catch {
+    /* BA tables may be missing on incomplete migration */
   }
 
   const notes: SeedResult['notes'] = []

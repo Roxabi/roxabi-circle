@@ -2,7 +2,6 @@ import { AppError } from '@gosilex/core'
 import { Hono } from 'hono'
 import { z } from 'zod'
 import { assertRateLimit } from '../lib/rate-limit'
-import { authSessionAdapter } from '../lib/session-env'
 import { requireAuth } from '../middleware/require-auth'
 import * as authService from '../services/auth'
 import type { AppEnv } from '../types'
@@ -55,13 +54,12 @@ meRoutes.post('/api/keys', async (c) => {
 
   const orgFromHeader = c.req.header('x-org-id')?.trim()
   const organizationId = body.data.organizationId?.trim() || orgFromHeader || null
-  const requireOrganization = authSessionAdapter(c.env) === 'better-auth'
 
   const db = c.get('db')!
   const minted = await authService.mintApiKey(db, subject, {
     name: body.data.name,
     organizationId,
-    requireOrganization,
+    requireOrganization: true,
   })
   return c.json({
     id: minted.id,

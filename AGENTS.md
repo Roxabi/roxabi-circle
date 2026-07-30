@@ -187,7 +187,7 @@ Escape hatch : Postgres/Hyperdrive si un app dépasse D1 — documenté, pas def
 | Élément | Choix | Quand |
 |---|---|---|
 | Sessions UI (cible) | **Better Auth** sur **Hono** (GitHub + org membership) | **M3** |
-| Sessions UI (**aujourd’hui**) | **HMAC-signed cookie** via `@gosilex/auth` — [ADR-0002](docs/architecture/adr/0002-session-hmac-interim-vs-better-auth.md) | B3 / kit |
+| Sessions UI (**aujourd’hui**) | **Better Auth** cookies via `@gosilex/auth` SessionPort — [ADR-0002](docs/architecture/adr/0002-session-hmac-interim-vs-better-auth.md) (HMAC **retired**) | kit |
 | API keys machine | `sk_…` hash en D1, **per-user** | B1+ bootstrap |
 | Guards (kit) | Hono middleware dual-path `requireAuth` (Bearer **ou** cookie) dans `example-api` | B1+ |
 | Guards (cible package) | `requireSession` / `requireApiKey` dans `@gosilex/auth` | M3 / promote |
@@ -197,7 +197,7 @@ Escape hatch : Postgres/Hyperdrive si un app dépasse D1 — documenté, pas def
 
 | Règle | Détail |
 |---|---|
-| Qui set | **Aujourd’hui :** `sessionCookieHeader` / login route · **M3 :** Better Auth → `Set-Cookie` |
+| Qui set | Better Auth handler `ALL /api/auth/*` → `Set-Cookie` |
 | Attributs | **HttpOnly** · **Secure** (prod) · **SameSite=Lax** (ou `None`+Secure si cross-site strict) · `Path=/` |
 | Domain | parent `.gosilex.com` si SPA/API sous-domaines ≠ ; sinon **même host** (préféré M3) |
 | Client fetch | **`credentials: 'include'`** sur apiClient central |
@@ -208,7 +208,7 @@ Escape hatch : Postgres/Hyperdrive si un app dépasse D1 — documenté, pas def
 
 **Non-default :** Clerk.
 
-**Interim (ADR-0002) :** HMAC session est volontaire jusqu’à Better Auth M3 — ne pas « inventer » Better Auth dans le code tant que non livré. Cible M3 : doc officielle + [better-auth-cloudflare](https://github.com/zpg6/better-auth-cloudflare) + [hono better-auth CF](https://hono.dev/examples/better-auth-on-cloudflare). Pattern : **1 instance auth / request** (bindings). Prefer `SessionPort` avant le swap.
+**ADR-0002 (2026-07-30) :** session navigateur = **Better Auth only** (HMAC retiré). Dual-path restant = cookie session **\|** Bearer `sk_`. Pattern : **1 instance auth / request** (bindings) + `SessionPort`.
 
 ---
 
@@ -290,7 +290,7 @@ Ref pattern : `roxabi-boilerplate` (`errorCodes`, `errorUtils`, `ApiError`).
 | `@gosilex/config` | tsconfig, Biome, Vitest presets | **P0** |
 | `@gosilex/db` | Drizzle D1 + migrate | **P0** |
 | `@gosilex/storage` | R2 put/get/presign | **P0** |
-| `@gosilex/auth` | HMAC session + API keys (interim ADR-0002) · Better Auth **M3** | **P0** / M3 |
+| `@gosilex/auth` | Better Auth SessionPort + API keys `sk_` (ADR-0002 BA-only) | **P0** |
 | `@gosilex/types` | Zod schemas + ErrorCode | **P0** |
 | `@gosilex/ui` | shadcn Base UI shell | M3 |
 | `@gosilex/mcp` | FastMCP/SDK conventions | M5 |
@@ -467,7 +467,7 @@ silex-share/
 | **B0** | Bun+Turbo monorepo · Biome · Vitest · Lefthook · AppError+requestId · `packages/core`+`config` · `apps/example-api` health |
 | **B1** | `example-api` : Hono + D1 demo schema + Zod + guards skeleton · CI typecheck/test/lint |
 | **B2** | `packages/db`+`storage` generic · R2 helper demo · migrations pattern |
-| **B3** | `packages/auth` HMAC session (ADR-0002) + cookies · key hash demo · **not** share domain · Better Auth = M3 |
+| **B3** | `packages/auth` Better Auth SessionPort + cookies · key hash demo · **not** share domain |
 | **B4** | `example-web` TanStack+shadcn Base UI · i18n FR/EN · ApiError client |
 | **B5** | FastMCP `mcp-example` · email + Mailpit compose · rate-limit/audit stubs |
 | **B6** | Extract dry-run CI · docs kit · Sentry/Better Stack hooks · Playwright smoke examples |
@@ -552,7 +552,7 @@ Quand la CI app existera : l’ajouter dans `workflow_run.workflows` de `merge-o
 
 ### Suite
 
-- [ ] **Better Auth + cookies (M3)** — remplace HMAC interim (ADR-0002) · GitHub OAuth + org membership  
+- [x] **Better Auth + cookies (session)** — BA-only (ADR-0002) · GitHub OAuth product still later  
 - [x] packages/ui Base UI + example-web (kit shell live)  
 - [x] i18n FR/EN catalogs (Paraglide optional later)  
 - [ ] FastMCP product tools + skill (hors kit strings)  

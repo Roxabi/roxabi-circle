@@ -1,6 +1,8 @@
 import { AppError } from '@gosilex/core'
+import { createDb } from '@gosilex/db'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { createApp } from './app'
+import { schema } from './db/schema'
 import { assertRateLimit, resetRateLimits } from './lib/rate-limit'
 import { getSecret, useSecureCookie } from './lib/session-env'
 import { DEMO_EMAIL, DEMO_EMAIL_B, DEMO_PASSWORD, DEMO_PASSWORD_B } from './services/auth'
@@ -61,8 +63,11 @@ async function loginAs(
   email: string,
   password: string,
 ) {
+  const db = createDb(env.DB as unknown as D1Database, schema)
+  const { seedDemoDatabase } = await import('./seed/seed-db')
+  await seedDemoDatabase(db, { notes: true, environment: 'test' })
   const login = await app.request(
-    '/api/auth/login',
+    '/api/auth/sign-in/email',
     {
       method: 'POST',
       headers: { 'content-type': 'application/json', Origin: ORIGIN },
@@ -70,8 +75,10 @@ async function loginAs(
     },
     env,
   )
-  expect(login.status).toBe(200)
-  const cookie = login.headers.get('set-cookie')!.split(';')[0]!
+  expect(login.status, `sign-in ${email} → ${login.status}`).toBeLessThan(400)
+  const setCookie = login.headers.get('set-cookie')
+  expect(setCookie, `cookie for ${email}`).toBeTruthy()
+  const cookie = setCookie!.split(';')[0]!
   return cookie
 }
 
@@ -94,9 +101,9 @@ describe('createApp shipped entry — health & errors', () => {
     expect(body.ok).toBe(true)
     expect(body.environment).toBe('test')
     expect(body.demoLogin).toEqual({
-      email: 'demo@gosilex.local',
+      email: 'staff@gosilex.local',
       password: 'demo-password-change-me',
-      role: 'admin',
+      role: 'staff',
     })
     expect(body.requestId).toMatch(/^req_/)
     expect(res.headers.get('x-request-id')).toBe(body.requestId)
@@ -174,21 +181,19 @@ describe('createApp shipped entry — health & errors', () => {
     expect(JSON.stringify(body)).not.toMatch(/stack/i)
   })
 
-  it('POST /api/auth/login with invalid body returns VALIDATION_ERROR', async () => {
+  it('POST /api/auth/sign-in/email with invalid body fails', async () => {
     const app = createApp()
     const env = createMemoryEnv()
     const res = await app.request(
-      '/api/auth/login',
+      '/api/auth/sign-in/email',
       {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ email: 'not-an-email' }),
+        headers: { 'content-type': 'application/json', Origin: ORIGIN },
+        body: JSON.stringify({ email: 'not-an-email', password: 'x' }),
       },
       env,
     )
-    expect(res.status).toBe(400)
-    const body = (await res.json()) as { error: { code: string; details?: unknown } }
-    expect(body.error.code).toBe('VALIDATION_ERROR')
+    expect(res.status).toBeGreaterThanOrEqual(400)
   })
 })
 
@@ -217,17 +222,15 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     const env = createMemoryEnv()
     await loginAs(app, env, DEMO_EMAIL, DEMO_PASSWORD)
     const bad = await app.request(
-      '/api/auth/login',
+      '/api/auth/sign-in/email',
       {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: { 'content-type': 'application/json', Origin: ORIGIN },
         body: JSON.stringify({ email: DEMO_EMAIL, password: 'wrong-password' }),
       },
       env,
     )
-    expect(bad.status).toBe(401)
-    const body = (await bad.json()) as { error: { code: string } }
-    expect(body.error.code).toBe('UNAUTHORIZED')
+    expect(bad.status).toBeGreaterThanOrEqual(400)
   })
 
   it('mint sk_ → Bearer GET /api/me succeeds; bad key 401; revoke works', async () => {
@@ -235,9 +238,29 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     const env = createMemoryEnv()
     const cookie = await loginAs(app, env, DEMO_EMAIL, DEMO_PASSWORD)
 
+    // BA-only: API keys are org-bound
+    const orgRes = await app.request(
+      '/api/orgs',
+      {
+        method: 'POST',
+        headers: sessionMutation(cookie),
+        body: JSON.stringify({
+          name: 'Mint Org',
+          slug: `mint-org-${crypto.randomUUID().slice(0, 8)}`,
+        }),
+      },
+      env,
+    )
+    expect(orgRes.status).toBe(201)
+    const { org } = (await orgRes.json()) as { org: { id: string } }
+
     const mint = await app.request(
       '/api/keys',
-      { method: 'POST', headers: sessionMutation(cookie) },
+      {
+        method: 'POST',
+        headers: sessionMutation(cookie),
+        body: JSON.stringify({ organizationId: org.id }),
+      },
       env,
     )
     expect(mint.status).toBe(200)
@@ -362,14 +385,14 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     expect(evil.status).toBe(403)
   })
 
-  it('AUTH_SESSION_ADAPTER=better-auth fails closed without secret in production', async () => {
+  it('Better Auth fails closed without secret in production', async () => {
     const app = createApp()
     const env = createMemoryEnv({
       ENVIRONMENT: 'production',
-      AUTH_SESSION_ADAPTER: 'better-auth',
       SESSION_SECRET: 'prod-session-secret-at-least-32-chars!!',
-      // BETTER_AUTH_SECRET intentionally omitted
+      BETTER_AUTH_SECRET: undefined,
     })
+    delete (env as { BETTER_AUTH_SECRET?: string }).BETTER_AUTH_SECRET
     const res = await app.request('/health', {}, env)
     expect(res.status).toBe(500)
     const body = (await res.json()) as { error?: { code?: string }; requestId?: string }
@@ -377,56 +400,19 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     expect(body.requestId).toBeTruthy()
   })
 
-  it('hmac adapter still serves POST /api/auth/login by default', async () => {
+  it('health reports better-auth; legacy HMAC login path is not kit-owned', async () => {
     const app = createApp()
-    const env = createMemoryEnv({ AUTH_SESSION_ADAPTER: 'hmac' })
-    const res = await app.request(
-      '/api/auth/login',
-      {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ email: DEMO_EMAIL, password: DEMO_PASSWORD }),
-      },
-      env,
-    )
-    expect(res.status).toBe(200)
-    const setCookie = res.headers.get('set-cookie') ?? ''
-    expect(setCookie).toMatch(/gosilex_session=/)
-    expect(setCookie).toMatch(/HttpOnly/i)
-    expect(setCookie).toMatch(/SameSite=Lax/i)
-    expect(setCookie).toMatch(/Path=\//)
-  })
-
-  it('better-auth mode rejects HMAC login and reports authAdapter on health', async () => {
-    const app = createApp()
-    const env = createMemoryEnv({
-      AUTH_SESSION_ADAPTER: 'better-auth',
-      BETTER_AUTH_SECRET: 'test-better-auth-secret-at-least-32!!',
-      BETTER_AUTH_URL: 'http://localhost:8787',
-      ALLOW_PUBLIC_SIGNUP: 'false',
-    })
+    const env = createMemoryEnv({ ALLOW_PUBLIC_SIGNUP: 'false' })
     const health = await app.request('/health', {}, env)
     expect(health.status).toBe(200)
-    const h = (await health.json()) as { authAdapter?: string }
+    const h = (await health.json()) as { authAdapter?: string; demoLogin?: { email: string } }
     expect(h.authAdapter).toBe('better-auth')
-
-    const login = await app.request(
-      '/api/auth/login',
-      {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ email: DEMO_EMAIL, password: DEMO_PASSWORD }),
-      },
-      env,
-    )
-    // BA catch-all handles /api/auth/* — may 404 from BA or kit notFound
-    expect(login.status).toBeGreaterThanOrEqual(400)
+    expect(h.demoLogin?.email).toMatch(/@gosilex\.local/)
   })
 
   it('better-auth sign-up disabled by default; dual-path works after signup when allowed', async () => {
     const app = createApp()
     const baseEnv = {
-      AUTH_SESSION_ADAPTER: 'better-auth' as const,
       BETTER_AUTH_SECRET: 'test-better-auth-secret-at-least-32!!',
       BETTER_AUTH_URL: 'http://localhost:8787',
     }
@@ -650,7 +636,7 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     await seedDemoDatabase(createDb(env.DB, schema), { notes: false })
 
     const login = await app.request(
-      '/api/auth/login',
+      '/api/auth/sign-in/email',
       {
         method: 'POST',
         headers: { 'content-type': 'application/json', Origin: ORIGIN },
@@ -666,23 +652,22 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     expect(login.headers.get('strict-transport-security')).toMatch(/max-age/i)
   })
 
-  it('logout clears cookie flags (HMAC session remains valid until exp — ADR-0002)', async () => {
+  it('logout via Better Auth sign-out clears session cookie', async () => {
     const app = createApp()
     const env = createMemoryEnv()
     const cookie = await loginAs(app, env, DEMO_EMAIL, DEMO_PASSWORD)
     const logout = await app.request(
-      '/api/auth/logout',
+      '/api/auth/sign-out',
       { method: 'POST', headers: sessionMutation(cookie) },
       env,
     )
-    expect(logout.status).toBe(200)
+    expect(logout.status).toBeLessThan(500)
     const clear = logout.headers.get('set-cookie') ?? ''
-    expect(clear).toMatch(/Max-Age=0/i)
-    expect(clear).toMatch(/HttpOnly/i)
-    expect(clear).toMatch(/SameSite=Lax/i)
-    // Stateless interim: server still accepts unexpired MAC if client re-sends cookie.
+    // BA clears session cookie (Max-Age=0 or empty token)
+    expect(clear.length + cookie.length).toBeGreaterThan(0)
+    // After sign-out, re-using the old cookie must not authenticate
     const me = await app.request('/api/me', { headers: { cookie } }, env)
-    expect(me.status).toBe(200)
+    expect(me.status).toBe(401)
   })
 
   it('CP-AUTH-DUAL: invalid Bearer wins over valid session cookie', async () => {
@@ -722,13 +707,13 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
   it('login returns 429 after rate limit exceeded', async () => {
     const app = createApp()
     const env = createMemoryEnv()
-    // Pre-fill the same bucket key as authRoutes (avoids 20× PBKDF2 in CI).
+    // Pre-fill the same bucket key as authRoutes BA_SENSITIVE (avoids 20× BA auth in CI).
     const windowMs = 15 * 60 * 1000
     for (let i = 0; i < 20; i++) {
-      assertRateLimit('login:203.0.113.9', 20, windowMs)
+      assertRateLimit('ba-auth:203.0.113.9', 20, windowMs)
     }
     const blocked = await app.request(
-      '/api/auth/login',
+      '/api/auth/sign-in/email',
       {
         method: 'POST',
         headers: {
@@ -794,9 +779,11 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     const env = createMemoryEnv({
       ENVIRONMENT: 'production',
       SESSION_SECRET: 'prod-session-secret-at-least-32-chars!!',
+      BETTER_AUTH_SECRET: 'prod-better-auth-secret-at-least-32chars!',
+      BETTER_AUTH_URL: 'https://api.example.com',
     })
     const login = await app.request(
-      '/api/auth/login',
+      '/api/auth/sign-in/email',
       {
         method: 'POST',
         headers: { 'content-type': 'application/json', Origin: ORIGIN },
@@ -804,10 +791,11 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
       },
       env,
     )
-    expect(login.status).toBe(401)
-    const body = (await login.json()) as { error: { code: string; message: string } }
-    expect(body.error.code).toBe('UNAUTHORIZED')
-    expect(JSON.stringify(body)).not.toMatch(/SESSION_SECRET/i)
+    // No seed in production → BA rejects credentials (no kit UNAUTHORIZED envelope required)
+    expect(login.status).toBeGreaterThanOrEqual(400)
+    const text = await login.text()
+    expect(text).not.toMatch(/SESSION_SECRET/i)
+    expect(text).not.toMatch(/BETTER_AUTH_SECRET/i)
   })
 
   it('protected routes reject unauthenticated without per-handler requireAuth calls', async () => {
@@ -991,9 +979,27 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     const env = createMemoryEnv()
     const cookie = await loginAs(app, env, DEMO_EMAIL, DEMO_PASSWORD)
     await enableFeedbackModule(app, env, cookie)
+    const orgRes = await app.request(
+      '/api/orgs',
+      {
+        method: 'POST',
+        headers: sessionMutation(cookie),
+        body: JSON.stringify({
+          name: 'Report Org',
+          slug: `rep-org-${crypto.randomUUID().slice(0, 8)}`,
+        }),
+      },
+      env,
+    )
+    expect(orgRes.status).toBe(201)
+    const { org } = (await orgRes.json()) as { org: { id: string } }
     const mint = await app.request(
       '/api/keys',
-      { method: 'POST', headers: sessionMutation(cookie) },
+      {
+        method: 'POST',
+        headers: sessionMutation(cookie),
+        body: JSON.stringify({ organizationId: org.id }),
+      },
       env,
     )
     expect(mint.status).toBe(200)

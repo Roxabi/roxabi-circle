@@ -1,12 +1,10 @@
-import { AppError } from '@gosilex/core'
 import type { MiddlewareHandler } from 'hono'
 import type { AppEnv } from '../types'
-import { authSessionAdapter } from './session-env'
 
-/** Org/RBAC surfaces require Better Auth session adapter (ADR-0003). */
-export const requireBaAdapter: MiddlewareHandler<AppEnv> = async (c, next) => {
-  if (authSessionAdapter(c.env) !== 'better-auth') {
-    throw AppError.notFound('Organization APIs require AUTH_SESSION_ADAPTER=better-auth')
-  }
+/**
+ * Historical name: org/RBAC surfaces required BA adapter.
+ * ADR-0002 BA-only — always continues (middleware kept for stable import paths).
+ */
+export const requireBaAdapter: MiddlewareHandler<AppEnv> = async (_c, next) => {
   await next()
 }

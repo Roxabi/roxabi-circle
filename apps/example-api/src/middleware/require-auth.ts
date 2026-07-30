@@ -1,12 +1,8 @@
-import {
-  createBetterAuthSessionPort,
-  createHmacSessionPort,
-  createRequireAuth,
-} from '@gosilex/auth'
+import { createBetterAuthSessionPort, createRequireAuth } from '@gosilex/auth'
 import { AppError } from '@gosilex/core'
 import type { MiddlewareHandler } from 'hono'
 import type { KitDb } from '../lib/db-type'
-import { authSessionAdapter, getSecret, sessionCookieName } from '../lib/session-env'
+import { sessionCookieName } from '../lib/session-env'
 import * as keysRepo from '../repos/keys'
 import type { AppEnv } from '../types'
 
@@ -19,40 +15,27 @@ function dbFromContext(c: { get: (k: 'db') => KitDb | undefined }): KitDb {
 }
 
 /**
- * Dual-path auth middleware: Bearer sk_ or session cookie → subject + authMethod.
- * Session path uses HMAC or Better Auth SessionPort based on AUTH_SESSION_ADAPTER.
+ * Dual-path auth: Bearer sk_ or Better Auth session cookie → subject + authMethod.
  */
 export const requireAuth: MiddlewareHandler<AppEnv> = createRequireAuth((c) => {
   const db = dbFromContext(c as { get: (k: 'db') => KitDb | undefined })
-  const adapter = authSessionAdapter(c.env)
   const cookieName = sessionCookieName(c.env)
-
-  if (adapter === 'better-auth') {
-    const auth = c.get('betterAuth')
-    if (!auth) {
-      throw AppError.internal('betterAuth not bound — withBetterAuth middleware required')
-    }
-    return {
-      cookieName,
-      sessions: createBetterAuthSessionPort({
-        cookieName,
-        getAuth: () => auth,
-      }),
-      findApiKeyByPrefix: async (prefix) => findKeyRecord(db, prefix),
-    }
+  const auth = c.get('betterAuth')
+  if (!auth) {
+    throw AppError.internal('betterAuth not bound — withBetterAuth middleware required')
   }
-
   return {
-    secret: getSecret(c.env),
     cookieName,
-    sessions: createHmacSessionPort(),
+    sessions: createBetterAuthSessionPort({
+      cookieName,
+      getAuth: () => auth,
+    }),
     findApiKeyByPrefix: async (prefix) => findKeyRecord(db, prefix),
   }
 }) as MiddlewareHandler<AppEnv>
 
 /**
  * Org-bound keys: re-check membership + active org (ADR-0003 D11).
- * Propagates organizationId so requireOrgContext can pin request tenant.
  */
 async function findKeyRecord(db: KitDb, prefix: string) {
   const row = await keysRepo.findApiKeyByPrefix(db, prefix)

@@ -1,8 +1,5 @@
 import { SESSION_COOKIE } from './session'
 
-/** Session adapter selection — apps set via AUTH_SESSION_ADAPTER (no secret inference). */
-export type AuthSessionAdapter = 'hmac' | 'better-auth'
-
 export type SessionCookieNameOpts = {
   /** Override cookie name (env SESSION_COOKIE_NAME). */
   name?: string | null

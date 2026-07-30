@@ -10,8 +10,8 @@ import { meQueryKey, useMe } from '../lib/auth'
 import { useLocale } from '../lib/locale'
 import { loginSchema } from '../lib/schemas'
 
-/** Dev-only email prefill — password shown in env banner via GET /health (API dev|test only). */
-const DEV_DEMO_EMAIL = import.meta.env.DEV ? 'demo@gosilex.local' : ''
+/** Dev-only email prefill — BA tenancy staff (see seed tenancy-data). */
+const DEV_DEMO_EMAIL = import.meta.env.DEV ? 'staff@gosilex.local' : ''
 
 /** login-05 chrome: centered brand + form (password + forgot, not email-only). */
 export function LoginPage() {
@@ -47,19 +47,11 @@ export function LoginPage() {
     onSubmit: async ({ value }) => {
       setError(null)
       try {
-        // Adapter-aware login: BA uses sign-in/email; HMAC uses kit /api/auth/login
-        const health = await apiFetch<{ authAdapter?: string }>('/health')
-        if (health.authAdapter === 'better-auth') {
-          await apiFetch('/api/auth/sign-in/email', {
-            method: 'POST',
-            body: JSON.stringify({ email: value.email, password: value.password }),
-          })
-        } else {
-          await apiFetch('/api/auth/login', {
-            method: 'POST',
-            body: JSON.stringify(value),
-          })
-        }
+        // Better Auth only (ADR-0002)
+        await apiFetch('/api/auth/sign-in/email', {
+          method: 'POST',
+          body: JSON.stringify({ email: value.email, password: value.password }),
+        })
         await qc.invalidateQueries({ queryKey: meQueryKey })
         toast.success(m.login, { description: value.email })
         await navigate({ to: '/' })

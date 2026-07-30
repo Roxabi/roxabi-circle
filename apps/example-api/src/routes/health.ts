@@ -1,9 +1,11 @@
 import { Hono } from 'hono'
-import { authSessionAdapter, environmentName, isDevLikeEnvironment } from '../lib/session-env'
-import { SEED_USERS } from '../seed/demo-data'
+import { environmentName, isDevLikeEnvironment } from '../lib/session-env'
+import { TENANCY_PASSWORD, TENANCY_PERSONAS } from '../seed/tenancy-data'
 import type { AppEnv } from '../types'
 
-const ADMIN_SEED = SEED_USERS.find((u) => u.role === 'admin') ?? SEED_USERS[0]!
+/** Primary dogfood login for local BA (staff multi-org). */
+const DEMO_STAFF =
+  TENANCY_PERSONAS.find((p) => p.email.startsWith('staff@')) ?? TENANCY_PERSONAS[1]!
 
 export const healthRoutes = new Hono<AppEnv>()
 
@@ -14,23 +16,23 @@ healthRoutes.get('/health', (c) => {
     service: string
     requestId: string
     environment: string
-    /** Session stack — SPA can adapt login/logout paths. */
-    authAdapter: 'hmac' | 'better-auth'
+    /** Session stack — always Better Auth (ADR-0002). */
+    authAdapter: 'better-auth'
     demoLogin?: { email: string; password: string; role: string }
   } = {
     ok: true,
     service: 'example-api',
     requestId: c.get('requestId'),
     environment,
-    authAdapter: authSessionAdapter(c.env),
+    authAdapter: 'better-auth',
   }
 
   // Kit local DX only — public /health; never returned in staging/production.
   if (isDevLikeEnvironment(c.env)) {
     body.demoLogin = {
-      email: ADMIN_SEED.email,
-      password: ADMIN_SEED.password,
-      role: ADMIN_SEED.role,
+      email: DEMO_STAFF.email,
+      password: DEMO_STAFF.password || TENANCY_PASSWORD,
+      role: DEMO_STAFF.platformRole ?? 'staff',
     }
   }
 

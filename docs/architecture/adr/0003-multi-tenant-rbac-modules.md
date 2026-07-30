@@ -2,8 +2,13 @@
 title: 'ADR-0003 — Multi-tenant organization, platform RBAC, dual-level modules'
 status: accepted
 date: 2026-07-17
+amended: 2026-07-30
 axial: false
 consensus: artifacts/analyses/002-multi-tenant-rbac-modules-consensus.md
+supersedes_notes: >
+  2026-07-30: A0 = HMAC session retired (see ADR-0002 amend).
+  Phase B custom roles unparked as planned ship (after A4/invites UX);
+  no longer « path only / park forever ».
 ---
 
 # ADR-0003 — Multi-tenant organization, platform RBAC, dual-level modules
@@ -20,7 +25,7 @@ Chemin A kit must support multi-actor SaaS on Cloudflare (Workers · Hono · D1 
 
 Spark / Metalyde / Ether are **inspiration only**. This kit is the **schema SSoT**; product apps converge here.
 
-Session identity is covered by [ADR-0002](./0002-session-hmac-interim-vs-better-auth.md) (`SessionPort`, dual credential cookie \| `sk_`). This ADR covers **tenancy + authorization + modules** on top of identity.
+Session identity is covered by [ADR-0002](./0002-session-hmac-interim-vs-better-auth.md) (`SessionPort`, **Better Auth only**, dual credential cookie \| `sk_`). This ADR covers **tenancy + authorization + modules** on top of identity. Org/RBAC surfaces assume BA session (HMAC retired).
 
 Human + multi-agent consensus (architect, security-auditor, backend-dev):  
 [`artifacts/analyses/002-multi-tenant-rbac-modules-consensus.md`](../../../artifacts/analyses/002-multi-tenant-rbac-modules-consensus.md).
@@ -70,7 +75,7 @@ Human + multi-agent consensus (architect, security-auditor, backend-dev):
 
 **Better Auth organization plugin** is still Better Auth — optional module that adds tenant tables/APIs. It is **not** a second auth product.
 
-Org/RBAC features require **`AUTH_SESSION_ADAPTER=better-auth`**. HMAC path remains legacy demo without org FKs until session cutover (A0 track).
+Org/RBAC features require a **Better Auth session** (ADR-0002 BA-only). Machine clients use org-bound **`sk_`** where allowed; there is no HMAC session path.
 
 ### D3 — System org roles (Phase A)
 
@@ -89,9 +94,9 @@ owner > admin > member > reader
 
 Default capability matrix is **code seed** in Phase A (not DB). Server rejects any other role string.
 
-### D4 — Phase B custom roles (path only; not Phase A ship)
+### D4 — Phase B custom roles (planned ship — unparked 2026-07-30)
 
-Later, without rewriting the tenant spine:
+Without rewriting the tenant spine, Phase B adds fine-grained grants:
 
 ```text
 organization_roles (per org, is_system flag)
@@ -100,7 +105,10 @@ organization_role_module_grants (role_id, module_id, access: write | read | disa
 
 - Custom roles are **per-organization first** (no live shared platform templates with `organization_id NULL`).
 - Templates later = copy-on-create blueprints, not live shared grant rows.
-- `member.role` remains the system **role_key** or a documented convention for custom; fine grants resolve kit-side.
+- System roles `owner|admin|member|reader` remain `is_system=true` with seed capability matrix as defaults.
+- Custom role keys map via `member.role` / membership role field per BA + kit convention; **fine grants resolve kit-side** (not BA static AC alone).
+- **Empty `@gosilex/rbac` package forbidden** — helpers live in `@gosilex/auth` (pure) and/or app services until ≥2 call sites (A8).
+- **Ship order:** after BA-only (ADR-0002 A0) + A4 shells/invites (UX to exercise grants). Implementation epic: GitHub (RBAC Phase B).
 
 ### D5 — Platform roles
 
@@ -246,14 +254,14 @@ IDOR / cross-role tests are a **quality gate** for tenant routes (see consensus 
 
 ## Phasing
 
-| Phase | Scope |
-|---|---|
-| **A0** | Session BA cutover track (HMAC deprecation) — related ADR-0002 work |
-| **A1** | BA `organization` plugin + four roles + org `kind`/`status` |
-| **A2** | `user_platform_roles` + `platform_modules` + `organization_modules` + migrate `kit_modules` |
-| **A3** | Guards + multi-persona seed + IDOR matrix CI; org-bound API keys |
-| **A4** | Demo shells `/admin` (BO) + `/app` (client-scoped) |
-| **B** | Custom org roles + per-module write/read/disabled matrix |
+| Phase | Scope | Status (2026-07-30) |
+|---|---|---|
+| **A0** | Session BA-only — **HMAC retired** (ADR-0002 amend) | **In progress** (epic B2 / GH #14) |
+| **A1** | BA `organization` plugin + four roles + org `kind`/`status` | **Shipped** (#11) |
+| **A2** | `user_platform_roles` + `platform_modules` + `organization_modules` + migrate `kit_modules` | **Shipped** (#11) |
+| **A3** | Guards + multi-persona seed + IDOR matrix CI; org-bound API keys | **Shipped** (#11) |
+| **A4** | Demo shells `/admin` (BO) + `/app` (client-scoped) + invites UX | **Planned** (epic B3 / GH #15) |
+| **B** | Custom org roles + per-module write/read/disabled matrix | **Unparked — planned ship** after A0+A4 |
 
 ## Consequences
 
@@ -268,9 +276,9 @@ IDOR / cross-role tests are a **quality gate** for tenant routes (see consensus 
 ### Negative / accepted debt
 
 - Coupling to Better Auth organization schema/migrations.
-- Two stores to reason about (`member.role` vs kit module grants).
-- Invite UX deferred (seed-only).
-- HMAC path cannot demonstrate multi-tenant until BA adapter is default.
+- Two stores to reason about (`member.role` vs kit module grants / Phase B custom grants).
+- Invite UX was seed-only in Phase A — productized in A4 epic.
+- Phase B increases authz complexity (IDOR matrix must grow with custom roles).
 
 ### Neutral
 
@@ -291,7 +299,7 @@ IDOR / cross-role tests are a **quality gate** for tenant routes (see consensus 
 ## Related
 
 - [ADR-0001](./0001-primary-axis-packages-compose-apps.md) — packages compose apps  
-- [ADR-0002](./0002-session-hmac-interim-vs-better-auth.md) — session dual-path / BA  
+- [ADR-0002](./0002-session-hmac-interim-vs-better-auth.md) — BA-only session + `sk_` dual-path  
 - Consensus: `artifacts/analyses/002-multi-tenant-rbac-modules-consensus.md`  
 - Cross-app features: `artifacts/analyses/001-cross-app-features-metalyde-ether-enzo-spark.md`  
-- Current interim modules: `kit_modules` (to be migrated)
+- Phase A modules: `platform_modules` / `organization_modules` (legacy `kit_modules` migrated in #11)

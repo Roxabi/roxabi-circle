@@ -1,18 +1,16 @@
 # Copy to .dev.vars (gitignored). Placeholders only — never commit real secrets.
-# ENVIRONMENT must be set for local HMAC fallback / demo seed (not in wrangler [vars]).
+# ENVIRONMENT must be set for local secret fallbacks / demo seed (not in wrangler [vars]).
 ENVIRONMENT=development
-# Known kit placeholder — accepted only when ENVIRONMENT=development|test.
-# Production/staging: generate a unique secret (openssl rand -base64 48) via CF secrets.
+# Optional residual — accepted only when ENVIRONMENT=development|test.
 SESSION_SECRET=dev-session-secret-change-me-32chars!!
-# Session stack: hmac (default kit demo) | better-auth
-AUTH_SESSION_ADAPTER=hmac
+# Better Auth (session stack — ADR-0002 BA-only; min 32 chars; no kit placeholders in prod)
+BETTER_AUTH_SECRET=dev-better-auth-secret-change-me-32c!!
+BETTER_AUTH_URL=http://localhost:8787
 # SESSION_COOKIE_NAME=gosilex_session
-# When AUTH_SESSION_ADAPTER=better-auth (min 32 chars; no kit placeholders in prod):
-# BETTER_AUTH_SECRET=dev-better-auth-secret-change-me-32c!!
-# BETTER_AUTH_URL=http://localhost:8787
 # ALLOW_PUBLIC_SIGNUP=true   # default off — open registration is a security risk
 CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
-DEMO_USER_EMAIL=demo@gosilex.local
+# Prefer tenancy BA users after seed (staff@ / solo@ …) — see README / tenancy-data.ts
+DEMO_USER_EMAIL=staff@gosilex.local
 SMTP_HOST=127.0.0.1
 SMTP_PORT=1025
-# Integrations (Spark feedback, etc.) → D1 kit_modules.config_json — configure in admin UI.
+# Integrations (Spark feedback, etc.) → D1 platform_modules.config_json — configure in admin UI.

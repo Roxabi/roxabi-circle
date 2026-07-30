@@ -1,22 +1,8 @@
-import type { SessionPayload } from './session'
-import {
-  clearSessionCookieHeader,
-  parseCookie,
-  SESSION_COOKIE,
-  sessionCookieHeader,
-  signSession,
-  verifySession,
-} from './session'
-
 /**
- * Injectable session boundary (ADR-0002 / Better Auth M3).
+ * Injectable session boundary (ADR-0002 — Better Auth only).
  *
- * Kit default = HMAC adapter. Better Auth implements the same port:
- * HttpOnly cookie + credentials include on the SPA.
- *
- * Prefer `resolveSession` for dual-auth (cookie name + headers).
- * `sign` / `verify` remain for HMAC and tests; BA adapters may no-op `sign`
- * when the BA handler owns Set-Cookie.
+ * Apps inject `createBetterAuthSessionPort`. Cookie helpers stay on the port
+ * for clear-cookie / name overrides; session issuance is owned by BA HTTP handler.
  */
 export type ResolveSessionInput = {
   cookieHeader?: string | null
@@ -27,32 +13,13 @@ export type ResolveSessionInput = {
 }
 
 export type SessionPort = {
-  sign(payload: SessionPayload, secret: string): Promise<string>
-  verify(token: string, secret: string): Promise<SessionPayload | null>
+  sign(payload: import('./session').SessionPayload, secret: string): Promise<string>
+  verify(token: string, secret: string): Promise<import('./session').SessionPayload | null>
   /**
-   * Preferred session resolve for dual-auth.
-   * HMAC: parse cookieName + verify. BA: getSession({ headers }).
+   * Preferred session resolve for dual-auth (cookie \| Bearer).
+   * BA: getSession({ headers }).
    */
-  resolveSession(input: ResolveSessionInput): Promise<SessionPayload | null>
+  resolveSession(input: ResolveSessionInput): Promise<import('./session').SessionPayload | null>
   cookieHeader(token: string, opts?: { secure?: boolean; maxAge?: number }): string
   clearCookieHeader(opts?: { secure?: boolean }): string
 }
-
-/** Default kit adapter — HMAC-signed payload (Workers Web Crypto). */
-export function createHmacSessionPort(): SessionPort {
-  return {
-    sign: signSession,
-    verify: verifySession,
-    async resolveSession(input) {
-      const name = input.cookieName || SESSION_COOKIE
-      const token = parseCookie(input.cookieHeader, name)
-      if (!token || !input.secret) return null
-      return verifySession(token, input.secret)
-    },
-    cookieHeader: sessionCookieHeader,
-    clearCookieHeader: clearSessionCookieHeader,
-  }
-}
-
-/** Singleton default port for apps that do not inject their own adapter. */
-export const defaultSessionPort: SessionPort = createHmacSessionPort()

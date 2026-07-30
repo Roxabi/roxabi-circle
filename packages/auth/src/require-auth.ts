@@ -1,7 +1,7 @@
 import { AppError } from '@gosilex/core'
 import { apiKeyPrefix, parseBearer, verifyApiKey } from './keys'
 import { SESSION_COOKIE } from './session'
-import { defaultSessionPort, type SessionPort } from './session-port'
+import type { SessionPort } from './session-port'
 
 export type AuthMethod = 'session' | 'api_key'
 
@@ -17,7 +17,7 @@ export type ApiKeyRecord = {
   keyHash: string
   revokedAt: number | null
   expiresAt: number | null
-  /** Org scope for multi-tenant keys; null = legacy unbound (HMAC demos). */
+  /** Org scope for multi-tenant keys; null = unbound legacy key. */
   organizationId?: string | null
 }
 
@@ -26,7 +26,8 @@ export type DualAuthPorts = {
   cookieName?: string
   /** Full request headers for BA getSession (preferred over cookie-only). */
   headers?: Headers
-  sessions?: SessionPort
+  /** Required — apps inject createBetterAuthSessionPort (ADR-0002 BA-only). */
+  sessions: SessionPort
   findApiKeyByPrefix: (prefix: string) => Promise<ApiKeyRecord | null>
 }
 
@@ -39,7 +40,7 @@ export async function resolveDualAuth(
   cookieHeader: string | null | undefined,
   ports: DualAuthPorts,
 ): Promise<AuthIdentity | null> {
-  const sessions = ports.sessions ?? defaultSessionPort
+  const sessions = ports.sessions
   const cookieName = ports.cookieName ?? SESSION_COOKIE
   const bearer = parseBearer(authorization)
   if (bearer) {
@@ -87,7 +88,6 @@ export function createRequireAuth<C extends RequireAuthContext>(
   return async (c, next) => {
     const ports = await getPorts(c)
     const cookieHeader = c.req.header('cookie') ?? null
-    // Prefer explicit ports.headers; else request raw headers for BA
     const headers =
       ports.headers ?? (c.req.raw?.headers ? new Headers(c.req.raw.headers) : undefined)
     const auth = await resolveDualAuth(c.req.header('authorization') ?? null, cookieHeader, {

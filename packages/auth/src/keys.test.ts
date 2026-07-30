@@ -12,30 +12,33 @@ import {
   verifyApiKey,
   verifyPassword,
 } from './keys'
-import { resolveDualAuth } from './require-auth'
-import { SESSION_COOKIE, signSession, verifySession } from './session'
-import { createHmacSessionPort, defaultSessionPort } from './session-port'
+import { createRequireAuth, resolveDualAuth } from './require-auth'
+import {
+  clearSessionCookieHeader,
+  parseCookie,
+  SESSION_COOKIE,
+  sessionCookieHeader,
+} from './session'
 
-function b64urlJson(obj: unknown): string {
-  const json = JSON.stringify(obj)
-  const bin = btoa(json).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
-  return bin
-}
-
-async function forgeSignedBody(bodyB64: string, secret: string): Promise<string> {
-  const key = await crypto.subtle.importKey(
-    'raw',
-    new TextEncoder().encode(secret),
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign'],
-  )
-  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(bodyB64))
-  const bytes = new Uint8Array(sig)
-  let bin = ''
-  for (const b of bytes) bin += String.fromCharCode(b)
-  const sigB64 = btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
-  return `${bodyB64}.${sigB64}`
+function baPort(
+  user: { id: string; email?: string } | null,
+  expMs = 60_000,
+): ReturnType<typeof createBetterAuthSessionPort> {
+  if (!user) {
+    return createBetterAuthSessionPort({
+      getAuth: () => ({ api: { getSession: async () => null } }),
+    })
+  }
+  return createBetterAuthSessionPort({
+    getAuth: () => ({
+      api: {
+        getSession: async () => ({
+          user: { id: user.id, email: user.email ?? 'x@y.z' },
+          session: { expiresAt: new Date(Date.now() + expMs) },
+        }),
+      },
+    }),
+  })
 }
 
 describe('api keys', () => {
@@ -93,180 +96,40 @@ describe('password KDF', () => {
   })
 })
 
-describe('session cookie', () => {
-  const secret = 'test-secret-at-least-32-characters!!'
-
-  it('signs and verifies', async () => {
-    const token = await signSession(
-      { sub: 'u1', email: 'a@b.c', exp: Math.floor(Date.now() / 1000) + 3600 },
-      secret,
-    )
-    const payload = await verifySession(token, secret)
-    expect(payload?.sub).toBe('u1')
-    expect(payload?.email).toBe('a@b.c')
-  })
-
-  it('rejects bad signature', async () => {
-    const token = await signSession(
-      { sub: 'u1', email: 'a@b.c', exp: Math.floor(Date.now() / 1000) + 3600 },
-      secret,
-    )
-    expect(await verifySession(token, 'other-secret-at-least-32-chars!!!!')).toBeNull()
-  })
-
-  it('rejects expired sessions', async () => {
-    const token = await signSession(
-      { sub: 'u1', email: 'a@b.c', exp: Math.floor(Date.now() / 1000) - 10 },
-      secret,
-    )
-    expect(await verifySession(token, secret)).toBeNull()
-  })
-
-  it('rejects missing exp (no immortal sessions)', async () => {
-    const body = b64urlJson({ sub: 'u1', email: 'a@b.c' })
-    const token = await forgeSignedBody(body, secret)
-    expect(await verifySession(token, secret)).toBeNull()
-  })
-
-  it('rejects non-finite exp', async () => {
-    const body = b64urlJson({ sub: 'u1', email: 'a@b.c', exp: Number.NaN })
-    const token = await forgeSignedBody(body, secret)
-    expect(await verifySession(token, secret)).toBeNull()
-  })
-
-  it('rejects empty sub', async () => {
-    const body = b64urlJson({
-      sub: '',
-      email: 'a@b.c',
-      exp: Math.floor(Date.now() / 1000) + 3600,
-    })
-    const token = await forgeSignedBody(body, secret)
-    expect(await verifySession(token, secret)).toBeNull()
-  })
-
-  it('rejects garbage token without throwing', async () => {
-    expect(await verifySession('', secret)).toBeNull()
-    expect(await verifySession('not.a.valid.token!!', secret)).toBeNull()
-    expect(await verifySession('onlyonepart', secret)).toBeNull()
-  })
-
-  it('rejects wrong payload types', async () => {
-    const body = b64urlJson({
-      sub: 1,
-      email: 'a@b.c',
-      exp: Math.floor(Date.now() / 1000) + 3600,
-    })
-    const token = await forgeSignedBody(body, secret)
-    expect(await verifySession(token, secret)).toBeNull()
-  })
-})
-
 describe('resolveDualAuth', () => {
   it('returns null without credentials', async () => {
-    const { resolveDualAuth } = await import('./require-auth')
     const r = await resolveDualAuth(null, null, {
-      secret: 'x'.repeat(32),
+      sessions: baPort(null),
       findApiKeyByPrefix: async () => null,
     })
     expect(r).toBeNull()
   })
 
   it('throws unauthorized for unknown bearer', async () => {
-    const { resolveDualAuth } = await import('./require-auth')
     const key = generateApiKey()
     await expect(
       resolveDualAuth(`Bearer ${key}`, null, {
-        secret: 'x'.repeat(32),
+        sessions: baPort(null),
         findApiKeyByPrefix: async () => null,
       }),
     ).rejects.toMatchObject({ code: 'UNAUTHORIZED' })
   })
 
-  it('CP-AUTH-DUAL: invalid Bearer fails closed even with valid session cookie', async () => {
-    const { resolveDualAuth } = await import('./require-auth')
-    const secret = 'test-secret-at-least-32-characters!!'
-    const token = await signSession(
-      { sub: 'u1', email: 'a@b.c', exp: Math.floor(Date.now() / 1000) + 3600 },
-      secret,
-    )
-    const cookie = `${SESSION_COOKIE}=${token}`
+  it('CP-AUTH-DUAL: invalid Bearer fails closed even with valid session', async () => {
     await expect(
-      resolveDualAuth('Bearer sk_deadbeef0001', cookie, {
-        secret,
+      resolveDualAuth('Bearer sk_deadbeef0001', 'gosilex_session=opaque', {
+        sessions: baPort({ id: 'u1', email: 'a@b.c' }),
         findApiKeyByPrefix: async () => null,
       }),
     ).rejects.toMatchObject({ code: 'UNAUTHORIZED' })
   })
 
-  it('CP-AUTH-DUAL: valid session cookie alone succeeds', async () => {
-    const { resolveDualAuth } = await import('./require-auth')
-    const secret = 'test-secret-at-least-32-characters!!'
-    const token = await signSession(
-      { sub: 'u1', email: 'a@b.c', exp: Math.floor(Date.now() / 1000) + 3600 },
-      secret,
-    )
-    const r = await resolveDualAuth(null, `${SESSION_COOKIE}=${token}`, {
-      secret,
+  it('CP-AUTH-DUAL: valid BA session alone succeeds', async () => {
+    const r = await resolveDualAuth(null, 'gosilex_session=x', {
+      sessions: baPort({ id: 'u1', email: 'a@b.c' }),
       findApiKeyByPrefix: async () => null,
     })
     expect(r).toMatchObject({ subject: 'u1', method: 'session' })
-  })
-})
-
-describe('SessionPort (HMAC adapter)', () => {
-  const secret = 'test-secret-at-least-32-characters!!'
-
-  it('createHmacSessionPort signs and verifies via port surface', async () => {
-    const port = createHmacSessionPort()
-    const token = await port.sign(
-      { sub: 'u1', email: 'a@b.c', exp: Math.floor(Date.now() / 1000) + 3600 },
-      secret,
-    )
-    const payload = await port.verify(token, secret)
-    expect(payload?.sub).toBe('u1')
-    const set = port.cookieHeader(token, { secure: true })
-    expect(set).toMatch(/HttpOnly/)
-    expect(set).toMatch(/Secure/)
-    expect(set).toMatch(/SameSite=Lax/i)
-    expect(set).toMatch(/Path=\//)
-    const clear = port.clearCookieHeader({ secure: true })
-    expect(clear).toMatch(/Max-Age=0/)
-    expect(clear).toMatch(/HttpOnly/)
-    expect(clear).toMatch(/SameSite=Lax/i)
-  })
-
-  it('rejects short session secrets', async () => {
-    await expect(
-      signSession({ sub: 'u', email: 'a@b.c', exp: Math.floor(Date.now() / 1000) + 60 }, 'short'),
-    ).rejects.toThrow(/at least 32/)
-  })
-
-  it('defaultSessionPort is the HMAC adapter', async () => {
-    const token = await defaultSessionPort.sign(
-      { sub: 'u2', email: 'x@y.z', exp: Math.floor(Date.now() / 1000) + 60 },
-      secret,
-    )
-    expect(await defaultSessionPort.verify(token, secret)).toMatchObject({ sub: 'u2' })
-  })
-
-  it('resolveSession reads cookieName + secret', async () => {
-    const port = createHmacSessionPort()
-    const token = await port.sign(
-      { sub: 'u3', email: 'c@d.e', exp: Math.floor(Date.now() / 1000) + 3600 },
-      secret,
-    )
-    const ok = await port.resolveSession({
-      cookieHeader: `${SESSION_COOKIE}=${token}`,
-      secret,
-      cookieName: SESSION_COOKIE,
-    })
-    expect(ok?.sub).toBe('u3')
-    const miss = await port.resolveSession({
-      cookieHeader: `other=${token}`,
-      secret,
-      cookieName: SESSION_COOKIE,
-    })
-    expect(miss).toBeNull()
   })
 })
 
@@ -403,19 +266,122 @@ describe('SessionPort (Better Auth adapter)', () => {
 })
 
 describe('resolveDualAuth cookieName inject', () => {
-  it('uses custom cookie name with HMAC port', async () => {
-    const secret = 'test-secret-at-least-32-characters!!'
-    const port = createHmacSessionPort()
-    const token = await port.sign(
-      { sub: 'cust', email: 'c@d.e', exp: Math.floor(Date.now() / 1000) + 3600 },
-      secret,
-    )
-    const r = await resolveDualAuth(null, `my_sess=${token}`, {
-      secret,
+  it('uses custom cookie name with BA port', async () => {
+    const port = baPort({ id: 'cust', email: 'c@d.e' })
+    const r = await resolveDualAuth(null, 'my_sess=opaque', {
       cookieName: 'my_sess',
       sessions: port,
       findApiKeyByPrefix: async () => null,
     })
     expect(r).toMatchObject({ subject: 'cust', method: 'session' })
+  })
+})
+
+describe('session cookie helpers', () => {
+  it('sessionCookieHeader sets HttpOnly SameSite Path', () => {
+    const h = sessionCookieHeader('tok', { secure: true, maxAge: 60 })
+    expect(h).toMatch(/gosilex_session=tok/)
+    expect(h).toMatch(/HttpOnly/)
+    expect(h).toMatch(/Secure/)
+    expect(h).toMatch(/SameSite=Lax/i)
+    expect(h).toMatch(/Max-Age=60/)
+  })
+  it('clearSessionCookieHeader zeroes Max-Age', () => {
+    const h = clearSessionCookieHeader({ secure: false })
+    expect(h).toMatch(/Max-Age=0/)
+    expect(h).toMatch(/HttpOnly/)
+  })
+  it('parseCookie extracts name', () => {
+    expect(parseCookie('a=1; gosilex_session=abc; b=2', SESSION_COOKIE)).toBe('abc')
+    expect(parseCookie(null, SESSION_COOKIE)).toBeNull()
+  })
+})
+
+describe('createRequireAuth', () => {
+  it('sets subject from BA session and calls next', async () => {
+    const mw = createRequireAuth(() => ({
+      sessions: baPort({ id: 'req-user', email: 'r@x.y' }),
+      findApiKeyByPrefix: async () => null,
+    }))
+    const store: Record<string, string> = {}
+    let nextCalled = false
+    await mw(
+      {
+        req: {
+          header: (n: string) => (n.toLowerCase() === 'cookie' ? 'gosilex_session=x' : undefined),
+        },
+        set: (k, v) => {
+          store[k] = v
+        },
+      },
+      async () => {
+        nextCalled = true
+      },
+    )
+    expect(nextCalled).toBe(true)
+    expect(store.subject).toBe('req-user')
+    expect(store.authMethod).toBe('session')
+  })
+
+  it('throws unauthorized without credentials', async () => {
+    const mw = createRequireAuth(() => ({
+      sessions: baPort(null),
+      findApiKeyByPrefix: async () => null,
+    }))
+    await expect(
+      mw(
+        {
+          req: { header: () => undefined },
+          set: () => {},
+        },
+        async () => {},
+      ),
+    ).rejects.toMatchObject({ code: 'UNAUTHORIZED' })
+  })
+
+  it('Bearer valid key wins and sets organizationId', async () => {
+    const key = generateApiKey()
+    const hash = await hashApiKey(key)
+    const mw = createRequireAuth(() => ({
+      sessions: baPort({ id: 'ignored' }),
+      findApiKeyByPrefix: async () => ({
+        subject: 'key-user',
+        keyHash: hash,
+        revokedAt: null,
+        expiresAt: null,
+        organizationId: 'org_x',
+      }),
+    }))
+    const store: Record<string, string> = {}
+    await mw(
+      {
+        req: {
+          header: (n: string) =>
+            n.toLowerCase() === 'authorization' ? `Bearer ${key}` : undefined,
+        },
+        set: (k, v) => {
+          store[k] = v
+        },
+      },
+      async () => {},
+    )
+    expect(store.subject).toBe('key-user')
+    expect(store.authMethod).toBe('api_key')
+    expect(store.keyOrganizationId).toBe('org_x')
+  })
+})
+
+describe('BA SessionPort cookie helpers', () => {
+  it('cookieHeader and clearCookieHeader honor cookie name override', () => {
+    const port = createBetterAuthSessionPort({
+      cookieName: 'custom_sess',
+      getAuth: () => ({ api: { getSession: async () => null } }),
+    })
+    const set = port.cookieHeader('tok', { secure: true })
+    expect(set).toMatch(/custom_sess=tok/)
+    expect(set).toMatch(/Secure/)
+    const clear = port.clearCookieHeader({ secure: true })
+    expect(clear).toMatch(/custom_sess=/)
+    expect(clear).toMatch(/Max-Age=0/)
   })
 })

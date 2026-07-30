@@ -1,6 +1,6 @@
 import {
   apiKeyPrefix,
-  defaultSessionPort,
+  createBetterAuthSessionPort,
   generateApiKey,
   hashApiKey,
   resolveDualAuth,
@@ -8,7 +8,6 @@ import {
   type SessionPort,
   sessionCookieName,
   verifyApiKey,
-  verifyPassword,
 } from '@gosilex/auth'
 import type { Env } from '../env'
 
@@ -19,7 +18,6 @@ import { AppError } from '@gosilex/core'
 import type { DrizzleD1Database } from 'drizzle-orm/d1'
 import type { schema } from '../db/schema'
 import * as keysRepo from '../repos/keys'
-import * as usersRepo from '../repos/users'
 import {
   DEMO_EMAIL,
   DEMO_EMAIL_B,
@@ -40,68 +38,8 @@ export async function ensureDemoUser(db: Db, opts?: { environment?: string | nul
   await ensureDemoUsers(db, opts)
 }
 
-/**
- * Fixed dummy PBKDF2 hash so unknown emails still pay full KDF cost
- * (reduces remote account-enumeration timing oracle).
- * salt=16 zero bytes, hash=32 zero bytes, iters=100_000.
- */
-const DUMMY_PASSWORD_HASH =
-  'pbkdf2$100000$00000000000000000000000000000000$0000000000000000000000000000000000000000000000000000000000000000'
-
 export function cookieNameFromEnv(env: Env): string {
   return sessionCookieName({ name: env.SESSION_COOKIE_NAME })
-}
-
-export async function loginWithPassword(
-  db: Db,
-  secret: string,
-  email: string,
-  password: string,
-  opts?: {
-    secureCookie?: boolean
-    environment?: string | null
-    sessions?: SessionPort
-    cookieName?: string
-  },
-): Promise<{ cookie: string; subject: string }> {
-  const sessions = opts?.sessions ?? defaultSessionPort
-  const cookieName = opts?.cookieName ?? SESSION_COOKIE
-  await ensureDemoUsers(db, { environment: opts?.environment })
-  const user = await usersRepo.findUserByEmail(db, email)
-  // Always run PBKDF2 (dummy hash when user missing) before branching on existence.
-  const ok = await verifyPassword(password, user?.passwordHash ?? DUMMY_PASSWORD_HASH)
-  if (!user || !ok) throw AppError.unauthorized('Invalid credentials')
-  const token = await sessions.sign(
-    {
-      sub: user.id,
-      email: user.email,
-      exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 7,
-    },
-    secret,
-  )
-  const setCookie = sessions.cookieHeader(token, { secure: opts?.secureCookie ?? false })
-  // Ensure cookie name SSoT if port still emits default SESSION_COOKIE
-  const cookie =
-    cookieName === SESSION_COOKIE
-      ? setCookie
-      : setCookie.replace(`${SESSION_COOKIE}=`, `${cookieName}=`)
-  return {
-    subject: user.id,
-    cookie,
-  }
-}
-
-export function logoutCookie(opts?: {
-  secureCookie?: boolean
-  sessions?: SessionPort
-  cookieName?: string
-}): string {
-  const sessions = opts?.sessions ?? defaultSessionPort
-  const cookieName = opts?.cookieName ?? SESSION_COOKIE
-  const clear = sessions.clearCookieHeader({ secure: opts?.secureCookie ?? false })
-  return cookieName === SESSION_COOKIE
-    ? clear
-    : clear.replace(`${SESSION_COOKIE}=`, `${cookieName}=`)
 }
 
 export async function mintApiKey(
@@ -111,7 +49,7 @@ export async function mintApiKey(
     name?: string
     expiresAt?: number | null
     ttlMs?: number
-    /** ADR-0003 — required for multi-tenant (BA) keys; optional on HMAC legacy. */
+    /** ADR-0003 — required for multi-tenant keys. */
     organizationId?: string | null
     requireOrganization?: boolean
   },
@@ -158,19 +96,18 @@ export async function revokeApiKey(db: Db, id: string, subject: string): Promise
 
 export async function resolveAuth(
   db: Db,
-  secret: string,
+  _secret: string,
   authorization: string | null,
   cookieHeader: string | null,
-  opts?: { sessions?: SessionPort; cookieName?: string },
+  opts: { sessions: SessionPort; cookieName?: string },
 ): Promise<{
   subject: string
   method: 'session' | 'api_key'
   organizationId?: string | null
 } | null> {
   return resolveDualAuth(authorization, cookieHeader, {
-    secret,
-    cookieName: opts?.cookieName ?? SESSION_COOKIE,
-    sessions: opts?.sessions ?? defaultSessionPort,
+    cookieName: opts.cookieName ?? SESSION_COOKIE,
+    sessions: opts.sessions,
     findApiKeyByPrefix: async (prefix) => {
       const row = await keysRepo.findApiKeyByPrefix(db, prefix)
       if (!row) return null
@@ -192,4 +129,5 @@ export async function resolveAuth(
   })
 }
 
-export { DEMO_EMAIL, DEMO_EMAIL_B, DEMO_PASSWORD, DEMO_PASSWORD_B }
+/** Helper for tests that need a BA SessionPort with mock getAuth. */
+export { createBetterAuthSessionPort, DEMO_EMAIL, DEMO_EMAIL_B, DEMO_PASSWORD, DEMO_PASSWORD_B }

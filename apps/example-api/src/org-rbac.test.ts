@@ -8,7 +8,6 @@ import { seedTenancyDemo } from './seed/seed-tenancy'
 import { createMemoryEnv } from './test/memory-env'
 
 const BA_ENV = {
-  AUTH_SESSION_ADAPTER: 'better-auth' as const,
   BETTER_AUTH_SECRET: 'test-better-auth-secret-at-least-32!!',
   BETTER_AUTH_URL: 'http://localhost:8787',
   ALLOW_PUBLIC_SIGNUP: 'true',
@@ -47,11 +46,11 @@ async function seedEnv() {
 }
 
 describe('org RBAC (ADR-0003 Phase A) — IDOR matrix', () => {
-  it('HMAC adapter fail-closes org routes', async () => {
+  it('org routes require auth (no anonymous list)', async () => {
     const app = createApp()
-    const env = createMemoryEnv({ AUTH_SESSION_ADAPTER: 'hmac' })
+    const env = createMemoryEnv(BA_ENV)
     const res = await app.request('/api/orgs', {}, env)
-    expect(res.status).toBe(404)
+    expect(res.status).toBe(401)
   })
 
   it('BA org mutation paths are denied (Phase A seed-only)', async () => {
