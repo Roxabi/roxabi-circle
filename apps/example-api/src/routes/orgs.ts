@@ -11,6 +11,7 @@ import {
 } from '../middleware/org-context'
 import { requireAuth } from '../middleware/require-auth'
 import * as invitationsService from '../services/invitations'
+import * as orgRolesService from '../services/org-roles'
 import * as orgsService from '../services/orgs'
 import * as platformModulesService from '../services/platform-modules'
 import type { AppEnv } from '../types'
@@ -25,10 +26,32 @@ const patchModuleSchema = z.object({
   enabled: z.boolean(),
 })
 
+const createRoleSchema = z
+  .object({
+    key: z.string().min(1).max(48),
+    name: z.string().min(1).max(80),
+    grants: z
+      .array(
+        z.object({
+          moduleId: z.string().min(1),
+          access: z.enum(['write', 'read', 'disabled']),
+        }),
+      )
+      .optional(),
+  })
+  .strict()
+
+const patchGrantSchema = z
+  .object({
+    access: z.enum(['write', 'read', 'disabled']),
+  })
+  .strict()
+
 const inviteCreateSchema = z
   .object({
     email: z.string().email().max(254),
-    role: z.enum(['admin', 'member', 'reader']),
+    /** System invitable keys or org custom role key (Phase B). */
+    role: z.string().min(1).max(48),
   })
   .strict()
 
@@ -184,6 +207,84 @@ orgsRoutes.patch(
     )
     const modules = await platformModulesService.getOrgModulesEffective(db, c.get('orgId')!)
     return c.json({ modules, requestId: c.get('requestId') })
+  },
+)
+
+/** Phase B — list system + custom roles with module grants. */
+orgsRoutes.get(
+  '/api/orgs/:orgId/roles',
+  requireOrgContext({ allowSuperAdmin: true }),
+  requireOrgCapability('manage_members'),
+  async (c) => {
+    const db = c.get('db')!
+    const roles = await orgRolesService.listRolesWithGrants(db, c.get('orgId')!)
+    return c.json({ roles, requestId: c.get('requestId') })
+  },
+)
+
+orgsRoutes.post(
+  '/api/orgs/:orgId/roles',
+  requireOrgContext(),
+  requireOrgCapability('manage_members'),
+  async (c) => {
+    if (c.get('authMethod') !== 'session') {
+      throw AppError.forbidden('Role management requires a session')
+    }
+    const orgRole = c.get('orgRole')
+    if (!orgRole) throw AppError.forbidden('Organization role required')
+    const parsed = createRoleSchema.safeParse(await c.req.json().catch(() => null))
+    if (!parsed.success) {
+      throw AppError.validation('Invalid role payload', parsed.error.flatten().fieldErrors)
+    }
+    const db = c.get('db')!
+    const role = await orgRolesService.createCustomRole(db, {
+      organizationId: c.get('orgId')!,
+      key: parsed.data.key,
+      name: parsed.data.name,
+      grants: parsed.data.grants,
+      actorRoleKey: orgRole,
+    })
+    return c.json({ role, requestId: c.get('requestId') }, 201)
+  },
+)
+
+orgsRoutes.patch(
+  '/api/orgs/:orgId/roles/:roleId/grants/:moduleId',
+  requireOrgContext(),
+  requireOrgCapability('manage_members'),
+  async (c) => {
+    if (c.get('authMethod') !== 'session') {
+      throw AppError.forbidden('Role management requires a session')
+    }
+    const orgRole = c.get('orgRole')
+    if (!orgRole) throw AppError.forbidden('Organization role required')
+    const parsed = patchGrantSchema.safeParse(await c.req.json().catch(() => null))
+    if (!parsed.success) {
+      throw AppError.validation('Invalid grant payload', parsed.error.flatten().fieldErrors)
+    }
+    const db = c.get('db')!
+    const role = await orgRolesService.setRoleGrant(db, {
+      organizationId: c.get('orgId')!,
+      roleId: c.req.param('roleId'),
+      moduleId: c.req.param('moduleId'),
+      access: parsed.data.access,
+      actorRoleKey: orgRole,
+    })
+    return c.json({ role, requestId: c.get('requestId') })
+  },
+)
+
+orgsRoutes.delete(
+  '/api/orgs/:orgId/roles/:roleId',
+  requireOrgContext(),
+  requireOrgCapability('manage_members'),
+  async (c) => {
+    if (c.get('authMethod') !== 'session') {
+      throw AppError.forbidden('Role management requires a session')
+    }
+    const db = c.get('db')!
+    await orgRolesService.deleteCustomRole(db, c.get('orgId')!, c.req.param('roleId'))
+    return c.json({ ok: true, requestId: c.get('requestId') })
   },
 )
 

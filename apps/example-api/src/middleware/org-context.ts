@@ -5,6 +5,7 @@ import type { KitDb } from '../lib/db-type'
 import type { KitModuleId } from '../lib/kit-modules'
 import * as orgsRepo from '../repos/orgs'
 import * as platformRolesRepo from '../repos/platform-roles'
+import * as orgRolesService from '../services/org-roles'
 import * as platformModulesService from '../services/platform-modules'
 import type { AppEnv } from '../types'
 
@@ -170,7 +171,11 @@ export function requirePlatformRole(...roles: PlatformRole[]): MiddlewareHandler
   }
 }
 
-/** ADR-0003 D12 G5 — effective module access for current org context. */
+/**
+ * ADR-0003 Phase B — single runtime resolver:
+ * platform.available ∧ org.enabled ∧ role grant (write|read|disabled).
+ * Phase A code capability matrix is seed-only (no dual path).
+ */
 export function requireModule(
   moduleId: KitModuleId,
   op: 'read' | 'write' = 'read',
@@ -179,19 +184,18 @@ export function requireModule(
     const orgId = c.get('orgId')
     if (!orgId) throw AppError.forbidden('Organization context required')
     const db = dbOf(c)
-    const effective = await platformModulesService.isModuleEffective(db, orgId, moduleId)
-    if (!effective) {
-      throw AppError.notFound('Module not available')
-    }
-    if (op === 'write') {
-      const role = c.get('orgRole')
-      if (c.get('orgBypass')) {
-        await next()
-        return
-      }
-      if (!role || !roleHasCapability(role, 'write')) {
-        throw AppError.forbidden('Insufficient organization capability')
-      }
+    const allowed = await orgRolesService.resolveModuleAccess(db, {
+      organizationId: orgId,
+      roleKey: c.get('orgRole'),
+      moduleId,
+      op,
+      orgBypass: Boolean(c.get('orgBypass')),
+    })
+    if (!allowed) {
+      // Hide module existence when platform/org off; forbid when grant missing/disabled
+      const platformOk = await platformModulesService.isModuleEffective(db, orgId, moduleId)
+      if (!platformOk) throw AppError.notFound('Module not available')
+      throw AppError.forbidden('Insufficient module grant')
     }
     await next()
   }

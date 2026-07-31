@@ -68,6 +68,27 @@ export const organizationModules = sqliteTable(
   (t) => [primaryKey({ columns: [t.organizationId, t.moduleId] })],
 )
 
+/** ADR-0003 Phase B — system + custom roles per organization. */
+export const organizationRoles = sqliteTable('organization_roles', {
+  id: text('id').primaryKey(),
+  organizationId: text('organization_id').notNull(),
+  key: text('key').notNull(),
+  name: text('name').notNull(),
+  isSystem: integer('is_system', { mode: 'boolean' }).notNull().default(false),
+  createdAt: integer('created_at', { mode: 'number' }).notNull(),
+})
+
+/** ADR-0003 Phase B — per-role module grants (write | read | disabled). */
+export const organizationRoleModuleGrants = sqliteTable(
+  'organization_role_module_grants',
+  {
+    roleId: text('role_id').notNull(),
+    moduleId: text('module_id').notNull(),
+    access: text('access').notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.roleId, t.moduleId] })],
+)
+
 export const schema = {
   demoNotes,
   apiKeys,
@@ -76,5 +97,7 @@ export const schema = {
   userPlatformRoles,
   platformModules,
   organizationModules,
+  organizationRoles,
+  organizationRoleModuleGrants,
   ...betterAuthDrizzleSchema,
 }

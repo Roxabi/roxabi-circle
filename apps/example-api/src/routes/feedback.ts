@@ -3,7 +3,9 @@ import { handleFeedbackReport } from '@gosilex/feedback/hono'
 import { Hono } from 'hono'
 import { assertRateLimit } from '../lib/rate-limit'
 import { requireAuth } from '../middleware/require-auth'
+import * as orgsRepo from '../repos/orgs'
 import * as modulesService from '../services/modules'
+import * as orgRolesService from '../services/org-roles'
 import * as platformModulesService from '../services/platform-modules'
 import type { AppEnv } from '../types'
 
@@ -25,11 +27,31 @@ feedbackRoutes.post('/api/report', async (c) => {
   await modulesService.ensureKitModules(db)
   const spark = await modulesService.getFeedbackSparkRuntime(db)
 
-  // Dual-level when X-Org-Id present (ADR D7); else platform catalogue only (SPA HMAC demos)
+  // Org path: single resolver (platform ∧ org.enabled ∧ grant write).
+  // No X-Org-Id: platform catalogue only (legacy SPA demo without tenancy).
   const orgId = c.req.header('x-org-id')?.trim()
   let moduleOn: boolean
   if (orgId) {
-    moduleOn = await platformModulesService.isModuleEffective(db, orgId, 'feedback')
+    const org = await orgsRepo.findOrgById(db, orgId)
+    if (!org || org.status !== 'active') {
+      throw AppError.notFound('Organization not found')
+    }
+    const membership = await orgsRepo.findMembership(db, orgId, subject)
+    if (!membership) {
+      throw AppError.notFound('Organization not found')
+    }
+    const allowed = await orgRolesService.resolveModuleAccess(db, {
+      organizationId: orgId,
+      roleKey: membership.role,
+      moduleId: 'feedback',
+      op: 'write',
+    })
+    if (!allowed) {
+      const platformOk = await platformModulesService.isModuleEffective(db, orgId, 'feedback')
+      if (!platformOk) throw AppError.notFound('Module not available')
+      throw AppError.forbidden('Insufficient module grant')
+    }
+    moduleOn = true
   } else {
     moduleOn = await modulesService.isModuleEnabled(db, 'feedback')
   }

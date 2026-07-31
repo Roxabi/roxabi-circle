@@ -15,6 +15,17 @@ export {
   verifyPassword,
 } from './keys'
 export {
+  accessAllows,
+  grantsDominate,
+  isAssignableRoleKey,
+  isModuleAccess,
+  MODULE_ACCESS_LEVELS,
+  type ModuleAccess,
+  type ModuleOp,
+  systemRoleDefaultAccess,
+  systemRoleGrantSeed,
+} from './module-grants'
+export {
   canInviteRole,
   INVITABLE_ORG_ROLES,
   type InvitableOrgRole,
