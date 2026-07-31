@@ -40,7 +40,7 @@ Restore single-source-of-truth alignment between live kit code and human/agent e
 | Persona | Need |
 |---|---|
 | Kit maintainer / agent | AGENTS checklist + stack narrative match disk |
-| Product consumer (e.g. silex-share) | README package map + dual-path auth inject truth |
+| Product consumer (e.g. silex-share) | README package map + dual credential cookie \| `sk_` inject truth |
 | Reviewer (multi-role) | Testable DoD (grep / script) for « vérité » |
 | Downstream epic owners (B2–B8) | Clear shipped vs deferred vs open |
 
@@ -126,7 +126,7 @@ Restore single-source-of-truth alignment between live kit code and human/agent e
 
 | Path | When |
 |---|---|
-| `docs/product-consumer-contract.md` | If dual-path / BA inject missing |
+| `docs/product-consumer-contract.md` | If BA-only / dual credential cookie\|`sk_` inject missing |
 | `docs/testing.md` | If package list / CP misses org-RBAC or feedback |
 | `docs/observability.md` | Only if contradicts deferred Plausible stance |
 
@@ -136,7 +136,7 @@ Restore single-source-of-truth alignment between live kit code and human/agent e
 |---|---|
 | `scripts/check-ssot-drift.sh` (name flexible) | Exit non-zero on failure; stdout lists mismatches |
 | Check 1 — package inventory | For each `packages/*/package.json` → `name` field must appear as substring in `README.md` package map section (or whole README) |
-| Check 2 — banlist phrases in live SSoT | Paths: `AGENTS.md`, `README.md` (optional: `docs/product-consumer-contract.md`). Fail if match (case-insensitive) of phrases such as: `ne pas « inventer » Better Auth`, `Better Auth not shipped`, `Better Auth **M3**` as sole future claim without dual-path, `Submit feedback` unchecked pattern if greppable — exact list frozen in script comments |
+| Check 2 — banlist phrases in live SSoT | Paths: `AGENTS.md`, `README.md`. Fail if match (case-insensitive): `AUTH_SESSION_ADAPTER`, `default hmac`, `ne pas « inventer » Better Auth`, `Better Auth not shipped`, HMAC default as live session truth |
 | Check 3 — optional | `packages/feedback` directory exists ⇒ README mentions `feedback` |
 | `package.json` | Script `"ssot:check": "bash scripts/check-ssot-drift.sh"` |
 | Gate | Prefer add to `validate` **or** document as manual DoD if team rejects validate noise; **do not** silently skip forever |
@@ -163,7 +163,7 @@ Single PR acceptable if review size stays readable; split S4 only if script bike
 ### A. Package map completeness
 
 - [ ] `ls packages` names ⊆ documented in `README.md` package map (every `@gosilex/*` name string present).
-- [ ] `AGENTS.md` § H (or successor inventory) mentions `@gosilex/feedback` and dual-path `@gosilex/auth`.
+- [ ] `AGENTS.md` § H (or successor inventory) mentions `@gosilex/feedback` and BA-only `@gosilex/auth` (dual credential cookie\|`sk_`).
 - [ ] No package row claims Better Auth « not implemented ».
 
 ### B. Auth truth (Goal 002 / BA-only)
@@ -196,14 +196,14 @@ Single PR acceptable if review size stays readable; split S4 only if script bike
 
 - [ ] Docs-only PR: no need for full product test matrix; if script added, script is executable and shellcheck-clean enough for CI.
 - [ ] No product-domain strings introduced into kit docs beyond existing frame references.
-- [ ] `status` of this spec remains **draft** until multi-role approval; implementation PR only after `status: approved` (or explicit issue comment approving draft).
+- [x] Spec `status: approved` after multi-role re-review (2026-07-31 Goal 002 BA-only).
 
 ## Definition of Done (issue #13)
 
 Matches GH issue DoD, expanded:
 
 - [ ] AGENTS checklist = réalité `main` (auth, feedback, multi-tenant A, mig narrative 0005–0008)
-- [ ] README `packages/*` map + dual-path auth exact
+- [ ] README `packages/*` map + BA-only session + dual credential cookie\|`sk_` exact
 - [ ] 0 claim « Better Auth not shipped » in live SSoT (`AGENTS.md`, `README.md`)
 - [ ] Deferred #6/#7 labeled
 - [ ] Shape 2 script green **or** explicit waiver comment on issue if Shape 1-only approved
@@ -238,7 +238,7 @@ Matches GH issue DoD, expanded:
 |---|---|
 | Partial AGENTS edit leaves contradictory paragraphs | Reviewer checklist walks § D + Suite + H in one pass |
 | Script greps historical docs | Limit paths to live SSoT files |
-| Over-claim BA as default | Explicit « default hmac » sentence required in AC |
+| Over-claim dual session adapter / HMAC default | Banlist `AUTH_SESSION_ADAPTER` / HMAC default; dual credential = cookie \| `sk_` only |
 | Product still reads old AGENTS from cache/fork | Consumer contract note: re-fetch upstream after B1 |
 
 ## Open questions (carry from analysis)
@@ -255,4 +255,4 @@ Matches GH issue DoD, expanded:
 | Maintainer / Mickael | pending |
 | (Optional) product consumer reader | pending |
 
-**status: draft** — not approved; awaiting multi-role review before implementation PR.
+**status: approved** — multi-role re-review 2026-07-31 (Goal 002 BA-only residual scrubbed).
