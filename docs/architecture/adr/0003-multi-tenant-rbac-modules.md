@@ -205,11 +205,18 @@ Migrate existing `kit_modules` → `platform_modules` (`enabled` → `available`
 
 Support may diagnose with read; write is rare and explicit.
 
-### D10 — Invitations (Phase A)
+### D10 — Invitations (kit product APIs — B3 S2)
 
-- **Seed-only memberships** for demos and early kit.
-- Do **not** expose invite/accept product APIs until threat model is closed (role ceiling, email bind, TTL, single-use, no platform fields, rate limits).
-- BA `invitation` table may exist via the plugin; unused by public kit routes in Phase A.
+- **Shipped (2026-07-31):** kit-owned invite APIs write BA `invitation` rows; BA-native org invite/accept paths stay **DENY**.
+- Threat model closed:
+  - role allowlist `admin|member|reader` (never `owner`)
+  - inviter ceiling (`owner` → admin|member|reader; `admin` → member|reader)
+  - email bind on accept (normalize trim+lower)
+  - TTL 7d · single-use (`pending` → `accepted` / `canceled`)
+  - no `platform_role` field · session-only mutations (no `sk_`)
+  - cross-tenant delete → **404** · rate limits on create/accept
+  - create → send email (log) → on send fail **cancel + error**
+- Seed still bootstraps demo memberships; product invites are no longer deferred.
 
 ### D11 — API keys (machine / MCP)
 
@@ -256,11 +263,11 @@ IDOR / cross-role tests are a **quality gate** for tenant routes (see consensus 
 
 | Phase | Scope | Status (2026-07-30) |
 |---|---|---|
-| **A0** | Session BA-only — **HMAC retired** (ADR-0002 amend) | **In progress** (epic B2 / GH #14) |
+| **A0** | Session BA-only — **HMAC retired** (ADR-0002 amend) | **Shipped** (epic B2 / GH #14) |
 | **A1** | BA `organization` plugin + four roles + org `kind`/`status` | **Shipped** (#11) |
 | **A2** | `user_platform_roles` + `platform_modules` + `organization_modules` + migrate `kit_modules` | **Shipped** (#11) |
 | **A3** | Guards + multi-persona seed + IDOR matrix CI; org-bound API keys | **Shipped** (#11) |
-| **A4** | Demo shells `/admin` (BO) + `/app` (client-scoped) + invites UX | **Planned** (epic B3 / GH #15) |
+| **A4** | Demo shells `/admin` + `/app` (S1) + kit invites UX (S2) | **S1+S2 shipped** (GH #15); S3 reset still open |
 | **B** | Custom org roles + per-module write/read/disabled matrix | **Unparked — planned ship** after A0+A4 |
 
 ## Consequences

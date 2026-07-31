@@ -65,3 +65,10 @@ export function isClientOnly(me: MeResponse | undefined): boolean {
 export function defaultHomePath(me: MeResponse | undefined): '/admin' | '/app' {
   return isPlatformActor(me) ? '/admin' : '/app'
 }
+
+/** FE convenience — server still enforces manage_members. */
+export function canManageMembers(me: MeResponse | undefined, orgId: string): boolean {
+  const org = me?.orgs?.find((o) => o.id === orgId)
+  if (!org) return false
+  return org.role === 'owner' || org.role === 'admin'
+}

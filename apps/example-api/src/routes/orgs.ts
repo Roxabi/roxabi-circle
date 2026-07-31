@@ -2,12 +2,14 @@ import { AppError } from '@gosilex/core'
 import { Hono } from 'hono'
 import { z } from 'zod'
 import { requireBaAdapter } from '../lib/require-ba-adapter'
+import { corsAllowlist } from '../lib/session-env'
 import {
   requireOrgCapability,
   requireOrgContext,
   requirePlatformRole,
 } from '../middleware/org-context'
 import { requireAuth } from '../middleware/require-auth'
+import * as invitationsService from '../services/invitations'
 import * as orgsService from '../services/orgs'
 import * as platformModulesService from '../services/platform-modules'
 import type { AppEnv } from '../types'
@@ -21,6 +23,13 @@ const createSchema = z.object({
 const patchModuleSchema = z.object({
   enabled: z.boolean(),
 })
+
+const inviteCreateSchema = z
+  .object({
+    email: z.string().email().max(254),
+    role: z.enum(['admin', 'member', 'reader']),
+  })
+  .strict()
 
 export const orgsRoutes = new Hono<AppEnv>()
 
@@ -73,6 +82,72 @@ orgsRoutes.get(
     const db = c.get('db')!
     const members = await orgsService.listOrgMembers(db, c.get('orgId')!)
     return c.json({ members, requestId: c.get('requestId') })
+  },
+)
+
+orgsRoutes.post(
+  '/api/orgs/:orgId/invitations',
+  requireOrgContext(),
+  requireOrgCapability('manage_members'),
+  async (c) => {
+    if (c.get('authMethod') !== 'session') {
+      throw AppError.forbidden('Creating invitations requires a session cookie')
+    }
+    const orgRole = c.get('orgRole')
+    if (!orgRole) {
+      throw AppError.forbidden('Organization membership required')
+    }
+    const parsed = inviteCreateSchema.safeParse(await c.req.json().catch(() => null))
+    if (!parsed.success) {
+      throw AppError.validation('Invalid invitation payload', parsed.error.flatten().fieldErrors)
+    }
+    const acceptBaseUrl = corsAllowlist(c.env)[0] ?? 'http://localhost:5173'
+    const invitation = await invitationsService.createInvitation(c.get('db')!, {
+      orgId: c.get('orgId')!,
+      inviterUserId: c.get('subject')!,
+      inviterOrgRole: orgRole,
+      email: parsed.data.email,
+      role: parsed.data.role,
+      acceptBaseUrl,
+    })
+    c.header('Location', `/api/orgs/${c.get('orgId')}/invitations/${invitation.id}`)
+    return c.json({ invitation, requestId: c.get('requestId') }, 201)
+  },
+)
+
+orgsRoutes.get(
+  '/api/orgs/:orgId/invitations',
+  requireOrgContext(),
+  requireOrgCapability('manage_members'),
+  async (c) => {
+    const statusParam = c.req.query('status')
+    const status =
+      statusParam === 'accepted' || statusParam === 'canceled' || statusParam === 'pending'
+        ? statusParam
+        : 'pending'
+    const invitations = await invitationsService.listInvitations(
+      c.get('db')!,
+      c.get('orgId')!,
+      status,
+    )
+    return c.json({ invitations, requestId: c.get('requestId') })
+  },
+)
+
+orgsRoutes.delete(
+  '/api/orgs/:orgId/invitations/:invitationId',
+  requireOrgContext(),
+  requireOrgCapability('manage_members'),
+  async (c) => {
+    if (c.get('authMethod') !== 'session') {
+      throw AppError.forbidden('Canceling invitations requires a session cookie')
+    }
+    await invitationsService.cancelInvitation(
+      c.get('db')!,
+      c.get('orgId')!,
+      c.req.param('invitationId'),
+    )
+    return c.json({ ok: true, requestId: c.get('requestId') })
   },
 )
 

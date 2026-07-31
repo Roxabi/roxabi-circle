@@ -132,7 +132,7 @@ Machine-enforced today via full `validate` + `test:coverage` + package tests. Pr
 | **CP-AUTH-KEY** | mint / hash / verify `sk_`; reject bad key | `packages/auth`, example-api |
 | **CP-AUTH-SESSION** | sign/verify session; cookie HttpOnly · Secure (prod) · SameSite; requireAuth | `packages/auth`, example-api |
 | **CP-AUTH-DUAL** | cookie **or** Bearer reaches `/api/me` / protected routes | example-api |
-| **CP-IDOR** | subject B cannot read/mutate A’s resource (notes today; **each new resource** must extend) | example-api |
+| **CP-IDOR** | subject B cannot read/mutate A’s resource (notes + **org invitations** cross-tenant cancel; **each new resource** must extend) | example-api (`invitations.test.ts`, notes IDOR) |
 | **CP-UNAUTH** | protected mutations without auth → 401 `UNAUTHORIZED` | example-api |
 | **CP-ERR** | nested `{ error: { code, message }, requestId }`; no stack leak | `packages/core`, example-api |
 | **CP-CORS** | evil Origin not reflected; no `*` + credentials | example-api |
@@ -170,6 +170,20 @@ Worker env SSoT: `apps/example-api/src/env.schema.ts`. Bindings `DB` / `BUCKET` 
 | Playwright cookie journey in CI | Phase B6 — Chromium smoke; until then local e2e scripts |
 | Mutation testing on `packages/auth` | Optional **nightly / manual**, not PR gate until cheap |
 | Stateless HMAC logout | ADR-0002 interim — cookie clear only; Better Auth M3 for server sessions |
+
+### Org invites local E2E (B3 S2)
+
+Automated suite: `apps/example-api/src/invitations.test.ts` (≥ 8 cases: create, accept, email bind, ceiling, IDOR, sk_, 409, super deny, BA DENY).
+
+Manual dogfood (after `bun run db:seed` + API + web):
+
+1. Login `team-owner@gosilex.local` / `demo-password-change-me` → `/app`.
+2. Select org **Team Client** → **Members** → invite `solo@gosilex.local` as `member`.
+3. Inspect Worker log line `transport: "log"` for accept URL (`/invite/accept?invitationId=…`).
+4. Logout → login `solo@gosilex.local` → open accept URL → join → membership on `/api/me` orgs.
+5. Confirm `team-reader@` cannot open invite create (403).
+
+Email is **log transport** only on Workers (Mailpit/SMTP is Node `@gosilex/email/server` — optional later).
 
 ---
 

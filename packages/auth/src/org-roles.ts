@@ -33,6 +33,32 @@ export function roleHasCapability(role: string, capability: OrgCapability): bool
   return roleAtLeast(role, CAPABILITY_MIN[capability])
 }
 
+/** Roles that may be assigned via invite (never `owner`). */
+export const INVITABLE_ORG_ROLES = ['admin', 'member', 'reader'] as const
+export type InvitableOrgRole = (typeof INVITABLE_ORG_ROLES)[number]
+
+export function isInvitableOrgRole(value: string): value is InvitableOrgRole {
+  return (INVITABLE_ORG_ROLES as readonly string[]).includes(value)
+}
+
+/**
+ * Invite role ceiling (ADR-0003 / B3 S2):
+ * - owner may invite admin|member|reader
+ * - admin may invite member|reader only (not admin)
+ * - member/reader cannot invite
+ */
+export function canInviteRole(inviterRole: string, invitedRole: string): boolean {
+  if (!isOrgRoleKey(inviterRole) || !isInvitableOrgRole(invitedRole)) return false
+  if (inviterRole === 'owner') return true
+  if (inviterRole === 'admin') return invitedRole === 'member' || invitedRole === 'reader'
+  return false
+}
+
+/** Normalize email for invite bind (trim + lower). */
+export function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase()
+}
+
 export const PLATFORM_ROLES = ['super_admin', 'staff'] as const
 export type PlatformRole = (typeof PLATFORM_ROLES)[number]
 

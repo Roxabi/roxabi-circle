@@ -15,3 +15,9 @@ export async function findBaUserById(db: Db, userId: string) {
   const rows = await db.select().from(baUser).where(eq(baUser.id, userId)).limit(1)
   return rows[0] ?? null
 }
+
+/** BA user by email (exact match — callers should normalize first). */
+export async function findBaUserByEmail(db: Db, email: string) {
+  const rows = await db.select().from(baUser).where(eq(baUser.email, email)).limit(1)
+  return rows[0] ?? null
+}

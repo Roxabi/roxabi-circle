@@ -15,8 +15,13 @@ export {
   verifyPassword,
 } from './keys'
 export {
+  canInviteRole,
+  INVITABLE_ORG_ROLES,
+  type InvitableOrgRole,
+  isInvitableOrgRole,
   isOrgRoleKey,
   isPlatformRole,
+  normalizeEmail,
   ORG_KINDS,
   ORG_ROLE_KEYS,
   ORG_STATUSES,

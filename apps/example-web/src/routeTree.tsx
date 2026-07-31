@@ -18,9 +18,11 @@ import { DashboardPage } from './routes/dashboard'
 import { DesignSystemPage } from './routes/design-system'
 import { ForgotPasswordPage } from './routes/forgot-password'
 import { IntegrationFeedbackPage } from './routes/integration-feedback'
+import { InviteAcceptPage } from './routes/invite-accept'
 import { KeysPage } from './routes/keys'
 import { LoginPage } from './routes/login'
 import { NotesPage } from './routes/notes'
+import { OrgMembersPage } from './routes/org-members'
 import { SettingsPage } from './routes/settings'
 
 export type RouterContext = {
@@ -56,6 +58,15 @@ const forgotPasswordRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/forgot-password',
   component: ForgotPasswordPage,
+})
+
+const inviteAcceptRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/invite/accept',
+  validateSearch: (search: Record<string, unknown>) => ({
+    invitationId: typeof search.invitationId === 'string' ? search.invitationId : undefined,
+  }),
+  component: InviteAcceptPage,
 })
 
 /** Authenticated layout without shell — used for `/` redirect only. */
@@ -134,6 +145,12 @@ const appSettingsRoute = createRoute({
   getParentRoute: () => appLayoutRoute,
   path: 'settings',
   component: SettingsPage,
+})
+
+const appOrgMembersRoute = createRoute({
+  getParentRoute: () => appLayoutRoute,
+  path: 'orgs/$orgId/members',
+  component: OrgMembersPage,
 })
 
 // ── Back-office shell `/admin/*` ───────────────────────────────────
@@ -216,8 +233,15 @@ const legacyFeedback = legacyRedirect(
 export const routeTree = rootRoute.addChildren([
   loginRoute,
   forgotPasswordRoute,
+  inviteAcceptRoute,
   authedLayoutRoute.addChildren([indexRoute]),
-  appLayoutRoute.addChildren([appIndexRoute, appNotesRoute, appKeysRoute, appSettingsRoute]),
+  appLayoutRoute.addChildren([
+    appIndexRoute,
+    appNotesRoute,
+    appKeysRoute,
+    appSettingsRoute,
+    appOrgMembersRoute,
+  ]),
   adminLayoutRoute.addChildren([
     adminIndexRoute,
     adminOrgsRoute,
