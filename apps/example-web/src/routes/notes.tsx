@@ -84,7 +84,6 @@ export function NotesPage() {
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ['notes'] })
       toast.success(m.noteCreated)
-      setOpen(false)
     },
     onError: (e) => toast.error(m.error, { description: apiErrorToMessage(e, m) }),
   })
@@ -120,8 +119,10 @@ export function NotesPage() {
       },
     },
     onSubmit: async ({ value }) => {
-      createNote.mutate(value)
+      // Reset/close only after success — keep draft if the API rejects.
+      await createNote.mutateAsync(value)
       form.reset()
+      setOpen(false)
     },
   })
 
@@ -315,6 +316,15 @@ export function NotesPage() {
                         <TableHead
                           key={header.id}
                           className={header.column.id === 'actions' ? 'w-[100px]' : undefined}
+                          aria-sort={
+                            canSort
+                              ? sorted === 'asc'
+                                ? 'ascending'
+                                : sorted === 'desc'
+                                  ? 'descending'
+                                  : 'none'
+                              : undefined
+                          }
                         >
                           {header.isPlaceholder ? null : canSort ? (
                             <button
@@ -322,6 +332,7 @@ export function NotesPage() {
                               className="inline-flex items-center gap-1 font-medium hover:text-foreground"
                               onClick={header.column.getToggleSortingHandler()}
                               title={m.tableSortHint}
+                              aria-label={`${String(header.column.columnDef.header)} — ${m.tableSortHint}`}
                             >
                               {flexRender(header.column.columnDef.header, header.getContext())}
                               {sorted === 'asc' ? (
@@ -357,7 +368,13 @@ export function NotesPage() {
         </CardContent>
       </Card>
 
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog
+        open={open}
+        onOpenChange={(v) => {
+          setOpen(v)
+          if (!v) form.reset()
+        }}
+      >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>{m.createNote}</DialogTitle>

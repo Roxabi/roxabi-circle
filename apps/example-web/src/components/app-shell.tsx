@@ -37,7 +37,6 @@ import {
   Skeleton,
   useSidebar,
 } from '@gosilex/ui'
-import { useHotkey } from '@tanstack/react-hotkeys'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useRouterState } from '@tanstack/react-router'
 import {
@@ -134,34 +133,8 @@ function OrgSwitcher() {
   const [slug, setSlug] = useState('')
   const [nameError, setNameError] = useState<string | null>(null)
 
-  // ⌘/Ctrl+1…9 — first 9 orgs
-  useHotkey('Mod+1', () => {
-    if (orgs[0]) setActiveOrgId(orgs[0].id)
-  })
-  useHotkey('Mod+2', () => {
-    if (orgs[1]) setActiveOrgId(orgs[1].id)
-  })
-  useHotkey('Mod+3', () => {
-    if (orgs[2]) setActiveOrgId(orgs[2].id)
-  })
-  useHotkey('Mod+4', () => {
-    if (orgs[3]) setActiveOrgId(orgs[3].id)
-  })
-  useHotkey('Mod+5', () => {
-    if (orgs[4]) setActiveOrgId(orgs[4].id)
-  })
-  useHotkey('Mod+6', () => {
-    if (orgs[5]) setActiveOrgId(orgs[5].id)
-  })
-  useHotkey('Mod+7', () => {
-    if (orgs[6]) setActiveOrgId(orgs[6].id)
-  })
-  useHotkey('Mod+8', () => {
-    if (orgs[7]) setActiveOrgId(orgs[7].id)
-  })
-  useHotkey('Mod+9', () => {
-    if (orgs[8]) setActiveOrgId(orgs[8].id)
-  })
+  // Visual ⌘1…9 chrome only (sidebar-07 TeamSwitcher) — do not bind Mod+digit
+  // (browser tab shortcuts / focus traps).
 
   const createOrg = useMutation({
     mutationFn: (input: { name: string; slug?: string }) =>
@@ -170,6 +143,21 @@ function OrgSwitcher() {
         body: JSON.stringify(input),
       }),
     onSuccess: async (data) => {
+      // Optimistic membership so OrgProvider does not snap back to orgs[0]
+      // while /api/me is still refetching.
+      qc.setQueryData<MeResponse>(meQueryKey, (prev) => {
+        if (!prev) return prev
+        if (prev.orgs.some((o) => o.id === data.org.id)) return prev
+        const membership: MeResponse['orgs'][number] = {
+          id: data.org.id,
+          name: data.org.name,
+          slug: data.org.slug,
+          kind: 'client',
+          status: 'active',
+          role: 'owner',
+        }
+        return { ...prev, orgs: [membership, ...prev.orgs] }
+      })
       setActiveOrgId(data.org.id)
       await qc.invalidateQueries({ queryKey: meQueryKey })
       toast.success(m.orgCreated, { description: data.org.name })
@@ -187,7 +175,8 @@ function OrgSwitcher() {
     setName('')
     setSlug('')
     setNameError(null)
-    setCreateOpen(true)
+    // Defer past DropdownMenu close/focus restore so Dialog trap mounts cleanly.
+    queueMicrotask(() => setCreateOpen(true))
   }
 
   const submitCreate = (e: FormEvent) => {
