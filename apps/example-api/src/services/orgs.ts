@@ -21,28 +21,43 @@ function slugify(input: string): string {
     .slice(0, 48)
 }
 
+/**
+ * Memberships only (no super_admin catalogue dump).
+ * Used by GET /api/me — S1 pin: me.orgs never expands to all orgs.
+ */
+export async function listMembershipOrgsForSubject(db: Db, subject: string) {
+  const memberships = await orgsRepo.listMembershipsForUser(db, subject)
+  return memberships.map((m) => ({
+    id: m.organizationId,
+    name: m.orgName,
+    slug: m.orgSlug,
+    kind: m.orgKind as 'client' | 'internal',
+    status: m.orgStatus as 'active' | 'suspended' | 'archived',
+    role: m.role as 'owner' | 'admin' | 'member' | 'reader',
+  }))
+}
+
+/**
+ * Orgs the subject may list on GET /api/orgs:
+ * - super_admin → full catalogue (role null when not a member)
+ * - everyone else → memberships only
+ */
 export async function listOrgsForSubject(db: Db, subject: string) {
   const platformRole = await platformRolesRepo.getPlatformRole(db, subject)
   if (platformRole === 'super_admin') {
     const all = await orgsRepo.listAllOrgs(db)
+    const memberships = await orgsRepo.listMembershipsForUser(db, subject)
+    const roleByOrg = new Map(memberships.map((m) => [m.organizationId, m.role]))
     return all.map((o) => ({
       id: o.id,
       name: o.name,
       slug: o.slug,
       kind: o.kind,
       status: o.status,
-      role: null as string | null,
+      role: (roleByOrg.get(o.id) ?? null) as string | null,
     }))
   }
-  const memberships = await orgsRepo.listMembershipsForUser(db, subject)
-  return memberships.map((m) => ({
-    id: m.organizationId,
-    name: m.orgName,
-    slug: m.orgSlug,
-    kind: m.orgKind,
-    status: m.orgStatus,
-    role: m.role,
-  }))
+  return listMembershipOrgsForSubject(db, subject)
 }
 
 export async function createOrganization(

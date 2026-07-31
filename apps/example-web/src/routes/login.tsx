@@ -6,7 +6,7 @@ import { GalleryVerticalEnd } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { apiErrorToMessage, apiFetch } from '../lib/api'
-import { meQueryKey, useMe } from '../lib/auth'
+import { defaultHomePath, type MeResponse, meQueryKey, useMe } from '../lib/auth'
 import { useLocale } from '../lib/locale'
 import { loginSchema } from '../lib/schemas'
 
@@ -22,7 +22,7 @@ export function LoginPage() {
   const me = useMe()
 
   useEffect(() => {
-    if (me.data) void navigate({ to: '/' })
+    if (me.data) void navigate({ to: defaultHomePath(me.data) })
   }, [me.data, navigate])
 
   const form = useForm({
@@ -53,8 +53,12 @@ export function LoginPage() {
           body: JSON.stringify({ email: value.email, password: value.password }),
         })
         await qc.invalidateQueries({ queryKey: meQueryKey })
+        const meAfter = await qc.fetchQuery({
+          queryKey: meQueryKey,
+          queryFn: () => apiFetch<MeResponse>('/api/me'),
+        })
         toast.success(m.login, { description: value.email })
-        await navigate({ to: '/' })
+        await navigate({ to: defaultHomePath(meAfter) })
       } catch (e) {
         const msg = apiErrorToMessage(e, m)
         setError(msg)

@@ -74,6 +74,18 @@ export type Messages = {
   navDesignSystem: string
   navPlatform: string
   navSecondary: string
+  navAdmin: string
+  navApp: string
+  navOrgs: string
+  navModules: string
+  navAdminHome: string
+  navAppHome: string
+  shellAdminSubtitle: string
+  shellAppSubtitle: string
+  orgPicker: string
+  orgPickerEmpty: string
+  switchToApp: string
+  switchToAdmin: string
   online: string
   offline: string
   account: string
@@ -91,6 +103,8 @@ export type Messages = {
   dsOnThisPage: string
   forbidden: string
   forbiddenDesc: string
+  forbiddenPlatform: string
+  forbiddenPlatformDesc: string
   /** Stable ErrorCode → UI copy (API codes stay English; FE translates). */
   errUnauthorized: string
   errForbidden: string
@@ -229,12 +243,24 @@ export const fr: Messages = {
   navDesignSystem: 'Design system',
   navPlatform: 'Plateforme',
   navSecondary: 'Plus',
+  navAdmin: 'Back-office',
+  navApp: 'Espace client',
+  navOrgs: 'Organisations',
+  navModules: 'Modules plateforme',
+  navAdminHome: 'Accueil BO',
+  navAppHome: 'Accueil app',
+  shellAdminSubtitle: 'Back-office plateforme',
+  shellAppSubtitle: 'Espace client multi-tenant',
+  orgPicker: 'Organisation active',
+  orgPickerEmpty: 'Aucune organisation',
+  switchToApp: 'Espace client',
+  switchToAdmin: 'Back-office',
   online: 'API OK',
   offline: 'API hors ligne',
   account: 'Compte',
   designSystem: 'Design system',
   designSystemDesc:
-    'Catalogue shadcn Base (base-nova) · réservé admin · templates de page de référence',
+    'Catalogue shadcn Base (base-nova) · réservé plateforme · templates de page de référence',
   designSystemFooter: '100 % composants @gosilex/ui (registry shadcn + @base-ui/react)',
   dsFoundations: 'Fondations',
   dsFoundationsDesc: 'Tokens couleur, typo, radius (CSS variables shadcn)',
@@ -247,6 +273,8 @@ export const fr: Messages = {
   dsOnThisPage: 'Sur cette page',
   forbidden: 'Accès refusé',
   forbiddenDesc: 'Cette page est réservée aux administrateurs.',
+  forbiddenPlatform: 'Accès back-office refusé',
+  forbiddenPlatformDesc: 'Le back-office est réservé au staff et super admin plateforme.',
   errUnauthorized: 'Session expirée ou non authentifié',
   errForbidden: 'Action non autorisée',
   errNotFound: 'Ressource introuvable',
