@@ -1,60 +1,53 @@
-import {
-  Button,
-  cn,
-  Field,
-  FieldDescription,
-  FieldError,
-  FieldGroup,
-  FieldLabel,
-  Input,
-} from '@gosilex/ui'
+import { Button, cn, Field, FieldError, FieldGroup, FieldLabel, Input } from '@gosilex/ui'
 import { useForm } from '@tanstack/react-form'
-import { Link } from '@tanstack/react-router'
+import { Link, useNavigate, useSearch } from '@tanstack/react-router'
 import { GalleryVerticalEnd } from 'lucide-react'
-import { useState } from 'react'
 import { toast } from 'sonner'
 import { apiErrorToMessage, apiFetch } from '../lib/api'
 import { useLocale } from '../lib/locale'
-import { forgotPasswordSchema } from '../lib/schemas'
+import { resetPasswordSchema } from '../lib/schemas'
 
 /**
- * Forgot-password UI — Better Auth request-password-reset (enumeration-safe).
+ * Complete password reset with BA token from email callback / query.
  */
-export function ForgotPasswordPage() {
+export function ResetPasswordPage() {
   const { m, locale, setLocale } = useLocale()
-  const [sent, setSent] = useState(false)
+  const navigate = useNavigate()
+  const search = useSearch({ strict: false }) as { token?: string; error?: string }
+  const token = search.token?.trim() ?? ''
+  const linkError = search.error?.trim()
 
   const form = useForm({
-    defaultValues: { email: '' },
+    defaultValues: { password: '', confirm: '' },
     validators: {
       onSubmit: ({ value }) => {
-        const parsed = forgotPasswordSchema.safeParse(value)
+        const parsed = resetPasswordSchema.safeParse(value)
         if (parsed.success) return undefined
+        const flat = parsed.error.flatten().fieldErrors
         return {
           form: m.errValidation,
           fields: {
-            email: m.errEmailInvalid,
+            password: flat.password?.[0] ? m.resetPasswordTooShort : undefined,
+            confirm: flat.confirm?.[0] ? m.resetPasswordMismatch : undefined,
           },
         }
       },
     },
     onSubmit: async ({ value }) => {
-      try {
-        const redirectTo = `${window.location.origin}/reset-password`
-        await apiFetch('/api/auth/request-password-reset', {
-          method: 'POST',
-          body: JSON.stringify({ email: value.email, redirectTo }),
-        })
-      } catch (e) {
-        // Rate limit / network: surface; still do not reveal account existence
-        if (e instanceof Error && 'status' in e && (e as { status: number }).status === 429) {
-          toast.error(m.error, { description: apiErrorToMessage(e, m) })
-          return
-        }
-        // Other failures: still show generic success for enumeration safety when possible
+      if (!token) {
+        toast.error(m.error, { description: m.resetPasswordMissingToken })
+        return
       }
-      setSent(true)
-      toast.message(m.forgotSentTitle, { description: m.forgotSentDesc })
+      try {
+        await apiFetch('/api/auth/reset-password', {
+          method: 'POST',
+          body: JSON.stringify({ newPassword: value.password, token }),
+        })
+        toast.success(m.resetPasswordSuccess)
+        await navigate({ to: '/login' })
+      } catch (e) {
+        toast.error(m.error, { description: apiErrorToMessage(e, m) })
+      }
     },
   })
 
@@ -84,14 +77,19 @@ export function ForgotPasswordPage() {
           <div className="flex size-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
             <GalleryVerticalEnd className="size-5" aria-hidden />
           </div>
-          <h1 className="text-xl font-bold">{m.forgotTitle}</h1>
-          <p className="text-sm text-muted-foreground">{m.forgotDesc}</p>
+          <h1 className="text-xl font-bold">{m.resetPasswordTitle}</h1>
+          <p className="text-sm text-muted-foreground">{m.resetPasswordDesc}</p>
         </div>
 
-        {sent ? (
+        {linkError || !token ? (
           <div className="flex flex-col gap-4 text-center">
-            <p className="text-sm text-muted-foreground">{m.forgotSentDesc}</p>
-            <Button variant="outline" render={<Link to="/login" />}>
+            <p className="text-sm text-muted-foreground">
+              {linkError ? m.resetPasswordInvalidLink : m.resetPasswordMissingToken}
+            </p>
+            <Button variant="outline" render={<Link to="/forgot-password" />}>
+              {m.forgotPassword}
+            </Button>
+            <Button variant="ghost" render={<Link to="/login" />}>
               {m.backToLogin}
             </Button>
           </div>
@@ -105,26 +103,47 @@ export function ForgotPasswordPage() {
             }}
           >
             <FieldGroup>
-              <form.Field name="email">
+              <form.Field name="password">
                 {(field) => {
                   const err = field.state.meta.errors[0]
                   const errId = `${field.name}-error`
                   const invalid = Boolean(err)
                   return (
                     <Field>
-                      <FieldLabel htmlFor={field.name}>{m.email}</FieldLabel>
+                      <FieldLabel htmlFor={field.name}>{m.resetPasswordNew}</FieldLabel>
                       <Input
                         id={field.name}
-                        type="email"
-                        autoComplete="email"
-                        placeholder="m@example.com"
+                        type="password"
+                        autoComplete="new-password"
                         value={field.state.value}
                         onBlur={field.handleBlur}
                         onChange={(e) => field.handleChange(e.target.value)}
                         aria-invalid={invalid || undefined}
                         aria-describedby={invalid ? errId : undefined}
                       />
-                      <FieldDescription>{m.forgotEmailHint}</FieldDescription>
+                      {invalid ? <FieldError id={errId}>{String(err)}</FieldError> : null}
+                    </Field>
+                  )
+                }}
+              </form.Field>
+              <form.Field name="confirm">
+                {(field) => {
+                  const err = field.state.meta.errors[0]
+                  const errId = `${field.name}-error`
+                  const invalid = Boolean(err)
+                  return (
+                    <Field>
+                      <FieldLabel htmlFor={field.name}>{m.resetPasswordConfirm}</FieldLabel>
+                      <Input
+                        id={field.name}
+                        type="password"
+                        autoComplete="new-password"
+                        value={field.state.value}
+                        onBlur={field.handleBlur}
+                        onChange={(e) => field.handleChange(e.target.value)}
+                        aria-invalid={invalid || undefined}
+                        aria-describedby={invalid ? errId : undefined}
+                      />
                       {invalid ? <FieldError id={errId}>{String(err)}</FieldError> : null}
                     </Field>
                   )
@@ -133,7 +152,7 @@ export function ForgotPasswordPage() {
               <form.Subscribe selector={(s) => s.isSubmitting}>
                 {(isSubmitting) => (
                   <Button type="submit" className="w-full" disabled={isSubmitting}>
-                    {m.forgotSubmit}
+                    {m.resetPasswordSubmit}
                   </Button>
                 )}
               </form.Subscribe>

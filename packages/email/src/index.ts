@@ -1,5 +1,6 @@
 import { DemoEmail } from './templates/demo'
 import { InviteEmail } from './templates/invite'
+import { ResetPasswordEmail } from './templates/reset-password'
 
 /** Build a plain-text demo email body (React Email-style template). */
 export function buildDemoEmailText(params: { to: string; subjectId: string }): {
@@ -31,6 +32,26 @@ export function buildInviteEmailText(params: {
   html: string
 } {
   const mail = InviteEmail(params)
+  return {
+    to: mail.to,
+    subject: mail.subject,
+    text: mail.text,
+    html: mail.html,
+  }
+}
+
+/** Password reset email (kit copy only). */
+export function buildResetPasswordEmailText(params: {
+  to: string
+  resetUrl: string
+  expiresHint?: string
+}): {
+  to: string
+  subject: string
+  text: string
+  html: string
+} {
+  const mail = ResetPasswordEmail(params)
   return {
     to: mail.to,
     subject: mail.subject,
@@ -78,5 +99,6 @@ export function createLogEmailPort(): EmailPort {
 
 export { DemoEmail } from './templates/demo'
 export { InviteEmail } from './templates/invite'
+export { ResetPasswordEmail } from './templates/reset-password'
 
 export type EmailTransport = 'smtp' | 'log' | 'resend'
