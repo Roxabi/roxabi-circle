@@ -97,3 +97,4 @@ git rev-parse upstream/main | tr -d '\n' > docs/product/kit-baseline
 - Zero-edit zones: `config/zero-edit-zones.json`
 - CI app: `docs/gosilex-ci-app-setup.md`
 - Staging: `docs/staging-examples.md`
+- **Live dogfood evidence:** [`docs/product-consumer-dogfood-evidence.md`](../product-consumer-dogfood-evidence.md) · product [`go-silex/silex-kit-dogfood`](https://github.com/go-silex/silex-kit-dogfood)
