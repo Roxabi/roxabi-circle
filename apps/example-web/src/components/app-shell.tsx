@@ -1,15 +1,8 @@
 import {
-  Avatar,
-  AvatarFallback,
   Badge,
   Button,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
   DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
+  NavUser,
   Select,
   SelectContent,
   SelectGroup,
@@ -41,7 +34,6 @@ import {
   FileText,
   KeyRound,
   LayoutDashboard,
-  LogOut,
   Moon,
   Palette,
   Settings,
@@ -200,7 +192,8 @@ function ShellChrome({ mode, children }: { mode: ShellMode; children: ReactNode 
 
   return (
     <>
-      <Sidebar collapsible="offcanvas" variant="inset">
+      {/* sidebar-07: collapses to icons */}
+      <Sidebar collapsible="icon">
         <SidebarHeader>
           <SidebarMenu>
             <SidebarMenuItem>
@@ -280,95 +273,47 @@ function ShellChrome({ mode, children }: { mode: ShellMode; children: ReactNode 
         </SidebarContent>
 
         <SidebarFooter>
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <div className="flex items-center gap-2 px-1 py-1">
-                <Badge
-                  variant={
-                    health.isLoading ? 'outline' : health.data?.ok ? 'secondary' : 'destructive'
-                  }
-                  className="text-[10px]"
-                >
-                  {health.isLoading ? m.loading : health.data?.ok ? m.online : m.offline}
-                </Badge>
-                {me.data?.platformRole ? (
-                  <Badge variant="outline" className="text-[10px]">
-                    {me.data.platformRole}
-                  </Badge>
-                ) : null}
-              </div>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <DropdownMenu>
-                <DropdownMenuTrigger
-                  render={
-                    <SidebarMenuButton
-                      size="lg"
-                      className="aria-expanded:bg-muted data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
-                    />
-                  }
-                >
-                  <Avatar className="size-8 rounded-lg">
-                    <AvatarFallback className="rounded-lg text-[10px]">{initials}</AvatarFallback>
-                  </Avatar>
-                  <div className="grid flex-1 text-left text-sm leading-tight">
-                    <span className="truncate font-medium">
-                      {me.data?.email ?? me.data?.subject ?? '—'}
-                    </span>
-                    <span className="truncate text-xs text-muted-foreground">
-                      {me.data?.platformRole ?? me.data?.role ?? m.account}
-                    </span>
-                  </div>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent
-                  className="min-w-56 rounded-lg"
-                  side="bottom"
-                  align="end"
-                  sideOffset={4}
-                >
-                  <DropdownMenuGroup>
-                    <DropdownMenuLabel>{m.account}</DropdownMenuLabel>
-                    <div className="space-y-0.5 px-2 pb-1 text-xs text-muted-foreground">
-                      <div>{me.data?.email ?? me.data?.subject ?? '—'}</div>
-                      {me.data?.platformRole ? (
-                        <Badge variant="outline" className="text-[10px]">
-                          {me.data.platformRole}
-                        </Badge>
-                      ) : me.data?.role ? (
-                        <Badge variant="outline" className="text-[10px]">
-                          {me.data.role}
-                        </Badge>
-                      ) : null}
-                    </div>
-                  </DropdownMenuGroup>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuGroup>
-                    <DropdownMenuItem
-                      onClick={() =>
-                        void navigate({ to: mode === 'admin' ? '/admin' : '/app/settings' })
-                      }
-                    >
-                      <Settings className="size-4" />
-                      {mode === 'admin' ? m.navAdmin : m.settings}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => void logout()}>
-                      <LogOut className="size-4" />
-                      {m.logout}
-                    </DropdownMenuItem>
-                  </DropdownMenuGroup>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </SidebarMenuItem>
-          </SidebarMenu>
+          <div className="flex flex-wrap items-center gap-1 px-2 group-data-[collapsible=icon]:hidden">
+            <Badge
+              variant={health.isLoading ? 'outline' : health.data?.ok ? 'secondary' : 'destructive'}
+              className="text-[10px]"
+            >
+              {health.isLoading ? m.loading : health.data?.ok ? m.online : m.offline}
+            </Badge>
+            {me.data?.platformRole ? (
+              <Badge variant="outline" className="text-[10px]">
+                {me.data.platformRole}
+              </Badge>
+            ) : null}
+          </div>
+          <NavUser
+            user={{
+              name: me.data?.email ?? me.data?.subject ?? m.account,
+              email: me.data?.platformRole ?? me.data?.role ?? m.account,
+              fallback: initials,
+            }}
+            logoutLabel={m.logout}
+            onLogout={() => void logout()}
+          >
+            <DropdownMenuItem
+              onClick={() => void navigate({ to: mode === 'admin' ? '/admin' : '/app/settings' })}
+            >
+              <Settings />
+              {mode === 'admin' ? m.navAdmin : m.settings}
+            </DropdownMenuItem>
+          </NavUser>
         </SidebarFooter>
         <SidebarRail />
       </Sidebar>
 
       <SidebarInset>
-        <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
+        <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
           <div className="flex w-full items-center gap-2 px-4 lg:gap-3 lg:px-6">
             <SidebarTrigger className="-ml-1" />
-            <Separator orientation="vertical" className="mx-1 data-[orientation=vertical]:h-4" />
+            <Separator
+              orientation="vertical"
+              className="mr-2 data-vertical:h-4 data-vertical:self-auto"
+            />
             <h1 className="text-sm font-medium">{title}</h1>
             <div className="ml-auto flex items-center gap-2">
               <div className="hidden items-center gap-1 sm:flex">

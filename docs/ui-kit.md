@@ -33,6 +33,20 @@ SSoT: [`docs/product-consumer-contract.md`](product-consumer-contract.md) (desig
 
 See `packages/ui/src/index.ts` for the current export map (Button, Dialog, Sheet, Sidebar, AlertDialog, Select, Empty, …). Prefer the living design-system page over duplicating a long inventory here.
 
+### Sidebar 07 block (shadcn)
+
+Installed via `bunx --bun shadcn@latest add sidebar-07` into `packages/ui`:
+
+| Export | Role |
+|--------|------|
+| `AppSidebar` | Demo composition (`collapsible="icon"`) |
+| `NavUser` | Footer user menu — pass `user`, optional `children` items, `onLogout` |
+| `TeamSwitcher` | Header team switcher |
+| `NavMain` / `NavProjects` | Collapsible nav groups |
+| `Breadcrumb*` / `Collapsible*` | Supporting primitives |
+
+`example-web` shell uses `Sidebar collapsible="icon"` + `NavUser` for the real session menu.
+
 ## Related
 
 - Stack: `AGENTS.md` § UI / packages
