@@ -17,14 +17,15 @@ export function ResetPasswordPage() {
   const navigate = useNavigate()
   const search = useSearch({ strict: false }) as { token?: string; error?: string }
   const stripped = useRef(false)
-  const [token, setToken] = useState('')
-  const [linkError, setLinkError] = useState<string | undefined>()
+  // Seed from search on first paint so strip replace does not flash "missing token".
+  const [token, setToken] = useState(() => search.token?.trim() ?? '')
+  const [linkError, setLinkError] = useState(() => search.error?.trim() || undefined)
 
   useEffect(() => {
     if (stripped.current) return
     const t = search.token?.trim() ?? ''
     const err = search.error?.trim()
-    if (t) setToken(t)
+    if (t && t !== token) setToken(t)
     if (err) setLinkError(err)
     if (search.token || search.error) {
       stripped.current = true
@@ -34,7 +35,7 @@ export function ResetPasswordPage() {
         replace: true,
       })
     }
-  }, [search.token, search.error, navigate])
+  }, [search.token, search.error, navigate, token])
 
   const form = useForm({
     defaultValues: { password: '', confirm: '' },
