@@ -46,9 +46,16 @@ export function KeysPage() {
   const [minted, setMinted] = useState<{ id: string; key: string } | null>(null)
   const [revokeId, setRevokeId] = useState<string | null>(null)
 
+  const orgScope = activeOrgId ?? orgs[0]?.id ?? 'none'
+  const keysQueryKey = ['keys', orgScope] as const
+
   const keys = useQuery({
-    queryKey: ['keys'],
-    queryFn: () => apiFetch<{ keys: KeyMeta[] }>('/api/keys'),
+    queryKey: keysQueryKey,
+    queryFn: () => {
+      const headers: Record<string, string> = {}
+      if (orgScope !== 'none') headers['X-Org-Id'] = orgScope
+      return apiFetch<{ keys: KeyMeta[] }>('/api/keys', { headers })
+    },
   })
 
   useEffect(() => {
@@ -71,7 +78,7 @@ export function KeysPage() {
     onSuccess: async (data) => {
       setMinted(data)
       toast.success(m.keyMinted)
-      await qc.invalidateQueries({ queryKey: ['keys'] })
+      await qc.invalidateQueries({ queryKey: keysQueryKey })
     },
     onError: (e) => toast.error(m.error, { description: apiErrorToMessage(e, m) }),
   })
@@ -80,7 +87,7 @@ export function KeysPage() {
     mutationFn: (id: string) => apiFetch(`/api/keys/${id}`, { method: 'DELETE' }),
     onSuccess: async () => {
       toast.success(m.keyRevoked)
-      await qc.invalidateQueries({ queryKey: ['keys'] })
+      await qc.invalidateQueries({ queryKey: keysQueryKey })
     },
     onError: (e) => toast.error(m.error, { description: apiErrorToMessage(e, m) }),
   })

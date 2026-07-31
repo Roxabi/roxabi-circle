@@ -13,6 +13,7 @@ import { Link } from '@tanstack/react-router'
 import { PageHeader } from '../../components/app-shell'
 import { apiErrorToMessage, apiFetch } from '../../lib/api'
 import { useLocale } from '../../lib/locale'
+import { orgRoleLabel } from '../../lib/org-role'
 
 type OrgRow = {
   id: string
@@ -33,10 +34,7 @@ export function AdminOrgsPage() {
 
   return (
     <div>
-      <PageHeader
-        title={m.navOrgs}
-        description={`${m.shellAdminSubtitle} · staff = memberships · super = catalogue`}
-      />
+      <PageHeader title={m.navOrgs} description={m.adminOrgsDesc} />
 
       <Card>
         <CardHeader>
@@ -76,11 +74,11 @@ export function AdminOrgsPage() {
                   <div className="flex items-center gap-2">
                     {o.role ? (
                       <Badge variant="secondary" className="text-[10px]">
-                        {o.role}
+                        {orgRoleLabel(o.role, m)}
                       </Badge>
                     ) : (
                       <Badge variant="outline" className="text-[10px]">
-                        catalogue
+                        {m.orgCatalogueBadge}
                       </Badge>
                     )}
                     {o.role ? (

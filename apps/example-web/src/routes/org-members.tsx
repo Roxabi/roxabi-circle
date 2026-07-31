@@ -24,6 +24,7 @@ import { PageHeader } from '../components/app-shell'
 import { apiErrorToMessage, apiFetch } from '../lib/api'
 import { canManageMembers, useMe } from '../lib/auth'
 import { useLocale } from '../lib/locale'
+import { orgRoleLabel } from '../lib/org-role'
 
 type Member = { id: string; userId: string; role: string; createdAt?: string | number | Date }
 type Invitation = {
@@ -189,13 +190,7 @@ export function OrgMembersPage() {
                     <div>
                       <div className="font-medium">{inv.email}</div>
                       <div className="text-xs text-muted-foreground">
-                        {inv.role === 'admin'
-                          ? m.roleAdmin
-                          : inv.role === 'reader'
-                            ? m.roleReader
-                            : inv.role === 'owner'
-                              ? m.roleOwner
-                              : m.roleMember}
+                        {orgRoleLabel(inv.role, m)}
                         {inv.expiresAt
                           ? ` · exp ${new Date(inv.expiresAt).toLocaleDateString()}`
                           : ''}
@@ -248,13 +243,7 @@ export function OrgMembersPage() {
                   >
                     <span className="font-mono text-xs">{mem.userId}</span>
                     <Badge variant="secondary" className="text-[10px]">
-                      {mem.role === 'admin'
-                        ? m.roleAdmin
-                        : mem.role === 'reader'
-                          ? m.roleReader
-                          : mem.role === 'owner'
-                            ? m.roleOwner
-                            : m.roleMember}
+                      {orgRoleLabel(mem.role, m)}
                     </Badge>
                   </li>
                 ))}

@@ -32,6 +32,7 @@ export type Messages = {
   notes: string
   notesDesc: string
   createNote: string
+  noteBodyHint: string
   title: string
   body: string
   delete: string
@@ -102,6 +103,8 @@ export type Messages = {
   shellAppSubtitle: string
   orgPicker: string
   orgPickerEmpty: string
+  adminOrgsDesc: string
+  orgCatalogueBadge: string
   orgCreate: string
   orgCreateTitle: string
   orgCreateDesc: string
@@ -175,6 +178,7 @@ export type Messages = {
   moduleFeedbackDesc: string
   moduleOn: string
   moduleOff: string
+  moduleNotConfigured: string
   moduleFeedbackEnabled: string
   moduleFeedbackDisabled: string
   moduleConfigureFirst: string
@@ -249,6 +253,7 @@ export const fr: Messages = {
   notes: 'Notes',
   notesDesc: 'CRUD démo (D1 + pièces jointes R2 optionnelles)',
   createNote: 'Créer une note',
+  noteBodyHint: 'Markdown OK — **gras**, listes, liens…',
   title: 'Titre',
   body: 'Corps',
   delete: 'Supprimer',
@@ -320,6 +325,8 @@ export const fr: Messages = {
   shellAppSubtitle: 'Espace client multi-tenant',
   orgPicker: 'Organisation active',
   orgPickerEmpty: 'Aucune organisation',
+  adminOrgsDesc: 'Staff = memberships · super = catalogue',
+  orgCatalogueBadge: 'catalogue',
   orgCreate: 'Créer une organisation',
   orgCreateTitle: 'Nouvelle organisation',
   orgCreateDesc: 'Vous en serez le propriétaire. Le slug est dérivé du nom si vide.',
@@ -394,6 +401,7 @@ export const fr: Messages = {
   moduleFeedbackDesc: 'Bouton flottant → Spark Pilotage via POST /api/report',
   moduleOn: 'Activé',
   moduleOff: 'Désactivé',
+  moduleNotConfigured: 'Non configuré',
   moduleFeedbackEnabled: 'Module feedback activé',
   moduleFeedbackDisabled: 'Module feedback désactivé',
   moduleConfigureFirst: 'Configure l’intégration avant activation —',

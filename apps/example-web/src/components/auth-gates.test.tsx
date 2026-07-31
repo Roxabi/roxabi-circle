@@ -6,7 +6,7 @@ import { ApiError } from '../lib/api'
 import type { MeResponse } from '../lib/auth'
 import { LocaleProvider } from '../lib/locale'
 import { ThemeProvider } from '../lib/theme'
-import { AuthGate } from './app-shell'
+import { AuthGate } from './auth-gates'
 
 const navigate = vi.fn()
 
