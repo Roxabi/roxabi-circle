@@ -225,6 +225,14 @@ export type Messages = {
   roleCreated: string
   roleDeleted: string
   grantUpdated: string
+  accessWrite: string
+  accessRead: string
+  accessDisabled: string
+  grantAccessLabel: string
+  orgRoleGrantsEmpty: string
+  confirmDeleteRole: string
+  membersEmpty: string
+  inviteExpires: string
 }
 
 export const fr: Messages = {
@@ -458,4 +466,13 @@ export const fr: Messages = {
   roleCreated: 'Rôle créé',
   roleDeleted: 'Rôle supprimé',
   grantUpdated: 'Grant mis à jour',
+  accessWrite: 'écriture',
+  accessRead: 'lecture',
+  accessDisabled: 'désactivé',
+  grantAccessLabel: 'Accès module {module}',
+  orgRoleGrantsEmpty: 'Aucun grant module pour ce rôle',
+  confirmDeleteRole:
+    'Supprimer ce rôle custom ? Les membres qui l’utilisent doivent être réassignés.',
+  membersEmpty: 'Aucun membre',
+  inviteExpires: 'exp.',
 }

@@ -3,7 +3,8 @@
 # Scans packages + example apps only (not this script itself).
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# ZERO_EDIT_ROOT: same override as check-zero-edit-zones (dogfood product path).
+ROOT="${ZERO_EDIT_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
 cd "$ROOT"
 
 TARGETS=(
