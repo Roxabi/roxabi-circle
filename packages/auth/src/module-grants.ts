@@ -75,5 +75,5 @@ export function isAssignableRoleKey(
 ): boolean {
   if (isOrgRoleKey(role)) return true
   if (customKeys instanceof Set) return customKeys.has(role)
-  return customKeys.includes(role)
+  return (customKeys as readonly string[]).includes(role)
 }
