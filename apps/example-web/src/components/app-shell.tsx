@@ -41,12 +41,20 @@ import {
   Settings,
   Sun,
   SunMoon,
+  Users,
 } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useEffect } from 'react'
 import { toast } from 'sonner'
 import { apiFetch } from '../lib/api'
-import { isPlatformActor, isUnauthorized, type MeResponse, meQueryKey, useMe } from '../lib/auth'
+import {
+  canManageMembers,
+  isPlatformActor,
+  isUnauthorized,
+  type MeResponse,
+  meQueryKey,
+  useMe,
+} from '../lib/auth'
 import { useLocale } from '../lib/locale'
 import { OrgProvider, useOrgContext } from '../lib/org-context'
 import { type Theme, useTheme } from '../lib/theme'
@@ -94,6 +102,7 @@ function ThemeCycleButton() {
 function pageTitle(pathname: string, m: ReturnType<typeof useLocale>['m']): string {
   if (pathname.startsWith('/app/notes') || pathname === '/notes') return m.navNotes
   if (pathname.startsWith('/app/keys') || pathname === '/keys') return m.navKeys
+  if (pathname.includes('/members')) return m.navMembers
   if (pathname.startsWith('/app/settings') || pathname.startsWith('/settings')) return m.navSettings
   if (pathname.startsWith('/admin/design-system') || pathname.startsWith('/design-system')) {
     return m.navDesignSystem
@@ -135,6 +144,7 @@ function OrgPicker() {
 function ShellChrome({ mode, children }: { mode: ShellMode; children: ReactNode }) {
   const { m, locale, setLocale } = useLocale()
   const me = useMe()
+  const { activeOrgId } = useOrgContext()
   const navigate = useNavigate()
   const qc = useQueryClient()
   const pathname = useRouterState({ select: (s) => s.location.pathname })
@@ -143,6 +153,8 @@ function ShellChrome({ mode, children }: { mode: ShellMode; children: ReactNode 
     queryFn: () => apiFetch<{ ok: boolean }>('/health'),
     refetchInterval: 30_000,
   })
+  const showMembers =
+    mode === 'app' && Boolean(activeOrgId) && canManageMembers(me.data, activeOrgId ?? '')
 
   const logout = async () => {
     try {
@@ -207,6 +219,13 @@ function ShellChrome({ mode, children }: { mode: ShellMode; children: ReactNode 
                   <NavItem to="/app" label={m.navAppHome} icon={<LayoutDashboard />} />
                   <NavItem to="/app/notes" label={m.navNotes} icon={<FileText />} />
                   <NavItem to="/app/keys" label={m.navKeys} icon={<KeyRound />} />
+                  {showMembers && activeOrgId ? (
+                    <NavItem
+                      to={`/app/orgs/${activeOrgId}/members`}
+                      label={m.navMembers}
+                      icon={<Users />}
+                    />
+                  ) : null}
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>

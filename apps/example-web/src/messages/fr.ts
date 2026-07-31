@@ -78,6 +78,7 @@ export type Messages = {
   navApp: string
   navOrgs: string
   navModules: string
+  navMembers: string
   navAdminHome: string
   navAppHome: string
   shellAdminSubtitle: string
@@ -164,6 +165,22 @@ export type Messages = {
   integrationSaved: string
   backToSettings: string
   errIntegrationNotConfigured: string
+  inviteTitle: string
+  inviteDesc: string
+  inviteRole: string
+  inviteSubmit: string
+  inviteSent: string
+  invitePending: string
+  inviteEmpty: string
+  inviteCancel: string
+  inviteCanceled: string
+  inviteNoPermission: string
+  membersList: string
+  inviteAcceptTitle: string
+  inviteAcceptDesc: string
+  inviteAcceptSubmit: string
+  inviteAcceptMissing: string
+  inviteAccepted: string
 }
 
 export const fr: Messages = {
@@ -247,6 +264,7 @@ export const fr: Messages = {
   navApp: 'Espace client',
   navOrgs: 'Organisations',
   navModules: 'Modules plateforme',
+  navMembers: 'Membres',
   navAdminHome: 'Accueil BO',
   navAppHome: 'Accueil app',
   shellAdminSubtitle: 'Back-office plateforme',
@@ -334,4 +352,20 @@ export const fr: Messages = {
   integrationSaved: 'Intégration enregistrée',
   backToSettings: 'Retour paramètres',
   errIntegrationNotConfigured: 'Configure l’intégration avant d’activer ce module',
+  inviteTitle: 'Inviter un membre',
+  inviteDesc: 'Envoi d’une invitation (e-mail log local / transport kit).',
+  inviteRole: 'Rôle',
+  inviteSubmit: 'Inviter',
+  inviteSent: 'Invitation créée',
+  invitePending: 'Invitations en attente',
+  inviteEmpty: 'Aucune invitation en attente',
+  inviteCancel: 'Révoquer',
+  inviteCanceled: 'Invitation annulée',
+  inviteNoPermission: 'Vous n’avez pas la permission de gérer les membres.',
+  membersList: 'Membres',
+  inviteAcceptTitle: 'Accepter l’invitation',
+  inviteAcceptDesc: 'Compte de session',
+  inviteAcceptSubmit: 'Rejoindre l’organisation',
+  inviteAcceptMissing: 'Lien d’invitation invalide (invitationId manquant).',
+  inviteAccepted: 'Invitation acceptée',
 }

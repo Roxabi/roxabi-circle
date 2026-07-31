@@ -14,6 +14,7 @@ import { demoRoutes } from './routes/demo'
 import { feedbackRoutes } from './routes/feedback'
 import { healthRoutes } from './routes/health'
 import { integrationsRoutes } from './routes/integrations'
+import { invitationsRoutes } from './routes/invitations'
 import { meRoutes } from './routes/me'
 import { modulesRoutes } from './routes/modules'
 import { notesRoutes } from './routes/notes'
@@ -60,6 +61,7 @@ export function createApp() {
   app.route('/', meRoutes)
   app.route('/', modulesRoutes)
   app.route('/', orgsRoutes)
+  app.route('/', invitationsRoutes)
   app.route('/', integrationsRoutes)
   app.route('/', notesRoutes)
   app.route('/', demoRoutes)
