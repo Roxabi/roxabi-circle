@@ -216,6 +216,15 @@ export type Messages = {
   inviteAcceptSubmit: string
   inviteAcceptMissing: string
   inviteAccepted: string
+  orgRolesTitle: string
+  orgRolesDesc: string
+  orgRoleKey: string
+  orgRoleName: string
+  orgRoleCreate: string
+  orgRoleSystem: string
+  roleCreated: string
+  roleDeleted: string
+  grantUpdated: string
 }
 
 export const fr: Messages = {
@@ -440,4 +449,13 @@ export const fr: Messages = {
   inviteAcceptSubmit: 'Rejoindre l’organisation',
   inviteAcceptMissing: 'Lien d’invitation invalide (invitationId manquant).',
   inviteAccepted: 'Invitation acceptée',
+  orgRolesTitle: 'Rôles & grants (Phase B)',
+  orgRolesDesc: 'Rôles système immuables · rôles custom + accès module (write|read|disabled)',
+  orgRoleKey: 'Clé',
+  orgRoleName: 'Nom',
+  orgRoleCreate: 'Créer le rôle',
+  orgRoleSystem: 'système',
+  roleCreated: 'Rôle créé',
+  roleDeleted: 'Rôle supprimé',
+  grantUpdated: 'Grant mis à jour',
 }

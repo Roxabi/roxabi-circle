@@ -220,4 +220,14 @@ export const en: Messages = {
   inviteAcceptSubmit: 'Join organization',
   inviteAcceptMissing: 'Invalid invite link (missing invitationId).',
   inviteAccepted: 'Invitation accepted',
+  orgRolesTitle: 'Roles & grants (Phase B)',
+  orgRolesDesc:
+    'System roles are immutable · custom roles + per-module access (write|read|disabled)',
+  orgRoleKey: 'Key',
+  orgRoleName: 'Name',
+  orgRoleCreate: 'Create role',
+  orgRoleSystem: 'system',
+  roleCreated: 'Role created',
+  roleDeleted: 'Role deleted',
+  grantUpdated: 'Grant updated',
 }
