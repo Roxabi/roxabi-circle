@@ -1,6 +1,6 @@
 import type { QueryClient } from '@tanstack/react-query'
 import { createRootRouteWithContext, createRoute, Outlet, redirect } from '@tanstack/react-router'
-import { AuthGate, PlatformGate } from './components/app-shell'
+import { AuthGate, PlatformGate } from './components/auth-gates'
 import { EnvBanner } from './components/env-banner'
 import { RouteErrorComponent } from './components/route-error'
 import { apiFetch } from './lib/api'

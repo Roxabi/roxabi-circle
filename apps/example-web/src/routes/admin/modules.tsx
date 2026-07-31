@@ -74,8 +74,12 @@ export function AdminModulesPage() {
                   </div>
                   <div className="flex items-center gap-1.5">
                     {mod.configured ? null : (
-                      <Badge variant="outline" className="text-[10px]">
-                        {m.errIntegrationNotConfigured}
+                      <Badge
+                        variant="outline"
+                        className="text-[10px]"
+                        title={m.errIntegrationNotConfigured}
+                      >
+                        {m.moduleNotConfigured}
                       </Badge>
                     )}
                     <Badge

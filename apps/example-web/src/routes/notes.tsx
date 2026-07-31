@@ -1,4 +1,12 @@
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
   Button,
   Card,
   CardContent,
@@ -423,7 +431,7 @@ export function NotesPage() {
                       onChange={(e) => field.handleChange(e.target.value)}
                       onBlur={field.handleBlur}
                       rows={4}
-                      placeholder="Markdown OK — **bold**, lists, links…"
+                      placeholder={m.noteBodyHint}
                       aria-invalid={invalid || undefined}
                       aria-describedby={invalid ? errId : undefined}
                     />
@@ -444,33 +452,39 @@ export function NotesPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!pendingDelete} onOpenChange={(v) => !v && setPendingDelete(null)}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>{m.delete}</DialogTitle>
-            <DialogDescription>{m.confirmDelete}</DialogDescription>
-          </DialogHeader>
-          <p className="text-sm font-medium">{pendingDelete?.title}</p>
-          {pendingDelete?.body?.trim() ? (
-            <div className="prose prose-sm dark:prose-invert max-w-none text-muted-foreground">
-              <Markdown>{pendingDelete.body}</Markdown>
+      <AlertDialog
+        open={!!pendingDelete}
+        onOpenChange={(v) => {
+          if (!v) setPendingDelete(null)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{m.delete}</AlertDialogTitle>
+            <AlertDialogDescription>{m.confirmDelete}</AlertDialogDescription>
+          </AlertDialogHeader>
+          {pendingDelete ? (
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-foreground">{pendingDelete.title}</p>
+              {pendingDelete.body?.trim() ? (
+                <div className="prose prose-sm dark:prose-invert max-w-none text-muted-foreground">
+                  <Markdown>{pendingDelete.body}</Markdown>
+                </div>
+              ) : null}
             </div>
           ) : null}
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setPendingDelete(null)}>
-              {m.cancel}
-            </Button>
-            <Button
-              type="button"
+          <AlertDialogFooter>
+            <AlertDialogCancel>{m.cancel}</AlertDialogCancel>
+            <AlertDialogAction
               variant="destructive"
               disabled={deleteNote.isPending}
               onClick={() => pendingDelete && deleteNote.mutate(pendingDelete.id)}
             >
               {m.delete}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
