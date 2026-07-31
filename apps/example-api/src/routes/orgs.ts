@@ -1,6 +1,7 @@
 import { AppError } from '@gosilex/core'
 import { Hono } from 'hono'
 import { z } from 'zod'
+import { resolveEmailPort } from '../lib/email-port'
 import { requireBaAdapter } from '../lib/require-ba-adapter'
 import { corsAllowlist } from '../lib/session-env'
 import {
@@ -109,6 +110,7 @@ orgsRoutes.post(
       email: parsed.data.email,
       role: parsed.data.role,
       acceptBaseUrl,
+      emailPort: resolveEmailPort(c.env),
     })
     c.header('Location', `/api/orgs/${c.get('orgId')}/invitations/${invitation.id}`)
     return c.json({ invitation, requestId: c.get('requestId') }, 201)
