@@ -43,10 +43,24 @@ export const workerStringEnvSchema = z.object({
    * development|test defaults to log when unset; staging|production must set cf|resend.
    */
   EMAIL_TRANSPORT: z.string().optional(),
-  /** From address for cf/resend (must be onboarded domain for CF Email). */
+  /**
+   * From address for cf/resend.
+   * Staging: must be @gosilex.com (or EMAIL_FROM_DOMAIN). Prod: onboarded product domain.
+   */
   EMAIL_FROM: z.string().optional(),
   /** Optional display name for From. */
   EMAIL_FROM_NAME: z.string().optional(),
+  /**
+   * Comma-separated recipient domains allowed to receive mail (exact match).
+   * Required on staging when EMAIL_TRANSPORT=cf|resend. Optional pin on production.
+   * Example: `gosilex.com,client-acme.test`
+   */
+  EMAIL_ALLOW_DOMAINS: z.string().optional(),
+  /**
+   * Domain required for EMAIL_FROM. Staging defaults to `gosilex.com` when unset.
+   * Production: only enforced when set.
+   */
+  EMAIL_FROM_DOMAIN: z.string().optional(),
   /** Resend API key when EMAIL_TRANSPORT=resend (escape hatch). */
   RESEND_API_KEY: z.string().optional(),
 })
