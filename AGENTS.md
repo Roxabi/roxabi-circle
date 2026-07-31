@@ -493,7 +493,7 @@ Règles : guard first · Zod double frontière · pas de god file · packages �
 - [x] **Merge-on-green** — `.github/workflows/merge-on-green.yml` (label `reviewed` + checks green)  
 - [x] Label **`reviewed`** créé sur le repo  
 - [x] Merge token = **GitHub App `gosilex-ci`** (pas de PAT) — setup : [`docs/gosilex-ci-app-setup.md`](docs/gosilex-ci-app-setup.md)  
-- [ ] Créer/installer App + set `GOSILEX_CI_APP_ID` (var) / `GOSILEX_CI_APP_PRIVATE_KEY` (secret) — sans ça = **merge manuel** (job green + warning, pas d’auto-merge) · [`docs/gosilex-ci-app-setup.md`](docs/gosilex-ci-app-setup.md)  
+- [x] Créer/installer App + set `GOSILEX_CI_APP_ID` (var) / `GOSILEX_CI_APP_PRIVATE_KEY` (secret) — org-level live · [`docs/gosilex-ci-app-setup.md`](docs/gosilex-ci-app-setup.md) · staging: [`docs/staging-examples.md`](docs/staging-examples.md)
 - [ ] Branch protection / rulesets — **bloqué plan Free privé** (voir § GitHub Free)  
 - [x] Bun workspaces + Turbo  
 - [x] Biome + CI app (`validate:full` incl. build:kit + smoke:mcp) — local pre-push + GH job `validate-full`
@@ -543,13 +543,13 @@ Quand la CI app existera : l’ajouter dans `workflow_run.workflows` de `merge-o
 - [x] **Multi-tenant Phase A** — orgs, platform RBAC, dual-level modules (ADR-0003 · GH #11)  
 - [x] **Multi-tenant UX A4** — shells + kit invites + password reset (GH #15)  
 - [x] **Email CF prod transport** — `@gosilex/email` `log`\|`smtp`\|`cf`\|`resend` + staging allowlist (ADR-0004 · GH #21)  
-- [ ] **RBAC Phase B** — custom org roles + module grants (GH #22 · Spark #127)  
+- [x] **RBAC Phase B** — custom org roles + module grants (GH #22 · Spark #127 · API + UI dogfood)  
 - [ ] FastMCP product tools + skill (hors kit strings)  
 - [ ] **Plausible** SPA recipe — hub `analytics.gosilex.com` multi-sites (park / B8)  
 - [ ] Sentry + Better Stack (prod) — B7  
 - [ ] CodeRabbit (ou équiv.) sur PR — B7  
 - [ ] Playwright e2e en CI — B7  
-- [ ] Consumer dogfood zero-edit (B5 · GH #17)  
+- [x] Consumer dogfood zero-edit (B5 · GH #17 · playbook + scripts/dogfood-zero-edit.sh)  
 - [ ] Extract dry-run « suite green after drop product » (aujourd’hui structure + banlist)
 
 **Critère extractible :** supprimer `apps/share-*` → examples + packages verts, 0 string métier share.

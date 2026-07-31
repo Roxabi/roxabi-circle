@@ -133,3 +133,8 @@ If mint fails with *private-key must be set*: secret not visible to the repo (in
 - Roxabi twin: `ROXABI_CI_APP_ID` / `ROXABI_CI_APP_PRIVATE_KEY` + forge `auto-merge.yml`  
 - Action: `actions/create-github-app-token`  
 - silex-share: `AGENTS.md` § GitHub Free  
+
+## Related
+
+- Staging examples deploy: [`docs/staging-examples.md`](./staging-examples.md)
+- Product start playbook: [`docs/playbooks/start-product.md`](./playbooks/start-product.md)
