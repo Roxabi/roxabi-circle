@@ -12,7 +12,8 @@ Transactional only (reset, invites, demo). **Not** marketing bulk. **Not** inbou
 | `ENVIRONMENT` | `EMAIL_TRANSPORT` | Binding | Notes |
 |---|---|---|---|
 | `development` / `test` | `log` (default if unset) | optional | Tokens **redacted** in log body |
-| `staging` / `production` | **required** `cf` or `resend` | `EMAIL` when `cf` | `log` **fail-closed** |
+| `staging` | **required** `cf` or `resend` | `EMAIL` when `cf` | Real send for client/QA dogfood · **allowlist + From @gosilex.com** |
+| `production` | **required** `cf` or `resend` | `EMAIL` when `cf` | `log` **fail-closed** · allowlist optional |
 | any | `smtp` | — | **Node only** (`@gosilex/email/server` → Mailpit) — never Worker |
 
 ### Worker string vars
@@ -20,9 +21,36 @@ Transactional only (reset, invites, demo). **Not** marketing bulk. **Not** inbou
 | Var | Role |
 |---|---|
 | `EMAIL_TRANSPORT` | `log` \| `cf` \| `resend` |
-| `EMAIL_FROM` | From address (onboarded domain for CF) |
+| `EMAIL_FROM` | From address — **staging: `@gosilex.com` only** (default) · prod: onboarded domain |
 | `EMAIL_FROM_NAME` | Optional display name |
+| `EMAIL_ALLOW_DOMAINS` | Comma-separated **recipient** domains (exact). **Required on staging** with `cf`\|`resend` |
+| `EMAIL_FROM_DOMAIN` | Pin for From domain (staging default `gosilex.com` if unset) |
 | `RESEND_API_KEY` | Only if `resend` escape hatch |
+
+### Staging policy (no silent client spray)
+
+Staging is meant for **configured client + GOSILEX test inboxes**, not arbitrary DB emails.
+
+```bash
+ENVIRONMENT=staging
+EMAIL_TRANSPORT=cf
+EMAIL_FROM=noreply@gosilex.com
+EMAIL_FROM_NAME=GOSILEX Staging
+# Only these recipient domains receive mail (exact match after @)
+EMAIL_ALLOW_DOMAINS=gosilex.com,client-acme.test,partner.io
+# optional override (default gosilex.com):
+# EMAIL_FROM_DOMAIN=gosilex.com
+```
+
+| Rule | Behavior |
+|---|---|
+| Missing `EMAIL_ALLOW_DOMAINS` on staging + `cf`\|`resend` | **Fail closed** at port create |
+| `EMAIL_FROM` not `@gosilex.com` (or `EMAIL_FROM_DOMAIN`) | **Fail closed** at port create |
+| `to` domain ∉ allowlist | **Fail closed** at send (`EMAIL_RECIPIENT_DOMAIN_NOT_ALLOWED`) — no CF call |
+| Subject | Forced prefix **`[TEST STAGING]`** (idempotent if already present) |
+| Subdomains | **Not** auto-included (`mail.gosilex.com` ≠ `gosilex.com`) — list them explicitly |
+
+**Ops:** add each client test domain to `EMAIL_ALLOW_DOMAINS` when onboarding that client on staging. Team QA uses `@gosilex.com`.
 
 ### Wrangler binding
 
@@ -53,11 +81,16 @@ EMAIL_TRANSPORT=log
 3. Complete DNS as Cloudflare instructs (SPF / DKIM / DMARC).
 4. Deploy Worker with binding + secrets:
    ```bash
-   # CF dashboard / wrangler secrets for non-dev
+   # production
    EMAIL_TRANSPORT=cf
    EMAIL_FROM=noreply@yourdomain.com
+
+   # staging (GOSILEX)
+   EMAIL_TRANSPORT=cf
+   EMAIL_FROM=noreply@gosilex.com
+   EMAIL_ALLOW_DOMAINS=gosilex.com,client-domain.test
    ```
-5. Smoke: `POST /api/demo/email` (session) or forgot-password with a real inbox you control.
+5. Smoke: `POST /api/demo/email` (session) or forgot-password with a **whitelisted** inbox you control.
 
 ### Deliverability checklist
 
@@ -75,6 +108,9 @@ EMAIL_TRANSPORT=log
 | `EMAIL_TRANSPORT=cf requires EMAIL send_email binding` | Missing `[[send_email]]` or wrong env |
 | `E_SENDER_NOT_VERIFIED` / domain errors | Domain not onboarded |
 | `log is forbidden when ENVIRONMENT is staging\|production` | Left `EMAIL_TRANSPORT=log` in prod |
+| `EMAIL_ALLOW_DOMAINS is required when ENVIRONMENT=staging` | Real send on staging without recipient allowlist |
+| `EMAIL_FROM must be @gosilex.com` | Staging From on non-GOSILEX domain |
+| `EMAIL_RECIPIENT_DOMAIN_NOT_ALLOWED` | `to` not in allowlist (expected if DB has non-client domains) |
 | Tokens visible in logs | Use kit `sendLog` only (redacts); never custom `console.log` of URL |
 
 ---

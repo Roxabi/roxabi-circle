@@ -13,9 +13,12 @@ CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 DEMO_USER_EMAIL=staff@gosilex.local
 SMTP_HOST=127.0.0.1
 SMTP_PORT=1025
-# Email (ADR-0004) — Worker path: log (local) | cf (prod binding) | resend (escape hatch)
+# Email (ADR-0004) — Worker path: log (local) | cf (staging/prod binding) | resend (escape hatch)
 EMAIL_TRANSPORT=log
-# EMAIL_FROM=noreply@your-onboarded-domain.com
+# EMAIL_FROM=noreply@gosilex.com
 # EMAIL_FROM_NAME=GOSILEX Kit
+# Staging (cf|resend): recipient allowlist REQUIRED + From @gosilex.com (default EMAIL_FROM_DOMAIN)
+# EMAIL_ALLOW_DOMAINS=gosilex.com,client-acme.test
+# EMAIL_FROM_DOMAIN=gosilex.com
 # RESEND_API_KEY=   # only when EMAIL_TRANSPORT=resend
 # Integrations (Spark feedback, etc.) → D1 platform_modules.config_json — configure in admin UI.

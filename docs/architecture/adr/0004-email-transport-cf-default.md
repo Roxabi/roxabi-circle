@@ -25,8 +25,8 @@ AGENTS freeze listed Resend and/or **Cloudflare Email** for prod. Chemin A is Wo
 | Env | Transport | Notes |
 |---|---|---|
 | **local** | `log` (Worker) and/or SMTP → **Mailpit** (Node scripts / optional) | Never real customer inbox |
-| **staging** | CF Email (domain test) **or** Mailpit | Prefer CF when domain onboarded |
-| **prod** | **Cloudflare Email Sending** via Worker binding | Default |
+| **staging** | **CF Email** (real send) | Client + GOSILEX dogfood · **D6 allowlist + From @gosilex.com** |
+| **prod** | **Cloudflare Email Sending** via Worker binding | Default · optional allowlist pin |
 
 Resend remains an **escape hatch** (`EMAIL_TRANSPORT=resend`) if a product cannot use CF Email — not the kit default.
 
@@ -34,6 +34,9 @@ Resend remains an **escape hatch** (`EMAIL_TRANSPORT=resend`) if a product canno
 
 ```text
 EMAIL_TRANSPORT=log | smtp | cf | resend   # app env
+EMAIL_FROM=...
+EMAIL_ALLOW_DOMAINS=a.com,b.com            # recipient allowlist
+EMAIL_FROM_DOMAIN=gosilex.com              # optional From pin (staging default)
 ```
 
 - **`cf`**: `env.EMAIL.send({ to, from, subject, html, text })` — binding name configurable (default `EMAIL`)
@@ -53,6 +56,19 @@ EMAIL_TRANSPORT=log | smtp | cf | resend   # app env
 - Never log full magic-link / reset URLs in prod/staging (`log` transport redacts tokens)
 - Secrets: CF binding needs no API key; Resend key = CF secret if used
 - Fail closed if `EMAIL_TRANSPORT=cf` and binding missing outside test
+
+### D6 — Staging recipient allowlist + From @gosilex.com (amended)
+
+Staging sends **real** mail (client + internal QA), but must not spray arbitrary addresses from DB dumps.
+
+| Rule | Staging (`cf`\|`resend`) | Production |
+|---|---|---|
+| `EMAIL_ALLOW_DOMAINS` | **Required** non-empty · exact match on recipient domain | Optional; when set, enforced |
+| `EMAIL_FROM` | Must be `@gosilex.com` (default `EMAIL_FROM_DOMAIN`) | Product onboarded domain |
+| Unknown `to` domain | Fail closed at send — **no** provider call | Send (unless allowlist set) |
+| Subject | Forced prefix **`[TEST STAGING]`** (idempotent) | Unchanged |
+
+Intent: ops whitelist each client test domain + `gosilex.com` for team; single GOSILEX From identity on staging; subjects never look like prod.
 
 ### D5 — Axial
 

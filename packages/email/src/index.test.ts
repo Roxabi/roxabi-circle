@@ -1,11 +1,16 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
   assertEmailTransportAllowed,
+  assertStagingEmailPolicy,
   buildDemoEmailText,
   createEmailPort,
+  isRecipientDomainAllowed,
+  parseAllowDomains,
+  prefixStagingSubject,
   redactEmailBody,
   resolveEmailTransport,
   type SendEmailBinding,
+  STAGING_SUBJECT_PREFIX,
   sendCf,
   sendLog,
 } from './index'
@@ -73,6 +78,65 @@ describe('assertEmailTransportAllowed / resolveEmailTransport', () => {
   })
 })
 
+describe('parseAllowDomains / isRecipientDomainAllowed', () => {
+  it('parses comma list', () => {
+    expect(parseAllowDomains('gosilex.com, Client.example ,')).toEqual([
+      'gosilex.com',
+      'client.example',
+    ])
+    expect(parseAllowDomains('')).toEqual([])
+  })
+
+  it('exact domain match only', () => {
+    expect(isRecipientDomainAllowed('a@gosilex.com', ['gosilex.com'])).toBe(true)
+    expect(isRecipientDomainAllowed('a@evil-gosilex.com', ['gosilex.com'])).toBe(false)
+    expect(isRecipientDomainAllowed('a@mail.gosilex.com', ['gosilex.com'])).toBe(false)
+    expect(isRecipientDomainAllowed('a@client.io', ['gosilex.com', 'client.io'])).toBe(true)
+  })
+})
+
+describe('assertStagingEmailPolicy', () => {
+  it('requires allowlist + @gosilex.com from on staging cf', () => {
+    expect(() =>
+      assertStagingEmailPolicy({
+        transport: 'cf',
+        environment: 'staging',
+        from: 'noreply@gosilex.com',
+        allowDomains: [],
+      }),
+    ).toThrow(/EMAIL_ALLOW_DOMAINS/i)
+
+    expect(() =>
+      assertStagingEmailPolicy({
+        transport: 'cf',
+        environment: 'staging',
+        from: 'noreply@other.com',
+        allowDomains: ['gosilex.com'],
+      }),
+    ).toThrow(/EMAIL_FROM must be @gosilex.com/i)
+
+    expect(() =>
+      assertStagingEmailPolicy({
+        transport: 'cf',
+        environment: 'staging',
+        from: 'noreply@gosilex.com',
+        allowDomains: ['gosilex.com', 'client.test'],
+      }),
+    ).not.toThrow()
+  })
+
+  it('no-ops outside staging', () => {
+    expect(() =>
+      assertStagingEmailPolicy({
+        transport: 'cf',
+        environment: 'production',
+        from: 'noreply@product.com',
+        allowDomains: [],
+      }),
+    ).not.toThrow()
+  })
+})
+
 describe('createEmailPort / sendCf', () => {
   it('cf port calls binding with from.email shape', async () => {
     const send = vi.fn(async () => ({ messageId: 'mid_1' }))
@@ -96,6 +160,44 @@ describe('createEmailPort / sendCf', () => {
         to: 'user@example.com',
         from: { email: 'noreply@example.com', name: 'Kit' },
         subject: 'Hi',
+      }),
+    )
+  })
+
+  it('staging cf enforces allowlist at send', async () => {
+    const send = vi.fn(async () => ({ messageId: 'mid_1' }))
+    const port = createEmailPort({
+      transport: 'cf',
+      environment: 'staging',
+      email: { send },
+      from: 'noreply@gosilex.com',
+      allowDomains: ['gosilex.com', 'acme-client.test'],
+    })
+    await expect(port.send({ to: 'leak@random.org', subject: 'x', text: 'y' })).rejects.toThrow(
+      /EMAIL_RECIPIENT_DOMAIN_NOT_ALLOWED/i,
+    )
+    expect(send).not.toHaveBeenCalled()
+
+    await port.send({ to: 'qa@gosilex.com', subject: 'x', text: 'y' })
+    expect(send).toHaveBeenCalledTimes(1)
+  })
+
+  it('staging prefixes subject with [TEST STAGING]', async () => {
+    expect(prefixStagingSubject('Reset password')).toBe(`${STAGING_SUBJECT_PREFIX} Reset password`)
+    expect(prefixStagingSubject('[TEST STAGING] already')).toBe('[TEST STAGING] already')
+
+    const send = vi.fn(async () => ({ messageId: 'mid_1' }))
+    const port = createEmailPort({
+      transport: 'cf',
+      environment: 'staging',
+      email: { send },
+      from: 'noreply@gosilex.com',
+      allowDomains: ['gosilex.com'],
+    })
+    await port.send({ to: 'qa@gosilex.com', subject: 'Invite to org', text: 'y' })
+    expect(send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        subject: `${STAGING_SUBJECT_PREFIX} Invite to org`,
       }),
     )
   })
