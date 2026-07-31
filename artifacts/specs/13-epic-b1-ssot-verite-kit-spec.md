@@ -2,7 +2,7 @@
 title: "Spec — Epic B1 · SSoT & vérité kit (docs drift)"
 issue: 13
 spark: 114
-status: accepted
+status: approved
 tier: docs
 date: 2026-07-30
 amended: 2026-07-31
@@ -218,11 +218,11 @@ Matches GH issue DoD, expanded:
 | New package added mid-PR | Must update README map before merge (script enforces) |
 | Product frame still describes share M0–M6 | Allowed as product intent; separate from kit shipped inventory |
 | feedback README still mentions Spark legacy package | OK if labeled legacy/migration |
-| Default adapter flip proposed during review | Redirect to epic B2 (#14); out of this spec |
+| Reintroduce HMAC session / adapter switch | Banlist; HMAC cut is #14 — B1 must not re-document adapter |
 
 ## Out of scope
 
-- Changing `AUTH_SESSION_ADAPTER` default or seed-only BA dogfood (B2 / #14)
+- Reintroducing HMAC session path or `AUTH_SESSION_ADAPTER` (HMAC cut is #14; do not reopen)
 - Multi-tenant UX shells, invites, password reset (B3 / #15)
 - Email Resend/CF prod implementation (#6 reopen)
 - Plausible SPA snippet implementation (#7 reopen)
