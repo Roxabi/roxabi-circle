@@ -7,8 +7,9 @@
 | **Repo** | `go-silex/silex-boilerplate` (private) · local `~/projects/gosilex/silex-boilerplate/` |
 | **Product consumers** | e.g. [`go-silex/silex-share`](https://github.com/go-silex/silex-share) (`upstream` → this repo) |
 | **Status** | Kit live **2026-07-13** (split from silex-share) · product apps pull via `git fetch upstream` |
+| **Live goal** | [**Goal 002**](artifacts/goals/002-product-ready-multi-tenant-goal.md) product-ready multi-tenant (Goal 001 scaffold **superseded**) |
 | **CF account** | Gosilex (`Tool@gosilex.com` / hub `scripts/load-cf-env.sh`) when deploying examples |
-| **Stack SSoT** | section ci-dessous (figée **2026-07-12**, amendée cookies/i18n/errors/MCP/obs) |
+| **Stack SSoT** | section ci-dessous (figée **2026-07-12**, amendée BA-only / multi-tenant A / CF Email / feedback / i18n) |
 
 ---
 
@@ -274,11 +275,11 @@ Ref pattern : `roxabi-boilerplate` (`errorCodes`, `errorUtils`, `ApiError`).
 |---|---|
 | Default | **FR** (hub GOSILEX) |
 | Second | **EN** |
-| Tooling | **Paraglide** (inlang) — aligné Roxabi — ou JSON messages si plus simple au début |
+| Tooling | Catalogs TS app-owned + `@gosilex/i18n` engine (live) · **Paraglide monorepo park** (B8) |
 | Routing | path `/fr` `/en` **ou** locale cookie / `Accept-Language` |
 | Erreurs API | **codes stables** ; copy traduite **côté UI** (pas 12 langues hardcodées backend) |
 | Emails | templates par locale (P1) |
-| Package | `@gosilex/i18n` quand 2e langue réelle |
+| Package | `@gosilex/i18n` **live** (engine only ; catalogs in apps) |
 
 ---
 
@@ -290,12 +291,13 @@ Ref pattern : `roxabi-boilerplate` (`errorCodes`, `errorUtils`, `ApiError`).
 | `@gosilex/config` | tsconfig, Biome, Vitest presets | **P0** |
 | `@gosilex/db` | Drizzle D1 + migrate | **P0** |
 | `@gosilex/storage` | R2 put/get/presign | **P0** |
-| `@gosilex/auth` | Better Auth SessionPort + API keys `sk_` (ADR-0002 BA-only) | **P0** |
+| `@gosilex/auth` | Better Auth SessionPort + API keys `sk_` + org-role helpers (ADR-0002 BA-only · ADR-0003) | **P0** |
 | `@gosilex/types` | Zod schemas + ErrorCode | **P0** |
-| `@gosilex/ui` | shadcn Base UI shell | M3 |
-| `@gosilex/mcp` | FastMCP/SDK conventions | M5 |
-| `@gosilex/i18n` | FR/EN | P1 |
-| `@gosilex/email` | React Email + transport (SMTP catcher local/staging · Resend/CF prod) | P1 |
+| `@gosilex/ui` | shadcn Base UI shell | **P0** |
+| `@gosilex/email` | Templates + transports `log` \| `smtp` \| **`cf`** (prod default) \| `resend` (escape) — ADR-0004 | **P0** |
+| `@gosilex/i18n` | Locale engine only; catalogs app-owned (FR/EN live) | **P0** |
+| `@gosilex/feedback` | Signaler → Spark Pilotage (core + Hono + React FAB) | **P0** kit optional module |
+| `@gosilex/mcp` | FastMCP/SDK conventions (ping/whoami) | **P0** example |
 | `@gosilex/rate-limit` | D1/KV / CF binding | P1 |
 | `@gosilex/audit` | append-only events | P1 |
 | `@gosilex/jobs` | Queues/cron helpers | P1 |
@@ -307,45 +309,27 @@ Ref pattern : `roxabi-boilerplate` (`errorCodes`, `errorUtils`, `ApiError`).
 
 ---
 
-### H2. Email — transport par environnement
+### H2. Email — transport par environnement (ADR-0004)
 
 | Env | Transport | UI / inspection |
 |---|---|---|
-| **local** | SMTP → **Mailcatcher** ou **Mailpit** (Docker Compose) | Web UI catcher (`http://localhost:1080` typique) — **obligatoire** dès qu’on envoie un mail (auth reset, notifs) |
-| **staging** | SMTP → **Mailcatcher/Mailpit** déployé (compose/Dokploy) **ou** Resend sandbox / domaine test | Éviter d’envoyer du vrai mail client ; catcher ou inbox de test |
-| **prod** | **Resend** et/ou **CF Email** | Pas de catcher ; tracking Resend/logs |
+| **local** | `log` (default dev) **ou** SMTP → **Mailpit** (`docker compose`) | Console redacted · UI Mailpit `http://127.0.0.1:8025` |
+| **staging** | `cf` (preferred) **ou** SMTP catcher ; allowlist + subject `[TEST STAGING]` + From `@gosilex.com` | Pas de spam client réel |
+| **prod** | **`cf`** Cloudflare Email Sending binding (default) · `resend` escape hatch | Logs CF / provider — **pas** de catcher |
 
-#### Mailcatcher vs Mailpit
-
-| | Mailcatcher | Mailpit (reco moderne) |
-|---|---|---|
-| Rôle | SMTP sink + UI | idem + API, plus actif |
-| Local | OK (image Docker historique) | **Préférer** si on part de zéro |
-| Staging | OK | OK |
-
-**Décision kit :** abstraire derrière `@gosilex/email` :
+**Décision kit** (`@gosilex/email`, shipped #21) :
 
 ```text
-EMAIL_TRANSPORT=smtp | resend | cf
-SMTP_HOST / SMTP_PORT   # local+staging → mailcatcher|mailpit
-RESEND_API_KEY          # prod
+EMAIL_TRANSPORT=log | smtp | cf | resend
+# log  → development|test only (fail-closed elsewhere)
+# cf   → Workers EMAIL binding (prod default)
+# smtp → Mailpit local/staging
+# resend → optional escape (RESEND_API_KEY)
 ```
 
-- Templates : **React Email** (partagés, i18n FR/EN).  
-- **Jamais** de vrai SMTP prod pointant vers le catcher.  
-- Compose local (racine monorepo) :
-
-```yaml
-# esquisse — à figer au scaffold email
-services:
-  mailpit:   # ou mailcatcher/mailcatcher
-    image: axllent/mailpit
-    ports: ["1025:1025", "8025:8025"]  # SMTP + UI
-```
-
-Roxabi : Docker Postgres en local — même esprit : **services dev dans `docker-compose.yml`** (mailpit + éventuel autre).
-
-**Quand :** P1 / phase email (avant magic-link / reset password / notifs org). Staging catcher = **oui recommandé** pour dogfood sans spammer.
+- Templates kit : invite, reset-password, demo (copy FR-first).  
+- **Jamais** `EMAIL_TRANSPORT=log` en staging/prod.  
+- Compose local : service `mailpit` dans `docker-compose.yml` (SMTP 1025 · UI 8025).
 
 ---
 
@@ -552,17 +536,21 @@ Quand la CI app existera : l’ajouter dans `workflow_run.workflows` de `merge-o
 
 ### Suite
 
-- [x] **Better Auth + cookies (session)** — BA-only (ADR-0002) · GitHub OAuth product still later  
-- [x] packages/ui Base UI + example-web (kit shell live)  
-- [x] i18n FR/EN catalogs (Paraglide optional later)  
+- [x] **Better Auth + cookies (session)** — BA-only (ADR-0002, HMAC retired) · dual credential cookie \| Bearer `sk_` · GitHub OAuth product still later  
+- [x] packages/ui Base UI + example-web (kit shell live · `/admin` + `/app` shells)  
+- [x] i18n FR/EN catalogs (`@gosilex/i18n` engine + app catalogs ; Paraglide monorepo **park** B8)  
+- [x] **Feedback kit** (`@gosilex/feedback` + example wire · GH #8)  
+- [x] **Multi-tenant Phase A** — orgs, platform RBAC, dual-level modules (ADR-0003 · GH #11)  
+- [x] **Multi-tenant UX A4** — shells + kit invites + password reset (GH #15)  
+- [x] **Email CF prod transport** — `@gosilex/email` `log`\|`smtp`\|`cf`\|`resend` + staging allowlist (ADR-0004 · GH #21)  
+- [ ] **RBAC Phase B** — custom org roles + module grants (GH #22 · Spark #127)  
 - [ ] FastMCP product tools + skill (hors kit strings)  
-- [ ] **Email prod** — React Email templates FR/EN · local Mailpit OK · Resend et/ou CF Email prod (`@gosilex/email` edge vs `/server`)  
-- [ ] **Submit feedback** (pattern Spark `FeedbackButton` → ticket space) — package kit + wire example-web · target space configurable  
-- [ ] **Plausible** — sites publics GOSILEX déjà `analytics.gosilex.com` (self-host VPS) · intégration SPA = script/snippet + domain per app · **SSoT hub** (un Plausible multi-sites, pas un instance par app) · package thin `@gosilex/analytics` ou doc only  
-- [ ] Sentry + Better Stack (prod)  
-- [ ] CodeRabbit (ou équiv.) sur PR  
-- [ ] Playwright e2e en CI  
-- [ ] Extract dry-run « suite green after drop product » (aujourd’hui structure only)  
+- [ ] **Plausible** SPA recipe — hub `analytics.gosilex.com` multi-sites (park / B8)  
+- [ ] Sentry + Better Stack (prod) — B7  
+- [ ] CodeRabbit (ou équiv.) sur PR — B7  
+- [ ] Playwright e2e en CI — B7  
+- [ ] Consumer dogfood zero-edit (B5 · GH #17)  
+- [ ] Extract dry-run « suite green after drop product » (aujourd’hui structure + banlist)
 
 **Critère extractible :** supprimer `apps/share-*` → examples + packages verts, 0 string métier share.
 
