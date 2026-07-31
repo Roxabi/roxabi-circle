@@ -8,6 +8,12 @@ import {
   CardTitle,
   Input,
   Label,
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Skeleton,
 } from '@gosilex/ui'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -38,6 +44,16 @@ export function OrgMembersPage() {
 
   const [email, setEmail] = useState('')
   const [role, setRole] = useState<'admin' | 'member' | 'reader'>('member')
+
+  const roleItems = (
+    [
+      ...(org?.role === 'owner'
+        ? ([{ value: 'admin' as const, label: m.roleAdmin }] as const)
+        : []),
+      { value: 'member' as const, label: m.roleMember },
+      { value: 'reader' as const, label: m.roleReader },
+    ] as const
+  ).map((r) => ({ value: r.value, label: r.label }))
 
   const members = useQuery({
     queryKey: ['org-members', orgId],
@@ -108,16 +124,30 @@ export function OrgMembersPage() {
               </div>
               <div className="space-y-1">
                 <Label htmlFor="invite-role">{m.inviteRole}</Label>
-                <select
-                  id="invite-role"
-                  className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+                <Select
+                  items={roleItems}
                   value={role}
-                  onChange={(e) => setRole(e.target.value as typeof role)}
+                  onValueChange={(v) => {
+                    if (v === 'admin' || v === 'member' || v === 'reader') setRole(v)
+                  }}
                 >
-                  {org?.role === 'owner' ? <option value="admin">admin</option> : null}
-                  <option value="member">member</option>
-                  <option value="reader">reader</option>
-                </select>
+                  <SelectTrigger
+                    id="invite-role"
+                    className="w-full min-w-28"
+                    aria-label={m.inviteRole}
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      {roleItems.map((item) => (
+                        <SelectItem key={item.value} value={item.value}>
+                          {item.label}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
               </div>
               <Button
                 type="button"
@@ -137,6 +167,16 @@ export function OrgMembersPage() {
           <CardContent>
             {invitations.isLoading ? (
               <Skeleton className="h-12 w-full" />
+            ) : invitations.isError ? (
+              <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-destructive/40 py-8 text-center">
+                <p className="text-sm font-medium text-destructive">{m.loadFailed}</p>
+                <p className="max-w-sm text-xs text-muted-foreground">
+                  {apiErrorToMessage(invitations.error, m)}
+                </p>
+                <Button variant="secondary" size="sm" onClick={() => void invitations.refetch()}>
+                  {m.retry}
+                </Button>
+              </div>
             ) : invitations.data?.invitations.length === 0 ? (
               <p className="text-sm text-muted-foreground">{m.inviteEmpty}</p>
             ) : (
@@ -149,7 +189,13 @@ export function OrgMembersPage() {
                     <div>
                       <div className="font-medium">{inv.email}</div>
                       <div className="text-xs text-muted-foreground">
-                        {inv.role}
+                        {inv.role === 'admin'
+                          ? m.roleAdmin
+                          : inv.role === 'reader'
+                            ? m.roleReader
+                            : inv.role === 'owner'
+                              ? m.roleOwner
+                              : m.roleMember}
                         {inv.expiresAt
                           ? ` · exp ${new Date(inv.expiresAt).toLocaleDateString()}`
                           : ''}
@@ -183,6 +229,16 @@ export function OrgMembersPage() {
           <CardContent>
             {members.isLoading ? (
               <Skeleton className="h-12 w-full" />
+            ) : members.isError ? (
+              <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-destructive/40 py-8 text-center">
+                <p className="text-sm font-medium text-destructive">{m.loadFailed}</p>
+                <p className="max-w-sm text-xs text-muted-foreground">
+                  {apiErrorToMessage(members.error, m)}
+                </p>
+                <Button variant="secondary" size="sm" onClick={() => void members.refetch()}>
+                  {m.retry}
+                </Button>
+              </div>
             ) : (
               <ul className="divide-y divide-border rounded-lg border border-border">
                 {members.data?.members.map((mem) => (
@@ -192,7 +248,13 @@ export function OrgMembersPage() {
                   >
                     <span className="font-mono text-xs">{mem.userId}</span>
                     <Badge variant="secondary" className="text-[10px]">
-                      {mem.role}
+                      {mem.role === 'admin'
+                        ? m.roleAdmin
+                        : mem.role === 'reader'
+                          ? m.roleReader
+                          : mem.role === 'owner'
+                            ? m.roleOwner
+                            : m.roleMember}
                     </Badge>
                   </li>
                 ))}

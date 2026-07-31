@@ -7,6 +7,10 @@ import { apiErrorToMessage, apiFetch } from '../lib/api'
 import { isUnauthorized, useMe } from '../lib/auth'
 import { useLocale } from '../lib/locale'
 
+function inviteLoginNext(invitationId: string): string {
+  return `/invite/accept?invitationId=${encodeURIComponent(invitationId)}`
+}
+
 export function InviteAcceptPage() {
   const { m } = useLocale()
   const navigate = useNavigate()
@@ -16,12 +20,14 @@ export function InviteAcceptPage() {
   const [done, setDone] = useState(false)
 
   useEffect(() => {
-    if (me.isLoading) return
+    if (me.isLoading || !invitationId) return
     if (isUnauthorized(me.error) || (!me.data && !me.isError)) {
-      // After login user re-opens invite link (accept URL in email)
-      void navigate({ to: '/login' })
+      void navigate({
+        to: '/login',
+        search: { next: inviteLoginNext(invitationId) },
+      })
     }
-  }, [me.isLoading, me.error, me.data, me.isError, navigate])
+  }, [me.isLoading, me.error, me.data, me.isError, navigate, invitationId])
 
   const accept = useMutation({
     mutationFn: () =>
@@ -53,7 +59,41 @@ export function InviteAcceptPage() {
     )
   }
 
-  if (me.isLoading || !me.data) {
+  if (me.isLoading) {
+    return (
+      <div className="flex min-h-svh items-center justify-center p-6 text-sm text-muted-foreground">
+        {m.loading}
+      </div>
+    )
+  }
+
+  if (me.isError && !isUnauthorized(me.error)) {
+    return (
+      <div className="flex min-h-svh items-center justify-center p-6">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle>{m.error}</CardTitle>
+            <CardDescription>{m.loadFailed}</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3">
+            <p className="text-sm text-muted-foreground">{apiErrorToMessage(me.error, m)}</p>
+            <Button type="button" variant="secondary" onClick={() => void me.refetch()}>
+              {m.retry}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              render={<Link to="/login" search={{ next: inviteLoginNext(invitationId) }} />}
+            >
+              {m.login}
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  if (!me.data) {
     return (
       <div className="flex min-h-svh items-center justify-center p-6 text-sm text-muted-foreground">
         {m.loading}

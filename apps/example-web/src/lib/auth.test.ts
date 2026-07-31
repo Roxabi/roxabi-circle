@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest'
+import { ApiError } from './api'
 import {
+  canManageMembers,
   defaultHomePath,
   hasPlatformRole,
   isClientOnly,
   isPlatformActor,
+  isUnauthorized,
   type MeResponse,
 } from './auth'
 
@@ -56,5 +59,50 @@ describe('auth helpers (S1 shells)', () => {
     // KitRole admin alone does not open BO
     expect(isPlatformActor(demo)).toBe(false)
     expect(defaultHomePath(demo)).toBe('/app')
+  })
+
+  it('isUnauthorized detects ApiError 401 only', () => {
+    expect(
+      isUnauthorized(
+        new ApiError(401, { error: { code: 'UNAUTHORIZED', message: 'no' }, requestId: 'r' }),
+      ),
+    ).toBe(true)
+    expect(
+      isUnauthorized(
+        new ApiError(403, { error: { code: 'FORBIDDEN', message: 'no' }, requestId: 'r' }),
+      ),
+    ).toBe(false)
+    expect(isUnauthorized(new Error('x'))).toBe(false)
+    expect(isUnauthorized(undefined)).toBe(false)
+  })
+
+  it('canManageMembers is owner/admin only', () => {
+    const base = me({
+      orgs: [
+        {
+          id: 'org_team',
+          name: 'Team',
+          slug: 'team',
+          kind: 'client',
+          status: 'active',
+          role: 'owner',
+        },
+        {
+          id: 'org_read',
+          name: 'Read',
+          slug: 'read',
+          kind: 'client',
+          status: 'active',
+          role: 'reader',
+        },
+      ],
+    })
+    expect(canManageMembers(base, 'org_team')).toBe(true)
+    expect(
+      canManageMembers({ ...base, orgs: [{ ...base.orgs[0]!, role: 'admin' }] }, 'org_team'),
+    ).toBe(true)
+    expect(canManageMembers(base, 'org_read')).toBe(false)
+    expect(canManageMembers(base, 'missing')).toBe(false)
+    expect(canManageMembers(undefined, 'org_team')).toBe(false)
   })
 })

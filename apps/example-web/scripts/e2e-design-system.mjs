@@ -2,8 +2,15 @@
  * Browser smoke for design-system overlays (and admin gate).
  * Fails on pageerror / console Base UI contract messages.
  *
- * Usage (API + web must be running):
+ * Prerequisites:
+ *   1. bun run db:migrate && bun run db:seed  (once)
+ *   2. apps/example-api: bun run dev  → :8787
+ *   3. apps/example-web: bun run dev  → :5173 (host binds 127.0.0.1 + localhost)
+ *   4. Chrome at CHROME_PATH (default /usr/bin/google-chrome)
+ *
+ * Usage:
  *   bun apps/example-web/scripts/e2e-design-system.mjs
+ *   # or: bun run --filter @gosilex/example-web test:e2e:design-system
  */
 import { chromium } from 'playwright-core'
 
@@ -40,12 +47,12 @@ function assertClean(phase) {
 }
 
 try {
-  // Login as admin via API from page origin (cookie on 5173 proxy)
+  // Login as platform admin via Better Auth (ADR-0002) from page origin (cookie on 5173 proxy)
   await page.goto(`${BASE}/login`, { waitUntil: 'networkidle' })
   await page.evaluate(async () => {
     localStorage.setItem('gosilex.theme', 'light')
     document.documentElement.classList.remove('dark')
-    const res = await fetch('/api/auth/login', {
+    const res = await fetch('/api/auth/sign-in/email', {
       method: 'POST',
       credentials: 'include',
       headers: { 'content-type': 'application/json' },
@@ -55,10 +62,12 @@ try {
       }),
     })
     if (!res.ok) throw new Error(`login ${res.status}`)
+    const me = await fetch('/api/me', { credentials: 'include' })
+    if (!me.ok) throw new Error(`me ${me.status}`)
   })
   assertClean('login')
 
-  await page.goto(`${BASE}/design-system#overlays`, { waitUntil: 'networkidle' })
+  await page.goto(`${BASE}/admin/design-system#overlays`, { waitUntil: 'networkidle' })
   await page.waitForTimeout(500)
   assertClean('design-system load')
 

@@ -5,6 +5,8 @@ import { defineConfig } from 'vite'
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
+    // Bind IPv4+IPv6 so both localhost and 127.0.0.1 work (default can be [::1] only).
+    host: true,
     port: 5173,
     proxy: {
       '/api': {

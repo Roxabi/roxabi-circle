@@ -72,12 +72,7 @@ export function OrgProvider({ me, children }: { me: MeResponse | undefined; chil
 export function useOrgContext(): OrgContextValue {
   const ctx = useContext(OrgContext)
   if (!ctx) {
-    return {
-      orgs: [],
-      activeOrgId: null,
-      activeOrg: null,
-      setActiveOrgId: () => {},
-    }
+    throw new Error('useOrgContext must be used within OrgProvider')
   }
   return ctx
 }

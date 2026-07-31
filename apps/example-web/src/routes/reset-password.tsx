@@ -2,6 +2,7 @@ import { Button, cn, Field, FieldError, FieldGroup, FieldLabel, Input } from '@g
 import { useForm } from '@tanstack/react-form'
 import { Link, useNavigate, useSearch } from '@tanstack/react-router'
 import { GalleryVerticalEnd } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { apiErrorToMessage, apiFetch } from '../lib/api'
 import { useLocale } from '../lib/locale'
@@ -9,13 +10,31 @@ import { resetPasswordSchema } from '../lib/schemas'
 
 /**
  * Complete password reset with BA token from email callback / query.
+ * Token is captured into state then stripped from the URL (history/replace).
  */
 export function ResetPasswordPage() {
   const { m, locale, setLocale } = useLocale()
   const navigate = useNavigate()
   const search = useSearch({ strict: false }) as { token?: string; error?: string }
-  const token = search.token?.trim() ?? ''
-  const linkError = search.error?.trim()
+  const stripped = useRef(false)
+  const [token, setToken] = useState('')
+  const [linkError, setLinkError] = useState<string | undefined>()
+
+  useEffect(() => {
+    if (stripped.current) return
+    const t = search.token?.trim() ?? ''
+    const err = search.error?.trim()
+    if (t) setToken(t)
+    if (err) setLinkError(err)
+    if (search.token || search.error) {
+      stripped.current = true
+      void navigate({
+        to: '/reset-password',
+        search: { token: undefined, error: undefined },
+        replace: true,
+      })
+    }
+  }, [search.token, search.error, navigate])
 
   const form = useForm({
     defaultValues: { password: '', confirm: '' },

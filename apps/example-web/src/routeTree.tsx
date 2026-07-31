@@ -52,6 +52,12 @@ const rootRoute = createRootRouteWithContext<RouterContext>()({
 const loginRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/login',
+  validateSearch: (search: Record<string, unknown>): { next?: string } => {
+    if (typeof search.next === 'string' && search.next.length > 0) {
+      return { next: search.next }
+    }
+    return {}
+  },
   component: LoginPage,
 })
 
@@ -114,9 +120,9 @@ const indexRoute = createRoute({
 })
 
 // ── Client shell `/app/*` ──────────────────────────────────────────
+// TanStack Router: path routes get an id from `path` — do not set both `id` + `path`.
 const appLayoutRoute = createRoute({
   getParentRoute: () => rootRoute,
-  id: 'client-app',
   path: '/app',
   beforeLoad: async ({ context }) => {
     try {
@@ -167,7 +173,6 @@ const appOrgMembersRoute = createRoute({
 // ── Back-office shell `/admin/*` ───────────────────────────────────
 const adminLayoutRoute = createRoute({
   getParentRoute: () => rootRoute,
-  id: 'admin',
   path: '/admin',
   beforeLoad: async ({ context }) => {
     let me: MeResponse

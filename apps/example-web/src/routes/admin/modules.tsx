@@ -1,5 +1,6 @@
 import {
   Badge,
+  Button,
   Card,
   CardContent,
   CardDescription,
@@ -9,7 +10,7 @@ import {
 } from '@gosilex/ui'
 import { useQuery } from '@tanstack/react-query'
 import { PageHeader } from '../../components/app-shell'
-import { apiFetch } from '../../lib/api'
+import { apiErrorToMessage, apiFetch } from '../../lib/api'
 import { useLocale } from '../../lib/locale'
 
 type PlatformModule = {
@@ -38,6 +39,16 @@ export function AdminModulesPage() {
         <CardContent className="space-y-2">
           {modules.isLoading ? (
             <Skeleton className="h-16 w-full" />
+          ) : modules.isError ? (
+            <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-destructive/40 py-12 text-center">
+              <p className="text-sm font-medium text-destructive">{m.loadFailed}</p>
+              <p className="max-w-sm text-xs text-muted-foreground">
+                {apiErrorToMessage(modules.error, m)}
+              </p>
+              <Button variant="secondary" size="sm" onClick={() => void modules.refetch()}>
+                {m.retry}
+              </Button>
+            </div>
           ) : modules.data?.modules.length === 0 ? (
             <p className="text-sm text-muted-foreground">{m.empty}</p>
           ) : (

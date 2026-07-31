@@ -1,10 +1,23 @@
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
   Button,
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
   Input,
 } from '@gosilex/ui'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -31,6 +44,7 @@ export function KeysPage() {
   const qc = useQueryClient()
   const { activeOrgId, orgs } = useOrgContext()
   const [minted, setMinted] = useState<{ id: string; key: string } | null>(null)
+  const [revokeId, setRevokeId] = useState<string | null>(null)
 
   const keys = useQuery({
     queryKey: ['keys'],
@@ -108,7 +122,14 @@ export function KeysPage() {
                   {m.keyOnce}
                 </p>
                 <div className="flex gap-2">
-                  <Input readOnly value={minted.key} className="font-mono text-xs" />
+                  <Input
+                    readOnly
+                    value={minted.key}
+                    className="font-mono text-xs"
+                    autoComplete="off"
+                    data-1p-ignore
+                    data-lpignore="true"
+                  />
                   <Button
                     type="button"
                     variant="outline"
@@ -130,7 +151,15 @@ export function KeysPage() {
               ) : keys.isError ? (
                 <p className="text-xs text-destructive">{m.loadFailed}</p>
               ) : activeKeys.length === 0 ? (
-                <p className="text-xs text-muted-foreground">{m.emptyKeys}</p>
+                <Empty className="border border-dashed border-border py-6">
+                  <EmptyHeader>
+                    <EmptyMedia variant="icon">
+                      <KeyRound className="size-4" aria-hidden />
+                    </EmptyMedia>
+                    <EmptyTitle>{m.emptyKeys}</EmptyTitle>
+                    <EmptyDescription>{m.mintKeyDesc}</EmptyDescription>
+                  </EmptyHeader>
+                </Empty>
               ) : (
                 <ul className="space-y-2">
                   {activeKeys.map((k) => (
@@ -145,10 +174,7 @@ export function KeysPage() {
                         variant="ghost"
                         aria-label={m.revokeKey}
                         disabled={revoke.isPending}
-                        onClick={() => {
-                          if (!window.confirm(m.confirmRevoke)) return
-                          revoke.mutate(k.id)
-                        }}
+                        onClick={() => setRevokeId(k.id)}
                       >
                         <Trash2 className="text-destructive" />
                       </Button>
@@ -159,6 +185,33 @@ export function KeysPage() {
             </div>
           </CardContent>
         </Card>
+
+        <AlertDialog
+          open={revokeId != null}
+          onOpenChange={(open) => {
+            if (!open) setRevokeId(null)
+          }}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{m.revokeKey}</AlertDialogTitle>
+              <AlertDialogDescription>{m.confirmRevoke}</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>{m.cancel}</AlertDialogCancel>
+              <AlertDialogAction
+                variant="destructive"
+                disabled={revoke.isPending}
+                onClick={() => {
+                  if (revokeId) revoke.mutate(revokeId)
+                  setRevokeId(null)
+                }}
+              >
+                {m.revokeKey}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
         <Card>
           <CardHeader>

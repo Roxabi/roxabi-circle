@@ -10,6 +10,12 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
   Field,
   FieldError,
   FieldLabel,
@@ -130,13 +136,21 @@ export function NotesPage() {
               </Button>
             </div>
           ) : (notes.data?.notes ?? []).length === 0 ? (
-            <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border py-12 text-center">
-              <p className="text-sm text-muted-foreground">{m.empty}</p>
-              <Button variant="secondary" size="sm" onClick={() => setOpen(true)}>
-                <Plus />
-                {m.createNote}
-              </Button>
-            </div>
+            <Empty className="border border-dashed border-border py-12">
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <Plus className="size-4" aria-hidden />
+                </EmptyMedia>
+                <EmptyTitle>{m.empty}</EmptyTitle>
+                <EmptyDescription>{m.notesDesc}</EmptyDescription>
+              </EmptyHeader>
+              <EmptyContent>
+                <Button variant="secondary" size="sm" onClick={() => setOpen(true)}>
+                  <Plus />
+                  {m.createNote}
+                </Button>
+              </EmptyContent>
+            </Empty>
           ) : (
             <Table>
               <TableHeader>

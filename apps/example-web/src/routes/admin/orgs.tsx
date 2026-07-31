@@ -1,5 +1,6 @@
 import {
   Badge,
+  Button,
   Card,
   CardContent,
   CardDescription,
@@ -10,7 +11,7 @@ import {
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import { PageHeader } from '../../components/app-shell'
-import { apiFetch } from '../../lib/api'
+import { apiErrorToMessage, apiFetch } from '../../lib/api'
 import { useLocale } from '../../lib/locale'
 
 type OrgRow = {
@@ -47,6 +48,16 @@ export function AdminOrgsPage() {
         <CardContent className="space-y-2">
           {orgs.isLoading ? (
             <Skeleton className="h-16 w-full" />
+          ) : orgs.isError ? (
+            <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-destructive/40 py-12 text-center">
+              <p className="text-sm font-medium text-destructive">{m.loadFailed}</p>
+              <p className="max-w-sm text-xs text-muted-foreground">
+                {apiErrorToMessage(orgs.error, m)}
+              </p>
+              <Button variant="secondary" size="sm" onClick={() => void orgs.refetch()}>
+                {m.retry}
+              </Button>
+            </div>
           ) : orgs.data?.orgs.length === 0 ? (
             <p className="text-sm text-muted-foreground">{m.orgPickerEmpty}</p>
           ) : (

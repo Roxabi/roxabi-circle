@@ -68,10 +68,22 @@ function openLocalD1() {
   // Prefer existing wrangler D1 file; otherwise create a stable local seed DB.
   const path = files[0] ?? join(D1_DIR, 'example-api-seed.sqlite')
   const sqlite = new Database(path)
-  for (const name of readdirSync(MIGRATIONS_DIR)
-    .filter((f) => f.endsWith('.sql'))
-    .sort()) {
-    sqlite.exec(readFileSync(join(MIGRATIONS_DIR, name), 'utf8'))
+  // Wrangler tracks applied migrations in d1_migrations. Re-running ALTER
+  // migrations (e.g. ADD COLUMN) is not idempotent — only apply SQL files when
+  // the DB was not already migrated by `wrangler d1 migrations apply --local`.
+  const alreadyMigrated = Boolean(
+    sqlite
+      .prepare(
+        "SELECT 1 AS ok FROM sqlite_master WHERE type = 'table' AND name = 'd1_migrations' LIMIT 1",
+      )
+      .get(),
+  )
+  if (!alreadyMigrated) {
+    for (const name of readdirSync(MIGRATIONS_DIR)
+      .filter((f) => f.endsWith('.sql'))
+      .sort()) {
+      sqlite.exec(readFileSync(join(MIGRATIONS_DIR, name), 'utf8'))
+    }
   }
   const d1 = {
     prepare(sql: string) {
