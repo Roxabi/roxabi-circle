@@ -1,6 +1,6 @@
 # silex-boilerplate — GOSILEX Chemin A kit
 
-**Full Cloudflare SaaS monorepo** (Bun · Turborepo · Workers/Hono · D1/R2 · TanStack SPA · dual auth · FastMCP).
+**Full Cloudflare SaaS monorepo** (Bun · Turborepo · Workers/Hono · D1/R2 · TanStack SPA · Better Auth + `sk_` · FastMCP).
 
 SSoT kit for product apps (e.g. **silex-share** pulls this via git `upstream`).
 
@@ -9,8 +9,8 @@ SSoT kit for product apps (e.g. **silex-share** pulls this via git `upstream`).
 | **GitHub** | [`go-silex/silex-boilerplate`](https://github.com/go-silex/silex-boilerplate) (private) |
 | **Local** | `~/projects/gosilex/silex-boilerplate/` |
 | **Consumer example** | [`go-silex/silex-share`](https://github.com/go-silex/silex-share) · `git fetch upstream && git merge upstream/main` · **push upstream = DENY** (product-side hook + `no_push`) |
-| **Goal** | [`artifacts/goals/001-chemin-a-boilerplate-goal.md`](artifacts/goals/001-chemin-a-boilerplate-goal.md) |
-| **Axial ADR** | [`docs/architecture/adr/0001-primary-axis-packages-compose-apps.md`](docs/architecture/adr/0001-primary-axis-packages-compose-apps.md) |
+| **Live goal** | [**Goal 002**](artifacts/goals/002-product-ready-multi-tenant-goal.md) — product-ready multi-tenant (Goal 001 scaffold [superseded](artifacts/goals/001-chemin-a-boilerplate-goal.md)) |
+| **ADRs** | [0001 axis](docs/architecture/adr/0001-primary-axis-packages-compose-apps.md) · [0002 BA-only session](docs/architecture/adr/0002-session-hmac-interim-vs-better-auth.md) · [0003 multi-tenant](docs/architecture/adr/0003-multi-tenant-rbac-modules.md) · [0004 CF Email](docs/architecture/adr/0004-email-transport-cf-default.md) |
 | **Agent** | [`AGENTS.md`](AGENTS.md) |
 
 ## Quick Start (local)
@@ -66,7 +66,8 @@ bun run db:reset          # migrate + seed:reset
 ```
 
 Also: first login still **lazy-seeds users** via `ensureDemoUsers` if you skip `db:seed` (notes only via seed script).
-- After login (Better Auth `sign-in/email`): cookie session (HttpOnly) · mint org-bound `sk_` via `POST /api/keys`
+
+**Auth (ADR-0002):** browser session = **Better Auth only** (HMAC retired). Dual credential = **cookie session** *or* **Bearer `sk_`** (MCP/machine). After login (`sign-in/email`): HttpOnly cookie · mint org-bound `sk_` via `POST /api/keys`.
 
 ### Local secrets / env (do not deploy as-is)
 
@@ -80,25 +81,29 @@ Also: first login still **lazy-seeds users** via `ensureDemoUsers` if you skip `
 
 | Package | Role |
 |---|---|
-| `@gosilex/config` | Shared `tsconfig.base.json` |
+| `@gosilex/config` | Shared `tsconfig.base.json` + Vitest coverage presets |
 | `@gosilex/types` | Error codes + `ApiErrorBody` envelope |
 | `@gosilex/core` | `AppError`, `toApiErrorBody`, `requestId` |
 | `@gosilex/db` | Drizzle D1 factory (schemas stay in apps) |
 | `@gosilex/storage` | R2 put/get/delete + safe key join (`demo/` prefix in example) |
-| `@gosilex/auth` | Better Auth session (`SessionPort`) + `sk_` hash/generate/Bearer parse |
+| `@gosilex/auth` | Better Auth `SessionPort` + cookie SSoT + `sk_` helpers + org-role constants (ADR-0002/0003) |
 | `@gosilex/ui` | **shadcn official** `base-nova` + `@base-ui/react` (Button, Dialog, Sidebar, Sonner, …) |
-| `@gosilex/email` | Demo email text builder |
+| `@gosilex/email` | Templates + transports `log` / `smtp` / **`cf`** (prod default) / `resend` (ADR-0004) |
+| `@gosilex/i18n` | Locale engine only; FR/EN catalogs live in apps |
+| `@gosilex/feedback` | Signaler → Spark Pilotage (core + Hono + React FAB) |
 | `@gosilex/mcp` | `ping` / `whoami` helpers + no-share-tools guard |
 
 ## Apps (examples only)
 
 | App | Role |
 |---|---|
-| `example-api` | Hono Worker · health · dual auth · notes CRUD · D1/R2 · demo email |
-| `example-web` | Vite SPA · TanStack · shadcn Base shell · notes/keys/settings · **design system (admin)** · FR/EN · dark mode |
+| `example-api` | Hono Worker · BA + `sk_` · orgs/modules/feedback · invites · reset · D1/R2 · email |
+| `example-web` | Vite SPA · TanStack · shells **`/admin`** + **`/app`** · notes/keys · design system · FR/EN · dark mode |
 | `mcp-example` | FastMCP stdio · tools `ping` + `whoami` only |
 
-**No** `apps/share-*` until kit goal exit.
+**Multi-tenant:** Phase A shipped (ADR-0003). Phase B custom roles = open epic [GH #22](https://github.com/go-silex/silex-boilerplate/issues/22) / Spark #127.
+
+**No** `apps/share-*` in this kit — product domain lives in product repos (zero-edit consumer).
 
 ## Error envelope
 
