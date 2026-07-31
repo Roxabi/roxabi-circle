@@ -550,7 +550,7 @@ Quand la CI app existera : l’ajouter dans `workflow_run.workflows` de `merge-o
 - [ ] Sentry + Better Stack (prod) — B7  
 - [ ] CodeRabbit (ou équiv.) sur PR — B7  
 - [ ] Playwright e2e en CI — B7  
-- [ ] Consumer dogfood zero-edit (B5 · GH #17) — playbook + `dogfood:zero-edit` harness; **real product clone evidence still open**  
+- [x] Consumer dogfood zero-edit (B5 · GH #17) — playbook + harness + **live greenfield** [`silex-kit-dogfood`](https://github.com/go-silex/silex-kit-dogfood) · evidence [`docs/product-consumer-dogfood-evidence.md`](docs/product-consumer-dogfood-evidence.md)
 - [ ] Extract dry-run « suite green after drop product » (aujourd’hui structure + banlist)
 
 **Critère extractible :** supprimer `apps/share-*` → examples + packages verts, 0 string métier share.
