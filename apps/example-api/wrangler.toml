@@ -18,6 +18,11 @@ migrations_dir = "migrations"
 binding = "BUCKET"
 bucket_name = "example-api-local"
 
+# Cloudflare Email Sending (ADR-0004). Domain must be onboarded for real delivery.
+# Local/CI: EMAIL_TRANSPORT=log (default). Prod: EMAIL_TRANSPORT=cf + EMAIL_FROM.
+[[send_email]]
+name = "EMAIL"
+
 # Non-secret defaults for local/dev tooling. Secrets stay in .dev.vars / CF secrets.
 [vars]
 DEMO_USER_EMAIL = "demo@gosilex.local"

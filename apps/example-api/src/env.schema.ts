@@ -9,8 +9,8 @@
  */
 import { z } from 'zod'
 
-/** D1 / R2 / future resource bindings — wrangler only, never .dev.vars. */
-export const WORKER_BINDINGS = ['DB', 'BUCKET'] as const
+/** D1 / R2 / Email / future resource bindings — wrangler only, never .dev.vars. */
+export const WORKER_BINDINGS = ['DB', 'BUCKET', 'EMAIL'] as const
 export type WorkerBindingName = (typeof WORKER_BINDINGS)[number]
 
 /**
@@ -38,6 +38,17 @@ export const workerStringEnvSchema = z.object({
    * Default off (disableSignUp) — seed or admin-only create for kit.
    */
   ALLOW_PUBLIC_SIGNUP: z.string().optional(),
+  /**
+   * Email transport (ADR-0004): log | cf | resend.
+   * development|test defaults to log when unset; staging|production must set cf|resend.
+   */
+  EMAIL_TRANSPORT: z.string().optional(),
+  /** From address for cf/resend (must be onboarded domain for CF Email). */
+  EMAIL_FROM: z.string().optional(),
+  /** Optional display name for From. */
+  EMAIL_FROM_NAME: z.string().optional(),
+  /** Resend API key when EMAIL_TRANSPORT=resend (escape hatch). */
+  RESEND_API_KEY: z.string().optional(),
 })
 
 export type WorkerStringEnv = z.infer<typeof workerStringEnvSchema>

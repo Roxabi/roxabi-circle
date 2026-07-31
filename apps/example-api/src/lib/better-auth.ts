@@ -3,7 +3,7 @@
  * Session stack is BA-only (ADR-0002).
  * Organization plugin = tenant spine (ADR-0003).
  */
-import { buildResetPasswordEmailText, createLogEmailPort } from '@gosilex/email'
+import { buildResetPasswordEmailText } from '@gosilex/email'
 import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { createAccessControl } from 'better-auth/plugins/access'
@@ -17,6 +17,7 @@ import {
 import { drizzle } from 'drizzle-orm/d1'
 import { betterAuthDrizzleSchema } from '../db/better-auth-schema'
 import type { Env } from '../env'
+import { resolveEmailPort } from './email-port'
 import {
   allowPublicSignup,
   assertBetterAuthConfigured,
@@ -65,7 +66,8 @@ export function createBetterAuth(env: Env, baseURL: string) {
           resetUrl: url,
           expiresHint: 'about 1 hour',
         })
-        await createLogEmailPort().send({
+        const port = resolveEmailPort(env)
+        await port.send({
           to: tmpl.to,
           subject: tmpl.subject,
           text: tmpl.text,
