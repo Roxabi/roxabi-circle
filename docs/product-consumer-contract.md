@@ -19,7 +19,7 @@ Pulling `upstream/main` should only conflict when the **product** deliberately t
                        │ git fetch/merge upstream only
                        │ (never push)
 ┌──────────────────────┴──────────────────────────────────┐
-│  go-silex/<product>  (e.g. silex-share)                 │
+│  go-silex/<product>  (greenfield product repo)          │
 │  origin = product                                       │
 │  ADD only: apps/<product>-* · product docs · optional   │
 │            product-only workflows (new files)           │
@@ -326,4 +326,5 @@ If product build breaks after pull → fix product code or contribute a kit fix 
 | [`config/zero-edit-exceptions.example.json`](../config/zero-edit-exceptions.example.json) | Exception schema template |
 | [`scripts/check-zero-edit-zones.sh`](../scripts/check-zero-edit-zones.sh) | Gate implementation |
 | ADR-0001 | packages compose apps |
-| silex-share | reference consumer (should converge on this contract) |
+| [`playbooks/start-product.md`](./playbooks/start-product.md) | Day-1 greenfield product setup + dogfood |
+| silex-share | **historical** split only — archived / deprecated, not a live dogfood target |

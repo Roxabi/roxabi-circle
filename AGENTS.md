@@ -5,8 +5,8 @@
 | | |
 |---|---|
 | **Repo** | `go-silex/silex-boilerplate` (private) · local `~/projects/gosilex/silex-boilerplate/` |
-| **Product consumers** | e.g. [`go-silex/silex-share`](https://github.com/go-silex/silex-share) (`upstream` → this repo) |
-| **Status** | Kit live **2026-07-13** (split from silex-share) · product apps pull via `git fetch upstream` |
+| **Product consumers** | Greenfield `go-silex/<product>` via git `upstream` → this kit · playbook [`docs/playbooks/start-product.md`](docs/playbooks/start-product.md) |
+| **Status** | Kit live **2026-07-13** (historically split from silex-share — **archived / deprecated**, not a live dogfood target) · product apps pull via `git fetch upstream` |
 | **Live goal** | [**Goal 002**](artifacts/goals/002-product-ready-multi-tenant-goal.md) product-ready multi-tenant (Goal 001 scaffold **superseded**) |
 | **CF account** | Gosilex (`Tool@gosilex.com` / hub `scripts/load-cf-env.sh`) when deploying examples |
 | **Stack SSoT** | section ci-dessous (figée **2026-07-12**, amendée BA-only / multi-tenant A / CF Email / feedback / i18n) |
@@ -29,7 +29,8 @@ Ce repo est le **boilerplate Chemin A** : monorepo extractible, conventions + CI
 
 | App | Repo | Sync |
 |---|---|---|
-| silex-share | `go-silex/silex-share` · `~/projects/gosilex/silex-share/` | `upstream` → ce repo · `fetch` + `merge upstream/main` |
+| **Greenfield products** | `go-silex/<product>` | `upstream` → ce repo · `fetch` + `merge upstream/main` · `no_push` |
+| silex-share (legacy) | archived / deprecated | **Not** a live consumer dogfood target |
 
 **Règle :** changements kit → **ici** d’abord · les products pullent. Ne pas inventer de features métier dans ce repo.
 
@@ -737,7 +738,7 @@ bun run lint             # biome
 bun run typecheck
 bun run --filter @gosilex/example-api dev
 bun run --filter @gosilex/example-web dev
-# Product apps live in product repos (e.g. silex-share) — not in this kit tree
+# Product apps live in product repos (apps/<product>-*) — not in this kit tree
 ```
 
 ---

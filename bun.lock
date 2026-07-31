@@ -43,6 +43,7 @@
       "name": "@gosilex/example-web",
       "version": "0.0.1",
       "dependencies": {
+        "@gosilex/auth": "workspace:*",
         "@gosilex/feedback": "workspace:*",
         "@gosilex/i18n": "workspace:*",
         "@gosilex/types": "workspace:*",

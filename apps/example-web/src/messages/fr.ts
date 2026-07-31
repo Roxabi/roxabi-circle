@@ -224,7 +224,6 @@ export type Messages = {
   orgRoleSystem: string
   roleCreated: string
   roleDeleted: string
-  grantUpdated: string
   accessWrite: string
   accessRead: string
   accessDisabled: string
@@ -465,7 +464,6 @@ export const fr: Messages = {
   orgRoleSystem: 'système',
   roleCreated: 'Rôle créé',
   roleDeleted: 'Rôle supprimé',
-  grantUpdated: 'Grant mis à jour',
   accessWrite: 'écriture',
   accessRead: 'lecture',
   accessDisabled: 'désactivé',
