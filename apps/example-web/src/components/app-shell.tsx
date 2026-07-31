@@ -1,14 +1,15 @@
 import {
-  Badge,
   Button,
+  cn,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuShortcut,
+  DropdownMenuTrigger,
   NavUser,
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
   Separator,
   Sidebar,
   SidebarContent,
@@ -26,13 +27,16 @@ import {
   SidebarTrigger,
   Skeleton,
 } from '@gosilex/ui'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useHotkey } from '@tanstack/react-hotkeys'
+import { useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useRouterState } from '@tanstack/react-router'
 import {
   Boxes,
   Building2,
+  ChevronsUpDown,
   FileText,
   KeyRound,
+  Languages,
   LayoutDashboard,
   Moon,
   Palette,
@@ -73,30 +77,6 @@ function NavItem({ to, label, icon }: { to: string; label: string; icon: ReactNo
   )
 }
 
-function ThemeCycleButton() {
-  const { theme, setTheme } = useTheme()
-  const { m } = useLocale()
-  const order: Theme[] = ['light', 'dark', 'system']
-  const next = () => {
-    const i = order.indexOf(theme)
-    setTheme(order[(i + 1) % order.length]!)
-  }
-  const Icon = theme === 'dark' ? Moon : theme === 'light' ? Sun : SunMoon
-  const label = theme === 'dark' ? m.themeDark : theme === 'light' ? m.themeLight : m.themeSystem
-  return (
-    <Button
-      type="button"
-      variant="outline"
-      size="icon-sm"
-      onClick={next}
-      title={label}
-      aria-label={label}
-    >
-      <Icon />
-    </Button>
-  )
-}
-
 function pageTitle(pathname: string, m: ReturnType<typeof useLocale>['m']): string {
   if (pathname.startsWith('/app/notes') || pathname === '/notes') return m.navNotes
   if (pathname.startsWith('/app/keys') || pathname === '/keys') return m.navKeys
@@ -119,39 +99,119 @@ function orgRoleLabel(role: string, m: ReturnType<typeof useLocale>['m']): strin
   return m.roleMember
 }
 
-function OrgPicker() {
+/**
+ * Header org switcher — same interaction pattern as sidebar-07 TeamSwitcher
+ * (dropdown + logo tile + name/plan lines + chevrons + shortcuts).
+ */
+function OrgSwitcher({ className }: { className?: string }) {
   const { m } = useLocale()
-  const { orgs, activeOrgId, setActiveOrgId } = useOrgContext()
+  const { orgs, activeOrgId, activeOrg, setActiveOrgId } = useOrgContext()
+
+  // ⌘/Ctrl+1…9 — first 9 orgs (same shortcuts shown as TeamSwitcher)
+  useHotkey('Mod+1', () => {
+    if (orgs[0]) setActiveOrgId(orgs[0].id)
+  })
+  useHotkey('Mod+2', () => {
+    if (orgs[1]) setActiveOrgId(orgs[1].id)
+  })
+  useHotkey('Mod+3', () => {
+    if (orgs[2]) setActiveOrgId(orgs[2].id)
+  })
+  useHotkey('Mod+4', () => {
+    if (orgs[3]) setActiveOrgId(orgs[3].id)
+  })
+  useHotkey('Mod+5', () => {
+    if (orgs[4]) setActiveOrgId(orgs[4].id)
+  })
+  useHotkey('Mod+6', () => {
+    if (orgs[5]) setActiveOrgId(orgs[5].id)
+  })
+  useHotkey('Mod+7', () => {
+    if (orgs[6]) setActiveOrgId(orgs[6].id)
+  })
+  useHotkey('Mod+8', () => {
+    if (orgs[7]) setActiveOrgId(orgs[7].id)
+  })
+  useHotkey('Mod+9', () => {
+    if (orgs[8]) setActiveOrgId(orgs[8].id)
+  })
+
   if (orgs.length === 0) {
-    return <div className="px-2 py-1 text-xs text-muted-foreground">{m.orgPickerEmpty}</div>
+    return (
+      <span className={cn('text-xs text-muted-foreground', className)}>{m.orgPickerEmpty}</span>
+    )
   }
-  const items = orgs.map((o) => ({
-    value: o.id,
-    label: `${o.name} (${orgRoleLabel(o.role, m)})`,
-  }))
+
+  const current = activeOrg ?? orgs[0]!
+  const initials = current.name
+    .split(/\s+/)
+    .map((w) => w[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase()
+
   return (
-    <div className="px-2 py-1">
-      <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-        {m.orgPicker}
-      </p>
-      <Select
-        items={items}
-        value={activeOrgId}
-        onValueChange={(v) => setActiveOrgId(typeof v === 'string' ? v : null)}
-      >
-        <SelectTrigger size="sm" className="w-full max-w-full" aria-label={m.orgPicker}>
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent alignItemWithTrigger={false} className="min-w-(--anchor-width)">
-          <SelectGroup>
-            {items.map((item) => (
-              <SelectItem key={item.value} value={item.value}>
-                {item.label}
-              </SelectItem>
-            ))}
-          </SelectGroup>
-        </SelectContent>
-      </Select>
+    <div className={cn(className)}>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={
+            <Button
+              type="button"
+              variant="outline"
+              size="lg"
+              className="h-12 gap-2 px-2 data-open:bg-muted"
+              aria-label={m.orgPicker}
+            />
+          }
+        >
+          <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+            <span className="text-xs font-bold">{initials || 'OR'}</span>
+          </div>
+          <div className="grid max-w-40 flex-1 text-left text-sm leading-tight">
+            <span className="truncate font-medium">{current.name}</span>
+            <span className="truncate text-xs text-muted-foreground">
+              {orgRoleLabel(current.role, m)}
+              {current.slug ? ` · ${current.slug}` : ''}
+            </span>
+          </div>
+          <ChevronsUpDown className="ml-auto size-4 opacity-60" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent className="min-w-56" align="end" side="bottom" sideOffset={4}>
+          <DropdownMenuGroup>
+            <DropdownMenuLabel className="text-xs text-muted-foreground">
+              {m.orgPicker}
+            </DropdownMenuLabel>
+            {orgs.map((org, index) => {
+              const tile = org.name
+                .split(/\s+/)
+                .map((w) => w[0])
+                .join('')
+                .slice(0, 2)
+                .toUpperCase()
+              const selected = org.id === (activeOrgId ?? current.id)
+              return (
+                <DropdownMenuItem
+                  key={org.id}
+                  className="gap-2 p-2"
+                  onClick={() => setActiveOrgId(org.id)}
+                  data-active={selected || undefined}
+                >
+                  <div className="flex size-6 items-center justify-center rounded-md border text-[10px] font-semibold">
+                    {tile || '·'}
+                  </div>
+                  <div className="grid flex-1 text-left text-sm leading-tight">
+                    <span className="truncate font-medium">{org.name}</span>
+                    <span className="truncate text-xs text-muted-foreground">
+                      {orgRoleLabel(org.role, m)}
+                    </span>
+                  </div>
+                  {index < 9 ? <DropdownMenuShortcut>⌘{index + 1}</DropdownMenuShortcut> : null}
+                </DropdownMenuItem>
+              )
+            })}
+          </DropdownMenuGroup>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   )
 }
@@ -159,16 +219,12 @@ function OrgPicker() {
 /** dashboard-01 inspired shell: brand header, grouped nav, user footer, site header. */
 function ShellChrome({ mode, children }: { mode: ShellMode; children: ReactNode }) {
   const { m, locale, setLocale } = useLocale()
+  const { theme, setTheme } = useTheme()
   const me = useMe()
   const { activeOrgId } = useOrgContext()
   const navigate = useNavigate()
   const qc = useQueryClient()
   const pathname = useRouterState({ select: (s) => s.location.pathname })
-  const health = useQuery({
-    queryKey: ['health'],
-    queryFn: () => apiFetch<{ ok: boolean }>('/health'),
-    refetchInterval: 30_000,
-  })
   const showMembers =
     mode === 'app' && Boolean(activeOrgId) && canManageMembers(me.data, activeOrgId ?? '')
 
@@ -183,6 +239,15 @@ function ShellChrome({ mode, children }: { mode: ShellMode; children: ReactNode 
     toast.message(m.logout)
     await navigate({ to: '/login' })
   }
+
+  const cycleTheme = () => {
+    const order: Theme[] = ['light', 'dark', 'system']
+    const i = order.indexOf(theme)
+    setTheme(order[(i + 1) % order.length]!)
+  }
+  const ThemeIcon = theme === 'dark' ? Moon : theme === 'light' ? Sun : SunMoon
+  const themeLabel =
+    theme === 'dark' ? m.themeDark : theme === 'light' ? m.themeLight : m.themeSystem
 
   const initials = (me.data?.email ?? me.data?.subject ?? 'U').slice(0, 2).toUpperCase()
   const title = pageTitle(pathname, m)
@@ -231,7 +296,6 @@ function ShellChrome({ mode, children }: { mode: ShellMode; children: ReactNode 
             <SidebarGroup>
               <SidebarGroupLabel>{m.navApp}</SidebarGroupLabel>
               <SidebarGroupContent>
-                <OrgPicker />
                 <SidebarMenu>
                   <NavItem to="/app" label={m.navAppHome} icon={<LayoutDashboard />} />
                   <NavItem to="/app/notes" label={m.navNotes} icon={<FileText />} />
@@ -247,59 +311,51 @@ function ShellChrome({ mode, children }: { mode: ShellMode; children: ReactNode 
               </SidebarGroupContent>
             </SidebarGroup>
           )}
-
-          <SidebarGroup className="mt-auto">
-            <SidebarGroupLabel>{m.navSecondary}</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {mode === 'app' ? (
-                  <NavItem to="/app/settings" label={m.navSettings} icon={<Settings />} />
-                ) : (
-                  <NavItem
-                    to="/admin/settings/integrations/feedback"
-                    label={m.integrationFeedbackTitle}
-                    icon={<Settings />}
-                  />
-                )}
-                {platform && mode === 'admin' ? (
-                  <NavItem to="/app" label={m.switchToApp} icon={<LayoutDashboard />} />
-                ) : null}
-                {platform && mode === 'app' ? (
-                  <NavItem to="/admin" label={m.switchToAdmin} icon={<Building2 />} />
-                ) : null}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
         </SidebarContent>
 
         <SidebarFooter>
-          <div className="flex flex-wrap items-center gap-1 px-2 group-data-[collapsible=icon]:hidden">
-            <Badge
-              variant={health.isLoading ? 'outline' : health.data?.ok ? 'secondary' : 'destructive'}
-              className="text-[10px]"
-            >
-              {health.isLoading ? m.loading : health.data?.ok ? m.online : m.offline}
-            </Badge>
-            {me.data?.platformRole ? (
-              <Badge variant="outline" className="text-[10px]">
-                {me.data.platformRole}
-              </Badge>
-            ) : null}
-          </div>
           <NavUser
             user={{
               name: me.data?.email ?? me.data?.subject ?? m.account,
-              email: me.data?.platformRole ?? me.data?.role ?? m.account,
+              email: me.data?.email ?? me.data?.subject ?? '',
               fallback: initials,
             }}
             logoutLabel={m.logout}
             onLogout={() => void logout()}
           >
-            <DropdownMenuItem
-              onClick={() => void navigate({ to: mode === 'admin' ? '/admin' : '/app/settings' })}
-            >
-              <Settings />
-              {mode === 'admin' ? m.navAdmin : m.settings}
+            {mode === 'app' ? (
+              <DropdownMenuItem onClick={() => void navigate({ to: '/app/settings' })}>
+                <Settings />
+                {m.settings}
+              </DropdownMenuItem>
+            ) : (
+              <DropdownMenuItem
+                onClick={() => void navigate({ to: '/admin/settings/integrations/feedback' })}
+              >
+                <Settings />
+                {m.integrationFeedbackTitle}
+              </DropdownMenuItem>
+            )}
+            {platform && mode === 'admin' ? (
+              <DropdownMenuItem onClick={() => void navigate({ to: '/app' })}>
+                <LayoutDashboard />
+                {m.switchToApp}
+              </DropdownMenuItem>
+            ) : null}
+            {platform && mode === 'app' ? (
+              <DropdownMenuItem onClick={() => void navigate({ to: '/admin' })}>
+                <Building2 />
+                {m.switchToAdmin}
+              </DropdownMenuItem>
+            ) : null}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => setLocale(locale === 'fr' ? 'en' : 'fr')}>
+              <Languages />
+              {m.language}: {locale === 'fr' ? 'FR' : 'EN'}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={cycleTheme}>
+              <ThemeIcon />
+              {themeLabel}
             </DropdownMenuItem>
           </NavUser>
         </SidebarFooter>
@@ -315,27 +371,7 @@ function ShellChrome({ mode, children }: { mode: ShellMode; children: ReactNode 
               className="mr-2 data-vertical:h-4 data-vertical:self-auto"
             />
             <h1 className="text-sm font-medium">{title}</h1>
-            <div className="ml-auto flex items-center gap-2">
-              <div className="hidden items-center gap-1 sm:flex">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={locale === 'fr' ? 'secondary' : 'ghost'}
-                  onClick={() => setLocale('fr')}
-                >
-                  FR
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={locale === 'en' ? 'secondary' : 'ghost'}
-                  onClick={() => setLocale('en')}
-                >
-                  EN
-                </Button>
-              </div>
-              <ThemeCycleButton />
-            </div>
+            {mode === 'app' ? <OrgSwitcher className="ml-auto" /> : null}
           </div>
         </header>
         <div className="flex flex-1 flex-col">

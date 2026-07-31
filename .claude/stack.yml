@@ -15,6 +15,12 @@ frontend:
   path: apps/example-web
   ui_package: packages/ui
   ui_src: packages/ui/src
+  tanstack:
+    query: "@tanstack/react-query"
+    form: "@tanstack/react-form"
+    table: "@tanstack/react-table"
+    hotkeys: "@tanstack/react-hotkeys"
+    markdown: "@tanstack/markdown"
 shared:
   types: packages/types
   ui: packages/ui

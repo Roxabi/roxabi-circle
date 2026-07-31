@@ -35,6 +35,13 @@ export type Messages = {
   title: string
   body: string
   delete: string
+  tableSearch: string
+  tableFilter: string
+  tableFilterAll: string
+  tableFilterWithBody: string
+  tableFilterEmptyBody: string
+  tableNoResults: string
+  tableSortHint: string
   keys: string
   keysDesc: string
   mintKey: string
@@ -109,6 +116,8 @@ export type Messages = {
   dsFeedback: string
   dsOverlays: string
   dsData: string
+  dsTanstack: string
+  dsTanstackDesc: string
   dsTemplates: string
   dsTemplatesDesc: string
   dsOnThisPage: string
@@ -235,6 +244,13 @@ export const fr: Messages = {
   title: 'Titre',
   body: 'Corps',
   delete: 'Supprimer',
+  tableSearch: 'Rechercher…',
+  tableFilter: 'Filtre',
+  tableFilterAll: 'Toutes',
+  tableFilterWithBody: 'Avec corps',
+  tableFilterEmptyBody: 'Corps vide',
+  tableNoResults: 'Aucun résultat pour ce filtre / recherche',
+  tableSortHint: 'Cliquer pour trier',
   keys: 'Clés API',
   keysDesc: 'Mint une clé sk_ pour MCP / machine auth',
   mintKey: 'Générer une clé',
@@ -311,6 +327,9 @@ export const fr: Messages = {
   dsFeedback: 'Feedback',
   dsOverlays: 'Overlays',
   dsData: 'Data display',
+  dsTanstack: 'TanStack',
+  dsTanstackDesc:
+    'Form + Table + Markdown (+ hotkeys dans main/notes) — dogfood headless pour products',
   dsTemplates: 'Templates de page',
   dsTemplatesDesc: 'Motifs d’écran SaaS réutilisables (auth, empty, settings, KPI, liste)',
   dsOnThisPage: 'Sur cette page',
