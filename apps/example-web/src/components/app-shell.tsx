@@ -10,6 +10,12 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Separator,
   Sidebar,
   SidebarContent,
@@ -114,28 +120,46 @@ function pageTitle(pathname: string, m: ReturnType<typeof useLocale>['m']): stri
   return m.navDashboard
 }
 
+function orgRoleLabel(role: string, m: ReturnType<typeof useLocale>['m']): string {
+  if (role === 'owner') return m.roleOwner
+  if (role === 'admin') return m.roleAdmin
+  if (role === 'reader') return m.roleReader
+  return m.roleMember
+}
+
 function OrgPicker() {
   const { m } = useLocale()
   const { orgs, activeOrgId, setActiveOrgId } = useOrgContext()
   if (orgs.length === 0) {
     return <div className="px-2 py-1 text-xs text-muted-foreground">{m.orgPickerEmpty}</div>
   }
+  const items = orgs.map((o) => ({
+    value: o.id,
+    label: `${o.name} (${orgRoleLabel(o.role, m)})`,
+  }))
   return (
     <div className="px-2 py-1">
-      <label className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+      <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
         {m.orgPicker}
-        <select
-          className="mt-1 h-8 w-full rounded-md border border-input bg-background px-2 text-xs font-normal normal-case tracking-normal text-foreground"
-          value={activeOrgId ?? ''}
-          onChange={(e) => setActiveOrgId(e.target.value || null)}
-        >
-          {orgs.map((o) => (
-            <option key={o.id} value={o.id}>
-              {o.name} ({o.role})
-            </option>
-          ))}
-        </select>
-      </label>
+      </p>
+      <Select
+        items={items}
+        value={activeOrgId}
+        onValueChange={(v) => setActiveOrgId(typeof v === 'string' ? v : null)}
+      >
+        <SelectTrigger size="sm" className="w-full max-w-full" aria-label={m.orgPicker}>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent alignItemWithTrigger={false} className="min-w-(--anchor-width)">
+          <SelectGroup>
+            {items.map((item) => (
+              <SelectItem key={item.value} value={item.value}>
+                {item.label}
+              </SelectItem>
+            ))}
+          </SelectGroup>
+        </SelectContent>
+      </Select>
     </div>
   )
 }
@@ -260,10 +284,12 @@ function ShellChrome({ mode, children }: { mode: ShellMode; children: ReactNode 
             <SidebarMenuItem>
               <div className="flex items-center gap-2 px-1 py-1">
                 <Badge
-                  variant={health.data?.ok ? 'secondary' : 'destructive'}
+                  variant={
+                    health.isLoading ? 'outline' : health.data?.ok ? 'secondary' : 'destructive'
+                  }
                   className="text-[10px]"
                 >
-                  {health.data?.ok ? m.online : m.offline}
+                  {health.isLoading ? m.loading : health.data?.ok ? m.online : m.offline}
                 </Badge>
                 {me.data?.platformRole ? (
                   <Badge variant="outline" className="text-[10px]">
@@ -471,9 +497,22 @@ export function AuthGate({ children, mode = 'app' }: { children: ReactNode; mode
 
   if (hardError) {
     return (
-      <div className="flex min-h-svh flex-col items-center justify-center gap-2 p-8 text-center">
+      <div className="flex min-h-svh flex-col items-center justify-center gap-3 p-8 text-center">
         <p className="text-lg font-semibold">{m.error}</p>
         <p className="text-sm text-muted-foreground">{m.loadFailed}</p>
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          <Button type="button" variant="secondary" size="sm" onClick={() => void me.refetch()}>
+            {m.retry}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => void navigate({ to: '/login' })}
+          >
+            {m.login}
+          </Button>
+        </div>
       </div>
     )
   }

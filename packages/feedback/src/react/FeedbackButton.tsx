@@ -141,7 +141,8 @@ export function FeedbackButton({
         priority,
         title,
         body,
-        page: typeof location !== 'undefined' ? location.pathname + location.search : '',
+        // Pathname only — never forward query (tokens, invite ids, debug params).
+        page: typeof location !== 'undefined' ? location.pathname : '',
         agent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
         files: files.map((f) => f.file),
       })

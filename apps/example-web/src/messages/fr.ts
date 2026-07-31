@@ -178,6 +178,10 @@ export type Messages = {
   inviteTitle: string
   inviteDesc: string
   inviteRole: string
+  roleOwner: string
+  roleAdmin: string
+  roleMember: string
+  roleReader: string
   inviteSubmit: string
   inviteSent: string
   invitePending: string
@@ -376,6 +380,10 @@ export const fr: Messages = {
   inviteTitle: 'Inviter un membre',
   inviteDesc: 'Envoi d’une invitation (e-mail log local / transport kit).',
   inviteRole: 'Rôle',
+  roleOwner: 'Propriétaire',
+  roleAdmin: 'Admin',
+  roleMember: 'Membre',
+  roleReader: 'Lecteur',
   inviteSubmit: 'Inviter',
   inviteSent: 'Invitation créée',
   invitePending: 'Invitations en attente',

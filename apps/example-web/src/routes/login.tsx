@@ -1,29 +1,37 @@
 import { Button, cn, Field, FieldError, FieldGroup, FieldLabel, Input } from '@gosilex/ui'
 import { useForm } from '@tanstack/react-form'
 import { useQueryClient } from '@tanstack/react-query'
-import { Link, useNavigate } from '@tanstack/react-router'
+import { Link, useNavigate, useSearch } from '@tanstack/react-router'
 import { GalleryVerticalEnd } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { apiErrorToMessage, apiFetch } from '../lib/api'
 import { defaultHomePath, type MeResponse, meQueryKey, useMe } from '../lib/auth'
 import { useLocale } from '../lib/locale'
+import { safeInviteReturnPath } from '../lib/safe-return-path'
 import { loginSchema } from '../lib/schemas'
 
 /** Dev-only email prefill — BA tenancy staff (see seed tenancy-data). */
 const DEV_DEMO_EMAIL = import.meta.env.DEV ? 'staff@gosilex.local' : ''
 
+function postLoginTarget(me: MeResponse, next: string | undefined): string {
+  return safeInviteReturnPath(next) ?? defaultHomePath(me)
+}
+
 /** login-05 chrome: centered brand + form (password + forgot, not email-only). */
 export function LoginPage() {
   const { m, locale, setLocale } = useLocale()
   const navigate = useNavigate()
+  const search = useSearch({ from: '/login' })
   const qc = useQueryClient()
   const [error, setError] = useState<string | null>(null)
   const me = useMe()
 
   useEffect(() => {
-    if (me.data) void navigate({ to: defaultHomePath(me.data) })
-  }, [me.data, navigate])
+    if (!me.data) return
+    const target = postLoginTarget(me.data, search.next)
+    void navigate({ href: target })
+  }, [me.data, navigate, search.next])
 
   const form = useForm({
     defaultValues: {
@@ -58,7 +66,8 @@ export function LoginPage() {
           queryFn: () => apiFetch<MeResponse>('/api/me'),
         })
         toast.success(m.login, { description: value.email })
-        await navigate({ to: defaultHomePath(meAfter) })
+        const target = postLoginTarget(meAfter, search.next)
+        await navigate({ href: target })
       } catch (e) {
         const msg = apiErrorToMessage(e, m)
         setError(msg)

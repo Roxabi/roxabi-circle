@@ -22,6 +22,12 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
   Field,
   FieldDescription,
   FieldError,
@@ -30,6 +36,12 @@ import {
   Input,
   Label,
   ScrollArea,
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Separator,
   Sheet,
   SheetContent,
@@ -540,21 +552,50 @@ export function DesignSystemPage() {
                 </div>
               </DemoBox>
 
-              {/* Template: empty state */}
+              {/* Template: empty state (Empty primitive) */}
               <DemoBox title="Template · Empty state">
-                <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed py-12 text-center">
-                  <div className="flex size-12 items-center justify-center rounded-full bg-muted">
-                    <LayoutTemplate className="size-5 text-muted-foreground" />
-                  </div>
-                  <div className="space-y-1">
-                    <p className="font-medium">{m.empty}</p>
-                    <p className="max-w-sm text-sm text-muted-foreground">{m.notesDesc}</p>
-                  </div>
-                  <Button size="sm">
-                    <Plus />
-                    {m.createNote}
-                  </Button>
-                </div>
+                <Empty className="border border-dashed py-12">
+                  <EmptyHeader>
+                    <EmptyMedia variant="icon">
+                      <LayoutTemplate className="size-4" aria-hidden />
+                    </EmptyMedia>
+                    <EmptyTitle>{m.empty}</EmptyTitle>
+                    <EmptyDescription>{m.notesDesc}</EmptyDescription>
+                  </EmptyHeader>
+                  <EmptyContent>
+                    <Button size="sm">
+                      <Plus />
+                      {m.createNote}
+                    </Button>
+                  </EmptyContent>
+                </Empty>
+              </DemoBox>
+
+              {/* Select primitive */}
+              <DemoBox title="Select">
+                {(() => {
+                  const items = [
+                    { value: 'member', label: m.roleMember },
+                    { value: 'reader', label: m.roleReader },
+                    { value: 'admin', label: m.roleAdmin },
+                  ]
+                  return (
+                    <Select items={items} defaultValue="member">
+                      <SelectTrigger aria-label={m.inviteRole}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectGroup>
+                          {items.map((item) => (
+                            <SelectItem key={item.value} value={item.value}>
+                              {item.label}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
+                  )
+                })()}
               </DemoBox>
 
               {/* Template: settings */}
