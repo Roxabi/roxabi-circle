@@ -50,7 +50,8 @@ const patchGrantSchema = z
 const inviteCreateSchema = z
   .object({
     email: z.string().email().max(254),
-    role: z.enum(['admin', 'member', 'reader']),
+    /** System invitable keys or org custom role key (Phase B). */
+    role: z.string().min(1).max(48),
   })
   .strict()
 

@@ -41,7 +41,10 @@ function slugRoleKey(input: string): string {
     .slice(0, 48)
 }
 
-/** Idempotent: ensure system roles + seed grants exist for an org. */
+/**
+ * Idempotent seed: create missing system roles + missing grants only.
+ * Does **not** re-upsert existing grants (avoids hot-path write amplification).
+ */
 export async function ensureSystemRoles(db: Db, organizationId: string): Promise<void> {
   const now = Date.now()
   const seed = systemRoleGrantSeed(KIT_MODULE_IDS)
@@ -60,7 +63,10 @@ export async function ensureSystemRoles(db: Db, organizationId: string): Promise
       role = await orgRolesRepo.findRoleByKey(db, organizationId, roleKey)
     }
     if (!role) continue
+    const existing = await orgRolesRepo.listGrantsForRole(db, role.id)
+    const have = new Set(existing.map((g) => g.moduleId))
     for (const row of seed.filter((s) => s.roleKey === roleKey)) {
+      if (have.has(row.moduleId)) continue
       await orgRolesRepo.upsertGrant(db, {
         roleId: role.id,
         moduleId: row.moduleId,
@@ -271,6 +277,12 @@ export async function customRoleKeys(db: Db, organizationId: string): Promise<st
   return roles.filter((r) => !r.isSystem).map((r) => r.key)
 }
 
+/**
+ * Ceiling for invite/assign.
+ * - Target system roles: **always** `canInviteRole` (never grant-dominance).
+ * - Custom actors cannot mint system roles.
+ * - Custom targets: module grant dominance only.
+ */
 export async function assertAssignableRole(
   db: Db,
   organizationId: string,
@@ -285,14 +297,19 @@ export async function assertAssignableRole(
   if (roleKey === 'owner') {
     throw AppError.forbidden('Cannot assign owner via this path')
   }
-  // System invite ceiling still applies for system roles
-  if (isOrgRoleKey(roleKey) && isOrgRoleKey(actorRoleKey)) {
+
+  // System target: org hierarchy only (never module-grant dominance → admin promote)
+  if (isOrgRoleKey(roleKey)) {
+    if (!isOrgRoleKey(actorRoleKey)) {
+      throw AppError.forbidden('Custom roles cannot assign system roles')
+    }
     if (!canInviteRole(actorRoleKey, roleKey)) {
       throw AppError.forbidden('Invite role exceeds inviter ceiling')
     }
     return
   }
-  // Custom: grant dominance
+
+  // Custom target: actor must dominate module grants
   const actorMap = await grantsMapForRoleKey(db, organizationId, actorRoleKey)
   const targetMap = await grantsMapForRoleKey(db, organizationId, roleKey)
   if (!grantsDominate(actorMap, targetMap, KIT_MODULE_IDS)) {

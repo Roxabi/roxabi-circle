@@ -1,9 +1,4 @@
-import {
-  canInviteRole,
-  type InvitableOrgRole,
-  isInvitableOrgRole,
-  normalizeEmail,
-} from '@gosilex/auth'
+import { normalizeEmail } from '@gosilex/auth'
 import { AppError } from '@gosilex/core'
 import { buildInviteEmailText, createLogEmailPort, type EmailPort } from '@gosilex/email'
 import type { DrizzleD1Database } from 'drizzle-orm/d1'
@@ -12,6 +7,7 @@ import { assertRateLimit } from '../lib/rate-limit'
 import * as invitationsRepo from '../repos/invitations'
 import * as orgsRepo from '../repos/orgs'
 import * as usersRepo from '../repos/users'
+import * as orgRolesService from './org-roles'
 
 type Db = DrizzleD1Database<typeof schema>
 
@@ -71,15 +67,9 @@ export async function createInvitation(
     throw AppError.forbidden('Organization is not active')
   }
 
-  if (!isInvitableOrgRole(input.role)) {
-    throw AppError.validation('Invalid invite role', { role: ['Must be admin, member, or reader'] })
-  }
-  const role = input.role as InvitableOrgRole
-  if (!canInviteRole(input.inviterOrgRole, role)) {
-    throw AppError.validation('Invite role exceeds inviter ceiling', {
-      role: ['Not allowed for your organization role'],
-    })
-  }
+  // Phase B: system invitable keys or org custom keys with ceiling
+  await orgRolesService.assertAssignableRole(db, input.orgId, input.role, input.inviterOrgRole)
+  const role = input.role
 
   const email = normalizeEmail(input.email)
   if (!email || !email.includes('@')) {

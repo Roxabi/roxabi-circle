@@ -211,8 +211,8 @@ describe('org roles Phase B — IDOR + grants', () => {
       },
       env,
     )
-    // super without membership + write → break-glass off → 403 or 404
-    expect([403, 404]).toContain(res.status)
+    // Super without membership + write: requireOrgContext fail-closed → 404
+    expect(res.status).toBe(404)
   })
 
   it('10 create role rejects system key reuse', async () => {
@@ -228,5 +228,127 @@ describe('org roles Phase B — IDOR + grants', () => {
       env,
     )
     expect(res.status).toBe(400)
+  })
+
+  it('11 delete custom role still assigned → 409', async () => {
+    const { app, env, db } = await seedEnv()
+    const cookie = await signIn(app, env, 'team-owner@gosilex.local')
+    const create = await app.request(
+      '/api/orgs/org_team/roles',
+      {
+        method: 'POST',
+        headers: { cookie, Origin: ORIGIN, 'content-type': 'application/json' },
+        body: JSON.stringify({
+          key: 'assigned_role',
+          name: 'Assigned',
+          grants: [{ moduleId: 'feedback', access: 'read' }],
+        }),
+      },
+      env,
+    )
+    expect(create.status).toBe(201)
+    const roleId = ((await create.json()) as { role: { id: string; key: string } }).role.id
+    // Point reader membership at custom role
+    const { baMember } = await import('./db/better-auth-schema')
+    const { eq } = await import('drizzle-orm')
+    await db
+      .update(baMember)
+      .set({ role: 'assigned_role' })
+      .where(eq(baMember.userId, 'user_team_reader'))
+      .run()
+    const res = await app.request(
+      `/api/orgs/org_team/roles/${roleId}`,
+      { method: 'DELETE', headers: { cookie, Origin: ORIGIN } },
+      env,
+    )
+    expect(res.status).toBe(409)
+  })
+
+  it('12 resolveModuleAccess denies reader write when grant is read', async () => {
+    const { db } = await seedEnv()
+    const { ensureSystemRoles, resolveModuleAccess } = await import('./services/org-roles')
+    const platformModulesRepo = await import('./repos/platform-modules')
+    await ensureSystemRoles(db, 'org_team')
+    await platformModulesRepo.upsertPlatformModule(db, {
+      moduleId: 'feedback',
+      available: true,
+      configJson: JSON.stringify({ sparkUrl: 'https://spark.example', sparkApiKey: 'spu_test' }),
+      updatedAt: Date.now(),
+    })
+    await platformModulesRepo.upsertOrgModule(db, {
+      organizationId: 'org_team',
+      moduleId: 'feedback',
+      enabled: true,
+      locked: false,
+      updatedAt: Date.now(),
+    })
+    const readOk = await resolveModuleAccess(db, {
+      organizationId: 'org_team',
+      roleKey: 'reader',
+      moduleId: 'feedback',
+      op: 'read',
+    })
+    const writeOk = await resolveModuleAccess(db, {
+      organizationId: 'org_team',
+      roleKey: 'reader',
+      moduleId: 'feedback',
+      op: 'write',
+    })
+    expect(readOk).toBe(true)
+    expect(writeOk).toBe(false)
+  })
+
+  it('13 custom role with write cannot be used to assign system admin', async () => {
+    const { app, env, db } = await seedEnv()
+    const cookie = await signIn(app, env, 'team-owner@gosilex.local')
+    const create = await app.request(
+      '/api/orgs/org_team/roles',
+      {
+        method: 'POST',
+        headers: { cookie, Origin: ORIGIN, 'content-type': 'application/json' },
+        body: JSON.stringify({
+          key: 'power_custom',
+          name: 'Power',
+          grants: [{ moduleId: 'feedback', access: 'write' }],
+        }),
+      },
+      env,
+    )
+    expect(create.status).toBe(201)
+    const { assertAssignableRole } = await import('./services/org-roles')
+    // Actor is custom with write — must not mint system admin
+    await expect(
+      assertAssignableRole(db, 'org_team', 'admin', 'power_custom'),
+    ).rejects.toMatchObject({ status: 403 })
+  })
+
+  it('14 grant ceiling: cannot create role stronger than demoted actor', async () => {
+    const { app, env, db } = await seedEnv()
+    const cookie = await signIn(app, env, 'team-owner@gosilex.local')
+    // Demote owner system grant to read so ceiling can fire
+    const { ensureSystemRoles } = await import('./services/org-roles')
+    const orgRolesRepo = await import('./repos/org-roles')
+    await ensureSystemRoles(db, 'org_team')
+    const ownerRole = await orgRolesRepo.findRoleByKey(db, 'org_team', 'owner')
+    expect(ownerRole).toBeTruthy()
+    await orgRolesRepo.upsertGrant(db, {
+      roleId: ownerRole!.id,
+      moduleId: 'feedback',
+      access: 'read',
+    })
+    const res = await app.request(
+      '/api/orgs/org_team/roles',
+      {
+        method: 'POST',
+        headers: { cookie, Origin: ORIGIN, 'content-type': 'application/json' },
+        body: JSON.stringify({
+          key: 'too_strong',
+          name: 'Too Strong',
+          grants: [{ moduleId: 'feedback', access: 'write' }],
+        }),
+      },
+      env,
+    )
+    expect(res.status).toBe(403)
   })
 })

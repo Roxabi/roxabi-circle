@@ -68,12 +68,15 @@ export function grantsDominate(
   return true
 }
 
-/** Valid role string for membership: system key or known custom key for the org. */
+/**
+ * Valid role for invite/assign: system invitable keys (never owner) or org custom keys.
+ */
 export function isAssignableRoleKey(
   role: string,
   customKeys: ReadonlySet<string> | readonly string[],
 ): boolean {
-  if (isOrgRoleKey(role)) return true
+  if (role === 'owner') return false
+  if (isOrgRoleKey(role)) return role === 'admin' || role === 'member' || role === 'reader'
   if (customKeys instanceof Set) return customKeys.has(role)
   return (customKeys as readonly string[]).includes(role)
 }

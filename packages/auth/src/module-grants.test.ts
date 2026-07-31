@@ -50,8 +50,10 @@ describe('module-grants (Phase B pure)', () => {
     expect(grantsDominate(actor, stronger, ['feedback', 'notes'])).toBe(false)
   })
 
-  it('isAssignableRoleKey allows system + custom', () => {
-    expect(isAssignableRoleKey('owner', [])).toBe(true)
+  it('isAssignableRoleKey allows invitable system + custom, never owner', () => {
+    expect(isAssignableRoleKey('owner', [])).toBe(false)
+    expect(isAssignableRoleKey('admin', [])).toBe(true)
+    expect(isAssignableRoleKey('member', [])).toBe(true)
     expect(isAssignableRoleKey('lead', ['lead'])).toBe(true)
     expect(isAssignableRoleKey('lead', [])).toBe(false)
     expect(isModuleAccess('write')).toBe(true)

@@ -189,7 +189,8 @@ describe('org invitations (B3 S2)', () => {
       },
       env,
     )
-    expect(res.status).toBe(400)
+    // Phase B assertAssignableRole uses 403 for ceiling (forbidden), not validation 400
+    expect(res.status).toBe(403)
   })
 
   it('cross-org delete invite → 404', async () => {
