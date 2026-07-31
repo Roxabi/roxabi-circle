@@ -2,8 +2,12 @@
 title: "Epic B1 — SSoT & vérité kit (docs drift) — technical analysis"
 issue: 13
 spark: 114
-status: draft
+status: superseded-as-baseline
 date: 2026-07-30
+superseded_note: >
+  SUPERSEDED as live baseline 2026-07-31. Pre-B2 / pre-#14 snapshot only.
+  Live truth = Goal 002 + AGENTS.md / README.md after B1 implement PR.
+  Do not implement from HMAC / AUTH_SESSION_ADAPTER rows below.
 tier: docs
 adr: docs/architecture/adr/0001-primary-axis-packages-compose-apps.md
 related:
@@ -17,16 +21,22 @@ related:
 
 # Analysis #13 — B1 · SSoT & vérité kit (docs drift)
 
+> **SUPERSEDED as live baseline (2026-07-31).**  
+> This file is a **pre-B2 / pre-#14** investigation snapshot (HMAC dual-adapter still on disk when written).  
+> **Do not implement from the tables below.** Live SSoT = [Goal 002](../goals/002-product-ready-multi-tenant-goal.md) + `AGENTS.md` / `README.md` after the B1 docs PR.  
+> Auth truth: **Better Auth only** (HMAC retired, ADR-0002 amend) · dual credential cookie \| Bearer `sk_` · **no** `AUTH_SESSION_ADAPTER`.  
+> Email truth: ADR-0004 / GH #21 CF Email shipped.
+
 ## Source
 
 Issue [#13](https://github.com/go-silex/silex-boilerplate/issues/13) · Spark **#114** · Epic **B1** (séquentiel #1 — bloque comm / dogfood / playbook).  
 Child hint in issue body: Spark **#94** (README package map + DoD template client) — not a GH issue number in this repo.
 
-## Problem
+## Problem (historical snapshot — 2026-07-30)
 
 Human and agent SSoT surfaces (`AGENTS.md`, `README.md`, package maps, quality checklists) still describe a **pre-#5 / pre-#8 / pre-#11** kit:
 
-| Claim still in SSoT | Reality on `main` (worktree 2026-07-30) |
+| Claim still in SSoT | Reality on `main` (worktree 2026-07-30, pre-cut) |
 |---|---|
 | Better Auth « not shipped » / M3 unchecked · « ne pas inventer BA » | **#5 merged** — `SessionPort` dual-path, `AUTH_SESSION_ADAPTER`, BA factory + migrations `0005_*` |
 | `@gosilex/auth` = HMAC + keys only | Package exports BA port, org-role helpers, dual `requireAuth`; ADR-0002 **amended 2026-07-15** |

@@ -2,14 +2,16 @@
 title: "Spec — Epic B1 · SSoT & vérité kit (docs drift)"
 issue: 13
 spark: 114
-status: draft
+status: accepted
 tier: docs
 date: 2026-07-30
+amended: 2026-07-31
 analysis: artifacts/analyses/13-epic-b1-ssot-verite-kit-analysis.md
 adr: docs/architecture/adr/0001-primary-axis-packages-compose-apps.md
 related_adrs:
   - docs/architecture/adr/0002-session-hmac-interim-vs-better-auth.md
   - docs/architecture/adr/0003-multi-tenant-rbac-modules.md
+  - docs/architecture/adr/0004-email-transport-cf-default.md
 shape: 2
 goal: artifacts/goals/002-product-ready-multi-tenant-goal.md
 sequencing: after-B2-hmac-cut
@@ -18,7 +20,8 @@ sequencing: after-B2-hmac-cut
 # Spec #13 — B1 · SSoT & vérité kit (docs drift)
 
 > **Goal 002 sequencing:** run **after B2 HMAC cut** lands (or same PR as post-cut docs).  
-> Do **not** document HMAC default dual-path as live truth.
+> Live session truth = **Better Auth only** (HMAC **retired**). Dual credential = cookie session **\|** Bearer `sk_`.  
+> **Never** document `AUTH_SESSION_ADAPTER`, HMAC default, or « invent Better Auth later ».
 
 ## Context
 
@@ -87,33 +90,30 @@ Restore single-source-of-truth alignment between live kit code and human/agent e
 
 | Section | Required change |
 |---|---|
-| Stack freeze / intro | Note amended for BA dual-path (#5), feedback (#8), multi-tenant A (#11) |
-| **§ D Auth + cookies** | Replace « aujourd’hui HMAC only / ne pas inventer BA » with dual-path truth: default HMAC, BA shipped behind adapter, SessionPort, cookie flags unchanged, MCP still Bearer only |
-| **§ H Packages SaaS** | Update `@gosilex/auth` row; **add** `@gosilex/feedback` (P0/kit optional module); clarify `@gosilex/i18n` = engine live; email = demo + local Mailpit, prod deferred; leave absent packages as P1/P2 |
-| **§ H2 Email** | Soften « esquisse » if Mailpit compose exists; mark Resend/CF prod as **deferred (#6)** |
-| **§ K Forme monorepo** | Root name = `silex-boilerplate/` (or generic monorepo); package list includes `feedback`; product apps as « future / product repos », not present dirs |
-| **§ Phasage** | Annotate B3 dual-path landed (#5); B5 feedback landed (#8); multi-tenant A (#11); remaining items point to open epics |
-| **### Suite** | See checkbox matrix below |
-| Commands | Prefer kit filters (`example-api` / `example-web`); demote or footnote share-api product commands |
-| Open / non-blocking | Align with deferred park (email/plausible → B8 or reopen) |
+| Stack freeze / intro | Live goal → Goal 002; BA-only / multi-tenant A / CF Email / feedback |
+| **§ D Auth + cookies** | Session = **Better Auth only** (HMAC retired); dual credential cookie \| `sk_`; no adapter env |
+| **§ H Packages SaaS** | `@gosilex/auth` BA-only; add `feedback` + `i18n`; email `log`\|`smtp`\|`cf`\|`resend` (ADR-0004) |
+| **§ H2 Email** | CF Email prod default (#21); Mailpit local; `log` fail-closed outside dev/test |
+| **§ K Forme monorepo** | Root `silex-boilerplate/`; packages include `feedback`; product apps = product repos only |
+| **### Suite** | See checkbox matrix below (Goal 002) |
+| Commands | Prefer `example-api` / `example-web` kit filters |
+| Open / non-blocking | Park Paraglide / Plausible (B8); Phase B open until #22 ships |
 
-#### Suite checkbox matrix (target after B1)
+#### Suite checkbox matrix (target after B1 — Goal 002)
 
 | Item | Target state | Note |
 |---|---|---|
-| Better Auth dual-path (SessionPort + adapter) | **[x]** | Shipped #5; default still HMAC |
-| GitHub OAuth + org membership product depth | **[ ]** or move to B2/B3 | Not same as « BA not shipped » |
-| packages/ui + example-web | **[x]** | already |
-| i18n FR/EN catalogs | **[x]** | already (engine + app catalogs) |
-| FastMCP product tools + skill | **[ ]** | product / later |
-| Email prod (Resend/CF) | **[ ] deferred #6** | local Mailpit OK |
-| Submit feedback kit package + wire | **[x]** | #8 |
-| Plausible SPA recipe | **[ ] deferred #7** | anti-doublon doc stays |
-| Multi-tenant Phase A | **[x]** | #11 — new line if missing |
-| Sentry + Better Stack prod | **[ ]** | |
-| CodeRabbit | **[ ]** | |
-| Playwright e2e in CI | **[ ]** | design-system script exists local |
-| Extract dry-run green after drop product | **[ ]** or partial note | structure + banlist today |
+| Better Auth session (BA-only) | **[x]** | ADR-0002; HMAC retired |
+| Dual credential cookie \| Bearer `sk_` | **[x]** | not HMAC\|BA |
+| packages/ui + example-web + shells | **[x]** | #15 A4 |
+| i18n FR/EN catalogs | **[x]** | engine + app catalogs; Paraglide park |
+| Feedback kit | **[x]** | #8 |
+| Multi-tenant Phase A | **[x]** | #11 |
+| Email CF prod transport | **[x]** | ADR-0004 / #21 |
+| RBAC Phase B | **[ ]** | #22 / Spark #127 |
+| Plausible SPA recipe | **[ ]** | park B8 |
+| Sentry / CodeRabbit / Playwright CI | **[ ]** | B7 |
+| Consumer dogfood zero-edit | **[ ]** | B5 #17 |
 
 ### C. `packages/feedback/README.md`
 
@@ -166,20 +166,20 @@ Single PR acceptable if review size stays readable; split S4 only if script bike
 - [ ] `AGENTS.md` § H (or successor inventory) mentions `@gosilex/feedback` and dual-path `@gosilex/auth`.
 - [ ] No package row claims Better Auth « not implemented ».
 
-### B. Auth truth
+### B. Auth truth (Goal 002 / BA-only)
 
-- [ ] `grep -n 'AUTH_SESSION_ADAPTER' README.md` hits ≥1.
-- [ ] `grep -ni 'better auth' README.md AGENTS.md` shows **shipped dual-path** language, not only future M3.
-- [ ] `AGENTS.md` does **not** contain the exact anti-pattern sentence: `ne pas « inventer » Better Auth dans le code tant que non livré` (or current equivalent false claim).
-- [ ] Docs state default adapter remains **`hmac`** unless env sets `better-auth`.
-- [ ] Docs state org/RBAC requires `AUTH_SESSION_ADAPTER=better-auth` (ADR-0003).
+- [ ] `grep -n 'AUTH_SESSION_ADAPTER' README.md AGENTS.md` → **0 hits** (adapter retired).
+- [ ] `grep -ni 'better auth' README.md AGENTS.md` shows **BA-only session shipped**, not future-only M3.
+- [ ] Live SSoT does **not** claim HMAC default, « invent Better Auth later », or dual session adapter.
+- [ ] Docs state dual credential = **cookie session \| Bearer `sk_`** only.
+- [ ] Docs state multi-tenant requires Better Auth session (ADR-0003); link ADR-0002 BA-only amend.
 
 ### C. Feature checklist truth
 
-- [ ] Suite / equivalent checklist marks feedback shipped (checked or removed as open).
-- [ ] Suite marks BA dual-path shipped; remaining OAuth/product depth is separate open item or epic link (#14/#15).
+- [ ] Suite marks feedback shipped.
+- [ ] Suite marks BA-only session shipped; GitHub OAuth product depth remains open separately.
 - [ ] Multi-tenant Phase A appears as shipped with link to ADR-0003 / #11.
-- [ ] Email prod and Plausible are **deferred (#6 / #7)** wording, not active unmarked todos only.
+- [ ] Email prod = CF Email shipped (#21 / ADR-0004); Plausible remains park / B8.
 
 ### D. ADR pointers
 

@@ -67,8 +67,8 @@ Contexte : hub `~/projects/gosilex/AGENTS.md` · ref Roxabi **`~/projects/roxabi
 
 **Artifacts historiques share** (frames/goals sous `artifacts/`) : legacy du split · ne pilotent plus le kit ; purger / déplacer vers product quand pratique.
 
-**Arbitrages figés kit** : [`artifacts/reviews/2026-07-12-goal-arbitration-freeze.md`](artifacts/reviews/2026-07-12-goal-arbitration-freeze.md) · goal : [`artifacts/goals/001-chemin-a-boilerplate-goal.md`](artifacts/goals/001-chemin-a-boilerplate-goal.md).  
-`/goal` ne re-débat pas les defaults A1–A25 / O1–O12 / X1–X6 sans supersede explicite.
+**Live goal** : [`artifacts/goals/002-product-ready-multi-tenant-goal.md`](artifacts/goals/002-product-ready-multi-tenant-goal.md) (Goal 001 scaffold [superseded](artifacts/goals/001-chemin-a-boilerplate-goal.md)).  
+Freeze historique : [`artifacts/reviews/2026-07-12-goal-arbitration-freeze.md`](artifacts/reviews/2026-07-12-goal-arbitration-freeze.md) — rows A11/A13 dual HMAC **not** live truth (see Goal 002 § Supersede).
 
 ### Chemin A vs B
 
@@ -423,26 +423,26 @@ Ne pas activer PostHog **et** Plausible **et** Sentry Session Replay sans raison
 ### K. Forme monorepo
 
 ```text
-silex-share/
-├── packages/   core config db storage auth types ui i18n mcp email …
+silex-boilerplate/
+├── packages/   core config db storage auth types ui i18n email feedback mcp …
 ├── apps/
 │   ├── example-api/ example-web/ mcp-example/   # kit extractible
-│   └── share-api/ share-web/ share-mcp/         # produit
+│   └── <product>-*                             # product repos only (not in this kit)
 ├── tooling/
 ├── .github/workflows/
 ├── package.json          # bun workspaces
 ├── turbo.jsonc
 ├── biome.json
-├── artifacts/frames/
+├── artifacts/
 ├── AGENTS.md
 └── CLAUDE.md
 ```
 
 | Zone | Upgrade |
 |---|---|
-| `packages/*` | kit only |
+| `packages/*` | kit only (incl. `feedback`) |
 | `apps/example-*` | prouve kit seul |
-| `apps/share-*` | jamais dans template extrait |
+| `apps/<product>-*` | product repos (fork `upstream`); never dual-edit kit paths |
 
 ### Phasage (boilerplate-first)
 
@@ -735,8 +735,9 @@ bun run dev              # turbo : apps concernées
 bun run test
 bun run lint             # biome
 bun run typecheck
-bun run --filter @gosilex/share-api dev
-bun run --filter @gosilex/share-api deploy   # après CI / permission
+bun run --filter @gosilex/example-api dev
+bun run --filter @gosilex/example-web dev
+# Product apps live in product repos (e.g. silex-share) — not in this kit tree
 ```
 
 ---
