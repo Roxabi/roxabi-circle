@@ -23,6 +23,7 @@ import { KeysPage } from './routes/keys'
 import { LoginPage } from './routes/login'
 import { NotesPage } from './routes/notes'
 import { OrgMembersPage } from './routes/org-members'
+import { ResetPasswordPage } from './routes/reset-password'
 import { SettingsPage } from './routes/settings'
 
 export type RouterContext = {
@@ -58,6 +59,16 @@ const forgotPasswordRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/forgot-password',
   component: ForgotPasswordPage,
+})
+
+const resetPasswordRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/reset-password',
+  validateSearch: (search: Record<string, unknown>) => ({
+    token: typeof search.token === 'string' ? search.token : undefined,
+    error: typeof search.error === 'string' ? search.error : undefined,
+  }),
+  component: ResetPasswordPage,
 })
 
 const inviteAcceptRoute = createRoute({
@@ -233,6 +244,7 @@ const legacyFeedback = legacyRedirect(
 export const routeTree = rootRoute.addChildren([
   loginRoute,
   forgotPasswordRoute,
+  resetPasswordRoute,
   inviteAcceptRoute,
   authedLayoutRoute.addChildren([indexRoute]),
   appLayoutRoute.addChildren([

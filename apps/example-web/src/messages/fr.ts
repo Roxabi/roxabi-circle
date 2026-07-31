@@ -13,6 +13,16 @@ export type Messages = {
   forgotEmailRequired: string
   forgotSentTitle: string
   forgotSentDesc: string
+  resetPasswordTitle: string
+  resetPasswordDesc: string
+  resetPasswordNew: string
+  resetPasswordConfirm: string
+  resetPasswordSubmit: string
+  resetPasswordSuccess: string
+  resetPasswordMissingToken: string
+  resetPasswordInvalidLink: string
+  resetPasswordTooShort: string
+  resetPasswordMismatch: string
   backToLogin: string
   loginLegal: string
   email: string
@@ -192,12 +202,23 @@ export const fr: Messages = {
   welcomeTitle: 'Bienvenue sur GOSILEX Kit',
   forgotPassword: 'Mot de passe oublié ?',
   forgotTitle: 'Réinitialiser le mot de passe',
-  forgotDesc: 'Entrez votre e-mail — nous enverrons un lien de réinitialisation (bientôt).',
+  forgotDesc: 'Entrez votre e-mail — nous enverrons un lien si un compte existe.',
   forgotSubmit: 'Envoyer le lien',
-  forgotEmailHint: 'UI prête ; l’envoi réel arrive avec Better Auth (M3).',
+  forgotEmailHint: 'Réponse générique (pas d’énumération de comptes). Transport log en local.',
   forgotEmailRequired: 'E-mail requis',
   forgotSentTitle: 'Demande enregistrée',
-  forgotSentDesc: 'Si un compte existe, un e-mail sera envoyé (stub démo pour l’instant).',
+  forgotSentDesc:
+    'Si un compte existe, un e-mail de réinitialisation a été envoyé (voir logs Mailpit/log).',
+  resetPasswordTitle: 'Nouveau mot de passe',
+  resetPasswordDesc: 'Choisissez un mot de passe d’au moins 8 caractères.',
+  resetPasswordNew: 'Nouveau mot de passe',
+  resetPasswordConfirm: 'Confirmer',
+  resetPasswordSubmit: 'Enregistrer',
+  resetPasswordSuccess: 'Mot de passe mis à jour — connectez-vous',
+  resetPasswordMissingToken: 'Lien invalide ou token manquant.',
+  resetPasswordInvalidLink: 'Lien de réinitialisation invalide ou expiré.',
+  resetPasswordTooShort: 'Au moins 8 caractères',
+  resetPasswordMismatch: 'Les mots de passe ne correspondent pas',
   backToLogin: 'Retour à la connexion',
   loginLegal: 'En continuant, vous acceptez les conditions d’utilisation du kit démo.',
   email: 'E-mail',

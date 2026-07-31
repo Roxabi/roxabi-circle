@@ -185,6 +185,22 @@ Manual dogfood (after `bun run db:seed` + API + web):
 
 Email is **log transport** only on Workers (Mailpit/SMTP is Node `@gosilex/email/server` — optional later).
 
+### Password reset local E2E (B3 S3)
+
+Automated suite: `apps/example-api/src/password-reset.test.ts` (request known/unknown, reset + single-use, rate limit).
+
+BA 1.6 paths: `POST /api/auth/request-password-reset` · `POST /api/auth/reset-password`.
+
+Manual dogfood:
+
+1. Open `/forgot-password` → submit `demo@gosilex.local` (or seed persona).
+2. Worker log: `transport: "log"` subject “Reset your password” with BA URL containing token.
+3. Prefer SPA: open `/reset-password?token=<token>` (or follow BA callback with `redirectTo=http://localhost:5173/reset-password`).
+4. Set new password (≥ 8 chars) → redirect login → sign in with **new** password; old fails.
+5. Reuse token → error.
+
+Mailpit: optional via Node `@gosilex/email/server` only — **not** the Worker path. Prod CF Email is epic **#21**.
+
 ---
 
 ## What a good test looks like
