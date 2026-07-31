@@ -102,6 +102,14 @@ export type Messages = {
   shellAppSubtitle: string
   orgPicker: string
   orgPickerEmpty: string
+  orgCreate: string
+  orgCreateTitle: string
+  orgCreateDesc: string
+  orgName: string
+  orgSlug: string
+  orgSlugHint: string
+  orgCreated: string
+  orgNameRequired: string
   switchToApp: string
   switchToAdmin: string
   online: string
@@ -312,6 +320,14 @@ export const fr: Messages = {
   shellAppSubtitle: 'Espace client multi-tenant',
   orgPicker: 'Organisation active',
   orgPickerEmpty: 'Aucune organisation',
+  orgCreate: 'Créer une organisation',
+  orgCreateTitle: 'Nouvelle organisation',
+  orgCreateDesc: 'Vous en serez le propriétaire. Le slug est dérivé du nom si vide.',
+  orgName: 'Nom',
+  orgSlug: 'Slug',
+  orgSlugHint: 'Optionnel · a-z, 0-9, tirets',
+  orgCreated: 'Organisation créée',
+  orgNameRequired: 'Le nom est requis',
   switchToApp: 'Espace client',
   switchToAdmin: 'Back-office',
   online: 'API OK',

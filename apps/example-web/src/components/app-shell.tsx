@@ -1,6 +1,11 @@
 import {
   Button,
-  cn,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuGroup,
@@ -9,6 +14,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuShortcut,
   DropdownMenuTrigger,
+  Field,
+  FieldError,
+  FieldLabel,
+  Input,
   NavUser,
   Separator,
   Sidebar,
@@ -26,9 +35,10 @@ import {
   SidebarRail,
   SidebarTrigger,
   Skeleton,
+  useSidebar,
 } from '@gosilex/ui'
 import { useHotkey } from '@tanstack/react-hotkeys'
-import { useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useRouterState } from '@tanstack/react-router'
 import {
   Boxes,
@@ -40,15 +50,15 @@ import {
   LayoutDashboard,
   Moon,
   Palette,
+  Plus,
   Settings,
   Sun,
   SunMoon,
   Users,
 } from 'lucide-react'
-import type { ReactNode } from 'react'
-import { useEffect } from 'react'
+import { type FormEvent, type ReactNode, useEffect, useState } from 'react'
 import { toast } from 'sonner'
-import { apiFetch } from '../lib/api'
+import { apiErrorToMessage, apiFetch } from '../lib/api'
 import {
   canManageMembers,
   isPlatformActor,
@@ -64,9 +74,20 @@ import { FeedbackFab } from './feedback-fab'
 
 export type ShellMode = 'admin' | 'app'
 
+/**
+ * Active state for sidebar links.
+ * Shell homes (`/admin`, `/app`) are prefixes of every nested route — exact match only,
+ * otherwise "Accueil" stays lit on orgs/notes/etc.
+ */
+function isNavActive(pathname: string, to: string): boolean {
+  if (pathname === to) return true
+  if (to === '/' || to === '/admin' || to === '/app') return false
+  return pathname.startsWith(`${to}/`)
+}
+
 function NavItem({ to, label, icon }: { to: string; label: string; icon: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname })
-  const active = pathname === to || (to !== '/' && pathname.startsWith(`${to}/`)) || pathname === to
+  const active = isNavActive(pathname, to)
   return (
     <SidebarMenuItem>
       <SidebarMenuButton isActive={active} tooltip={label} render={<Link to={to} />}>
@@ -100,14 +121,20 @@ function orgRoleLabel(role: string, m: ReturnType<typeof useLocale>['m']): strin
 }
 
 /**
- * Header org switcher — same interaction pattern as sidebar-07 TeamSwitcher
- * (dropdown + logo tile + name/plan lines + chevrons + shortcuts).
+ * Sidebar org switcher — same structure as sidebar-07 `TeamSwitcher`
+ * (`SidebarHeader` → `SidebarMenu` → dropdown + « Add team » create footer).
  */
-function OrgSwitcher({ className }: { className?: string }) {
+function OrgSwitcher() {
   const { m } = useLocale()
-  const { orgs, activeOrgId, activeOrg, setActiveOrgId } = useOrgContext()
+  const { isMobile } = useSidebar()
+  const { orgs, activeOrg, setActiveOrgId } = useOrgContext()
+  const qc = useQueryClient()
+  const [createOpen, setCreateOpen] = useState(false)
+  const [name, setName] = useState('')
+  const [slug, setSlug] = useState('')
+  const [nameError, setNameError] = useState<string | null>(null)
 
-  // ⌘/Ctrl+1…9 — first 9 orgs (same shortcuts shown as TeamSwitcher)
+  // ⌘/Ctrl+1…9 — first 9 orgs
   useHotkey('Mod+1', () => {
     if (orgs[0]) setActiveOrgId(orgs[0].id)
   })
@@ -136,83 +163,193 @@ function OrgSwitcher({ className }: { className?: string }) {
     if (orgs[8]) setActiveOrgId(orgs[8].id)
   })
 
-  if (orgs.length === 0) {
-    return (
-      <span className={cn('text-xs text-muted-foreground', className)}>{m.orgPickerEmpty}</span>
-    )
+  const createOrg = useMutation({
+    mutationFn: (input: { name: string; slug?: string }) =>
+      apiFetch<{ org: { id: string; name: string; slug: string } }>('/api/orgs', {
+        method: 'POST',
+        body: JSON.stringify(input),
+      }),
+    onSuccess: async (data) => {
+      setActiveOrgId(data.org.id)
+      await qc.invalidateQueries({ queryKey: meQueryKey })
+      toast.success(m.orgCreated, { description: data.org.name })
+      setCreateOpen(false)
+      setName('')
+      setSlug('')
+      setNameError(null)
+    },
+    onError: (err) => {
+      toast.error(m.error, { description: apiErrorToMessage(err, m) })
+    },
+  })
+
+  const openCreate = () => {
+    setName('')
+    setSlug('')
+    setNameError(null)
+    setCreateOpen(true)
   }
 
-  const current = activeOrg ?? orgs[0]!
-  const initials = current.name
-    .split(/\s+/)
-    .map((w) => w[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase()
+  const submitCreate = (e: FormEvent) => {
+    e.preventDefault()
+    const trimmed = name.trim()
+    if (!trimmed) {
+      setNameError(m.orgNameRequired)
+      return
+    }
+    setNameError(null)
+    const slugTrim = slug.trim()
+    createOrg.mutate(slugTrim ? { name: trimmed, slug: slugTrim } : { name: trimmed })
+  }
+
+  const current = activeOrg ?? orgs[0]
+  const initials = current
+    ? current.name
+        .split(/\s+/)
+        .map((w) => w[0])
+        .join('')
+        .slice(0, 2)
+        .toUpperCase()
+    : ''
 
   return (
-    <div className={cn(className)}>
-      <DropdownMenu>
-        <DropdownMenuTrigger
-          render={
-            <Button
-              type="button"
-              variant="outline"
-              size="lg"
-              className="h-12 gap-2 px-2 data-open:bg-muted"
-              aria-label={m.orgPicker}
-            />
-          }
-        >
-          <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-            <span className="text-xs font-bold">{initials || 'OR'}</span>
-          </div>
-          <div className="grid max-w-40 flex-1 text-left text-sm leading-tight">
-            <span className="truncate font-medium">{current.name}</span>
-            <span className="truncate text-xs text-muted-foreground">
-              {orgRoleLabel(current.role, m)}
-              {current.slug ? ` · ${current.slug}` : ''}
-            </span>
-          </div>
-          <ChevronsUpDown className="ml-auto size-4 opacity-60" />
-        </DropdownMenuTrigger>
-        <DropdownMenuContent className="min-w-56" align="end" side="bottom" sideOffset={4}>
-          <DropdownMenuGroup>
-            <DropdownMenuLabel className="text-xs text-muted-foreground">
-              {m.orgPicker}
-            </DropdownMenuLabel>
-            {orgs.map((org, index) => {
-              const tile = org.name
-                .split(/\s+/)
-                .map((w) => w[0])
-                .join('')
-                .slice(0, 2)
-                .toUpperCase()
-              const selected = org.id === (activeOrgId ?? current.id)
-              return (
-                <DropdownMenuItem
-                  key={org.id}
-                  className="gap-2 p-2"
-                  onClick={() => setActiveOrgId(org.id)}
-                  data-active={selected || undefined}
-                >
-                  <div className="flex size-6 items-center justify-center rounded-md border text-[10px] font-semibold">
-                    {tile || '·'}
+    <>
+      <SidebarMenu>
+        <SidebarMenuItem>
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <SidebarMenuButton
+                  size="lg"
+                  className="data-open:bg-sidebar-accent data-open:text-sidebar-accent-foreground"
+                  aria-label={m.orgPicker}
+                />
+              }
+            >
+              <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+                {current ? (
+                  <span className="text-xs font-bold">{initials || 'OR'}</span>
+                ) : (
+                  <Building2 className="size-4" />
+                )}
+              </div>
+              <div className="grid flex-1 text-left text-sm leading-tight">
+                <span className="truncate font-medium">
+                  {current ? current.name : m.orgPickerEmpty}
+                </span>
+                {current ? (
+                  <span className="truncate text-xs">
+                    {orgRoleLabel(current.role, m)}
+                    {current.slug ? ` · ${current.slug}` : ''}
+                  </span>
+                ) : (
+                  <span className="truncate text-xs text-muted-foreground">{m.orgCreate}</span>
+                )}
+              </div>
+              <ChevronsUpDown className="ml-auto" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              className="w-fit min-w-56"
+              align="start"
+              side={isMobile ? 'bottom' : 'right'}
+              sideOffset={4}
+            >
+              <DropdownMenuGroup>
+                <DropdownMenuLabel className="text-xs text-muted-foreground">
+                  {m.orgPicker}
+                </DropdownMenuLabel>
+                {orgs.length === 0 ? (
+                  <DropdownMenuItem disabled className="gap-2 p-2 text-muted-foreground">
+                    {m.orgPickerEmpty}
+                  </DropdownMenuItem>
+                ) : (
+                  orgs.map((org, index) => {
+                    const tile = org.name
+                      .split(/\s+/)
+                      .map((w) => w[0])
+                      .join('')
+                      .slice(0, 2)
+                      .toUpperCase()
+                    return (
+                      <DropdownMenuItem
+                        key={org.id}
+                        className="gap-2 p-2"
+                        onClick={() => setActiveOrgId(org.id)}
+                      >
+                        <div className="flex size-6 items-center justify-center rounded-md border text-[10px] font-semibold">
+                          {tile || '·'}
+                        </div>
+                        <div className="grid flex-1 text-left text-sm leading-tight">
+                          <span className="truncate font-medium">{org.name}</span>
+                          <span className="truncate text-xs text-muted-foreground">
+                            {orgRoleLabel(org.role, m)}
+                          </span>
+                        </div>
+                        {index < 9 ? (
+                          <DropdownMenuShortcut>⌘{index + 1}</DropdownMenuShortcut>
+                        ) : null}
+                      </DropdownMenuItem>
+                    )
+                  })
+                )}
+              </DropdownMenuGroup>
+              <DropdownMenuSeparator />
+              <DropdownMenuGroup>
+                <DropdownMenuItem className="gap-2 p-2" onClick={openCreate}>
+                  <div className="flex size-6 items-center justify-center rounded-md border bg-transparent">
+                    <Plus className="size-4" />
                   </div>
-                  <div className="grid flex-1 text-left text-sm leading-tight">
-                    <span className="truncate font-medium">{org.name}</span>
-                    <span className="truncate text-xs text-muted-foreground">
-                      {orgRoleLabel(org.role, m)}
-                    </span>
-                  </div>
-                  {index < 9 ? <DropdownMenuShortcut>⌘{index + 1}</DropdownMenuShortcut> : null}
+                  <div className="font-medium text-muted-foreground">{m.orgCreate}</div>
                 </DropdownMenuItem>
-              )
-            })}
-          </DropdownMenuGroup>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
+              </DropdownMenuGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </SidebarMenuItem>
+      </SidebarMenu>
+
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{m.orgCreateTitle}</DialogTitle>
+            <DialogDescription>{m.orgCreateDesc}</DialogDescription>
+          </DialogHeader>
+          <form id="create-org" className="flex flex-col gap-4" onSubmit={submitCreate}>
+            <Field>
+              <FieldLabel htmlFor="org-name">{m.orgName}</FieldLabel>
+              <Input
+                id="org-name"
+                value={name}
+                onChange={(e) => {
+                  setName(e.target.value)
+                  if (nameError) setNameError(null)
+                }}
+                autoFocus
+                aria-invalid={Boolean(nameError) || undefined}
+                aria-describedby={nameError ? 'org-name-error' : undefined}
+              />
+              {nameError ? <FieldError id="org-name-error">{nameError}</FieldError> : null}
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="org-slug">{m.orgSlug}</FieldLabel>
+              <Input
+                id="org-slug"
+                value={slug}
+                onChange={(e) => setSlug(e.target.value)}
+                placeholder={m.orgSlugHint}
+              />
+            </Field>
+          </form>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>
+              {m.cancel}
+            </Button>
+            <Button type="submit" form="create-org" disabled={createOrg.isPending}>
+              {m.orgCreate}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }
 
@@ -260,23 +397,27 @@ function ShellChrome({ mode, children }: { mode: ShellMode; children: ReactNode 
       {/* sidebar-07: collapses to icons */}
       <Sidebar collapsible="icon">
         <SidebarHeader>
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                size="lg"
-                className="data-[slot=sidebar-menu-button]:p-1.5!"
-                render={<Link to={homeTo} />}
-              >
-                <div className="flex size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                  <span className="text-xs font-bold">GX</span>
-                </div>
-                <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-semibold">{m.appTitle}</span>
-                  <span className="truncate text-xs text-muted-foreground">{subtitle}</span>
-                </div>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          </SidebarMenu>
+          {mode === 'app' ? (
+            <OrgSwitcher />
+          ) : (
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  size="lg"
+                  className="data-[slot=sidebar-menu-button]:p-1.5!"
+                  render={<Link to={homeTo} />}
+                >
+                  <div className="flex size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+                    <span className="text-xs font-bold">GX</span>
+                  </div>
+                  <div className="grid flex-1 text-left text-sm leading-tight">
+                    <span className="truncate font-semibold">{m.appTitle}</span>
+                    <span className="truncate text-xs text-muted-foreground">{subtitle}</span>
+                  </div>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          )}
         </SidebarHeader>
 
         <SidebarContent>
@@ -371,7 +512,6 @@ function ShellChrome({ mode, children }: { mode: ShellMode; children: ReactNode 
               className="mr-2 data-vertical:h-4 data-vertical:self-auto"
             />
             <h1 className="text-sm font-medium">{title}</h1>
-            {mode === 'app' ? <OrgSwitcher className="ml-auto" /> : null}
           </div>
         </header>
         <div className="flex flex-1 flex-col">
