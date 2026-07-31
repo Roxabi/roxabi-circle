@@ -1,13 +1,17 @@
 ---
 title: "Goal — Chemin A Cloudflare SaaS boilerplate (complete)"
-status: ready-for-goal
+status: superseded
 priority: P0
 date: 2026-07-12
+superseded_by: artifacts/goals/002-product-ready-multi-tenant-goal.md
+superseded_date: 2026-07-30
 repo: go-silex/silex-share
 related_frame_product: artifacts/frames/001-share-platform-frame.md
 related_spec_deferred: artifacts/specs/001-share-m0-m1-core-spec.md
 arbitration: artifacts/reviews/2026-07-12-goal-arbitration-freeze.md
 ---
+
+> **SUPERSEDED 2026-07-30** as the live kit goal. Scaffold exit largely achieved; ongoing kit DoD = **[Goal 002](./002-product-ready-multi-tenant-goal.md)** (BA-only, CF Email, A4, Phase B, consumer). Keep this file for historical freeze / checklist archaeology. Rows A11/A13/A14 below are **not** live truth — see Goal 002 § Supersede.
 
 # Goal — Boilerplate Chemin A complet
 

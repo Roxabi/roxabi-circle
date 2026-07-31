@@ -9,7 +9,7 @@ export type AppVariables = {
   authMethod?: 'session' | 'api_key'
   /** Set by withDb middleware (Drizzle D1). */
   db?: KitDb
-  /** Per-request Better Auth instance (AUTH_SESSION_ADAPTER=better-auth). */
+  /** Per-request Better Auth instance (Better Auth BA-only). */
   betterAuth?: KitBetterAuth
   /** ADR-0003 org context (requireOrgContext). */
   orgId?: string

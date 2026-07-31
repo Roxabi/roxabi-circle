@@ -116,7 +116,6 @@ export type EnvLike = {
   DEMO_USER_EMAIL?: string
   SMTP_HOST?: string
   SMTP_PORT?: string
-  AUTH_SESSION_ADAPTER?: string
   SESSION_COOKIE_NAME?: string
   BETTER_AUTH_SECRET?: string
   BETTER_AUTH_URL?: string
@@ -131,6 +130,8 @@ export function createMemoryEnv(overrides?: Partial<EnvLike>): EnvLike {
     DB: makeD1(sqlite),
     BUCKET: makeR2(),
     SESSION_SECRET: 'test-session-secret-at-least-32-chars!',
+    BETTER_AUTH_SECRET: 'test-better-auth-secret-at-least-32!!',
+    BETTER_AUTH_URL: 'http://localhost:8787',
     ENVIRONMENT: 'test',
     DEMO_USER_EMAIL: 'demo@gosilex.local',
     ...overrides,

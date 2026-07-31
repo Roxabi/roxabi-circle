@@ -1,6 +1,6 @@
 /**
  * Per-request Better Auth factory (CF Workers pattern).
- * Only used when AUTH_SESSION_ADAPTER=better-auth.
+ * Session stack is BA-only (ADR-0002).
  * Organization plugin = tenant spine (ADR-0003).
  */
 import { betterAuth } from 'better-auth'

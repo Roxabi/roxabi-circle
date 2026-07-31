@@ -54,8 +54,10 @@ bun run test:e2e:design-system
 
 | User | Password | Role |
 |---|---|---|
-| `demo@gosilex.local` | `demo-password-change-me` | **admin** (design system) |
+| `staff@gosilex.local` | `demo-password-change-me` | **staff** multi-org (health demoLogin) |
+| `demo@gosilex.local` | `demo-password-change-me` | admin kit demo (BA seed) |
 | `demo-b@gosilex.local` | `demo-password-b-change-me` | user (IDOR demos) |
+| `super@gosilex.local` | `demo-password-change-me` | super_admin platform |
 
 ```bash
 bun run db:seed           # idempotent
@@ -64,7 +66,7 @@ bun run db:reset          # migrate + seed:reset
 ```
 
 Also: first login still **lazy-seeds users** via `ensureDemoUsers` if you skip `db:seed` (notes only via seed script).
-- After login: cookie session `gosilex_session` (HttpOnly) · mint `sk_` via `POST /api/keys`
+- After login (Better Auth `sign-in/email`): cookie session (HttpOnly) · mint org-bound `sk_` via `POST /api/keys`
 
 ### Local secrets / env (do not deploy as-is)
 
@@ -83,7 +85,7 @@ Also: first login still **lazy-seeds users** via `ensureDemoUsers` if you skip `
 | `@gosilex/core` | `AppError`, `toApiErrorBody`, `requestId` |
 | `@gosilex/db` | Drizzle D1 factory (schemas stay in apps) |
 | `@gosilex/storage` | R2 put/get/delete + safe key join (`demo/` prefix in example) |
-| `@gosilex/auth` | Session cookie HMAC + `sk_` hash/generate/Bearer parse |
+| `@gosilex/auth` | Better Auth session (`SessionPort`) + `sk_` hash/generate/Bearer parse |
 | `@gosilex/ui` | **shadcn official** `base-nova` + `@base-ui/react` (Button, Dialog, Sidebar, Sonner, …) |
 | `@gosilex/email` | Demo email text builder |
 | `@gosilex/mcp` | `ping` / `whoami` helpers + no-share-tools guard |
