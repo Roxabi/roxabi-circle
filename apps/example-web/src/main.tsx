@@ -1,4 +1,5 @@
 import { Toaster, TooltipProvider } from '@gosilex/ui'
+import { HotkeysProvider } from '@tanstack/react-hotkeys'
 import { MutationCache, QueryCache, QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createRouter, RouterProvider } from '@tanstack/react-router'
 import { StrictMode } from 'react'
@@ -78,10 +79,12 @@ createRoot(root).render(
     <ThemeProvider>
       <LocaleProvider>
         <QueryClientProvider client={queryClient}>
-          <TooltipProvider>
-            <RouterProvider router={router} />
-            <ThemedToaster />
-          </TooltipProvider>
+          <HotkeysProvider>
+            <TooltipProvider>
+              <RouterProvider router={router} />
+              <ThemedToaster />
+            </TooltipProvider>
+          </HotkeysProvider>
         </QueryClientProvider>
       </LocaleProvider>
     </ThemeProvider>

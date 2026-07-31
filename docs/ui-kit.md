@@ -47,7 +47,18 @@ Installed via `bunx --bun shadcn@latest add sidebar-07` into `packages/ui`:
 
 `example-web` shell uses `Sidebar collapsible="icon"` + `NavUser` for the real session menu.
 
+## TanStack (example-web)
+
+| Package | Role in kit |
+|---------|-------------|
+| `@tanstack/react-router` | SPA routes |
+| `@tanstack/react-query` | Server state |
+| `@tanstack/react-form` | Forms + Zod validators (login, notes, …) |
+| `@tanstack/react-table` | Headless tables (e.g. notes list) |
+| `@tanstack/react-hotkeys` | Shortcuts (`HotkeysProvider` in `main.tsx`; notes `Mod+Shift+N`) |
+| `@tanstack/markdown` | Markdown render (`@tanstack/markdown/react` on note body) |
+
 ## Related
 
-- Stack: `AGENTS.md` § UI / packages
+- Stack: `AGENTS.md` § UI / packages · `.claude/stack.yml`
 - Testing: design-system overlay e2e `bun run test:e2e:design-system` (API + web up)

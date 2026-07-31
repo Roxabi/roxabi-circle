@@ -13,10 +13,16 @@ import { PageHeader } from '../../components/app-shell'
 import { apiErrorToMessage, apiFetch } from '../../lib/api'
 import { useLocale } from '../../lib/locale'
 
-type PlatformModule = {
-  moduleId: string
+/** Matches `platformModulesService.listPlatformPublic` wire shape. */
+type PlatformModuleState = {
   available: boolean
-  label?: string
+  configured: boolean
+  configPath: string
+}
+
+type PlatformModulesResponse = {
+  modules: Record<string, PlatformModuleState>
+  requestId: string
 }
 
 export function AdminModulesPage() {
@@ -24,8 +30,10 @@ export function AdminModulesPage() {
 
   const modules = useQuery({
     queryKey: ['platform-modules'],
-    queryFn: () => apiFetch<{ modules: PlatformModule[] }>('/api/platform/modules'),
+    queryFn: () => apiFetch<PlatformModulesResponse>('/api/platform/modules'),
   })
+
+  const entries = Object.entries(modules.data?.modules ?? {})
 
   return (
     <div>
@@ -49,19 +57,34 @@ export function AdminModulesPage() {
                 {m.retry}
               </Button>
             </div>
-          ) : modules.data?.modules.length === 0 ? (
+          ) : entries.length === 0 ? (
             <p className="text-sm text-muted-foreground">{m.empty}</p>
           ) : (
             <ul className="divide-y divide-border rounded-lg border border-border">
-              {modules.data?.modules.map((mod) => (
+              {entries.map(([moduleId, mod]) => (
                 <li
-                  key={mod.moduleId}
-                  className="flex items-center justify-between gap-2 px-3 py-2 text-sm"
+                  key={moduleId}
+                  className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-sm"
                 >
-                  <span className="font-mono text-xs">{mod.moduleId}</span>
-                  <Badge variant={mod.available ? 'secondary' : 'outline'} className="text-[10px]">
-                    {mod.available ? m.moduleOn : m.moduleOff}
-                  </Badge>
+                  <div className="min-w-0">
+                    <div className="font-mono text-xs">{moduleId}</div>
+                    {mod.configPath ? (
+                      <div className="truncate text-xs text-muted-foreground">{mod.configPath}</div>
+                    ) : null}
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    {mod.configured ? null : (
+                      <Badge variant="outline" className="text-[10px]">
+                        {m.errIntegrationNotConfigured}
+                      </Badge>
+                    )}
+                    <Badge
+                      variant={mod.available ? 'secondary' : 'outline'}
+                      className="text-[10px]"
+                    >
+                      {mod.available ? m.moduleOn : m.moduleOff}
+                    </Badge>
+                  </div>
                 </li>
               ))}
             </ul>
