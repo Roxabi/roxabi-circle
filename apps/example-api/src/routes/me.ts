@@ -3,7 +3,10 @@ import { Hono } from 'hono'
 import { z } from 'zod'
 import { assertRateLimit } from '../lib/rate-limit'
 import { requireAuth } from '../middleware/require-auth'
+import * as platformRolesRepo from '../repos/platform-roles'
+import * as usersRepo from '../repos/users'
 import * as authService from '../services/auth'
+import * as orgsService from '../services/orgs'
 import type { AppEnv } from '../types'
 
 /** 30 key mints / subject / hour (demo in-memory). */
@@ -19,10 +22,27 @@ meRoutes.use('/api/keys/*', requireAuth)
 
 meRoutes.get('/api/me', async (c) => {
   const subject = c.get('subject')!
+  const db = c.get('db')!
+  const platformRole = await platformRolesRepo.getPlatformRole(db, subject)
+  let orgs = await orgsService.listMembershipOrgsForSubject(db, subject)
+
+  // D11 — org-bound sk_ only sees its org in me.orgs
+  const keyOrg = c.get('keyOrganizationId')
+  if (c.get('authMethod') === 'api_key' && keyOrg) {
+    orgs = orgs.filter((o) => o.id === keyOrg)
+  }
+
+  const baUser = await usersRepo.findBaUserById(db, subject)
+  const email = baUser?.email?.trim() || undefined
+
   return c.json({
     subject,
+    ...(email ? { email } : {}),
     authMethod: c.get('authMethod'),
+    /** @deprecated kit demo KitRole — do not use for BO gates (use platformRole) */
     role: authService.roleForSubject(subject),
+    platformRole,
+    orgs,
     requestId: c.get('requestId'),
   })
 })

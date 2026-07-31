@@ -59,7 +59,7 @@ export function IntegrationFeedbackPage() {
         title={m.integrationFeedbackTitle}
         description={m.integrationFeedbackDesc}
         actions={
-          <Button render={<Link to="/settings" />} variant="outline" size="sm">
+          <Button render={<Link to="/admin" />} variant="outline" size="sm">
             {m.backToSettings}
           </Button>
         }

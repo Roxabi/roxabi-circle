@@ -30,6 +30,8 @@ import {
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useRouterState } from '@tanstack/react-router'
 import {
+  Boxes,
+  Building2,
   FileText,
   KeyRound,
   LayoutDashboard,
@@ -44,14 +46,17 @@ import type { ReactNode } from 'react'
 import { useEffect } from 'react'
 import { toast } from 'sonner'
 import { apiFetch } from '../lib/api'
-import { isAdmin, isUnauthorized, meQueryKey, useMe } from '../lib/auth'
+import { isPlatformActor, isUnauthorized, type MeResponse, meQueryKey, useMe } from '../lib/auth'
 import { useLocale } from '../lib/locale'
+import { OrgProvider, useOrgContext } from '../lib/org-context'
 import { type Theme, useTheme } from '../lib/theme'
 import { FeedbackFab } from './feedback-fab'
 
+export type ShellMode = 'admin' | 'app'
+
 function NavItem({ to, label, icon }: { to: string; label: string; icon: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname })
-  const active = pathname === to || (to !== '/' && pathname.startsWith(to))
+  const active = pathname === to || (to !== '/' && pathname.startsWith(`${to}/`)) || pathname === to
   return (
     <SidebarMenuItem>
       <SidebarMenuButton isActive={active} tooltip={label} render={<Link to={to} />}>
@@ -87,15 +92,47 @@ function ThemeCycleButton() {
 }
 
 function pageTitle(pathname: string, m: ReturnType<typeof useLocale>['m']): string {
-  if (pathname.startsWith('/notes')) return m.navNotes
-  if (pathname.startsWith('/keys')) return m.navKeys
-  if (pathname.startsWith('/settings')) return m.navSettings
-  if (pathname.startsWith('/design-system')) return m.navDesignSystem
+  if (pathname.startsWith('/app/notes') || pathname === '/notes') return m.navNotes
+  if (pathname.startsWith('/app/keys') || pathname === '/keys') return m.navKeys
+  if (pathname.startsWith('/app/settings') || pathname.startsWith('/settings')) return m.navSettings
+  if (pathname.startsWith('/admin/design-system') || pathname.startsWith('/design-system')) {
+    return m.navDesignSystem
+  }
+  if (pathname.startsWith('/admin/orgs')) return m.navOrgs
+  if (pathname.startsWith('/admin/modules')) return m.navModules
+  if (pathname.startsWith('/admin')) return m.navAdminHome
+  if (pathname.startsWith('/app')) return m.navAppHome
   return m.navDashboard
 }
 
+function OrgPicker() {
+  const { m } = useLocale()
+  const { orgs, activeOrgId, setActiveOrgId } = useOrgContext()
+  if (orgs.length === 0) {
+    return <div className="px-2 py-1 text-xs text-muted-foreground">{m.orgPickerEmpty}</div>
+  }
+  return (
+    <div className="px-2 py-1">
+      <label className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+        {m.orgPicker}
+        <select
+          className="mt-1 h-8 w-full rounded-md border border-input bg-background px-2 text-xs font-normal normal-case tracking-normal text-foreground"
+          value={activeOrgId ?? ''}
+          onChange={(e) => setActiveOrgId(e.target.value || null)}
+        >
+          {orgs.map((o) => (
+            <option key={o.id} value={o.id}>
+              {o.name} ({o.role})
+            </option>
+          ))}
+        </select>
+      </label>
+    </div>
+  )
+}
+
 /** dashboard-01 inspired shell: brand header, grouped nav, user footer, site header. */
-function ShellChrome({ children }: { children: ReactNode }) {
+function ShellChrome({ mode, children }: { mode: ShellMode; children: ReactNode }) {
   const { m, locale, setLocale } = useLocale()
   const me = useMe()
   const navigate = useNavigate()
@@ -109,12 +146,7 @@ function ShellChrome({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     try {
-      const health = await apiFetch<{ authAdapter?: string }>('/health')
-      if (health.authAdapter === 'better-auth') {
-        await apiFetch('/api/auth/sign-out', { method: 'POST', body: '{}' })
-      } else {
-        await apiFetch('/api/auth/logout', { method: 'POST', body: '{}' })
-      }
+      await apiFetch('/api/auth/sign-out', { method: 'POST', body: '{}' })
     } catch {
       /* still clear client cache */
     }
@@ -124,8 +156,11 @@ function ShellChrome({ children }: { children: ReactNode }) {
     await navigate({ to: '/login' })
   }
 
-  const initials = (me.data?.subject ?? 'U').slice(0, 2).toUpperCase()
+  const initials = (me.data?.email ?? me.data?.subject ?? 'U').slice(0, 2).toUpperCase()
   const title = pageTitle(pathname, m)
+  const homeTo = mode === 'admin' ? '/admin' : '/app'
+  const subtitle = mode === 'admin' ? m.shellAdminSubtitle : m.shellAppSubtitle
+  const platform = isPlatformActor(me.data)
 
   return (
     <>
@@ -136,14 +171,14 @@ function ShellChrome({ children }: { children: ReactNode }) {
               <SidebarMenuButton
                 size="lg"
                 className="data-[slot=sidebar-menu-button]:p-1.5!"
-                render={<Link to="/" />}
+                render={<Link to={homeTo} />}
               >
                 <div className="flex size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
                   <span className="text-xs font-bold">GX</span>
                 </div>
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-semibold">{m.appTitle}</span>
-                  <span className="truncate text-xs text-muted-foreground">{m.appSubtitle}</span>
+                  <span className="truncate text-xs text-muted-foreground">{subtitle}</span>
                 </div>
               </SidebarMenuButton>
             </SidebarMenuItem>
@@ -151,24 +186,50 @@ function ShellChrome({ children }: { children: ReactNode }) {
         </SidebarHeader>
 
         <SidebarContent>
-          <SidebarGroup>
-            <SidebarGroupLabel>{m.navPlatform}</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                <NavItem to="/" label={m.navDashboard} icon={<LayoutDashboard />} />
-                <NavItem to="/notes" label={m.navNotes} icon={<FileText />} />
-                <NavItem to="/keys" label={m.navKeys} icon={<KeyRound />} />
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
+          {mode === 'admin' ? (
+            <SidebarGroup>
+              <SidebarGroupLabel>{m.navAdmin}</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  <NavItem to="/admin" label={m.navAdminHome} icon={<LayoutDashboard />} />
+                  <NavItem to="/admin/orgs" label={m.navOrgs} icon={<Building2 />} />
+                  <NavItem to="/admin/modules" label={m.navModules} icon={<Boxes />} />
+                  <NavItem to="/admin/design-system" label={m.navDesignSystem} icon={<Palette />} />
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          ) : (
+            <SidebarGroup>
+              <SidebarGroupLabel>{m.navApp}</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <OrgPicker />
+                <SidebarMenu>
+                  <NavItem to="/app" label={m.navAppHome} icon={<LayoutDashboard />} />
+                  <NavItem to="/app/notes" label={m.navNotes} icon={<FileText />} />
+                  <NavItem to="/app/keys" label={m.navKeys} icon={<KeyRound />} />
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          )}
 
           <SidebarGroup className="mt-auto">
             <SidebarGroupLabel>{m.navSecondary}</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                <NavItem to="/settings" label={m.navSettings} icon={<Settings />} />
-                {isAdmin(me.data) ? (
-                  <NavItem to="/design-system" label={m.navDesignSystem} icon={<Palette />} />
+                {mode === 'app' ? (
+                  <NavItem to="/app/settings" label={m.navSettings} icon={<Settings />} />
+                ) : (
+                  <NavItem
+                    to="/admin/settings/integrations/feedback"
+                    label={m.integrationFeedbackTitle}
+                    icon={<Settings />}
+                  />
+                )}
+                {platform && mode === 'admin' ? (
+                  <NavItem to="/app" label={m.switchToApp} icon={<LayoutDashboard />} />
+                ) : null}
+                {platform && mode === 'app' ? (
+                  <NavItem to="/admin" label={m.switchToAdmin} icon={<Building2 />} />
                 ) : null}
               </SidebarMenu>
             </SidebarGroupContent>
@@ -185,6 +246,11 @@ function ShellChrome({ children }: { children: ReactNode }) {
                 >
                   {health.data?.ok ? m.online : m.offline}
                 </Badge>
+                {me.data?.platformRole ? (
+                  <Badge variant="outline" className="text-[10px]">
+                    {me.data.platformRole}
+                  </Badge>
+                ) : null}
               </div>
             </SidebarMenuItem>
             <SidebarMenuItem>
@@ -201,9 +267,11 @@ function ShellChrome({ children }: { children: ReactNode }) {
                     <AvatarFallback className="rounded-lg text-[10px]">{initials}</AvatarFallback>
                   </Avatar>
                   <div className="grid flex-1 text-left text-sm leading-tight">
-                    <span className="truncate font-medium">{me.data?.subject ?? '—'}</span>
+                    <span className="truncate font-medium">
+                      {me.data?.email ?? me.data?.subject ?? '—'}
+                    </span>
                     <span className="truncate text-xs text-muted-foreground">
-                      {me.data?.role ?? m.account}
+                      {me.data?.platformRole ?? me.data?.role ?? m.account}
                     </span>
                   </div>
                 </DropdownMenuTrigger>
@@ -216,8 +284,12 @@ function ShellChrome({ children }: { children: ReactNode }) {
                   <DropdownMenuGroup>
                     <DropdownMenuLabel>{m.account}</DropdownMenuLabel>
                     <div className="space-y-0.5 px-2 pb-1 text-xs text-muted-foreground">
-                      <div>{me.data?.subject ?? '—'}</div>
-                      {me.data?.role ? (
+                      <div>{me.data?.email ?? me.data?.subject ?? '—'}</div>
+                      {me.data?.platformRole ? (
+                        <Badge variant="outline" className="text-[10px]">
+                          {me.data.platformRole}
+                        </Badge>
+                      ) : me.data?.role ? (
                         <Badge variant="outline" className="text-[10px]">
                           {me.data.role}
                         </Badge>
@@ -226,16 +298,14 @@ function ShellChrome({ children }: { children: ReactNode }) {
                   </DropdownMenuGroup>
                   <DropdownMenuSeparator />
                   <DropdownMenuGroup>
-                    <DropdownMenuItem onClick={() => void navigate({ to: '/settings' })}>
+                    <DropdownMenuItem
+                      onClick={() =>
+                        void navigate({ to: mode === 'admin' ? '/admin' : '/app/settings' })
+                      }
+                    >
                       <Settings className="size-4" />
-                      {m.settings}
+                      {mode === 'admin' ? m.navAdmin : m.settings}
                     </DropdownMenuItem>
-                    {isAdmin(me.data) ? (
-                      <DropdownMenuItem onClick={() => void navigate({ to: '/design-system' })}>
-                        <Palette className="size-4" />
-                        {m.navDesignSystem}
-                      </DropdownMenuItem>
-                    ) : null}
                     <DropdownMenuItem onClick={() => void logout()}>
                       <LogOut className="size-4" />
                       {m.logout}
@@ -288,10 +358,10 @@ function ShellChrome({ children }: { children: ReactNode }) {
   )
 }
 
-export function AppShell({ children }: { children: ReactNode }) {
+export function AppShell({ children, mode = 'app' }: { children: ReactNode; mode?: ShellMode }) {
   return (
     <SidebarProvider>
-      <ShellChrome>{children}</ShellChrome>
+      <ShellChrome mode={mode}>{children}</ShellChrome>
     </SidebarProvider>
   )
 }
@@ -316,17 +386,19 @@ export function PageHeader({
   )
 }
 
-export function AdminGate({ children }: { children: ReactNode }) {
+/** BO gate: platform staff | super_admin only. */
+export function PlatformGate({ children }: { children: ReactNode }) {
   const me = useMe()
   const navigate = useNavigate()
   const { m } = useLocale()
-  const forbidden = !me.isLoading && !isAdmin(me.data)
+  const forbidden = !me.isLoading && !isPlatformActor(me.data)
 
   useEffect(() => {
     if (forbidden) {
-      void navigate({ to: '/' })
+      toast.error(m.forbiddenPlatform, { description: m.forbiddenPlatformDesc })
+      void navigate({ to: '/app' })
     }
-  }, [forbidden, navigate])
+  }, [forbidden, navigate, m.forbiddenPlatform, m.forbiddenPlatformDesc])
 
   if (me.isLoading) {
     return (
@@ -339,8 +411,8 @@ export function AdminGate({ children }: { children: ReactNode }) {
   if (forbidden) {
     return (
       <div className="flex min-h-[40vh] flex-col items-center justify-center gap-2 p-8 text-center">
-        <p className="text-lg font-semibold">{m.forbidden}</p>
-        <p className="text-sm text-muted-foreground">{m.forbiddenDesc}</p>
+        <p className="text-lg font-semibold">{m.forbiddenPlatform}</p>
+        <p className="text-sm text-muted-foreground">{m.forbiddenPlatformDesc}</p>
       </div>
     )
   }
@@ -348,7 +420,12 @@ export function AdminGate({ children }: { children: ReactNode }) {
   return children
 }
 
-export function AuthGate({ children }: { children: ReactNode }) {
+/** @deprecated Use PlatformGate for BO. Alias kept for older imports. */
+export function AdminGate({ children }: { children: ReactNode }) {
+  return <PlatformGate>{children}</PlatformGate>
+}
+
+export function AuthGate({ children, mode = 'app' }: { children: ReactNode; mode?: ShellMode }) {
   const me = useMe()
   const navigate = useNavigate()
   const { m } = useLocale()
@@ -387,9 +464,9 @@ export function AuthGate({ children }: { children: ReactNode }) {
   }
 
   return (
-    <>
-      <AppShell>{children}</AppShell>
+    <OrgProvider me={me.data as MeResponse}>
+      <AppShell mode={mode}>{children}</AppShell>
       <FeedbackFab />
-    </>
+    </OrgProvider>
   )
 }

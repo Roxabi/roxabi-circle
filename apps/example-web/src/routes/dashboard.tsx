@@ -78,7 +78,7 @@ export function DashboardPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <Link to="/notes" className="text-sm font-medium text-primary hover:underline">
+            <Link to="/app/notes" className="text-sm font-medium text-primary hover:underline">
               {m.navNotes} →
             </Link>
           </CardContent>
@@ -124,7 +124,7 @@ export function DashboardPage() {
             <CardDescription>{m.keysDesc}</CardDescription>
           </CardHeader>
           <CardContent>
-            <Button render={<Link to="/keys" />} variant="secondary">
+            <Button render={<Link to="/app/keys" />} variant="secondary">
               <KeyRound className="size-4" />
               {m.mintKey}
             </Button>
@@ -136,7 +136,7 @@ export function DashboardPage() {
             <CardDescription>{m.settingsDesc}</CardDescription>
           </CardHeader>
           <CardContent>
-            <Button render={<Link to="/settings" />} variant="outline">
+            <Button render={<Link to="/app/settings" />} variant="outline">
               {m.navSettings}
             </Button>
           </CardContent>

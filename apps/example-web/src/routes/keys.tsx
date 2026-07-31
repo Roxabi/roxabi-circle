@@ -14,6 +14,7 @@ import { toast } from 'sonner'
 import { PageHeader } from '../components/app-shell'
 import { apiErrorToMessage, apiFetch } from '../lib/api'
 import { useLocale } from '../lib/locale'
+import { useOrgContext } from '../lib/org-context'
 
 type KeyMeta = {
   id: string
@@ -28,6 +29,7 @@ const PLAINTEXT_TTL_MS = 60_000
 export function KeysPage() {
   const { m } = useLocale()
   const qc = useQueryClient()
+  const { activeOrgId, orgs } = useOrgContext()
   const [minted, setMinted] = useState<{ id: string; key: string } | null>(null)
 
   const keys = useQuery({
@@ -42,8 +44,16 @@ export function KeysPage() {
   }, [minted])
 
   const mint = useMutation({
-    mutationFn: () =>
-      apiFetch<{ id: string; key: string }>('/api/keys', { method: 'POST', body: '{}' }),
+    mutationFn: () => {
+      const organizationId = activeOrgId ?? orgs[0]?.id
+      const headers: Record<string, string> = {}
+      if (organizationId) headers['X-Org-Id'] = organizationId
+      return apiFetch<{ id: string; key: string }>('/api/keys', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(organizationId ? { organizationId } : {}),
+      })
+    },
     onSuccess: async (data) => {
       setMinted(data)
       toast.success(m.keyMinted)

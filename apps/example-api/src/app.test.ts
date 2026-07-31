@@ -207,14 +207,84 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     expect(me.status).toBe(200)
     const meBody = (await me.json()) as {
       subject: string
+      email?: string
       authMethod: string
       role: string
+      platformRole: string | null
+      orgs: unknown[]
       requestId: string
     }
     expect(meBody.subject).toBe('user_demo')
     expect(meBody.authMethod).toBe('session')
     expect(meBody.role).toBe('admin')
+    // seed-db maps kit demo admin → platform super_admin for catalogue ops
+    expect(meBody.platformRole).toBe('super_admin')
+    expect(Array.isArray(meBody.orgs)).toBe(true)
+    expect(meBody.email).toBe(DEMO_EMAIL)
     expect(meBody.requestId).toMatch(/^req_/)
+  })
+
+  it('GET /api/me — staff has platformRole + membership orgs only', async () => {
+    const app = createApp()
+    const env = createMemoryEnv()
+    const cookie = await loginAs(app, env, 'staff@gosilex.local', 'demo-password-change-me')
+
+    const me = await app.request('/api/me', { headers: { cookie } }, env)
+    expect(me.status).toBe(200)
+    const body = (await me.json()) as {
+      subject: string
+      email?: string
+      platformRole: string | null
+      orgs: { id: string; slug: string; role: string }[]
+    }
+    expect(body.subject).toBe('user_staff')
+    expect(body.email).toBe('staff@gosilex.local')
+    expect(body.platformRole).toBe('staff')
+    const slugs = body.orgs.map((o) => o.slug).sort()
+    expect(slugs).toEqual(['acme', 'beta'])
+    expect(body.orgs.find((o) => o.slug === 'acme')?.role).toBe('admin')
+    expect(body.orgs.some((o) => o.slug === 'solo')).toBe(false)
+  })
+
+  it('GET /api/me — solo has null platformRole + org_solo only', async () => {
+    const app = createApp()
+    const env = createMemoryEnv()
+    const cookie = await loginAs(app, env, 'solo@gosilex.local', 'demo-password-change-me')
+
+    const me = await app.request('/api/me', { headers: { cookie } }, env)
+    expect(me.status).toBe(200)
+    const body = (await me.json()) as {
+      subject: string
+      platformRole: string | null
+      orgs: { id: string; slug: string; role: string }[]
+    }
+    expect(body.subject).toBe('user_solo')
+    expect(body.platformRole).toBeNull()
+    expect(body.orgs).toHaveLength(1)
+    expect(body.orgs[0]).toMatchObject({ id: 'org_solo', slug: 'solo', role: 'owner' })
+  })
+
+  it('GET /api/me — super_admin platformRole; me.orgs memberships only (not catalogue)', async () => {
+    const app = createApp()
+    const env = createMemoryEnv()
+    const cookie = await loginAs(app, env, 'super@gosilex.local', 'demo-password-change-me')
+
+    const me = await app.request('/api/me', { headers: { cookie } }, env)
+    expect(me.status).toBe(200)
+    const body = (await me.json()) as {
+      subject: string
+      platformRole: string | null
+      orgs: { id: string }[]
+    }
+    expect(body.subject).toBe('user_super')
+    expect(body.platformRole).toBe('super_admin')
+    // super has no memberships in seed — orgs must not dump catalogue
+    expect(body.orgs).toEqual([])
+
+    const list = await app.request('/api/orgs', { headers: { cookie } }, env)
+    expect(list.status).toBe(200)
+    const listBody = (await list.json()) as { orgs: { id: string }[] }
+    expect(listBody.orgs.length).toBeGreaterThan(0)
   })
 
   it('login with wrong password returns UNAUTHORIZED', async () => {
