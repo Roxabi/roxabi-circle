@@ -1,3 +1,4 @@
+import { canInviteRole, isOrgRoleKey } from '@gosilex/auth'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,7 +27,7 @@ import {
 } from '@gosilex/ui'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useParams } from '@tanstack/react-router'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { PageHeader } from '../components/app-shell'
 import { apiErrorToMessage, apiFetch } from '../lib/api'
@@ -64,6 +65,8 @@ export function OrgMembersPage() {
   const [newRoleKey, setNewRoleKey] = useState('')
   const [newRoleName, setNewRoleName] = useState('')
   const [pendingDeleteRoleId, setPendingDeleteRoleId] = useState<string | null>(null)
+  /** Optimistic grant access while PATCH is in flight — key `${roleId}:${moduleId}`. */
+  const [optimisticAccess, setOptimisticAccess] = useState<Record<string, ModuleAccess>>({})
 
   const accessItems = useMemo(
     () =>
@@ -99,20 +102,41 @@ export function OrgMembersPage() {
     return map
   }, [roles.data?.roles])
 
+  const inviterRole = org?.role ?? ''
+
   const roleItems = useMemo(() => {
+    const actor = inviterRole
+    const assignable = (key: string): boolean => {
+      if (key === 'owner') return false
+      // System targets: pure hierarchy (canInviteRole)
+      if (isOrgRoleKey(key)) return canInviteRole(actor, key)
+      // Custom targets: only manage_members actors (owner|admin) reach this page;
+      // server still enforces module-grant dominance.
+      return actor === 'owner' || actor === 'admin'
+    }
+
     const fromApi = (roles.data?.roles ?? [])
-      .filter((r) => r.key !== 'owner')
+      .filter((r) => assignable(r.key))
       .map((r) => ({
         value: r.key,
         label: orgRoleLabel(r.key, m, roleNameByKey),
       }))
     if (fromApi.length > 0) return fromApi
-    // Fallback before roles load
+    // Fallback before roles load — same ceiling as canInviteRole
     const items: Array<{ value: string; label: string }> = []
-    if (org?.role === 'owner') items.push({ value: 'admin', label: m.roleAdmin })
-    items.push({ value: 'member', label: m.roleMember }, { value: 'reader', label: m.roleReader })
+    if (canInviteRole(actor, 'admin')) items.push({ value: 'admin', label: m.roleAdmin })
+    if (canInviteRole(actor, 'member')) items.push({ value: 'member', label: m.roleMember })
+    if (canInviteRole(actor, 'reader')) items.push({ value: 'reader', label: m.roleReader })
     return items
-  }, [roles.data?.roles, org?.role, m, roleNameByKey])
+  }, [roles.data?.roles, inviterRole, m, roleNameByKey])
+
+  // Keep invite role in the assignable set (e.g. after roles load / inviter is admin)
+  useEffect(() => {
+    if (roleItems.length === 0) return
+    if (!roleItems.some((i) => i.value === role)) {
+      setRole(roleItems[0]!.value)
+    }
+  }, [roleItems, role])
 
   const invite = useMutation({
     mutationFn: () =>
@@ -159,11 +183,29 @@ export function OrgMembersPage() {
         method: 'PATCH',
         body: JSON.stringify({ access: input.access }),
       }),
-    onSuccess: async () => {
+    onMutate: (input) => {
+      const key = `${input.roleId}:${input.moduleId}`
+      setOptimisticAccess((prev) => ({ ...prev, [key]: input.access }))
+    },
+    onSuccess: async (_data, input) => {
       // Silent success — avoid toast spam on every Select change
       await qc.invalidateQueries({ queryKey: ['org-roles', orgId] })
+      const key = `${input.roleId}:${input.moduleId}`
+      setOptimisticAccess((prev) => {
+        const next = { ...prev }
+        delete next[key]
+        return next
+      })
     },
-    onError: (e) => toast.error(m.error, { description: apiErrorToMessage(e, m) }),
+    onError: (e, input) => {
+      const key = `${input.roleId}:${input.moduleId}`
+      setOptimisticAccess((prev) => {
+        const next = { ...prev }
+        delete next[key]
+        return next
+      })
+      toast.error(m.error, { description: apiErrorToMessage(e, m) })
+    },
   })
 
   const deleteRole = useMutation({
@@ -425,36 +467,38 @@ export function OrgMembersPage() {
                       ) : (
                         <div className="flex flex-wrap gap-2">
                           {r.grants.map((g) => {
+                            const grantKey = `${r.id}:${g.moduleId}`
+                            const displayAccess = optimisticAccess[grantKey] ?? g.access
                             const patchingGrant =
                               patchingThis && patchGrant.variables?.moduleId === g.moduleId
                             if (r.isSystem) {
                               return (
                                 <Badge
-                                  key={`${r.id}-${g.moduleId}`}
+                                  key={grantKey}
                                   variant="secondary"
                                   className="gap-1 font-mono text-[10px]"
                                 >
                                   {g.moduleId}
                                   <span className="opacity-70">
-                                    {accessItems.find((a) => a.value === g.access)?.label ??
-                                      g.access}
+                                    {accessItems.find((a) => a.value === displayAccess)?.label ??
+                                      displayAccess}
                                   </span>
                                 </Badge>
                               )
                             }
                             return (
                               <div
-                                key={`${r.id}-${g.moduleId}`}
+                                key={grantKey}
                                 className="flex items-center gap-1.5 rounded-md border border-border px-2 py-1"
                               >
                                 <span className="font-mono text-[11px]">{g.moduleId}</span>
                                 <Select
                                   items={[...accessItems]}
-                                  value={g.access}
+                                  value={displayAccess}
                                   onValueChange={(v) => {
                                     if (
                                       (v === 'write' || v === 'read' || v === 'disabled') &&
-                                      v !== g.access
+                                      v !== displayAccess
                                     ) {
                                       patchGrant.mutate({
                                         roleId: r.id,

@@ -2,13 +2,14 @@
 
 **Full Cloudflare SaaS monorepo** (Bun · Turborepo · Workers/Hono · D1/R2 · TanStack SPA · Better Auth + `sk_` · FastMCP).
 
-SSoT kit for product apps (e.g. **silex-share** pulls this via git `upstream`).
+SSoT kit for product apps that pull this repo as git `upstream` (zero-edit contract).
 
 | | |
 |---|---|
 | **GitHub** | [`go-silex/silex-boilerplate`](https://github.com/go-silex/silex-boilerplate) (private) |
 | **Local** | `~/projects/gosilex/silex-boilerplate/` |
-| **Consumer example** | [`go-silex/silex-share`](https://github.com/go-silex/silex-share) · `git fetch upstream && git merge upstream/main` · **push upstream = DENY** (product-side hook + `no_push`) |
+| **Start a product** | [`docs/playbooks/start-product.md`](docs/playbooks/start-product.md) · `git fetch upstream` · **push upstream = DENY** (`no_push` + lefthook) |
+| **Dogfood harness** | `bun run dogfood:zero-edit` (product-mode self-sim; real product evidence still open · B5) |
 | **Live goal** | [**Goal 002**](artifacts/goals/002-product-ready-multi-tenant-goal.md) — product-ready multi-tenant (Goal 001 scaffold [superseded](artifacts/goals/001-chemin-a-boilerplate-goal.md)) |
 | **ADRs** | [0001 axis](docs/architecture/adr/0001-primary-axis-packages-compose-apps.md) · [0002 BA-only session](docs/architecture/adr/0002-session-hmac-interim-vs-better-auth.md) · [0003 multi-tenant](docs/architecture/adr/0003-multi-tenant-rbac-modules.md) · [0004 CF Email](docs/architecture/adr/0004-email-transport-cf-default.md) |
 | **Agent** | [`AGENTS.md`](AGENTS.md) |
@@ -101,9 +102,9 @@ Also: first login still **lazy-seeds users** via `ensureDemoUsers` if you skip `
 | `example-web` | Vite SPA · TanStack · shells **`/admin`** + **`/app`** · notes/keys · design system · FR/EN · dark mode |
 | `mcp-example` | FastMCP stdio · tools `ping` + `whoami` only |
 
-**Multi-tenant:** Phase A shipped (ADR-0003). Phase B custom roles = open epic [GH #22](https://github.com/go-silex/silex-boilerplate/issues/22) / Spark #127.
+**Multi-tenant:** Phase A + **Phase B kit surface shipped** (API + IDOR tests + minimal roles UI · ADR-0003 · [GH #22](https://github.com/go-silex/silex-boilerplate/issues/22)). Further product-grade polish tracked separately.
 
-**No** `apps/share-*` in this kit — product domain lives in product repos (zero-edit consumer).
+**No** product métier apps in this kit — domain lives in `go-silex/<product>` repos (zero-edit consumer).
 
 ## Error envelope
 
