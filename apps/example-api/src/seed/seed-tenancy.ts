@@ -5,6 +5,7 @@ import { baAccount, baMember, baOrganization, baUser } from '../db/better-auth-s
 import type { schema } from '../db/schema'
 import * as platformModulesRepo from '../repos/platform-modules'
 import * as platformRolesRepo from '../repos/platform-roles'
+import * as orgRolesService from '../services/org-roles'
 import * as platformModulesService from '../services/platform-modules'
 import { TENANCY_ORGS, TENANCY_PERSONAS } from './tenancy-data'
 
@@ -119,6 +120,9 @@ export async function seedTenancyDemo(
         updatedAt: ts,
       })
     }
+
+    // Phase B — system roles + module grants
+    await orgRolesService.ensureSystemRoles(db, o.id)
   }
 
   // Make feedback available on platform for demos (config may still be empty)

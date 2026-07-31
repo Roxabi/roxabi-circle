@@ -5,6 +5,7 @@ import type { schema } from '../db/schema'
 import * as orgsRepo from '../repos/orgs'
 import * as platformModulesRepo from '../repos/platform-modules'
 import * as platformRolesRepo from '../repos/platform-roles'
+import * as orgRolesService from './org-roles'
 
 type Db = DrizzleD1Database<typeof schema>
 
@@ -108,6 +109,9 @@ export async function createOrganization(
       updatedAt: ts,
     })
   }
+
+  // Phase B — system roles + grant seed
+  await orgRolesService.ensureSystemRoles(db, orgId)
 
   return { id: orgId, name, slug, kind, status: 'active' as const }
 }
