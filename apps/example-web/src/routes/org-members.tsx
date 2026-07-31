@@ -1,4 +1,12 @@
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
   Badge,
   Button,
   Card,
@@ -18,7 +26,7 @@ import {
 } from '@gosilex/ui'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useParams } from '@tanstack/react-router'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { PageHeader } from '../components/app-shell'
 import { apiErrorToMessage, apiFetch } from '../lib/api'
@@ -43,12 +51,6 @@ type OrgRoleRow = {
   grants: Array<{ moduleId: string; access: ModuleAccess }>
 }
 
-const ACCESS_ITEMS = [
-  { value: 'write', label: 'write' },
-  { value: 'read', label: 'read' },
-  { value: 'disabled', label: 'disabled' },
-] as const
-
 export function OrgMembersPage() {
   const { m } = useLocale()
   const me = useMe()
@@ -58,19 +60,20 @@ export function OrgMembersPage() {
   const org = me.data?.orgs?.find((o) => o.id === orgId)
 
   const [email, setEmail] = useState('')
-  const [role, setRole] = useState<'admin' | 'member' | 'reader'>('member')
+  const [role, setRole] = useState('member')
   const [newRoleKey, setNewRoleKey] = useState('')
   const [newRoleName, setNewRoleName] = useState('')
+  const [pendingDeleteRoleId, setPendingDeleteRoleId] = useState<string | null>(null)
 
-  const roleItems = (
-    [
-      ...(org?.role === 'owner'
-        ? ([{ value: 'admin' as const, label: m.roleAdmin }] as const)
-        : []),
-      { value: 'member' as const, label: m.roleMember },
-      { value: 'reader' as const, label: m.roleReader },
-    ] as const
-  ).map((r) => ({ value: r.value, label: r.label }))
+  const accessItems = useMemo(
+    () =>
+      [
+        { value: 'write' as const, label: m.accessWrite },
+        { value: 'read' as const, label: m.accessRead },
+        { value: 'disabled' as const, label: m.accessDisabled },
+      ] as const,
+    [m.accessWrite, m.accessRead, m.accessDisabled],
+  )
 
   const members = useQuery({
     queryKey: ['org-members', orgId],
@@ -89,6 +92,27 @@ export function OrgMembersPage() {
     queryFn: () => apiFetch<{ roles: OrgRoleRow[] }>(`/api/orgs/${orgId}/roles`),
     enabled: Boolean(orgId) && canManage,
   })
+
+  const roleNameByKey = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const r of roles.data?.roles ?? []) map.set(r.key, r.name)
+    return map
+  }, [roles.data?.roles])
+
+  const roleItems = useMemo(() => {
+    const fromApi = (roles.data?.roles ?? [])
+      .filter((r) => r.key !== 'owner')
+      .map((r) => ({
+        value: r.key,
+        label: orgRoleLabel(r.key, m, roleNameByKey),
+      }))
+    if (fromApi.length > 0) return fromApi
+    // Fallback before roles load
+    const items: Array<{ value: string; label: string }> = []
+    if (org?.role === 'owner') items.push({ value: 'admin', label: m.roleAdmin })
+    items.push({ value: 'member', label: m.roleMember }, { value: 'reader', label: m.roleReader })
+    return items
+  }, [roles.data?.roles, org?.role, m, roleNameByKey])
 
   const invite = useMutation({
     mutationFn: () =>
@@ -136,7 +160,7 @@ export function OrgMembersPage() {
         body: JSON.stringify({ access: input.access }),
       }),
     onSuccess: async () => {
-      toast.success(m.grantUpdated)
+      // Silent success — avoid toast spam on every Select change
       await qc.invalidateQueries({ queryKey: ['org-roles', orgId] })
     },
     onError: (e) => toast.error(m.error, { description: apiErrorToMessage(e, m) }),
@@ -147,6 +171,7 @@ export function OrgMembersPage() {
       apiFetch(`/api/orgs/${orgId}/roles/${roleId}`, { method: 'DELETE' }),
     onSuccess: async () => {
       toast.success(m.roleDeleted)
+      setPendingDeleteRoleId(null)
       await qc.invalidateQueries({ queryKey: ['org-roles', orgId] })
     },
     onError: (e) => toast.error(m.error, { description: apiErrorToMessage(e, m) }),
@@ -161,6 +186,8 @@ export function OrgMembersPage() {
     )
   }
 
+  const pendingDeleteRole = (roles.data?.roles ?? []).find((r) => r.id === pendingDeleteRoleId)
+
   return (
     <div>
       <PageHeader title={m.navMembers} description={org ? `${org.name} · ${org.slug}` : orgId} />
@@ -172,7 +199,13 @@ export function OrgMembersPage() {
             <CardDescription>{m.inviteDesc}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="grid gap-2 sm:grid-cols-[1fr_auto_auto] sm:items-end">
+            <form
+              className="grid gap-2 sm:grid-cols-[1fr_auto_auto] sm:items-end"
+              onSubmit={(e) => {
+                e.preventDefault()
+                if (email.trim()) invite.mutate()
+              }}
+            >
               <div className="space-y-1">
                 <Label htmlFor="invite-email">{m.email}</Label>
                 <Input
@@ -189,7 +222,7 @@ export function OrgMembersPage() {
                   items={roleItems}
                   value={role}
                   onValueChange={(v) => {
-                    if (v === 'admin' || v === 'member' || v === 'reader') setRole(v)
+                    if (typeof v === 'string' && v) setRole(v)
                   }}
                 >
                   <SelectTrigger
@@ -210,14 +243,10 @@ export function OrgMembersPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <Button
-                type="button"
-                disabled={invite.isPending || !email.trim()}
-                onClick={() => invite.mutate()}
-              >
+              <Button type="submit" disabled={invite.isPending || !email.trim()}>
                 {m.inviteSubmit}
               </Button>
-            </div>
+            </form>
           </CardContent>
         </Card>
 
@@ -250,9 +279,9 @@ export function OrgMembersPage() {
                     <div>
                       <div className="font-medium">{inv.email}</div>
                       <div className="text-xs text-muted-foreground">
-                        {orgRoleLabel(inv.role, m)}
+                        {orgRoleLabel(inv.role, m, roleNameByKey)}
                         {inv.expiresAt
-                          ? ` · exp ${new Date(inv.expiresAt).toLocaleDateString()}`
+                          ? ` · ${m.inviteExpires} ${new Date(inv.expiresAt).toLocaleDateString()}`
                           : ''}
                       </div>
                     </div>
@@ -294,6 +323,8 @@ export function OrgMembersPage() {
                   {m.retry}
                 </Button>
               </div>
+            ) : (members.data?.members.length ?? 0) === 0 ? (
+              <p className="text-sm text-muted-foreground">{m.membersEmpty}</p>
             ) : (
               <ul className="divide-y divide-border rounded-lg border border-border">
                 {members.data?.members.map((mem) => (
@@ -303,7 +334,7 @@ export function OrgMembersPage() {
                   >
                     <span className="font-mono text-xs">{mem.userId}</span>
                     <Badge variant="secondary" className="text-[10px]">
-                      {orgRoleLabel(mem.role, m)}
+                      {orgRoleLabel(mem.role, m, roleNameByKey)}
                     </Badge>
                   </li>
                 ))}
@@ -362,87 +393,139 @@ export function OrgMembersPage() {
               </div>
             ) : (
               <ul className="divide-y divide-border rounded-lg border border-border">
-                {(roles.data?.roles ?? []).map((r) => (
-                  <li key={r.id} className="space-y-2 px-3 py-3 text-sm">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div>
-                        <div className="font-medium">{r.name}</div>
-                        <div className="font-mono text-xs text-muted-foreground">{r.key}</div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {r.isSystem ? (
-                          <Badge variant="outline" className="text-[10px]">
-                            {m.orgRoleSystem}
-                          </Badge>
-                        ) : (
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            disabled={deleteRole.isPending}
-                            onClick={() => deleteRole.mutate(r.id)}
-                          >
-                            {m.delete}
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {(r.grants.length > 0
-                        ? r.grants
-                        : [{ moduleId: 'feedback', access: 'read' as const }]
-                      ).map((g) => {
-                        const accessItems = ACCESS_ITEMS.map((a) => ({
-                          value: a.value,
-                          label: a.label,
-                        }))
-                        return (
-                          <div
-                            key={`${r.id}-${g.moduleId}`}
-                            className="flex items-center gap-1.5 rounded-md border border-border px-2 py-1"
-                          >
-                            <span className="font-mono text-[11px]">{g.moduleId}</span>
-                            <Select
-                              items={accessItems}
-                              value={g.access}
-                              onValueChange={(v) => {
-                                if (v === 'write' || v === 'read' || v === 'disabled') {
-                                  patchGrant.mutate({
-                                    roleId: r.id,
-                                    moduleId: g.moduleId,
-                                    access: v,
-                                  })
-                                }
-                              }}
-                              disabled={r.isSystem || patchGrant.isPending}
+                {(roles.data?.roles ?? []).map((r) => {
+                  const patchingThis = patchGrant.isPending && patchGrant.variables?.roleId === r.id
+                  return (
+                    <li key={r.id} className="space-y-2 px-3 py-3 text-sm">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                          <div className="font-medium">{r.name}</div>
+                          <div className="font-mono text-xs text-muted-foreground">{r.key}</div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {r.isSystem ? (
+                            <Badge variant="outline" className="text-[10px]">
+                              {m.orgRoleSystem}
+                            </Badge>
+                          ) : (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              disabled={deleteRole.isPending}
+                              onClick={() => setPendingDeleteRoleId(r.id)}
                             >
-                              <SelectTrigger
-                                className="h-7 w-[6.5rem] text-xs"
-                                aria-label={`${g.moduleId} access`}
+                              {m.delete}
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                      {r.grants.length === 0 ? (
+                        <p className="text-xs text-muted-foreground">{m.orgRoleGrantsEmpty}</p>
+                      ) : (
+                        <div className="flex flex-wrap gap-2">
+                          {r.grants.map((g) => {
+                            const patchingGrant =
+                              patchingThis && patchGrant.variables?.moduleId === g.moduleId
+                            if (r.isSystem) {
+                              return (
+                                <Badge
+                                  key={`${r.id}-${g.moduleId}`}
+                                  variant="secondary"
+                                  className="gap-1 font-mono text-[10px]"
+                                >
+                                  {g.moduleId}
+                                  <span className="opacity-70">
+                                    {accessItems.find((a) => a.value === g.access)?.label ??
+                                      g.access}
+                                  </span>
+                                </Badge>
+                              )
+                            }
+                            return (
+                              <div
+                                key={`${r.id}-${g.moduleId}`}
+                                className="flex items-center gap-1.5 rounded-md border border-border px-2 py-1"
                               >
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectGroup>
-                                  {ACCESS_ITEMS.map((a) => (
-                                    <SelectItem key={a.value} value={a.value}>
-                                      {a.label}
-                                    </SelectItem>
-                                  ))}
-                                </SelectGroup>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </li>
-                ))}
+                                <span className="font-mono text-[11px]">{g.moduleId}</span>
+                                <Select
+                                  items={[...accessItems]}
+                                  value={g.access}
+                                  onValueChange={(v) => {
+                                    if (
+                                      (v === 'write' || v === 'read' || v === 'disabled') &&
+                                      v !== g.access
+                                    ) {
+                                      patchGrant.mutate({
+                                        roleId: r.id,
+                                        moduleId: g.moduleId,
+                                        access: v,
+                                      })
+                                    }
+                                  }}
+                                  disabled={patchingGrant}
+                                >
+                                  <SelectTrigger
+                                    className="h-7 w-[6.5rem] text-xs"
+                                    aria-label={m.grantAccessLabel.replace('{module}', g.moduleId)}
+                                  >
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectGroup>
+                                      {accessItems.map((a) => (
+                                        <SelectItem key={a.value} value={a.value}>
+                                          {a.label}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectGroup>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </li>
+                  )
+                })}
               </ul>
             )}
           </CardContent>
         </Card>
       </div>
+
+      <AlertDialog
+        open={!!pendingDeleteRoleId}
+        onOpenChange={(v) => {
+          if (!v) setPendingDeleteRoleId(null)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{m.delete}</AlertDialogTitle>
+            <AlertDialogDescription>{m.confirmDeleteRole}</AlertDialogDescription>
+          </AlertDialogHeader>
+          {pendingDeleteRole ? (
+            <p className="text-sm font-medium">
+              {pendingDeleteRole.name}{' '}
+              <span className="font-mono text-xs text-muted-foreground">
+                ({pendingDeleteRole.key})
+              </span>
+            </p>
+          ) : null}
+          <AlertDialogFooter>
+            <AlertDialogCancel>{m.cancel}</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              disabled={deleteRole.isPending}
+              onClick={() => pendingDeleteRoleId && deleteRole.mutate(pendingDeleteRoleId)}
+            >
+              {m.delete}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

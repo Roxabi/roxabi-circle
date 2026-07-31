@@ -1,7 +1,9 @@
 # Playbook — start a product on the kit (zero-edit)
 
-**Audience:** GOSILEX eng spinning a new product (or dogfooding `silex-share`).  
+**Audience:** GOSILEX eng spinning a **new** `go-silex/<product>` (greenfield dogfood).  
 **SSoT contract:** [`docs/product-consumer-contract.md`](../product-consumer-contract.md)
+
+> **Not** `silex-share` — archived / deprecated; do not use it as a live consumer target.
 
 ## Goal
 
@@ -50,25 +52,38 @@ cp -R apps/example-web apps/<product>-web
 | GH Actions vars/secrets | CF account, `GOSILEX_CI_*` |
 | Product wrangler | Separate worker names / D1 / R2 |
 
-## 5. Gates (product clone)
+## 5. Kit baseline (CI gate)
+
+Product CI fails without a pin file:
 
 ```bash
-bun run zero-edit          # kit zones clean vs upstream
-bun run banlist            # no share métier strings in packages
-bun run validate:full      # same bar as kit (or product filter)
+mkdir -p docs/product
+git rev-parse upstream/main | tr -d '\n' > docs/product/kit-baseline
+git add docs/product/kit-baseline
+# commit with first product setup; refresh after every upstream merge
 ```
 
-`zero-edit` in **kit mode** only validates config; in a **product** clone with `upstream` remote it diffs kit zones against upstream.
+## 6. Gates (product clone)
 
-## 6. Sync kit
+```bash
+bun run zero-edit          # product mode: kit zones clean vs upstream/main
+bun run banlist            # no share métier strings in packages
+bun run validate:full      # same bar as kit (or product filter)
+# From kit: bash scripts/dogfood-zero-edit.sh /path/to/product
+```
+
+`zero-edit` in **kit mode** only validates config; in a **product** clone with `upstream` remote it diffs kit zones against `upstream/main`.
+
+## 7. Sync kit
 
 ```bash
 git fetch upstream
 git merge upstream/main    # resolve only if product touched kit paths (should be rare)
+git rev-parse upstream/main | tr -d '\n' > docs/product/kit-baseline
 # never: git push upstream
 ```
 
-## 7. Checklist DoD consumer
+## 8. Checklist DoD consumer
 
 - [ ] `upstream` remote fetch-only
 - [ ] No kit path diffs intentional (or time-boxed exception in `docs/product/zero-edit-exceptions.json`)

@@ -230,4 +230,12 @@ export const en: Messages = {
   roleCreated: 'Role created',
   roleDeleted: 'Role deleted',
   grantUpdated: 'Grant updated',
+  accessWrite: 'write',
+  accessRead: 'read',
+  accessDisabled: 'disabled',
+  grantAccessLabel: 'Module access {module}',
+  orgRoleGrantsEmpty: 'No module grants for this role',
+  confirmDeleteRole: 'Delete this custom role? Members using it must be reassigned first.',
+  membersEmpty: 'No members',
+  inviteExpires: 'exp.',
 }

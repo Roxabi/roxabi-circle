@@ -13,7 +13,9 @@
 # Template: config/zero-edit-exceptions.example.json
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# ZERO_EDIT_ROOT: product dogfood / CI may point checkers at a tree that is not
+# the kit that owns this script (dirname $0 → kit). Default = script's monorepo.
+ROOT="${ZERO_EDIT_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
 cd "$ROOT"
 
 ZONES_FILE="${ZERO_EDIT_ZONES_FILE:-config/zero-edit-zones.json}"

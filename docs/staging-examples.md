@@ -1,17 +1,20 @@
 # Staging deploy — example-api / example-web
 
-**Goal B4:** industrialize staging for kit examples without shipping `ENVIRONMENT=development` to the cloud.
+**Status:** **ops runbook draft** — not B4 DoD complete. Kit `apps/example-api/wrangler.toml` has **no** `[env.staging]` yet; do not treat this doc as “staging is provisioned”.
+
+**Goal B4 (when complete):** industrialize staging for kit examples without shipping `ENVIRONMENT=development` to the cloud.
 
 ## Preconditions
 
 | Item | Status |
 |---|---|
-| GitHub App `gosilex-ci` | See [`gosilex-ci-app-setup.md`](./gosilex-ci-app-setup.md) |
+| GitHub App `gosilex-ci` | See [`gosilex-ci-app-setup.md`](./gosilex-ci-app-setup.md) — org-level live |
 | Org var `GOSILEX_CI_APP_ID` | Required for auto-merge |
 | Org secret `GOSILEX_CI_APP_PRIVATE_KEY` | Required for auto-merge |
 | CF account Gosilex | Workers + D1 + R2 for examples |
+| Wrangler staging env | **Not defined in kit** — add `[env.staging]` + named D1/R2 before deploy |
 
-**Smoke:** PRs with label `reviewed` + green CI should merge via merge-on-green (bot). If the job prints *Manual merge required*, the App is not wired.
+**Smoke (merge path):** PRs with label `reviewed` + green CI merge via merge-on-green (bot). If the job prints *Manual merge required*, the App is not wired.
 
 ## Environment rules
 
@@ -23,38 +26,41 @@
 
 **Never** set `ENVIRONMENT=development` or `EMAIL_TRANSPORT=log` on staging/prod (fail-closed).
 
-## Secrets checklist (staging worker)
+## Secrets / vars checklist (staging worker)
 
 | Secret / var | Purpose |
 |---|---|
+| `ENVIRONMENT=staging` | Required — never `development` |
 | `BETTER_AUTH_SECRET` | BA signing |
 | `BETTER_AUTH_URL` | Public API origin |
-| `SESSION_COOKIE_NAME` | Cookie name (optional override) |
+| `SESSION_SECRET` / cookie config | Session (see env schema / `.dev.vars.example`) |
+| `SESSION_COOKIE_NAME` | Optional override |
 | `CORS_ORIGINS` | Explicit SPA origin(s) |
-| `EMAIL_TRANSPORT` | `cf` or `smtp` |
-| `EMAIL_FROM` / allowlist | Staging safety |
+| `EMAIL_TRANSPORT` | `cf` or `smtp` (**not** `log`) |
+| `EMAIL_FROM` | Staging From `@gosilex.com` |
+| `EMAIL_ALLOW_DOMAINS` | Required for staging + cf/resend (ADR-0004) |
 | Bindings | `DB`, `BUCKET`, `EMAIL` (if cf) |
 
 Set via `wrangler secret put` on the **staging** worker, not committed wrangler prod files.
 
-## Deploy recipe (manual / CD pull)
+## Deploy recipe (manual — after env exists)
 
 ```bash
-# From kit root, after CI green on main
-source scripts/load-cf-env.sh   # if used on machine
+# CF credentials: hub helper (outside this repo), e.g.
+#   source ~/projects/gosilex/scripts/load-cf-env.sh
+# Not scripts/load-cf-env.sh in the kit tree.
 
-# API
+# 1) Add [env.staging] + D1/R2 names to apps/example-api/wrangler.toml (or product wrangler)
+# 2) Then:
 cd apps/example-api
-bunx wrangler deploy --env staging   # if env defined in wrangler
-# or named worker: wrangler deploy -c wrangler.jsonc
+bunx wrangler deploy --env staging
 
-# Web assets / Pages or Workers assets
 cd apps/example-web
 bun run build
 # deploy dist per project convention (Workers assets or Pages)
 ```
 
-Document the exact `wrangler` env names in the product’s own runbook; kit keeps examples deployable but product owns prod hostnames.
+Until `[env.staging]` exists, **do not** run `wrangler deploy --env staging` — it will fail or hit the default worker.
 
 ## Smoke after deploy
 

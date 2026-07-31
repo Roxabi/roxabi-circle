@@ -543,13 +543,13 @@ Quand la CI app existera : l’ajouter dans `workflow_run.workflows` de `merge-o
 - [x] **Multi-tenant Phase A** — orgs, platform RBAC, dual-level modules (ADR-0003 · GH #11)  
 - [x] **Multi-tenant UX A4** — shells + kit invites + password reset (GH #15)  
 - [x] **Email CF prod transport** — `@gosilex/email` `log`\|`smtp`\|`cf`\|`resend` + staging allowlist (ADR-0004 · GH #21)  
-- [x] **RBAC Phase B** — custom org roles + module grants (GH #22 · Spark #127 · API + UI dogfood)  
+- [x] **RBAC Phase B (API + tests + minimal UI)** — custom org roles + module grants (GH #22 · Spark #127)  
 - [ ] FastMCP product tools + skill (hors kit strings)  
 - [ ] **Plausible** SPA recipe — hub `analytics.gosilex.com` multi-sites (park / B8)  
 - [ ] Sentry + Better Stack (prod) — B7  
 - [ ] CodeRabbit (ou équiv.) sur PR — B7  
 - [ ] Playwright e2e en CI — B7  
-- [x] Consumer dogfood zero-edit (B5 · GH #17 · playbook + scripts/dogfood-zero-edit.sh)  
+- [ ] Consumer dogfood zero-edit (B5 · GH #17) — playbook + `dogfood:zero-edit` harness; **real product clone evidence still open**  
 - [ ] Extract dry-run « suite green after drop product » (aujourd’hui structure + banlist)
 
 **Critère extractible :** supprimer `apps/share-*` → examples + packages verts, 0 string métier share.
