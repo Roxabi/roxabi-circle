@@ -491,7 +491,7 @@ Règles : guard first · Zod double frontière · pas de god file · packages �
 
 - [x] **PR template sécu** — `.github/PULL_REQUEST_TEMPLATE.md`  
 - [x] **Secret scan CI** — `.github/workflows/secret-scan.yml` (TruffleHog `--only-verified`)  
-- [x] **Merge-on-green** — `.github/workflows/merge-on-green.yml` (label `reviewed` + checks green)  
+- [x] **Merge-on-green** — `.github/workflows/merge-on-green.yml` (label `reviewed` + fin CI/Secret only — pas de check_suite/sync spam ; close issues → `close-linked-issues.yml`)  
 - [x] Label **`reviewed`** créé sur le repo  
 - [x] Merge token = **GitHub App `gosilex-ci`** (pas de PAT) — setup : [`docs/gosilex-ci-app-setup.md`](docs/gosilex-ci-app-setup.md)  
 - [x] Créer/installer App + set `GOSILEX_CI_APP_ID` (var) / `GOSILEX_CI_APP_PRIVATE_KEY` (secret) — org-level live · [`docs/gosilex-ci-app-setup.md`](docs/gosilex-ci-app-setup.md) · staging: [`docs/staging-examples.md`](docs/staging-examples.md)
