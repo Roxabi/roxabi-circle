@@ -494,7 +494,7 @@ Règles : guard first · Zod double frontière · pas de god file · packages �
 - [x] **Merge-on-green** — `.github/workflows/merge-on-green.yml` (label `reviewed` + fin CI/Secret only — pas de check_suite/sync spam ; close issues → `close-linked-issues.yml`)  
 - [x] Label **`reviewed`** créé sur le repo  
 - [x] Merge token = **GitHub App `gosilex-ci`** (pas de PAT) — setup : [`docs/gosilex-ci-app-setup.md`](docs/gosilex-ci-app-setup.md)  
-- [x] Créer/installer App + set `GOSILEX_CI_APP_ID` (var) / `GOSILEX_CI_APP_PRIVATE_KEY` (secret) — org-level live · [`docs/gosilex-ci-app-setup.md`](docs/gosilex-ci-app-setup.md) · staging: [`docs/staging-examples.md`](docs/staging-examples.md)
+- [x] Créer/installer App + set `CI_APP_ID` (var) / `CI_APP_PRIVATE_KEY` (secret) — org-level live · [`docs/gosilex-ci-app-setup.md`](docs/gosilex-ci-app-setup.md) · staging: [`docs/staging-examples.md`](docs/staging-examples.md)
 - [ ] Branch protection / rulesets — **bloqué plan Free privé** (voir § GitHub Free)  
 - [x] Bun workspaces + Turbo  
 - [x] Biome + CI app (`validate:full` incl. build:kit + smoke:mcp) — local pre-push + GH job `validate-full`
@@ -519,8 +519,8 @@ Règles : guard first · Zod double frontière · pas de god file · packages �
 
 | Kind | Name |
 |---|---|
-| Variable | `GOSILEX_CI_APP_ID` |
-| Secret | `GOSILEX_CI_APP_PRIVATE_KEY` |
+| Variable | `CI_APP_ID` |
+| Secret | `CI_APP_PRIVATE_KEY` |
 
 Runbook : [`docs/gosilex-ci-app-setup.md`](docs/gosilex-ci-app-setup.md).
 

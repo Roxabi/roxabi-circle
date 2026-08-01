@@ -54,7 +54,7 @@ Pulling `upstream/main` should only conflict when the **product** deliberately t
 
 | Need | Do this | Not this |
 |------|---------|----------|
-| CI auto-merge | Org/repo **vars/secrets** `GOSILEX_CI_APP_*` | Edit `merge-on-green.yml` |
+| CI auto-merge | Org/repo **vars/secrets** `CI_APP_*` | Edit `merge-on-green.yml` |
 | Session / CORS / SMTP / CF | `apps/<product>-api/.dev.vars` + CF dashboard secrets | Commit secrets; edit kit examples permanently |
 | Product Worker name / D1 / R2 | `apps/<product>-api/wrangler.toml` (**new**) | Edit `apps/example-api/wrangler.toml` |
 | Product UI routes | `apps/<product>-web/**` | Patch `example-web` into a product |

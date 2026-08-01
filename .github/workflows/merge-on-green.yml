@@ -21,8 +21,8 @@
 # SPLIT-TOKEN:
 #   - Gate: GITHUB_TOKEN (checks:read)
 #   - Merge: GitHub App **gosilex-ci** → ephemeral token
-#       vars.GOSILEX_CI_APP_ID
-#       secrets.GOSILEX_CI_APP_PRIVATE_KEY
+#       vars.CI_APP_ID
+#       secrets.CI_APP_PRIVATE_KEY
 #     Setup: docs/gosilex-ci-app-setup.md
 #
 # Gating workflows: Secret scan + CI (job name validate-full).
@@ -60,19 +60,19 @@ jobs:
     steps:
       # Gate auto-merge on **non-secret var only**.
       # Do NOT put secrets in `if:` — GitHub treats them unreliably there.
-      # Flag: vars.GOSILEX_CI_APP_ID set → try mint + merge.
+      # Flag: vars.CI_APP_ID set → try mint + merge.
       # Setup: docs/gosilex-ci-app-setup.md
       - name: Resolve gosilex-ci availability
         id: cfg
         env:
-          APP_ID: ${{ vars.GOSILEX_CI_APP_ID }}
+          APP_ID: ${{ vars.CI_APP_ID }}
         run: |
           if [ -n "$APP_ID" ]; then
             echo "enabled=true" >> "$GITHUB_OUTPUT"
             echo "gosilex-ci: App ID present → auto-merge enabled"
           else
             echo "enabled=false" >> "$GITHUB_OUTPUT"
-            echo "::notice title=gosilex-ci not configured::Auto-merge OFF (evaluate-only). Human merge + quality CI still work. Install App + set org var GOSILEX_CI_APP_ID and secret GOSILEX_CI_APP_PRIVATE_KEY — docs/gosilex-ci-app-setup.md"
+            echo "::notice title=gosilex-ci not configured::Auto-merge OFF (evaluate-only). Human merge + quality CI still work. Install App + set org var CI_APP_ID and secret CI_APP_PRIVATE_KEY — docs/gosilex-ci-app-setup.md"
             echo "::warning title=Manual merge required::Label reviewed will NOT auto-merge until gosilex-ci is set up."
           fi
 
@@ -81,8 +81,8 @@ jobs:
         if: steps.cfg.outputs.enabled == 'true'
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
-          app-id: ${{ vars.GOSILEX_CI_APP_ID }}
-          private-key: ${{ secrets.GOSILEX_CI_APP_PRIVATE_KEY }}
+          app-id: ${{ vars.CI_APP_ID }}
+          private-key: ${{ secrets.CI_APP_PRIVATE_KEY }}
 
       - name: Evaluate green PRs
         id: evaluate
