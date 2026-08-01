@@ -11,8 +11,8 @@ Same role as **roxabi-ci** on the Roxabi org: ephemeral tokens for **merge-on-gr
 > | **App not set** | Job green + **warning** `Manual merge required` + Job Summary « gosilex-ci: not configured » | **Human** (`gh pr merge --merge` or UI) |
 > | **App set** | Mint step runs; merge attributed to `gosilex-ci[bot]` | Auto when `reviewed` + CI green |
 >
-> Gate flag = **non-secret** org/repo var `GOSILEX_CI_APP_ID` (never check secrets in `if:`).
-> Private key stays in secret `GOSILEX_CI_APP_PRIVATE_KEY` and is only used when the var is set.
+> Gate flag = **non-secret** org/repo var `CI_APP_ID` (never check secrets in `if:`).
+> Private key stays in secret `CI_APP_PRIVATE_KEY` and is only used when the var is set.
 
 ## 1. Create the App (UI — one-time)
 
@@ -58,18 +58,18 @@ Same role as **roxabi-ci** on the Roxabi org: ephemeral tokens for **merge-on-gr
 
 ```bash
 # App ID → org **variable** (non-secret) — this is the enable flag for merge-on-green
-gh variable set GOSILEX_CI_APP_ID --org go-silex --body '<APP_ID>' --visibility all
+gh variable set CI_APP_ID --org go-silex --body '<APP_ID>' --visibility all
 
 # Private key PEM → org **secret**
-gh secret set GOSILEX_CI_APP_PRIVATE_KEY --org go-silex --visibility all < /path/to/gosilex-ci.pem
+gh secret set CI_APP_PRIVATE_KEY --org go-silex --visibility all < /path/to/gosilex-ci.pem
 ```
 
 Repo-only alternative (if you prefer not org-wide / product fork outside org inheritance):
 
 ```bash
 # Kit or product repo
-gh variable set GOSILEX_CI_APP_ID -R go-silex/<repo> --body '<APP_ID>'
-gh secret set GOSILEX_CI_APP_PRIVATE_KEY -R go-silex/<repo> < /path/to/gosilex-ci.pem
+gh variable set CI_APP_ID -R go-silex/<repo> --body '<APP_ID>'
+gh secret set CI_APP_PRIVATE_KEY -R go-silex/<repo> < /path/to/gosilex-ci.pem
 ```
 
 ### New product repo from this kit (checklist)
@@ -86,15 +86,15 @@ When spinning a product consumer (fork / new repo + `upstream` → this kit):
    # deny-upstream is already in kit lefthook — do not copy a divergent hook
    ```
 3. [ ] `bun install` · `bunx lefthook install` · copy `.dev.vars.example` → gitignored local only
-4. [ ] **CI App:** inherit org-level `GOSILEX_CI_APP_*` (preferred) **or** set repo-level var+secret — **never** edit `merge-on-green.yml`
+4. [ ] **CI App:** inherit org-level `CI_APP_*` (preferred) **or** set repo-level var+secret — **never** edit `merge-on-green.yml`
 5. [ ] Confirm: draft PR → **Merge on Green** Summary shows `gosilex-ci: configured` **or** `not configured`
 6. [ ] Product domain only under **new** `apps/<product>-*`; never patch `example-*` / `packages/*` for métier
 
 Verify inheritance (org-level vars may not show on `gh variable list -R`):
 
 ```bash
-gh api orgs/go-silex/actions/variables/GOSILEX_CI_APP_ID -q .name
-gh api orgs/go-silex/actions/secrets/GOSILEX_CI_APP_PRIVATE_KEY -q .name
+gh api orgs/go-silex/actions/variables/CI_APP_ID -q .name
+gh api orgs/go-silex/actions/secrets/CI_APP_PRIVATE_KEY -q .name
 ```
 
 ## 4. Workflow consumers
@@ -117,7 +117,7 @@ If mint fails with *private-key must be set*: secret not visible to the repo (in
 ## 6. Rotate key
 
 1. App settings → Generate new private key  
-2. `gh secret set GOSILEX_CI_APP_PRIVATE_KEY …` with new PEM  
+2. `gh secret set CI_APP_PRIVATE_KEY …` with new PEM  
 3. Revoke old key in App settings  
 
 ## 7. Free plan notes

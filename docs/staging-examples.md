@@ -9,8 +9,8 @@
 | Item | Status |
 |---|---|
 | GitHub App `gosilex-ci` | See [`gosilex-ci-app-setup.md`](./gosilex-ci-app-setup.md) — org-level live |
-| Org var `GOSILEX_CI_APP_ID` | Required for auto-merge |
-| Org secret `GOSILEX_CI_APP_PRIVATE_KEY` | Required for auto-merge |
+| Org var `CI_APP_ID` | Required for auto-merge |
+| Org secret `CI_APP_PRIVATE_KEY` | Required for auto-merge |
 | CF account Gosilex | Workers + D1 + R2 for examples |
 | Wrangler staging env | **Not defined in kit** — add `[env.staging]` + named D1/R2 before deploy |
 
