@@ -3,14 +3,16 @@ name: CI
 # Gate qualité (validate:full). Ne déploie pas.
 #
 # Quand ça tourne :
-#   - pull_request → staging|main  = gate avant merge
+#   - pull_request → staging|main  = gate avant merge (ready only; draft skipped)
 #   - push staging|main            = validation post-merge
 #   - workflow_dispatch            = secours manuel
 # Pas de CI sur feat/* sans PR vers staging|main.
+# Draft PRs: no heavy CI (ready_for_review starts the gate).
 on:
   push:
     branches: [main, staging]
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     branches: [main, staging]
   workflow_dispatch: {}
 
@@ -24,6 +26,7 @@ permissions:
 
 jobs:
   quality:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     # Name is matched by merge-on-green (regex validate-full). Do not rename without updating that workflow.
     name: validate-full
     runs-on: ubuntu-latest
