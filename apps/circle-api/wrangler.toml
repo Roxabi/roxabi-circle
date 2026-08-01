@@ -1,0 +1,20 @@
+name = "roxabi-circle"
+main = "src/index.ts"
+compatibility_date = "2025-06-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Uncomment when D1 is provisioned:
+# [[d1_databases]]
+# binding = "DB"
+# database_name = "roxabi-circle"
+# database_id = "REPLACE_ME"
+
+# Uncomment when KV is provisioned:
+# [[kv_namespaces]]
+# binding = "STATE"
+# id = "REPLACE_ME"
+
+[vars]
+ENVIRONMENT = "development"
+SCORER_VERSION = "0.1.0"
+ACCEPT_THRESHOLD = "65"
