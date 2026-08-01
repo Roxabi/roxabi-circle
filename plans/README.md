@@ -16,6 +16,10 @@ Each executor: read the full plan, honor STOP conditions, update this table.
 | [004](004-reset-token-and-feedback-page.md) | **W3** | Strip reset token from URL + feedback pathname-only | P1 | S | 001 | DONE |
 | [005](005-auth-org-characterization-tests.md) | **W4** | AuthGate/org/schema tests + fail-closed `useOrgContext` | P1 | M | 003 | DONE |
 | [006](006-kit-fe-polish-optional.md) | **W5** | Optional polish (AlertDialog, roles i18n, Empty, docs) | P2 | M | 002, 005 | DONE |
+| [007](007-quality-gates-post-review.md) | **B7+** | Quality gates post code-review (B7 #19 amended · ratchet deferred) | P0→P2 | M | 002 (e2e local) | TODO |
+| [008](008-mcp-agent-contracts.md) | **MCP** | Agent contracts — ToolRegistrar, Zod publics, probes, wire SSOT | P2 | M | baseline mcp-example | TODO |
+| [009](009-layer-import-gate.md) | **Arch** | Layer import boundary gate (packages↛apps) | P1 | S–M | ADR-0001 | TODO |
+| [010](010-quality-hygiene-debt.md) | **Hygiene** | DEBT expiry · folder size · AGENTS ADR hygiene | P2 | S | after 007 A or growth | TODO |
 
 Status values: `TODO` | `IN PROGRESS` | `DONE` | `BLOCKED (reason)` | `REJECTED (reason)`
 
@@ -64,6 +68,46 @@ Do **not** squash W0–W5 into one kitchen-sink PR.
 | UI package EN “Close” labels as blocking | Package API design (DIR-02); not in W0–W4. |
 | Playwright in CI | After local e2e green (002); B7 backlog. |
 | Generic open `next` post-login for all routes | Open-redirect surface; W2 is **invite-only** allowlist. |
+
+## Wave B7+ (quality — plan 007)
+
+Supersedes informal “P0–P3 quality” chat backlog after multi-domain code-review (2026-08-02).
+
+```text
+007 Phase A  = #19 B7 Shape C only (e2e harden → CI needs:[quality] → Sentry scrub → CR decision → testing.md matrix)
+007 Phase B  = XS (.editorconfig, optional Math.random call-site fix)
+007 Phase C  = Biome/TS ratchet — separate issues AFTER #19 (staged; consumer dogfood)
+007 Phase D  = residual FE CP gaps only if inventory finds any (005 already DONE)
+```
+
+**Refuse (do not re-open in 007):** ESLint+Biome, 2nd secret scanner, e2e in pre-push, UI floors→80%, empty observability package, i18n:check in validate:full, CodeRabbit as merge gate, monorepo TS flip in same PR as B7.
+
+### Issue map (007)
+
+| Slice | Issue |
+|---|---|
+| Phase A only | **[#19](https://github.com/go-silex/silex-boilerplate/issues/19)** · Spark **#120** (OPEN) — **no child issues** |
+| Phase B/C/D | **No GH issue** yet |
+
+## Wave MCP (plan 008) — orthogonal to B7
+
+```text
+008  ToolRegistrar / catalogue · public Zod (kit demo) · CP-MCP probes · agent wire SSOT
+     ≠ 007 (CI/e2e/Sentry/CR)
+     ≠ B6 #18 (MasterData, FE api client, jobs, presign)
+```
+
+| Slice | Issue |
+|---|---|
+| Epic 008 | **Spark #132** · [GH #68](https://github.com/go-silex/silex-boilerplate/issues/68) (OPEN · p2) |
+| Epic 009 | **Spark #133** · [GH #69](https://github.com/go-silex/silex-boilerplate/issues/69) (OPEN · p1) |
+| Epic 010 | **Spark #134** · [GH #70](https://github.com/go-silex/silex-boilerplate/issues/70) (OPEN · p2) |
+
+```text
+008  MCP agent contracts (semctx-light ToolRegistrar)
+009  Import boundary gate (factory importlinter-light)
+010  DEBT / folder / AGENTS hygiene (factory debt-tracking-light)
+```
 
 ## Adversarial constraints (all executors)
 
