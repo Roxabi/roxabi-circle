@@ -1,7 +1,6 @@
 import {
   type AxisScore,
   DEFAULT_WEIGHTS,
-  MIN_ACCOUNT_AGE_DAYS,
   type ProfileSignals,
   type ScoreReport,
   type ScoreWeights,
@@ -81,7 +80,6 @@ function ossScore(s: ProfileSignals): { raw: number; notes: string[] } {
 export type ScoreOptions = {
   weights?: ScoreWeights
   acceptThreshold?: number
-  minAccountAgeDays?: number
   version?: string
 }
 
@@ -91,28 +89,9 @@ export type ScoreOptions = {
 export function scoreProfile(signals: ProfileSignals, opts: ScoreOptions = {}): ScoreReport {
   const weights = opts.weights ?? DEFAULT_WEIGHTS
   const threshold = opts.acceptThreshold ?? 65
-  const minAge = opts.minAccountAgeDays ?? MIN_ACCOUNT_AGE_DAYS
   const version = opts.version ?? SCORER_VERSION
 
-  if (signals.accountAgeDays < minAge) {
-    const zero = axis(0, 0, [`account too new: ${signals.accountAgeDays}d`])
-    return {
-      total: 0,
-      axes: {
-        volume: zero,
-        structure: zero,
-        activity: zero,
-        ai: zero,
-        oss: zero,
-      },
-      decision: 'reject',
-      hardFail: {
-        reason: `GitHub account younger than ${minAge} days`,
-      },
-      evidence: { accountAgeDays: signals.accountAgeDays },
-      version,
-    }
-  }
+  // D8 age hard-fail removed — unlock scoring is D11 (entry PR), not account age.
 
   const v = volumeScore(signals)
   const st = structureScore(signals)

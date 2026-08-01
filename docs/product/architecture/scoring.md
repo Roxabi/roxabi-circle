@@ -90,7 +90,7 @@ Norme :
 - active_months / 12
 - events_90d log-scale
 
-Hard fail optionnel : `account_age_days < min_age` → reject immédiat (score non calculé).
+~~Hard fail âge compte~~ : **retiré** (D8). L’unlock scoring est **D11** (PR d’entrée), pas l’âge GitHub.
 
 ### 4. AI affinity (`ai`)
 

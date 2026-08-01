@@ -2,38 +2,39 @@
 
 ## What this is
 
-Discord gated community (AI + open source DNA). Entry = GitHub OAuth + **heuristic scorer** (no LLM on code).
+Discord gated community (AI + open source DNA). Entry = GitHub OAuth + **PR d’entrée (D11)** + **heuristic scorer** (no LLM on code). Monorepo public **AGPL**.
 
 ## Bounce
 
-- `upstream` = `Roxabi/roxabi-cf-template` (private CF kit)
+- `upstream` = `Roxabi/roxabi-cf-template` (chassis ; rebrand Roxabi progressif)
 - Template `upstream` = `go-silex/silex-boilerplate`
 - Never push to either upstream
 
 ## Read first
 
-- `docs/product/decisions.md` (D1–D10)
+- `docs/product/decisions.md` (D1–D14)
 - `docs/product/vision.md`
 - `docs/product/architecture/scoring.md`
-- `docs/product/architecture/overview.md`
 
-## Stack
+## Stack (MVP)
 
-CF monorepo kit (Bun · Turbo · Hono examples · BA · FastMCP) + product:
-
-- `apps/circle-api` — Worker product (scorer pure + Discord/OAuth TBD)
-- D1/KV not provisioned yet
+- `apps/circle-api` — Hono + `@gosilex/*` (→ `@roxabi/*` post-rebrand) : Discord, OAuth, scorer, D1 config
+- `apps/circle-web` — admin ops (`/admin`)
+- `apps/circle-mcp` — tools ops (`sk_`)
+- D1 config live (threshold/weights) ; override staff auditable
 
 ## Invariants
 
-1. Scoring stays **pure** (`apps/circle-api/src/scoring/*`) — no network, deterministic
-2. No clone of repos; no LLM code review
-3. Never log OAuth / bot tokens
-4. Discord interaction ACK < 3s; heavy work in `waitUntil` / deferred follow-up
-5. **User-facing messages** show score total only — never axes / weights / keywords / evidence (D2)
-6. Re-apply: 48h after 1st reject, then 15d (`apps/circle-api/src/lib/reapply.ts`)
-7. FR copy only for now (`apps/circle-api/src/lib/messages-fr.ts`)
-8. Zero-edit kit zones vs `upstream/main` (or `docs/product/kit-baseline` in CI)
+1. Scoring **pure** (`apps/circle-api/src/scoring/*`) — no network, deterministic
+2. **No score** until D11 PR unlock on entry repo
+3. No clone of repos; no LLM code review
+4. Never log OAuth / bot tokens
+5. Discord ACK < 3s ; heavy work in `waitUntil`
+6. DM/ephemeral : **total only** (`toCandidateView`) — axes = ops only (algo still open in git)
+7. Re-apply 48h then 15d
+8. FR copy (`messages-fr.ts`)
+9. Zero-edit kit zones vs `upstream` / `kit-baseline`
+10. CI product + optional `BANNED_REPO_TERMS` list (env/secret)
 
 ## Commands
 
@@ -42,5 +43,4 @@ bun install
 bun run --filter @roxabi/circle-api test
 bun run --filter @roxabi/circle-api typecheck
 bun run zero-edit
-# full kit bar (slow): bun run validate:full
 ```

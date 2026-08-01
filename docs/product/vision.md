@@ -43,11 +43,13 @@ Créer un **cercle fermé** de gens **très tech côté IA**, avec une ADN **ope
 ## Règles d’entrée (produit)
 
 1. Compte GitHub **réel** prouvé par OAuth
-2. Score ≥ **65** → rôle `member` auto
-3. Score < 65 → DM refus : **score numérique only**, **zéro indice** sur les critères
-4. Re-apply : **48h** après le 1er refus, puis **tous les 15 jours**
-5. Profil fort mais 100 % privé → hard reject + **`#appeal`** manuel
-6. Langue bot / DMs : **FR**
+2. **PR d’entrée** sur le repo dédié → **unlock** du scoring (D11)
+3. Score ≥ **65** (config D1) → rôle `member` auto
+4. Score < 65 → DM refus : **score numérique only** dans le message ; algo **open** dans le repo
+5. Re-apply : **48h** après le 1er refus, puis **tous les 15 jours**
+6. Cas edge / privé only → reject + **`#appeal`** (pas de hardFail âge)
+7. Langue bot / DMs / admin : **FR**
+8. Repo monorepo **public AGPL** ; admin + MCP ops dans le MVP
 
 Détail figé : [`decisions.md`](./decisions.md).
 

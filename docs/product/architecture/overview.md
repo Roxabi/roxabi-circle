@@ -84,7 +84,8 @@ Voir `scoring.md`. Fonctions pures, input = `ProfileSignals`, output = `ScoreRep
 |---|---|
 | ≥ accept_threshold (65) | `Add Guild Member Role` + DM bienvenue (**score only**) |
 | < accept_threshold | DM refus : **score only**, zéro critère, + policy re-apply |
-| fort mais 0 public | hard reject + pointer `#appeal` |
+| fort mais 0 public | score bas → reject + pointer `#appeal` (D6 soft) |
+| D11 non satisfait | **pas de score** — consignes PR d’entrée |
 | erreur technique | status=`error`, DM « réessaie » + log |
 
 **Exposé au candidat** : `total` uniquement.  

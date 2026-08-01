@@ -9,10 +9,10 @@ export default {
     const url = new URL(request.url)
 
     if (url.pathname === '/health') {
+      // Threshold is an intentional open hint (algo open). Do not expose ENVIRONMENT.
       return Response.json({
         ok: true,
         service: 'roxabi-circle',
-        env: env.ENVIRONMENT,
         scorer: env.SCORER_VERSION,
         acceptThreshold: Number(env.ACCEPT_THRESHOLD),
       })

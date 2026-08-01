@@ -71,5 +71,3 @@ export const DEFAULT_WEIGHTS: ScoreWeights = {
   ai: 0.2,
   oss: 0.2,
 }
-
-export const MIN_ACCOUNT_AGE_DAYS = 30

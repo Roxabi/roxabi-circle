@@ -32,13 +32,6 @@ describe('scoreProfile', () => {
     expect(report.decision).toBe('accept')
   })
 
-  it('rejects young accounts (hard fail)', () => {
-    const report = scoreProfile(base({ accountAgeDays: 10 }))
-    expect(report.decision).toBe('reject')
-    expect(report.hardFail?.reason).toMatch(/younger/i)
-    expect(report.total).toBe(0)
-  })
-
   it('rejects inactive tutorial-like profiles', () => {
     const report = scoreProfile(
       base({
