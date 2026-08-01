@@ -25,10 +25,11 @@
     "env:check": "bun run scripts/check-env-sync.ts",
     "i18n:check": "bun run --filter @gosilex/example-web test -- src/messages/messages.contract.test.ts",
     "license:check": "bun run tools/licenseChecker.ts",
+    "quality-gates:check": "QG_FILE_MODE=tree bash tools/check_file_length.sh",
     "validate": "bun run lint && bun run typecheck && bun run test && bun run banlist && bun run extract-dry-run && bun run zero-edit && bun run env:check",
     "build:kit": "turbo run build --filter=@gosilex/example-api --filter=@gosilex/example-web",
     "smoke:mcp": "bun run --filter @gosilex/mcp-example smoke:stdio",
-    "validate:full": "bun run lint && bun run typecheck && bun run banlist && bun run extract-dry-run && bun run zero-edit && bun run env:check && bun run test:coverage && bun run license:check && bun run build:kit && bun run smoke:mcp",
+    "validate:full": "bun run lint && bun run typecheck && bun run banlist && bun run extract-dry-run && bun run zero-edit && bun run env:check && bun run test:coverage && bun run license:check && bun run quality-gates:check && bun run build:kit && bun run smoke:mcp",
     "prepare": "lefthook install",
     "dogfood:zero-edit": "bash scripts/dogfood-zero-edit.sh --self-sim"
   },

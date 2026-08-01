@@ -1,0 +1,20 @@
+# Exemptions — file_length gate (max 300 raw lines, tests excluded).
+# Format: <path>  # <N> lines — <tracking> <rationale>
+# Declared N is a local cap: growth past N fails the gate.
+# Prefer splitting over raising caps. Quality audit: artifacts/analyses/quality-audit/
+
+# shadcn / generated-ish UI primitives (do not hand-edit for brand)
+packages/ui/src/components/ui/sidebar.tsx  # 700 lines — shadcn Base UI shell; brand via CSS tokens
+packages/ui/src/components/ui/chart.tsx  # 360 lines — shadcn chart primitive
+
+# i18n catalogs (bulk strings, not logic density)
+apps/example-web/src/messages/fr.ts  # 500 lines — FR catalog; split by domain when product grows
+
+# Kit demo routes / packages still above bar (tracked debt)
+apps/example-web/src/routes/design-system.tsx  # 1000 lines — DS showcase; split SMELL-P6 quality-audit
+apps/example-web/src/routes/org-members.tsx  # 600 lines — multi-dialog org admin demo
+apps/example-web/src/routes/notes.tsx  # 520 lines — notes CRUD demo; split dialogs if product grows
+packages/email/src/index.ts  # 420 lines — multi-transport factory; split per transport when next consumer lands
+packages/feedback/src/react/FeedbackButton.tsx  # 360 lines — FAB + form + remote; split form when product fork customizes
+apps/example-api/src/routes/orgs.ts  # 340 lines — org routes demo
+apps/example-api/src/services/org-roles.ts  # 340 lines — phase-B RBAC service

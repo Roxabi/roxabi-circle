@@ -23,7 +23,10 @@
     "commitlint.config.ts",
     ".github/workflows/ci.yml",
     ".github/workflows/secret-scan.yml",
-    ".github/workflows/merge-on-green.yml"
+    ".github/workflows/merge-on-green.yml",
+    ".github/workflows/pr-title.yml",
+    ".github/workflows/dependabot-automerge.yml",
+    ".github/dependabot.yml"
   ],
   "allowed_product_prefixes": [
     "apps/",
