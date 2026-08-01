@@ -1,6 +1,11 @@
 import { normalizeEmail } from '@gosilex/auth'
 import { AppError } from '@gosilex/core'
-import { buildInviteEmailText, createLogEmailPort, type EmailPort } from '@gosilex/email'
+import {
+  buildInviteEmailText,
+  buildWelcomeSetPasswordEmailText,
+  createLogEmailPort,
+  type EmailPort,
+} from '@gosilex/email'
 import type { DrizzleD1Database } from 'drizzle-orm/d1'
 import type { schema } from '../db/schema'
 import { assertRateLimit } from '../lib/rate-limit'
@@ -8,6 +13,7 @@ import * as invitationsRepo from '../repos/invitations'
 import * as orgsRepo from '../repos/orgs'
 import * as usersRepo from '../repos/users'
 import * as orgRolesService from './org-roles'
+import { provisionUserShell } from './user-shell'
 
 type Db = DrizzleD1Database<typeof schema>
 
@@ -90,6 +96,15 @@ export async function createInvitation(
     throw AppError.conflict('A pending invitation already exists for this email')
   }
 
+  // S3: unknown email → shell user + welcome set-password (no public signup)
+  let provisionedUserId: string | null = null
+  let welcomeToken: string | null = null
+  if (!existingUser) {
+    const shell = await provisionUserShell(db, { email })
+    provisionedUserId = shell.userId
+    welcomeToken = shell.welcomeToken
+  }
+
   const now = new Date()
   const expiresAt = new Date(now.getTime() + INVITE_TTL_MS)
   const id = newInviteId()
@@ -105,29 +120,47 @@ export async function createInvitation(
     inviterId: input.inviterUserId,
   })
 
-  const acceptUrl = `${input.acceptBaseUrl.replace(/\/$/, '')}/invite/accept?invitationId=${encodeURIComponent(id)}`
+  const base = input.acceptBaseUrl.replace(/\/$/, '')
+  const acceptUrl = `${base}/invite/accept?invitationId=${encodeURIComponent(id)}`
   const inviter = await usersRepo.findBaUserById(db, input.inviterUserId)
-  const tmpl = buildInviteEmailText({
-    to: email,
-    orgName: org.name,
-    acceptUrl,
-    expiresAt,
-    inviterLabel: inviter?.email ?? input.inviterUserId,
-  })
-
   const port = input.emailPort ?? createLogEmailPort()
+
   try {
-    const sent = await port.send({
-      to: tmpl.to,
-      subject: tmpl.subject,
-      text: tmpl.text,
-      html: tmpl.html,
-    })
-    if (!sent.ok) {
-      throw new Error('email send returned not ok')
+    if (welcomeToken && provisionedUserId) {
+      const setPasswordUrl = `${base}/reset-password?token=${encodeURIComponent(welcomeToken)}&next=${encodeURIComponent(`/invite/accept?invitationId=${id}`)}`
+      const tmpl = buildWelcomeSetPasswordEmailText({
+        to: email,
+        setPasswordUrl,
+        expiresHint: 'about 1 hour',
+      })
+      const sent = await port.send({
+        to: tmpl.to,
+        subject: tmpl.subject,
+        text: tmpl.text,
+        html: tmpl.html,
+      })
+      if (!sent.ok) throw new Error('email send returned not ok')
+    } else {
+      const tmpl = buildInviteEmailText({
+        to: email,
+        orgName: org.name,
+        acceptUrl,
+        expiresAt,
+        inviterLabel: inviter?.email ?? input.inviterUserId,
+      })
+      const sent = await port.send({
+        to: tmpl.to,
+        subject: tmpl.subject,
+        text: tmpl.text,
+        html: tmpl.html,
+      })
+      if (!sent.ok) throw new Error('email send returned not ok')
     }
   } catch {
     await invitationsRepo.setInvitationStatus(db, id, 'canceled')
+    if (provisionedUserId) {
+      await usersRepo.deleteBaUserCascade(db, provisionedUserId)
+    }
     throw AppError.internal('Failed to send invitation email')
   }
 

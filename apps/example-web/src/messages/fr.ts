@@ -95,6 +95,7 @@ export type Messages = {
   navAdmin: string
   navApp: string
   navOrgs: string
+  navUsers: string
   navModules: string
   navMembers: string
   navAdminHome: string
@@ -104,6 +105,20 @@ export type Messages = {
   orgPicker: string
   orgPickerEmpty: string
   adminOrgsDesc: string
+  adminUsersDesc: string
+  adminUserCreateTitle: string
+  adminUserCreateDesc: string
+  adminUserName: string
+  adminUserPlane: string
+  adminUserPlaneClient: string
+  adminUserOrg: string
+  adminUserOrgNone: string
+  adminUserSendEmail: string
+  adminUserSubmit: string
+  adminUserCreated: string
+  adminUserSearch: string
+  adminUserResend: string
+  adminUserWelcomeResent: string
   orgCatalogueBadge: string
   orgCreate: string
   orgCreateTitle: string
@@ -333,6 +348,7 @@ export const fr: Messages = {
   navAdmin: 'Back-office',
   navApp: 'Espace client',
   navOrgs: 'Organisations',
+  navUsers: 'Utilisateurs',
   navModules: 'Modules plateforme',
   navMembers: 'Membres',
   navAdminHome: 'Accueil BO',
@@ -342,6 +358,20 @@ export const fr: Messages = {
   orgPicker: 'Organisation active',
   orgPickerEmpty: 'Aucune organisation',
   adminOrgsDesc: 'Staff = memberships · super = catalogue',
+  adminUsersDesc: 'Provisionner des comptes, plane et memberships',
+  adminUserCreateTitle: 'Créer un utilisateur',
+  adminUserCreateDesc: 'Compte BA + e-mail de première connexion (set password).',
+  adminUserName: 'Nom',
+  adminUserPlane: 'Plane (platformRole)',
+  adminUserPlaneClient: 'Client (aucun)',
+  adminUserOrg: 'Organisation (optionnel)',
+  adminUserOrgNone: '— aucune —',
+  adminUserSendEmail: 'Envoyer l’e-mail de bienvenue',
+  adminUserSubmit: 'Créer et envoyer',
+  adminUserCreated: 'Utilisateur créé',
+  adminUserSearch: 'Rechercher…',
+  adminUserResend: 'Renvoyer welcome',
+  adminUserWelcomeResent: 'E-mail de bienvenue renvoyé',
   orgCatalogueBadge: 'catalogue',
   orgCreate: 'Créer une organisation',
   orgCreateTitle: 'Nouvelle organisation',

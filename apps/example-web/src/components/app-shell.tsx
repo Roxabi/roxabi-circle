@@ -78,6 +78,7 @@ function pageTitle(pathname: string, m: ReturnType<typeof useLocale>['m']): stri
     return m.navDesignSystem
   }
   if (pathname.startsWith('/admin/orgs')) return m.navOrgs
+  if (pathname.startsWith('/admin/users')) return m.navUsers
   if (pathname.startsWith('/admin/modules')) return m.navModules
   if (pathname.startsWith('/admin')) return m.navAdminHome
   if (pathname.startsWith('/app')) return m.navAppHome
@@ -159,6 +160,7 @@ function ShellChrome({ mode, children }: { mode: ShellMode; children: ReactNode 
                 <SidebarMenu>
                   <NavItem to="/admin" label={m.navAdminHome} icon={<LayoutDashboard />} />
                   <NavItem to="/admin/orgs" label={m.navOrgs} icon={<Building2 />} />
+                  <NavItem to="/admin/users" label={m.navUsers} icon={<Users />} />
                   <NavItem to="/admin/modules" label={m.navModules} icon={<Boxes />} />
                   <NavItem to="/admin/design-system" label={m.navDesignSystem} icon={<Palette />} />
                 </SidebarMenu>
