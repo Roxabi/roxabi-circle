@@ -1,13 +1,20 @@
 #!/usr/bin/env bun
 /**
- * env:check — document completeness for Chemin A kit (Workers + Vite).
+ * env:check — document completeness for **kit example-api only** (Workers + Vite).
  *
- * Proves: schema string keys ⊆ .dev.vars.example (and reverse drift),
- * root .env.example holds known VITE_* placeholders, no real-looking secrets
- * in example files. Does NOT load real .dev.vars / validate production secrets.
+ * Proves (kit gate only):
+ *   - apps/example-api schema string keys ⊆ apps/example-api/.dev.vars.example
+ *     (and reverse drift),
+ *   - root .env.example holds known VITE_* placeholders,
+ *   - no real-looking secrets in those example files.
+ *
+ * Does NOT:
+ *   - load real .dev.vars / validate production or CF dashboard secrets,
+ *   - scan apps/<product>-* env schemas (product owns that inventory),
+ *   - claim monorepo-wide env completeness.
  *
  * SSoT: apps/example-api/src/env.schema.ts
- * See docs/testing.md — CP-ENV (DX, not “secrets are secure”).
+ * See docs/testing.md — CP-ENV (DX, example-api scoped).
  */
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'

@@ -1,19 +1,67 @@
 # Playbook — start a product on the kit (zero-edit)
 
-**Audience:** GOSILEX eng spinning a **new** `go-silex/<product>` (greenfield dogfood).  
+**Audience:** eng spinning a **new** product repo that takes this kit as `upstream` (greenfield under `go-silex` or a **foreign org**).  
 **SSoT contract:** [`docs/product-consumer-contract.md`](../product-consumer-contract.md)
 
 > **Not** `silex-share` — archived / deprecated; do not use it as a live consumer target.
 
 ## Goal
 
-Clone the kit as `upstream`, add **only** product apps, keep kit paths untouched, stay green on `zero-edit` + banlist.
+Clone the kit as `upstream`, **compose** `@gosilex/*` into new product apps, keep kit paths untouched, stay green on `zero-edit` + banlist.
+
+## Architecture default — compose the spine
+
+**Default path:** create `apps/<product>-api` (and optional web/mcp) that **compose** platform packages. Do **not** invent a second runtime stack beside the kit.
+
+| Do (default) | Do not (anti-patterns) |
+|---|---|
+| Hono app via kit patterns (`createApp` / `@gosilex/core` AppError + requestId) | Bare `ExportedHandler` dual stack next to Hono “for edge purity” |
+| Import `@gosilex/auth`, `@gosilex/db`, `@gosilex/storage`, … | Copy AppError / auth / db helpers into the product app |
+| New dirs only: `apps/<product>-*` | Brand or dual-edit `apps/example-*` or `packages/*` |
+| Product domain + routes under the product app | Full SaaS clone of every example module on day 0 |
+
+**Axis test (ADR-0001):** adding a second product creates `apps/<name>-*` and imports `@gosilex/*` — it does **not** copy platform stacks and does **not** add `packages/<product>-*`.
+
+→ Full decision: [`docs/architecture/adr/0001-primary-axis-packages-compose-apps.md`](../architecture/adr/0001-primary-axis-packages-compose-apps.md)
+
+### Opt-in multi-tenant SaaS modules
+
+Wire **Better Auth**, org RBAC, invites, feedback FAB, etc. **only if** the product is multi-tenant SaaS and needs them. They are kit capabilities — **not** the default bootstrap for every Worker.
+
+| Module | When to opt in |
+|---|---|
+| Better Auth sessions + cookies | Product has browser users |
+| Org / RBAC / invites | Multi-tenant product |
+| `@gosilex/feedback` | You want Signaler → Spark |
+| Full example admin shells | You are building a similar SaaS shell — still **compose**, do not dual-edit `example-web` |
+
+### Last resort: copy examples
+
+`cp -R apps/example-*` is **not** the happy path. Prefer a thin app that imports packages and copies only the patterns you need.
+
+If you must copy for speed:
+
+```bash
+# Last resort scaffold — new dir names only
+cp -R apps/example-api apps/<product>-api
+cp -R apps/example-web apps/<product>-web
+```
+
+**Strip list before first product commit** (never push renames back upstream):
+
+| Strip / rebrand | Why |
+|---|---|
+| `package.json` `name` fields | Must be product-scoped |
+| Wrangler `name`, D1/R2 binding ids | Must not collide with kit examples |
+| Routes, seed data, demo copy | Product domain only |
+| Example-only env keys you do not use | Avoid false env inventory |
+| Any leftover `example-*` strings in UI | Dogfood clarity |
 
 ## 1. Create product repo
 
 ```bash
 # From empty product repo (GitHub create empty first)
-git clone git@github.com:go-silex/<product>.git
+git clone git@github.com:<org>/<product>.git
 cd <product>
 git remote add upstream git@github.com:go-silex/silex-boilerplate.git
 git remote set-url --push upstream no_push
@@ -30,29 +78,45 @@ Lefthook pre-push runs `scripts/deny-upstream-push.sh` — no-op when `origin` i
 
 | Add | Avoid |
 |---|---|
-| `apps/<product>-api/` | Edit `packages/*` |
-| `apps/<product>-web/` | Edit `apps/example-*` |
+| `apps/<product>-api/` (compose packages) | Edit `packages/*` |
+| `apps/<product>-web/` | Edit `apps/example-*` for métier |
 | `docs/product/*` | Patch `lefthook.yml` / root CI for métier |
 | CSS tokens wrapping `@gosilex/ui` | Dual-edit permanent without exception ticket |
-
-Minimal smoke:
-
-```bash
-# Copy example as scaffold if needed (new dir names only)
-cp -R apps/example-api apps/<product>-api
-cp -R apps/example-web apps/<product>-web
-# Then rebrand package.json names, wrangler names, routes — never push those renames back upstream
-```
 
 ## 4. Config (vars, not kit patches)
 
 | Where | What |
 |---|---|
-| `.dev.vars` (gitignored) | SESSION/BA secrets, local |
-| GH Actions vars/secrets | CF account, `GOSILEX_CI_*` |
-| Product wrangler | Separate worker names / D1 / R2 |
+| `apps/<product>-api/.dev.vars` (gitignored) | SESSION/BA secrets, local — copy shape from example, **own** the inventory |
+| GH Actions vars/secrets | CF account; merge-on-green **`CI_APP_ID`** (var) + **`CI_APP_PRIVATE_KEY`** (secret) |
+| Product wrangler | Separate worker names / D1 / R2 under **new** product app files |
 
-## 5. Kit baseline (CI gate)
+### Kit `env:check` is example-only
+
+`bun run env:check` (in kit `validate` / `validate:full`) proves **`apps/example-api` schema ↔ `.dev.vars.example`** (and root Vite placeholders). It does **not**:
+
+- validate your product app’s env schema
+- prove CF dashboard secrets
+- prove production readiness
+
+**Product owns its env inventory** (document in product app / future product-validate — not this kit gate). See [`docs/testing.md`](../testing.md) **CP-ENV**.
+
+## 5. Foreign org — first product outside `go-silex`
+
+Secret/var **names** are kit contract. The **GitHub App** may be org-local.
+
+| Step | Action |
+|---|---|
+| 1 | Create a GitHub App on **your** org (permissions mirror [`gosilex-ci-app-setup.md`](../gosilex-ci-app-setup.md)) |
+| 2 | Map App ID → org/repo **variable** named exactly **`CI_APP_ID`** |
+| 3 | Map PEM → org/repo **secret** named exactly **`CI_APP_PRIVATE_KEY`** |
+| 4 | Install the App on the product repo |
+| 5 | Until set: merge-on-green stays **evaluate-only** (job green + “Manual merge required”) — safe, not broken |
+
+Do **not** invent alternate names (`GOSILEX_CI_*`, `MYORG_CI_*`) unless you also fork workflows (zero-edit forbids that).  
+Detail: [`docs/gosilex-ci-app-setup.md`](../gosilex-ci-app-setup.md) § Foreign org · contract: [`product-consumer-contract.md`](../product-consumer-contract.md).
+
+## 6. Kit baseline (CI gate)
 
 Product CI fails without a pin file:
 
@@ -63,18 +127,29 @@ git add docs/product/kit-baseline
 # commit with first product setup; refresh after every upstream merge
 ```
 
-## 6. Gates (product clone)
+## 7. Gates (product clone)
 
 ```bash
 bun run zero-edit          # product mode: kit zones clean vs upstream/main
 bun run banlist            # no share métier strings in packages
-bun run validate:full      # same bar as kit (or product filter)
+bun run validate:full      # same bar as kit (env:check still example-api only)
 # From kit: bash scripts/dogfood-zero-edit.sh /path/to/product
 ```
 
 `zero-edit` in **kit mode** only validates config; in a **product** clone with `upstream` remote it diffs kit zones against `upstream/main`.
 
-## 7. Sync kit
+## 8. Before first deploy
+
+Code in examples is fail-closed where it matters (e.g. no `ENVIRONMENT=development` baked into shipped wrangler `[vars]`). Still check:
+
+| Check | Rule |
+|---|---|
+| **ENVIRONMENT** | Never ship `ENVIRONMENT=development` (or `test`) to Cloudflare. Set prod/staging explicitly via secrets / dashboard — not committed `[vars]` for secrets. |
+| **BA / session secrets** | `SESSION_SECRET` (and related) via **CF secrets**, not git |
+| **CORS** | Product origins only — **not** `http://localhost:*` in staging/prod |
+| **Auth** | Dual credential still: cookie session **or** Bearer `sk_` — MCP has no cookies |
+
+## 9. Sync kit
 
 ```bash
 git fetch upstream
@@ -83,18 +158,24 @@ git rev-parse upstream/main | tr -d '\n' > docs/product/kit-baseline
 # never: git push upstream
 ```
 
-## 8. Checklist DoD consumer
+## 10. Checklist DoD consumer
 
+- [ ] Architecture: product apps **compose** `@gosilex/*` (not bare dual stack; not full SaaS clone by accident)
 - [ ] `upstream` remote fetch-only
 - [ ] No kit path diffs intentional (or time-boxed exception in `docs/product/zero-edit-exceptions.json`)
 - [ ] `bun run zero-edit` green
+- [ ] CI App: **`CI_APP_ID`** + **`CI_APP_PRIVATE_KEY`** (or accept evaluate-only manual merge)
+- [ ] Product env inventory owned by product (do not trust kit `env:check` for product)
+- [ ] Pre-deploy checklist (§8) done for first CF deploy
 - [ ] Product apps boot against product API
-- [ ] Auth BA cookies + `sk_` still work (dual credential)
+- [ ] Auth BA cookies + `sk_` still work when those modules are in use
 
 ## Refs
 
-- Contract: `docs/product-consumer-contract.md`
+- Contract: [`docs/product-consumer-contract.md`](../product-consumer-contract.md)
+- Axis: [`docs/architecture/adr/0001-primary-axis-packages-compose-apps.md`](../architecture/adr/0001-primary-axis-packages-compose-apps.md)
 - Zero-edit zones: `config/zero-edit-zones.json`
-- CI app: `docs/gosilex-ci-app-setup.md`
-- Staging: `docs/staging-examples.md`
+- CI app: [`docs/gosilex-ci-app-setup.md`](../gosilex-ci-app-setup.md)
+- Testing / CP-ENV: [`docs/testing.md`](../testing.md)
+- Staging: [`docs/staging-examples.md`](../staging-examples.md)
 - **Live dogfood evidence:** [`docs/product-consumer-dogfood-evidence.md`](../product-consumer-dogfood-evidence.md) · product [`go-silex/silex-kit-dogfood`](https://github.com/go-silex/silex-kit-dogfood)

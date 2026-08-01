@@ -143,7 +143,7 @@ Machine-enforced today via full `validate` + `test:coverage` + package tests. Pr
 | **CP-BAN** | no product-share strings in packages / examples | `scripts/check-banned-strings.sh` |
 | **CP-EXTRACT** | structural extractability: required tree, banlist, import graph, orphan packages, ADRs (does **not** re-run lint/typecheck/test after a simulated drop) | `scripts/extract-dry-run.sh` |
 | **CP-ZERO-EDIT** | product consumers do not dual-edit kit paths; design overrides preferred; exceptions time-boxed + ticketed | `scripts/check-zero-edit-zones.sh` · `config/zero-edit-zones.json` · [`product-consumer-contract.md`](./product-consumer-contract.md) |
-| **CP-ENV** | Worker string env keys documented in `.dev.vars.example` (SSoT Zod schema); no real secrets in examples | `bun run env:check` — **DX only**, not “prod secrets validated” |
+| **CP-ENV** | **Kit only:** `apps/example-api` Worker string keys documented in `apps/example-api/.dev.vars.example` (SSoT Zod schema) + root Vite placeholders; no real secrets in examples. **Does not** cover product apps’ env inventories | `bun run env:check` — **DX only**, example-api scoped; not “prod secrets validated”, not product-wide |
 | **CP-LICENSE** | third-party deps on allowlist; disallowed SPDX fails | `bun run license:check` — **compliance hygiene**, not malware audit |
 | **CP-I18N** | FR/EN non-empty copy; key parity via TypeScript `Messages` | `messages.contract.test.ts` / `i18n:check` — **not** semantic/security review |
 | **CP-UI-CONTRACT** | known Base UI traps (e.g. MenuGroupContext, closed dialog) | `packages/ui` (+ design-system smoke) |
@@ -152,7 +152,7 @@ Machine-enforced today via full `validate` + `test:coverage` + package tests. Pr
 
 | Gate | Proves | Does **not** prove |
 |---|---|---|
-| `env:check` | Schema ↔ example file inventory | Runtime secret strength, CF dashboard secrets, deploy config |
+| `env:check` | **`apps/example-api`** schema ↔ `apps/example-api/.dev.vars.example` (+ root `VITE_*` placeholders) | Product app env schemas; runtime secret strength; CF dashboard secrets; deploy config; “all monorepo envs are complete” |
 | `i18n:check` / messages contract | Non-empty strings, no raw script tags in catalogs | Correct translation meaning, XSS if you render HTML unsafely |
 | `license:check` | SPDX allowlist vs installed tree | Package safety, correct license metadata, supply-chain integrity |
 
