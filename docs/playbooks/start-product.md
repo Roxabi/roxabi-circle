@@ -88,8 +88,33 @@ Lefthook pre-push runs `scripts/deny-upstream-push.sh` — no-op when `origin` i
 | Where | What |
 |---|---|
 | `apps/<product>-api/.dev.vars` (gitignored) | SESSION/BA secrets, local — copy shape from example, **own** the inventory |
-| GH Actions vars/secrets | CF account; merge-on-green **`CI_APP_ID`** (var) + **`CI_APP_PRIVATE_KEY`** (secret) |
+| GH Actions vars/secrets | CF account + merge-on-green App (next subsection) |
 | Product wrangler | Separate worker names / D1 / R2 under **new** product app files |
+
+### 4.1 CI App credentials (do this on day 0)
+
+**SSoT:** [`docs/gosilex-ci-app-setup.md`](../gosilex-ci-app-setup.md).
+
+On **`go-silex` Free private**, org-level Actions secrets do **not** reliably reach private repos. **Always set repo-level**:
+
+```bash
+# App ID + PEM: Vaultwarden github/gosilex/gosilex-ci · disk ~/.roxabi/secrets/gosilex-ci.private-key.pem
+REPO=go-silex/<product>
+APP_ID=4297393
+PEM=~/.roxabi/secrets/gosilex-ci.private-key.pem
+
+gh variable set CI_APP_ID -R "$REPO" --body "$APP_ID"
+gh secret set CI_APP_PRIVATE_KEY -R "$REPO" < "$PEM"
+gh variable list -R "$REPO" | grep CI_APP
+gh secret list -R "$REPO" | grep CI_APP
+```
+
+| Name | Kind | Role |
+|---|---|---|
+| **`CI_APP_ID`** | variable | Enable flag for merge-on-green mint |
+| **`CI_APP_PRIVATE_KEY`** | secret | PEM for `gosilex-ci` App |
+
+Until set: merge-on-green is **evaluate-only** (job green + manual merge). Do **not** rename vars or edit `merge-on-green.yml` (zero-edit).
 
 ### Kit `env:check` is example-only
 
@@ -163,8 +188,10 @@ git rev-parse upstream/main | tr -d '\n' > docs/product/kit-baseline
 - [ ] Architecture: product apps **compose** `@gosilex/*` (not bare dual stack; not full SaaS clone by accident)
 - [ ] `upstream` remote fetch-only
 - [ ] No kit path diffs intentional (or time-boxed exception in `docs/product/zero-edit-exceptions.json`)
+- [ ] `docs/product/kit-baseline` pinned to last-merged kit tip
 - [ ] `bun run zero-edit` green
-- [ ] CI App: **`CI_APP_ID`** + **`CI_APP_PRIVATE_KEY`** (or accept evaluate-only manual merge)
+- [ ] **Repo-level** CI App: `CI_APP_ID` + `CI_APP_PRIVATE_KEY` set (`gh variable/secret list -R` shows them) — Free private cannot rely on org alone
+- [ ] Smoke: open a PR → Merge on Green log has non-empty `APP_ID` (mint OK) **or** accept evaluate-only + human merge
 - [ ] Product env inventory owned by product (do not trust kit `env:check` for product)
 - [ ] Pre-deploy checklist (§8) done for first CF deploy
 - [ ] Product apps boot against product API
@@ -172,10 +199,12 @@ git rev-parse upstream/main | tr -d '\n' > docs/product/kit-baseline
 
 ## Refs
 
-- Contract: [`docs/product-consumer-contract.md`](../product-consumer-contract.md)
-- Axis: [`docs/architecture/adr/0001-primary-axis-packages-compose-apps.md`](../architecture/adr/0001-primary-axis-packages-compose-apps.md)
-- Zero-edit zones: `config/zero-edit-zones.json`
-- CI app: [`docs/gosilex-ci-app-setup.md`](../gosilex-ci-app-setup.md)
-- Testing / CP-ENV: [`docs/testing.md`](../testing.md)
-- Staging: [`docs/staging-examples.md`](../staging-examples.md)
-- **Live dogfood evidence:** [`docs/product-consumer-dogfood-evidence.md`](../product-consumer-dogfood-evidence.md) · product [`go-silex/silex-kit-dogfood`](https://github.com/go-silex/silex-kit-dogfood)
+| Doc | Role |
+|---|---|
+| [`docs/product-consumer-contract.md`](../product-consumer-contract.md) | Zero-edit contract |
+| [`docs/gosilex-ci-app-setup.md`](../gosilex-ci-app-setup.md) | App install + Free private secrets |
+| [`docs/testing.md`](../testing.md) | Local gates / CP-ENV |
+| [`docs/architecture/adr/0001-primary-axis-packages-compose-apps.md`](../architecture/adr/0001-primary-axis-packages-compose-apps.md) | Axis packages → compose apps |
+| `config/zero-edit-zones.json` | Protected kit paths |
+| [`docs/staging-examples.md`](../staging-examples.md) | Staging deploy examples |
+| [`docs/product-consumer-dogfood-evidence.md`](../product-consumer-dogfood-evidence.md) | Historical B5 dogfood notes (local harness: `bun run dogfood:zero-edit`) |

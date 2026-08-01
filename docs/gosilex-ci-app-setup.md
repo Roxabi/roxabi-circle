@@ -54,28 +54,42 @@ Same role as **roxabi-ci** on the Roxabi org: ephemeral tokens for **merge-on-gr
 2. **All repositories** (recommended for agency CI)  
    or only `silex-boilerplate` first, then product consumers
 
-## 3. Store credentials (org-level preferred)
+## 3. Store credentials
+
+### Free private org (go-silex) — **repo-level is required**
+
+On GitHub **Free** plans, **organization** Actions variables/secrets with visibility “all” often **do not reach private repositories**. Symptom: merge-on-green log shows `APP_ID:` empty + warning `Manual merge required`, even when org vars exist.
+
+**Always set repo-level** on each private consumer (and on the kit if needed):
 
 ```bash
-# App ID → org **variable** (non-secret) — this is the enable flag for merge-on-green
-gh variable set CI_APP_ID --org go-silex --body '<APP_ID>' --visibility all
+# PEM from Vaultwarden github/gosilex/gosilex-ci → ~/.roxabi/secrets/gosilex-ci.private-key.pem
+APP_ID=4297393   # gosilex-ci App ID
+PEM=~/.roxabi/secrets/gosilex-ci.private-key.pem
 
-# Private key PEM → org **secret**
+gh variable set CI_APP_ID -R go-silex/<repo> --body "$APP_ID"
+gh secret set CI_APP_PRIVATE_KEY -R go-silex/<repo> < "$PEM"
+```
+
+Optional org-level (nice for public repos / future Team plan; **not sufficient alone** on Free private):
+
+```bash
+gh variable set CI_APP_ID --org go-silex --body '<APP_ID>' --visibility all
 gh secret set CI_APP_PRIVATE_KEY --org go-silex --visibility all < /path/to/gosilex-ci.pem
 ```
 
-Repo-only alternative (if you prefer not org-wide / product fork outside org inheritance):
+### Dual-branch products (`main` + `staging`)
 
-```bash
-# Kit or product repo
-gh variable set CI_APP_ID -R go-silex/<repo> --body '<APP_ID>'
-gh secret set CI_APP_PRIVATE_KEY -R go-silex/<repo> < /path/to/gosilex-ci.pem
-```
+Workflow **files** live on each branch. If you change secret **names** or mint steps:
+
+1. Land the workflow change on **`staging`** and **`main`** (or promote staging→main).
+2. `workflow_dispatch` / default-branch runs use the **default branch** workflow definition.
+3. Deleting old secret names before **both** branches read the new names breaks auto-merge on the lagging branch.
 
 ### New product repo from this kit (checklist)
 
 Full **zero-edit** contract: [`product-consumer-contract.md`](./product-consumer-contract.md).  
-Playbook: [`playbooks/start-product.md`](./playbooks/start-product.md).
+**Runbook (fork / greenfield):** [`playbooks/start-product.md`](./playbooks/start-product.md).
 
 When spinning a product consumer (fork / new repo + `upstream` → this kit):
 
@@ -87,15 +101,16 @@ When spinning a product consumer (fork / new repo + `upstream` → this kit):
    # deny-upstream is already in kit lefthook — do not copy a divergent hook
    ```
 3. [ ] `bun install` · `bunx lefthook install` · copy `.dev.vars.example` → gitignored local only
-4. [ ] **CI App:** inherit org-level **`CI_APP_ID` / `CI_APP_PRIVATE_KEY`** (preferred on `go-silex`) **or** set repo-level var+secret with **those exact names** — **never** edit `merge-on-green.yml`
-5. [ ] Confirm: draft PR → **Merge on Green** Summary shows configured **or** not configured (evaluate-only / manual merge until set)
+4. [ ] **CI App (mandatory on Free private):** set **repo-level** `CI_APP_ID` + `CI_APP_PRIVATE_KEY` (commands above) — **never** edit `merge-on-green.yml`
+5. [ ] Confirm: draft PR → **Merge on Green** log has non-empty `APP_ID` and mint succeeds (or evaluate-only until set)
 6. [ ] Product domain only under **new** `apps/<product>-*`; never patch `example-*` / `packages/*` for métier
+7. [ ] Pin `docs/product/kit-baseline` (see playbook §6)
 
-Verify inheritance on `go-silex` (org-level vars may not show on `gh variable list -R`):
+Verify **repo** credentials (this is what Free private actually uses):
 
 ```bash
-gh api orgs/go-silex/actions/variables/CI_APP_ID -q .name
-gh api orgs/go-silex/actions/secrets/CI_APP_PRIVATE_KEY -q .name
+gh variable list -R go-silex/<repo> | grep CI_APP
+gh secret list -R go-silex/<repo> | grep CI_APP
 ```
 
 ### First product on a foreign org
@@ -147,6 +162,7 @@ If mint fails with *private-key must be set*: secret not visible to the repo (in
 |---|---|---|
 | Branch protection / rulesets | ❌ | Yes — merge-on-green enforces green + `reviewed` |
 | Native auto-merge queue | ❌ | Yes — App merges directly |
+| Org Actions secrets → **private** repos | ❌ unreliable | Set **repo-level** `CI_APP_*` (see §3) |
 | Ephemeral credentials | — | ✅ vs long-lived PAT |
 
 ## Refs
