@@ -58,7 +58,7 @@ Tout repo produit qui prend **ce kit** comme `upstream` **doit** :
 | Ajouter `docs/product/*`, `product-*.yml` | Brancher le produit en patchant `example-web` |
 | Design: CSS tokens + wrap `@gosilex/ui` dans l’app | Patcher `packages/ui` pour la marque |
 | Exception zero-edit time-boxed (dernier recours) | Dual-edit permanent sans ticket / `expires` |
-| Vars `GOSILEX_CI_*`, secrets CF | Commit de secrets / wrangler prod dans le kit |
+| Vars `CI_APP_*` (merge-on-green), secrets CF | Commit de secrets / wrangler prod dans le kit |
 
 Gate machine: `bun run zero-edit` · SSoT [`docs/product-consumer-contract.md`](docs/product-consumer-contract.md) · `config/zero-edit-zones.json`.
 
