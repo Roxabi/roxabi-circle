@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>#58 Data model — B-users</title>
+  <style>
+    :root { --bg:#0b0f14; --card:#141b24; --border:#243041; --text:#e7eef7; --muted:#8b9bb0; --a:#5b9fd4; --frozen:#5b8; }
+    body { margin:0; font:14px/1.45 system-ui,sans-serif; background:var(--bg); color:var(--text); padding:2rem; }
+    h1 { font-size:1.2rem; margin:0 0 .35rem; }
+    p.sub { color:var(--muted); margin:0 0 1.25rem; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:.75rem; max-width:1100px; }
+    .ent { border:1px solid var(--border); background:var(--card); border-radius:12px; padding:.85rem; }
+    .ent h2 { font-size:.9rem; margin:0 0 .4rem; }
+    .ent .f { font-size:.75rem; color:var(--muted); margin:.15rem 0; }
+    .ent .f b { color:var(--text); font-weight:600; }
+    .badge { font-size:.65rem; text-transform:uppercase; letter-spacing:.04em; color:var(--a); }
+    .badge.f { color:var(--frozen); }
+  </style>
+</head>
+<body>
+  <h1>#58 — Data model</h1>
+  <p class="sub">Mostly existing BA + kit tables; no new product domain. Welcome reuses ba_verification.</p>
+  <div class="grid">
+    <div class="ent">
+      <div class="badge f">existing · BA</div>
+      <h2>ba_user</h2>
+      <div class="f"><b>id</b> string PK</div>
+      <div class="f"><b>email</b> unique</div>
+      <div class="f"><b>name</b></div>
+      <div class="f"><b>emailVerified</b> bool</div>
+      <div class="f"><b>createdAt / updatedAt</b></div>
+    </div>
+    <div class="ent">
+      <div class="badge f">existing · BA</div>
+      <h2>ba_account (credential)</h2>
+      <div class="f"><b>userId</b> → ba_user</div>
+      <div class="f"><b>providerId</b> = credential</div>
+      <div class="f"><b>password</b> hash (BA crypto)</div>
+    </div>
+    <div class="ent">
+      <div class="badge f">existing · BA</div>
+      <h2>ba_verification</h2>
+      <div class="f"><b>identifier</b> reset-password:{token}</div>
+      <div class="f"><b>value</b> user id / payload</div>
+      <div class="f"><b>expiresAt</b> short TTL</div>
+      <div class="f">welcome reuses same shape</div>
+    </div>
+    <div class="ent">
+      <div class="badge f">existing · kit</div>
+      <h2>user_platform_roles</h2>
+      <div class="f"><b>userId</b> PK</div>
+      <div class="f"><b>role</b> staff | super_admin</div>
+    </div>
+    <div class="ent">
+      <div class="badge f">existing · BA org</div>
+      <h2>ba_member</h2>
+      <div class="f"><b>organizationId</b> · <b>userId</b> · <b>role</b></div>
+    </div>
+    <div class="ent">
+      <div class="badge f">existing · kit</div>
+      <h2>invitation</h2>
+      <div class="f">pending email bind (S3)</div>
+      <div class="f">status pending|accepted|canceled</div>
+    </div>
+    <div class="ent">
+      <div class="badge">optional · S4</div>
+      <h2>user status (minimal)</h2>
+      <div class="f">prefer BA ban fields if present</div>
+      <div class="f">else kit flag table only if needed</div>
+    </div>
+  </div>
+</body>
+</html>
