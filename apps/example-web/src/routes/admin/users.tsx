@@ -15,6 +15,7 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 import { PageHeader } from '../../components/app-shell'
 import { apiErrorToMessage, apiFetch } from '../../lib/api'
+import { hasPlatformRole, useMe } from '../../lib/auth'
 import { useLocale } from '../../lib/locale'
 
 type AdminUser = {
@@ -34,6 +35,9 @@ type OrgRow = {
 export function AdminUsersPage() {
   const { m } = useLocale()
   const qc = useQueryClient()
+  const me = useMe()
+  /** Only super_admin may assign platform roles (server ceiling); hide options for staff. */
+  const canAssignPlatformRole = hasPlatformRole(me.data, 'super_admin')
   const [q, setQ] = useState('')
   const [email, setEmail] = useState('')
   const [name, setName] = useState('')
@@ -62,7 +66,8 @@ export function AdminUsersPage() {
         body: JSON.stringify({
           email: email.trim(),
           name: name.trim() || undefined,
-          platformRole: platformRole || null,
+          // Never send platformRole from staff UI (server would 403 anyway)
+          platformRole: canAssignPlatformRole ? platformRole || null : null,
           memberships:
             orgId.trim().length > 0 ? [{ orgId: orgId.trim(), role: orgRole }] : undefined,
           sendEmail,
@@ -128,20 +133,22 @@ export function AdminUsersPage() {
                 autoComplete="off"
               />
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="admin-user-plane">{m.adminUserPlane}</Label>
-              <select
-                id="admin-user-plane"
-                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
-                value={platformRole}
-                onChange={(e) => setPlatformRole(e.target.value as '' | 'staff' | 'super_admin')}
-                aria-label={m.adminUserPlane}
-              >
-                <option value="">{m.adminUserPlaneClient}</option>
-                <option value="staff">staff</option>
-                <option value="super_admin">super_admin</option>
-              </select>
-            </div>
+            {canAssignPlatformRole ? (
+              <div className="space-y-1.5">
+                <Label htmlFor="admin-user-plane">{m.adminUserPlane}</Label>
+                <select
+                  id="admin-user-plane"
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+                  value={platformRole}
+                  onChange={(e) => setPlatformRole(e.target.value as '' | 'staff' | 'super_admin')}
+                  aria-label={m.adminUserPlane}
+                >
+                  <option value="">{m.adminUserPlaneClient}</option>
+                  <option value="staff">staff</option>
+                  <option value="super_admin">super_admin</option>
+                </select>
+              </div>
+            ) : null}
             <div className="space-y-1.5">
               <Label htmlFor="admin-user-org">{m.adminUserOrg}</Label>
               <select
