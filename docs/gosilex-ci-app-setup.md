@@ -74,11 +74,12 @@ gh secret set CI_APP_PRIVATE_KEY -R go-silex/<repo> < /path/to/gosilex-ci.pem
 
 ### New product repo from this kit (checklist)
 
-Full **zero-edit** contract: [`product-consumer-contract.md`](./product-consumer-contract.md).
+Full **zero-edit** contract: [`product-consumer-contract.md`](./product-consumer-contract.md).  
+Playbook: [`playbooks/start-product.md`](./playbooks/start-product.md).
 
 When spinning a product consumer (fork / new repo + `upstream` → this kit):
 
-1. [ ] Create GitHub private repo under `go-silex`
+1. [ ] Create GitHub private repo (under `go-silex` **or** a foreign org — see below)
 2. [ ] Clone kit as starting point; set remotes (**no kit file edits**):
    ```bash
    git remote add upstream git@github.com:go-silex/silex-boilerplate.git
@@ -86,16 +87,36 @@ When spinning a product consumer (fork / new repo + `upstream` → this kit):
    # deny-upstream is already in kit lefthook — do not copy a divergent hook
    ```
 3. [ ] `bun install` · `bunx lefthook install` · copy `.dev.vars.example` → gitignored local only
-4. [ ] **CI App:** inherit org-level `CI_APP_*` (preferred) **or** set repo-level var+secret — **never** edit `merge-on-green.yml`
-5. [ ] Confirm: draft PR → **Merge on Green** Summary shows `gosilex-ci: configured` **or** `not configured`
+4. [ ] **CI App:** inherit org-level **`CI_APP_ID` / `CI_APP_PRIVATE_KEY`** (preferred on `go-silex`) **or** set repo-level var+secret with **those exact names** — **never** edit `merge-on-green.yml`
+5. [ ] Confirm: draft PR → **Merge on Green** Summary shows configured **or** not configured (evaluate-only / manual merge until set)
 6. [ ] Product domain only under **new** `apps/<product>-*`; never patch `example-*` / `packages/*` for métier
 
-Verify inheritance (org-level vars may not show on `gh variable list -R`):
+Verify inheritance on `go-silex` (org-level vars may not show on `gh variable list -R`):
 
 ```bash
 gh api orgs/go-silex/actions/variables/CI_APP_ID -q .name
 gh api orgs/go-silex/actions/secrets/CI_APP_PRIVATE_KEY -q .name
 ```
+
+### First product on a foreign org
+
+Secret/var **names are kit contract** — do not rename them to match the org brand.
+
+| Step | Action |
+|---|---|
+| 1 | Create a GitHub App on **the foreign org** (same permissions as §1; App display name can be local, e.g. `acme-ci`) |
+| 2 | Install the App on the product repo(s) |
+| 3 | `gh variable set CI_APP_ID --org <foreign-org> --body '<APP_ID>' --visibility all` (or repo-level `-R`) |
+| 4 | `gh secret set CI_APP_PRIVATE_KEY --org <foreign-org> --visibility all < /path/to/app.pem` (or repo-level) |
+| 5 | Open a PR: until vars/secrets exist, merge-on-green is **evaluate-only** (green job + manual merge) — not a broken gate |
+| 6 | When set: mint step runs; merge attributed to your App bot |
+
+| Kit contract name | Kind |
+|---|---|
+| **`CI_APP_ID`** | variable (enable flag) |
+| **`CI_APP_PRIVATE_KEY`** | secret (PEM) |
+
+Do **not** use obsolete `GOSILEX_CI_APP_*` names — workflows read **`CI_APP_*` only**.
 
 ## 4. Workflow consumers
 

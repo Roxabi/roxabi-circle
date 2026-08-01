@@ -54,7 +54,7 @@ Pulling `upstream/main` should only conflict when the **product** deliberately t
 
 | Need | Do this | Not this |
 |------|---------|----------|
-| CI auto-merge | Org/repo **vars/secrets** `CI_APP_*` | Edit `merge-on-green.yml` |
+| CI auto-merge | Org/repo **vars/secrets** **`CI_APP_ID`** (var) + **`CI_APP_PRIVATE_KEY`** (secret) | Edit `merge-on-green.yml`; invent other secret names |
 | Session / CORS / SMTP / CF | `apps/<product>-api/.dev.vars` + CF dashboard secrets | Commit secrets; edit kit examples permanently |
 | Product Worker name / D1 / R2 | `apps/<product>-api/wrangler.toml` (**new**) | Edit `apps/example-api/wrangler.toml` |
 | Product UI routes | `apps/<product>-web/**` | Patch `example-web` into a product |
@@ -63,6 +63,28 @@ Pulling `upstream/main` should only conflict when the **product** deliberately t
 | Deny push to kit | **Already in kit** lefthook + `scripts/deny-upstream-push.sh` | Copy-paste divergent lefthook in product |
 | Brand / design system | **Design overrides** (below) in `apps/<product>-web` | Edit `packages/ui/**` |
 | Gate “did we touch kit paths?” | `bun run zero-edit` (in `validate` / `validate:full`) | Hope merge conflicts never happen |
+| Env completeness | Product owns inventory for `apps/<product>-*` | Treat kit `env:check` as product-wide (it is **example-api only**) |
+
+---
+
+## Foreign org — first product outside `go-silex`
+
+Kit workflows read fixed credential names. The **App** is org-local; the **names** are not.
+
+| Contract name | Kind | Role |
+|---|---|---|
+| **`CI_APP_ID`** | Actions **variable** (non-secret) | Enable flag for merge-on-green mint |
+| **`CI_APP_PRIVATE_KEY`** | Actions **secret** | PEM for App JWT → installation token |
+
+| Do | Do not |
+|---|---|
+| Create/install a GitHub App on **your** org | Expect `go-silex` org secrets to appear on a foreign org |
+| Map App ID/PEM to **`CI_APP_ID` / `CI_APP_PRIVATE_KEY`** | Rename to `GOSILEX_CI_*` or `MYORG_CI_*` without forking workflows |
+| Leave unset until ready — job stays **evaluate-only** (manual merge) | Edit `merge-on-green.yml` to soft-fail differently |
+
+Setup detail: [`docs/gosilex-ci-app-setup.md`](./gosilex-ci-app-setup.md). Bootstrap narrative: [`docs/playbooks/start-product.md`](./playbooks/start-product.md).
+
+> Historical note: kit briefly used `GOSILEX_CI_APP_*`; canonical names are **`CI_APP_*`** only.
 
 ---
 

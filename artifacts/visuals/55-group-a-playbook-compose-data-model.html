@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>#55 Data model — doc surfaces & contracts</title>
+  <style>
+    :root { --bg:#0b0f14; --card:#141b24; --border:#243041; --text:#e7eef7; --muted:#8b9bb0; --accent:#5b9fd4; --ok:#3d9a6a; --warn:#c9a227; }
+    * { box-sizing: border-box; }
+    body { margin:0; font:14px/1.45 system-ui,sans-serif; background:var(--bg); color:var(--text); padding:2rem; }
+    h1 { font-size:1.25rem; font-weight:600; margin:0 0 .25rem; }
+    p.sub { color:var(--muted); margin:0 0 1.5rem; }
+    .layers { display:flex; flex-direction:column; gap:1rem; max-width:920px; }
+    .layer { border:1px solid var(--border); border-radius:12px; background:var(--card); padding:1rem 1.25rem; }
+    .layer h2 { margin:0 0 .75rem; font-size:.75rem; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); }
+    .nodes { display:flex; flex-wrap:wrap; gap:.75rem; }
+    .node { border:1px solid var(--border); border-radius:10px; padding:.65rem .85rem; min-width:160px; background:#0f1520; }
+    .node strong { display:block; font-size:.9rem; margin-bottom:.2rem; }
+    .node span { color:var(--muted); font-size:.78rem; }
+    .frozen { border-color: var(--ok); }
+    .mutable { border-color: var(--accent); }
+    .legend { display:flex; gap:1.25rem; margin-top:1.5rem; color:var(--muted); font-size:.8rem; }
+    .dot { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:.35rem; vertical-align:middle; }
+  </style>
+</head>
+<body>
+  <h1>#55 — Doc surfaces (data model)</h1>
+  <p class="sub">Docs-only Group A · entities = narrative contracts, not runtime tables · issue go-silex/silex-boilerplate#55</p>
+  <div class="layers">
+    <div class="layer">
+      <h2>L0 — Axis (frozen)</h2>
+      <div class="nodes">
+        <div class="node frozen"><strong>ADR-0001</strong><span>packages compose apps · primary axis</span></div>
+      </div>
+    </div>
+    <div class="layer">
+      <h2>L1 — Consumer contract (kit-owned, mutable copy)</h2>
+      <div class="nodes">
+        <div class="node mutable"><strong>product-consumer-contract</strong><span>zero-edit zones · CI_APP_* · foreign-org</span></div>
+        <div class="node mutable"><strong>gosilex-ci-app-setup</strong><span>App install map → CI_APP_ID / PRIVATE_KEY</span></div>
+      </div>
+    </div>
+    <div class="layer">
+      <h2>L2 — Bootstrap narrative (primary rewrite)</h2>
+      <div class="nodes">
+        <div class="node mutable"><strong>start-product playbook</strong><span>compose spine default · last-resort cp -R · deploy checklist</span></div>
+      </div>
+    </div>
+    <div class="layer">
+      <h2>L3 — Gates honesty</h2>
+      <div class="nodes">
+        <div class="node mutable"><strong>testing.md CP-ENV</strong><span>env:check = example-api only</span></div>
+        <div class="node mutable"><strong>check-env-sync.ts header</strong><span>script SSoT comment = example schema</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="legend">
+    <span><i class="dot" style="background:var(--ok)"></i> frozen (do not rewrite)</span>
+    <span><i class="dot" style="background:var(--accent)"></i> mutable this issue</span>
+  </div>
+</body>
+</html>
