@@ -1,0 +1,57 @@
+# Dependabot Auto-merge — label patch/minor PRs `reviewed` so merge-on-green can land them.
+# Majors are left unlabeled (human review).
+# Token: GitHub App gosilex-ci (same as merge-on-green) — GITHUB_TOKEN cannot re-trigger workflows.
+# Setup: docs/gosilex-ci-app-setup.md
+name: Dependabot Auto-merge
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  reviewed-label:
+    name: Label dependabot patch/minor reviewed
+    if: github.event.pull_request.user.login == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Resolve gosilex-ci availability
+        id: cfg
+        env:
+          APP_ID: ${{ vars.GOSILEX_CI_APP_ID }}
+        run: |
+          if [ -n "$APP_ID" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=gosilex-ci not configured::Dependabot auto-label OFF. Set GOSILEX_CI_APP_ID + GOSILEX_CI_APP_PRIVATE_KEY — docs/gosilex-ci-app-setup.md"
+          fi
+
+      - name: Mint app token (gosilex-ci)
+        id: app
+        if: steps.cfg.outputs.enabled == 'true'
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ vars.GOSILEX_CI_APP_ID }}
+          private-key: ${{ secrets.GOSILEX_CI_APP_PRIVATE_KEY }}
+
+      - name: Fetch dependabot metadata
+        id: meta
+        if: steps.cfg.outputs.enabled == 'true'
+        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Add reviewed label (patch/minor only)
+        if: >-
+          steps.cfg.outputs.enabled == 'true' &&
+          (steps.meta.outputs.update-type == 'version-update:semver-patch' ||
+           steps.meta.outputs.update-type == 'version-update:semver-minor')
+        run: gh pr edit "$PR_URL" --add-label reviewed
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          PR_URL: ${{ github.event.pull_request.html_url }}

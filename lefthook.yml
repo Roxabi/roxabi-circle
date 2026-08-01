@@ -13,6 +13,9 @@ pre-commit:
       # Format + lint staged only (fast)
       run: bunx biome check --write --staged --no-errors-on-unmatched --files-ignore-unknown=true
       stage_fixed: true
+    file-length:
+      # Staged TS/TSX only under apps/ + packages/ (max 300; tools/file_exemptions.txt)
+      run: QG_FILE_MODE=staged bash tools/check_file_length.sh
 
 commit-msg:
   commands:
@@ -22,8 +25,7 @@ commit-msg:
 # Full suite before code leaves the machine (= validate:full).
 # Intentional cost: local SoT; CI re-runs as guardrail (skip hooks / env drift).
 # validate:full = lint · typecheck · banlist · extract · zero-edit · env · test:coverage · license
-#                 · build:kit (example-api wrangler dry-run + example-web vite)
-#                 · smoke:mcp (mcp-example stdio allowlist)
+#                 · quality-gates (file length) · build:kit · smoke:mcp
 # zero-edit: product must not dual-edit kit paths (see docs/product-consumer-contract.md)
 # (no separate turbo `test` for all pkgs — coverage suites are the unit gate)
 pre-push:
