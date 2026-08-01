@@ -3,6 +3,7 @@ import { redactEmailBody } from './redact'
 import { DemoEmail } from './templates/demo'
 import { InviteEmail } from './templates/invite'
 import { ResetPasswordEmail } from './templates/reset-password'
+import { WelcomeSetPasswordEmail } from './templates/welcome-set-password'
 
 export type EmailTransport = 'log' | 'smtp' | 'cf' | 'resend'
 
@@ -56,6 +57,27 @@ export function buildResetPasswordEmailText(params: {
   html: string
 } {
   const mail = ResetPasswordEmail(params)
+  return {
+    to: mail.to,
+    subject: mail.subject,
+    text: mail.text,
+    html: mail.html,
+  }
+}
+
+/** Welcome / first-login set-password email (kit copy only). */
+export function buildWelcomeSetPasswordEmailText(params: {
+  to: string
+  setPasswordUrl: string
+  expiresHint?: string
+  name?: string
+}): {
+  to: string
+  subject: string
+  text: string
+  html: string
+} {
+  const mail = WelcomeSetPasswordEmail(params)
   return {
     to: mail.to,
     subject: mail.subject,
@@ -386,3 +408,4 @@ export { redactEmailBody } from './redact'
 export { DemoEmail } from './templates/demo'
 export { InviteEmail } from './templates/invite'
 export { ResetPasswordEmail } from './templates/reset-password'
+export { WelcomeSetPasswordEmail } from './templates/welcome-set-password'

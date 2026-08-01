@@ -59,6 +59,49 @@ beforeEach(() => {
 })
 
 describe('org invitations (B3 S2)', () => {
+  it('S3: invite unknown email creates BA user shell + pending invite', async () => {
+    const app = createApp()
+    const env = createMemoryEnv({
+      ...BA_ENV,
+      ALLOW_PUBLIC_SIGNUP: 'false',
+    })
+    const db = createDb(env.DB as unknown as D1Database, schema)
+    await seedDemoDatabase(db, { notes: false, environment: 'test' })
+    const cookie = await signIn(app, env, 'team-owner@gosilex.local')
+    const res = await app.request(
+      '/api/orgs/org_team/invitations',
+      {
+        method: 'POST',
+        headers: sessionMutation(cookie),
+        body: JSON.stringify({ email: 'brand-new@gosilex.local', role: 'member' }),
+      },
+      env,
+    )
+    expect(res.status).toBe(201)
+    const body = (await res.json()) as { invitation: { email: string; status: string } }
+    expect(body.invitation.email).toBe('brand-new@gosilex.local')
+    expect(body.invitation.status).toBe('pending')
+    const { baUser } = await import('./db/better-auth-schema')
+    const { eq } = await import('drizzle-orm')
+    const users = await db.select().from(baUser).where(eq(baUser.email, 'brand-new@gosilex.local'))
+    expect(users.length).toBe(1)
+    // public signup still off — sign-up should fail
+    const signup = await app.request(
+      '/api/auth/sign-up/email',
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', Origin: ORIGIN },
+        body: JSON.stringify({
+          email: 'another-public@gosilex.local',
+          password: TENANCY_PASSWORD,
+          name: 'Nope',
+        }),
+      },
+      env,
+    )
+    expect(signup.status).toBeGreaterThanOrEqual(400)
+  })
+
   it('team-owner invites solo@ as member → pending', async () => {
     const { app, env } = await seedEnv()
     const cookie = await signIn(app, env, 'team-owner@gosilex.local')
