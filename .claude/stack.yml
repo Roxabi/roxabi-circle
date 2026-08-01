@@ -40,6 +40,8 @@ build:
 testing:
   unit: vitest
   e2e: design-system-script
+  # Gate CI: bun run validate:full (.github/workflows/ci.yml job name validate-full).
+  # Merge-on-green: label reviewed + CI + Secret scan only (no check_suite spam).
 hooks:
   tool: lefthook
 deploy:

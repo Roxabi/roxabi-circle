@@ -2,6 +2,14 @@
 # `gh pr merge --auto` + branch protection (Team/Pro only).
 #
 # Pattern: Roxabi `roxabi-ci` App (bouly-site / forge) — **no PAT**.
+# Align Metalyde/Spark (narrow triggers — avoid Actions minute spam).
+#
+# Triggers (volontairement étroits) :
+#   - label `reviewed` sur une PR vers staging|main
+#   - fin de CI / Secret scan (ré-évalue les PR reviewed ouvertes)
+#   - workflow_dispatch (secours)
+# Pas de : synchronize, reopened, closed, check_suite (trop bruyants).
+# Close linked issues → workflow dédié close-linked-issues.yml
 #
 # Merges when ALL hold:
 #   1. label `reviewed` (human sign-off)
@@ -17,14 +25,13 @@
 #       secrets.GOSILEX_CI_APP_PRIVATE_KEY
 #     Setup: docs/gosilex-ci-app-setup.md
 #
-# Gating workflows: Secret scan + CI (lint/typecheck/test).
+# Gating workflows: Secret scan + CI (job name validate-full).
 name: Merge on Green
 
 on:
   pull_request:
-    types: [labeled, synchronize, reopened, closed]
-  check_suite:
-    types: [completed]
+    types: [labeled]
+    branches: [main, staging]
   workflow_run:
     workflows: [Secret scan, CI]
     types: [completed]
@@ -42,7 +49,7 @@ permissions:
   statuses: read
 
 concurrency:
-  group: merge-on-green-${{ github.event.pull_request.number || github.event.check_suite.head_sha || github.run_id }}
+  group: merge-on-green-${{ github.event.pull_request.number || github.event.workflow_run.head_sha || github.run_id }}
   cancel-in-progress: false
 
 jobs:
@@ -52,10 +59,8 @@ jobs:
     timeout-minutes: 5
     steps:
       # Gate auto-merge on **non-secret var only**.
-      # Do NOT put secrets in `if:` — GitHub treats them unreliably there (always empty /
-      # always set depending on context) and that caused permanent red mint steps.
+      # Do NOT put secrets in `if:` — GitHub treats them unreliably there.
       # Flag: vars.GOSILEX_CI_APP_ID set → try mint + merge.
-      # Secret GOSILEX_CI_APP_PRIVATE_KEY is only passed into the mint action when enabled.
       # Setup: docs/gosilex-ci-app-setup.md
       - name: Resolve gosilex-ci availability
         id: cfg
@@ -71,8 +76,6 @@ jobs:
             echo "::warning title=Manual merge required::Label reviewed will NOT auto-merge until gosilex-ci is set up."
           fi
 
-      # gosilex-ci App token (ephemeral, ~1 h) — same role as roxabi-ci on Roxabi org.
-      # Merges workflow-file PRs + re-triggers push workflows (GITHUB_TOKEN cannot).
       - name: Mint app token (gosilex-ci)
         id: app
         if: steps.cfg.outputs.enabled == 'true'
@@ -98,10 +101,6 @@ jobs:
               candidates.add(parseInt(dispatchPr, 10));
             } else if (context.payload.pull_request) {
               candidates.add(context.payload.pull_request.number);
-            } else if (context.payload.check_suite) {
-              for (const pr of context.payload.check_suite.pull_requests || []) {
-                candidates.add(pr.number);
-              }
             } else if (context.payload.workflow_run) {
               for (const pr of context.payload.workflow_run.pull_requests || []) {
                 candidates.add(pr.number);
@@ -140,15 +139,13 @@ jobs:
               const runs = await github.paginate(github.rest.checks.listForRef, {
                 owner: context.repo.owner, repo: context.repo.repo, ref: sha, per_page: 100,
               });
-              // Fail-closed: require at least one completed non-self check (e.g. TruffleHog).
-              // Empty check list + "reviewed" must NOT merge (Free plan has no required checks).
+              // Fail-closed: require at least one completed non-self check.
               const others = runs.filter((r) => r.name !== SELF_JOB);
               if (others.length === 0) {
                 core.info(`${tag}: no check runs on head — skip (fail-closed).`);
                 continue;
               }
-              // Require secret-scan (TruffleHog / Secret scan) AND quality CI job.
-              // Job name is `validate-full` (was lint-typecheck-test) — match both during transition.
+              // Require secret-scan AND quality CI job name `validate-full`.
               const hasSecret = others.some((r) =>
                 /TruffleHog|Secret scan/i.test(r.name || ''),
               );
@@ -189,7 +186,6 @@ jobs:
             if (toMerge.length === 0) core.info('No PRs ready to merge.');
 
       - name: Merge green PRs
-        # Only when App is configured AND mint succeeded (otherwise evaluate-only, job green).
         if: >-
           steps.cfg.outputs.enabled == 'true' &&
           steps.app.outcome == 'success' &&
@@ -232,38 +228,3 @@ jobs:
             fi
             echo "- Candidates: \`${TO_MERGE:-[]}\`"
           } >> "$GITHUB_STEP_SUMMARY"
-
-  close-linked-issues:
-    name: Close linked issues
-    runs-on: ubuntu-latest
-    if: github.event.action == 'closed' && github.event.pull_request.merged == true
-    timeout-minutes: 5
-    steps:
-      - name: Close issues referenced with closing keywords
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
-        with:
-          script: |
-            const body = context.payload.pull_request.body || '';
-            const pattern = /(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+#(\d+)/gi;
-            const issues = new Set();
-            let match;
-            while ((match = pattern.exec(body)) !== null) {
-              issues.add(parseInt(match[1], 10));
-            }
-            if (issues.size === 0) {
-              core.info('No closing keywords found in PR body');
-              return;
-            }
-            for (const number of issues) {
-              try {
-                await github.rest.issues.update({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: number,
-                  state: 'closed',
-                });
-                core.info(`Closed #${number}`);
-              } catch (e) {
-                core.warning(`Could not close #${number}: ${e.message}`);
-              }
-            }

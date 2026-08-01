@@ -1,14 +1,22 @@
 name: CI
 
+# Gate qualité (validate:full). Ne déploie pas.
+#
+# Quand ça tourne :
+#   - pull_request → staging|main  = gate avant merge
+#   - push staging|main            = validation post-merge
+#   - workflow_dispatch            = secours manuel
+# Pas de CI sur feat/* sans PR vers staging|main.
 on:
   push:
     branches: [main, staging]
   pull_request:
     branches: [main, staging]
+  workflow_dispatch: {}
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 # Least privilege — same spirit as secret-scan / merge-on-green.
 permissions:
@@ -55,11 +63,15 @@ jobs:
           fi
           bun run validate:full
 
-      - name: Upload coverage HTML
+      - name: Upload coverage summary
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: coverage-html
-          path: coverage/
+          name: coverage-summary
+          path: |
+            coverage/coverage-summary.json
+            coverage/lcov.info
+            coverage/**/coverage-summary.json
+            coverage/**/lcov.info
           retention-days: 7
           if-no-files-found: ignore
