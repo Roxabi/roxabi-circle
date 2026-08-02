@@ -131,9 +131,102 @@ function zoneOfPath(absPath: string, root: string): Zone {
   return 'outside'
 }
 
+/**
+ * Strip line and block comments so regex extractors do not treat prose as imports.
+ * Does not fully parse strings (template literals with nested quotes remain best-effort).
+ */
+function stripComments(source: string): string {
+  let out = ''
+  let i = 0
+  while (i < source.length) {
+    const c = source[i]
+    const n = source[i + 1]
+    // line comment
+    if (c === '/' && n === '/') {
+      out += ' '
+      i += 2
+      while (i < source.length && source[i] !== '\n') {
+        out += ' '
+        i++
+      }
+      continue
+    }
+    // block comment
+    if (c === '/' && n === '*') {
+      out += '  '
+      i += 2
+      while (i < source.length && !(source[i] === '*' && source[i + 1] === '/')) {
+        out += source[i] === '\n' ? '\n' : ' '
+        i++
+      }
+      if (i < source.length) {
+        out += '  '
+        i += 2
+      }
+      continue
+    }
+    // single-quoted string
+    if (c === "'" || c === '"') {
+      const q = c
+      out += c
+      i++
+      while (i < source.length) {
+        out += source[i]
+        if (source[i] === '\\' && i + 1 < source.length) {
+          out += source[i + 1]
+          i += 2
+          continue
+        }
+        if (source[i] === q) {
+          i++
+          break
+        }
+        i++
+      }
+      continue
+    }
+    out += c
+    i++
+  }
+  return out
+}
+
+/** Drop Vite-style query/hash so `@gosilex/example-api?raw` still maps to workspace. */
+function stripSpecifierSuffix(specifier: string): string {
+  const q = specifier.indexOf('?')
+  const h = specifier.indexOf('#')
+  let end = specifier.length
+  if (q >= 0) end = Math.min(end, q)
+  if (h >= 0) end = Math.min(end, h)
+  return specifier.slice(0, end)
+}
+
+/** True if `index` sits inside a single- or double-quoted string on `line`. */
+function isInsideQuotes(line: string, index: number): boolean {
+  let inS = false
+  let inD = false
+  let esc = false
+  for (let i = 0; i < index; i++) {
+    const c = line[i]
+    if (esc) {
+      esc = false
+      continue
+    }
+    if ((inS || inD) && c === '\\') {
+      esc = true
+      continue
+    }
+    if (!inD && c === "'") inS = !inS
+    else if (!inS && c === '"') inD = !inD
+  }
+  return inS || inD
+}
+
 /** Extract static import/export/require string literals (line best-effort). */
 function extractImports(content: string, file: string): ImportHit[] {
   const hits: ImportHit[] = []
+  // Comment-stripped so "// import from '@gosilex/…'" is not an edge; newlines preserved for line nos.
+  const scan = stripComments(content)
   // from '…' / from "…" (import and export … from)
   const fromRe = /\bfrom\s+['"]([^'"]+)['"]/g
   // side-effect import '…'
@@ -141,26 +234,24 @@ function extractImports(content: string, file: string): ImportHit[] {
   // require('…') / import('…')
   const callRe = /\b(?:require|import)\s*\(\s*['"]([^'"]+)['"]\s*\)/g
 
-  const lineAt = (index: number): number => {
-    let line = 1
-    for (let i = 0; i < index && i < content.length; i++) {
-      if (content[i] === '\n') line++
-    }
-    return line
-  }
-
-  const pushAll = (re: RegExp) => {
+  const lines = scan.split('\n')
+  const pushOnLine = (line: string, lineNo: number, re: RegExp) => {
     re.lastIndex = 0
     for (;;) {
-      const m = re.exec(content)
+      const m = re.exec(line)
       if (m === null) break
-      hits.push({ file, line: lineAt(m.index), specifier: m[1] })
+      if (isInsideQuotes(line, m.index)) continue
+      hits.push({ file, line: lineNo, specifier: m[1] })
     }
   }
 
-  pushAll(fromRe)
-  pushAll(sideRe)
-  pushAll(callRe)
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+    const lineNo = i + 1
+    pushOnLine(line, lineNo, fromRe)
+    pushOnLine(line, lineNo, sideRe)
+    pushOnLine(line, lineNo, callRe)
+  }
   return hits
 }
 
@@ -175,20 +266,23 @@ function resolveSpecifier(
   importerAbs: string,
   workspace: WorkspaceEntry[],
 ): ResolveResult {
-  if (specifier.startsWith('.') || specifier.startsWith('/')) {
+  // Relative only (./ ../). Absolute FS paths (/…) are not kit import style — bare/unresolved.
+  if (specifier.startsWith('.')) {
     const absPath = normalize(resolve(dirname(importerAbs), specifier))
     return { kind: 'relative', absPath }
   }
 
+  const bare = stripSpecifierSuffix(specifier)
+
   for (const entry of workspace) {
-    if (specifier === entry.name || specifier.startsWith(`${entry.name}/`)) {
-      const rest = specifier === entry.name ? '' : specifier.slice(entry.name.length + 1)
+    if (bare === entry.name || bare.startsWith(`${entry.name}/`)) {
+      const rest = bare === entry.name ? '' : bare.slice(entry.name.length + 1)
       const absPath = rest ? join(entry.absDir, rest) : entry.absDir
       return { kind: 'workspace', entry, absPath }
     }
   }
 
-  return { kind: 'bare', specifier }
+  return { kind: 'bare', specifier: bare }
 }
 
 type ExemptionsLoad = { ok: true; paths: Set<string> } | { ok: false; errors: string[] }
@@ -268,7 +362,8 @@ function classify(
   root: string,
   workspace: WorkspaceEntry[],
 ): Violation | null {
-  if (importerZone === 'example-web' && WORKER_BAR_IMPORTS.has(hit.specifier)) {
+  const specBare = stripSpecifierSuffix(hit.specifier)
+  if (importerZone === 'example-web' && WORKER_BAR_IMPORTS.has(specBare)) {
     return { ...hit, rule: 'R4' }
   }
 

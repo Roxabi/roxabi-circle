@@ -97,11 +97,17 @@ seed_workspace "${R2}"
 echo "import { api } from '../../../apps/example-api/src/index'" >"${R2}/packages/core/src/bad-r2.ts"
 assert_case "2 R2 relative packages→apps → 1" 1 "${R2}" "R2"
 
-# --- R3 example-web → example-api ---
+# --- R3 example-web → example-api (workspace) ---
 R3="${TMP}/r3"
 seed_workspace "${R3}"
 echo "import { api } from '@gosilex/example-api'" >"${R3}/apps/example-web/src/bad-r3.ts"
 assert_case "3 R3 web→api → 1" 1 "${R3}" "R3"
+
+# --- R3 relative web → api ---
+R3R="${TMP}/r3rel"
+seed_workspace "${R3R}"
+echo "import { api } from '../../example-api/src/index'" >"${R3R}/apps/example-web/src/bad-r3-rel.ts"
+assert_case "3b R3 relative web→api → 1" 1 "${R3R}" "R3"
 
 # --- R4 cloudflare:workers from web ---
 R4="${TMP}/r4"
@@ -109,19 +115,58 @@ seed_workspace "${R4}"
 echo "import { env } from 'cloudflare:workers'" >"${R4}/apps/example-web/src/bad-r4.ts"
 assert_case "4 R4 cloudflare:workers → 1" 1 "${R4}" "R4"
 
-# --- exemption without reason → exit 2 ---
+# --- R1 via export … from (fromRe / re-export) ---
+R1E="${TMP}/r1export"
+seed_workspace "${R1E}"
+echo "export { api } from '@gosilex/example-api'" >"${R1E}/packages/core/src/bad-export.ts"
+assert_case "1b R1 export-from → 1" 1 "${R1E}" "R1"
+
+# --- R4 side-effect import '…' ---
+R4S="${TMP}/r4side"
+seed_workspace "${R4S}"
+echo "import 'cloudflare:workers'" >"${R4S}/apps/example-web/src/bad-r4-side.ts"
+assert_case "4b R4 side-effect import → 1" 1 "${R4S}" "R4"
+
+# --- R1 dynamic import() ---
+R1D="${TMP}/r1dyn"
+seed_workspace "${R1D}"
+echo "const m = await import('@gosilex/example-api')" >"${R1D}/packages/core/src/bad-dyn.ts"
+assert_case "1c R1 import() → 1" 1 "${R1D}" "R1"
+
+# --- R1 workspace with Vite query suffix (?raw) ---
+R1Q="${TMP}/r1query"
+seed_workspace "${R1Q}"
+echo "import x from '@gosilex/example-api?raw'" >"${R1Q}/packages/core/src/bad-query.ts"
+assert_case "1d R1 workspace?raw → 1" 1 "${R1Q}" "R1"
+
+# --- comment must NOT trip R1 (comment strip) ---
+CMT="${TMP}/comment"
+seed_workspace "${CMT}"
+echo "// import { api } from '@gosilex/example-api'" >"${CMT}/packages/core/src/ok-comment.ts"
+assert_case "0b comment is not an edge → 0" 0 "${CMT}"
+
+# --- exemption without reason (missing #) → exit 2 ---
 E2="${TMP}/e2"
 seed_workspace "${E2}"
 echo "import { api } from '@gosilex/example-api'" >"${E2}/packages/core/src/bad.ts"
 echo "packages/core/src/bad.ts" >"${E2}/tools/import-boundary-exemptions.txt"
 assert_case "5 exemption without reason → 2" 2 "${E2}" "CONFIG"
 
-# --- valid exemption suppresses R1 ---
+# --- exemption empty reason after # → exit 2 ---
+E2B="${TMP}/e2b"
+seed_workspace "${E2B}"
+echo "import { api } from '@gosilex/example-api'" >"${E2B}/packages/core/src/bad.ts"
+echo "packages/core/src/bad.ts  #" >"${E2B}/tools/import-boundary-exemptions.txt"
+assert_case "5b exemption empty reason → 2" 2 "${E2B}" "CONFIG"
+
+# --- valid exemption suppresses R1 (paired: same tree without exemption would fail case 1) ---
 EX="${TMP}/ex"
 seed_workspace "${EX}"
 echo "import { api } from '@gosilex/example-api'" >"${EX}/packages/core/src/bad.ts"
+# without exemption → 1
+assert_case "6a before exemption → 1" 1 "${EX}" "R1"
 echo "packages/core/src/bad.ts  # temporary plant — #69" >"${EX}/tools/import-boundary-exemptions.txt"
-assert_case "6 valid exemption suppresses → 0" 0 "${EX}"
+assert_case "6b after exemption → 0" 0 "${EX}"
 
 echo ""
 echo "CP-IMPORT self-test: ${PASS} passed, ${FAIL} failed"
