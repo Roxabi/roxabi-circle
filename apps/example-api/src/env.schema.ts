@@ -20,6 +20,7 @@ export type WorkerBindingName = (typeof WORKER_BINDINGS)[number]
 export const workerStringEnvSchema = z.object({
   /** Min 32 chars in prod; see getSecret(). */
   SESSION_SECRET: z.string().optional(),
+  PRESIGN_MODE: z.enum(['mock', 's3']).optional(),
   /** development | test | production | staging */
   ENVIRONMENT: z.string().optional(),
   /** Comma-separated browser origins for CORS + credentials. */
