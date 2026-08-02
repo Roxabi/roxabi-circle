@@ -8,11 +8,29 @@ generated: 2026-08-03
 status: approved
 slice: V1
 deferred_slices: V2,V3,V4,V5
+children:
+  P1: 81
+  P2: 82
+  P3: 83
+  P4: 84
+pr_model: one-pr-per-child
+epic_stays_open: true
 ---
 
 ## Summary
 
 **Planning slice V1 (next unimplemented)** — promote `example-web` HTTP client into `@gosilex/api-client`, migrate the app to consume it (A8), document the package map. Epic slices **V2–V5** (MasterData, presign, jobs, epic close) are ordered after V1; re-run `/plan --issue 18` when V1 is done.
+
+### Delivery model (Shape A) — 1 PR = 1 child
+
+| Pattern | Child issue | Slice | PR footer |
+|---------|-------------|-------|-----------|
+| P1 API client | **#81** | V1 | `Closes #81` · mention epic `Related: #18` (do **not** `Closes #18`) |
+| P2 MasterData | **#82** | V2 | `Closes #82` · `Related: #18` |
+| P3 Presign | **#83** | V3 | `Closes #83` · `Related: #18` |
+| P4 Jobs | **#84** | V4 | `Closes #84` · `Related: #18` |
+
+**#18 stays open** until all children closed + V5 epic DoD (README map + validate:full + evidence comment). Epic close is manual after V5.
 
 ## Architecture
 

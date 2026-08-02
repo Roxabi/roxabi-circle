@@ -19,6 +19,9 @@ pins:
   jobs_ci: unit-mock
   children: fresh-under-18
   upload_ui: api-required-fe-optional
+  child_issues: { P1: 81, P2: 82, P3: 83, P4: 84 }
+  pr_model: one-pr-per-child
+  epic_stays_open: true
 ---
 
 # Spec #18 — B6 · Patterns kit productifs
