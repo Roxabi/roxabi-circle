@@ -14,8 +14,7 @@ import { toast } from 'sonner'
 import { AccountPasswordForm } from '../components/account-password-form'
 import { AccountProfileForm } from '../components/account-profile-form'
 import { PageHeader } from '../components/app-shell'
-import { apiFetch } from '../lib/api'
-import { meQueryKey, useMe } from '../lib/auth'
+import { signOutAndClearSession, useMe } from '../lib/auth'
 import { useLocale } from '../lib/locale'
 import { type Theme, useTheme } from '../lib/theme'
 
@@ -34,14 +33,12 @@ export function SettingsPage() {
 
   const logout = async () => {
     try {
-      await apiFetch('/api/auth/sign-out', { method: 'POST', body: '{}' })
+      await signOutAndClearSession(qc)
+      toast.message(m.logout)
+      await navigate({ to: '/login' })
     } catch {
-      /* still clear client cache */
+      toast.error(m.error, { description: m.errUnauthorized })
     }
-    await qc.invalidateQueries({ queryKey: meQueryKey })
-    qc.removeQueries({ queryKey: meQueryKey })
-    toast.message(m.logout)
-    await navigate({ to: '/login' })
   }
 
   return (

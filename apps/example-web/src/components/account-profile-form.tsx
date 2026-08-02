@@ -1,9 +1,17 @@
-import { Button, Field, FieldError, FieldGroup, FieldLabel, Input } from '@gosilex/ui'
+import {
+  Button,
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+  Input,
+} from '@gosilex/ui'
 import { useForm } from '@tanstack/react-form'
 import { useQueryClient } from '@tanstack/react-query'
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { toast } from 'sonner'
-import { accountErrorMessage } from '../lib/account-errors'
+import { profileErrorMessage } from '../lib/account-errors'
 import { apiFetch } from '../lib/api'
 import { meQueryKey, useMe } from '../lib/auth'
 import { useLocale } from '../lib/locale'
@@ -13,10 +21,11 @@ export function AccountProfileForm() {
   const { m } = useLocale()
   const me = useMe()
   const qc = useQueryClient()
+  const seededRef = useRef(false)
 
   const form = useForm({
     defaultValues: {
-      name: me.data?.name ?? '',
+      name: '',
     },
     validators: {
       onSubmit: ({ value }) => {
@@ -39,16 +48,21 @@ export function AccountProfileForm() {
         await qc.invalidateQueries({ queryKey: meQueryKey })
         toast.success(m.profileSaved)
       } catch (e) {
-        toast.error(m.error, { description: accountErrorMessage(e, m) })
+        toast.error(m.error, { description: profileErrorMessage(e, m) })
       }
     },
   })
 
+  // Seed once when /api/me first resolves — do not overwrite dirty input on refetch.
   useEffect(() => {
-    if (me.data?.name != null) {
-      form.setFieldValue('name', me.data.name)
-    }
-  }, [me.data?.name, form])
+    if (seededRef.current) return
+    if (me.isLoading || me.isFetching) return
+    if (me.data === undefined && !me.isError) return
+    form.setFieldValue('name', me.data?.name ?? '')
+    seededRef.current = true
+  }, [me.data, me.isLoading, me.isFetching, me.isError, form])
+
+  const hintId = 'profile-name-hint'
 
   return (
     <form
@@ -61,25 +75,31 @@ export function AccountProfileForm() {
     >
       <FieldGroup>
         <form.Field name="name">
-          {(field) => (
-            <Field data-invalid={field.state.meta.errors.length > 0}>
-              <FieldLabel htmlFor={field.name}>{m.displayName}</FieldLabel>
-              <Input
-                id={field.name}
-                name={field.name}
-                type="text"
-                autoComplete="name"
-                maxLength={80}
-                value={field.state.value}
-                onBlur={field.handleBlur}
-                onChange={(ev) => field.handleChange(ev.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">{m.displayNameHint}</p>
-              {field.state.meta.errors[0] ? (
-                <FieldError>{String(field.state.meta.errors[0])}</FieldError>
-              ) : null}
-            </Field>
-          )}
+          {(field) => {
+            const err = field.state.meta.errors[0]
+            const invalid = Boolean(err)
+            const errId = `${field.name}-error`
+            const describedBy = invalid ? `${hintId} ${errId}` : hintId
+            return (
+              <Field data-invalid={invalid || undefined}>
+                <FieldLabel htmlFor={field.name}>{m.displayName}</FieldLabel>
+                <Input
+                  id={field.name}
+                  name={field.name}
+                  type="text"
+                  autoComplete="name"
+                  maxLength={80}
+                  value={field.state.value}
+                  onBlur={field.handleBlur}
+                  onChange={(ev) => field.handleChange(ev.target.value)}
+                  aria-invalid={invalid || undefined}
+                  aria-describedby={describedBy}
+                />
+                <FieldDescription id={hintId}>{m.displayNameHint}</FieldDescription>
+                {invalid ? <FieldError id={errId}>{String(err)}</FieldError> : null}
+              </Field>
+            )
+          }}
         </form.Field>
       </FieldGroup>
       <form.Subscribe selector={(s) => s.isSubmitting}>

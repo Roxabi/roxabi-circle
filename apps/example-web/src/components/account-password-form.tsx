@@ -2,7 +2,7 @@ import { Button, Field, FieldError, FieldGroup, FieldLabel, Input } from '@gosil
 import { useForm } from '@tanstack/react-form'
 import { useState } from 'react'
 import { toast } from 'sonner'
-import { accountErrorMessage } from '../lib/account-errors'
+import { changePasswordErrorMessage } from '../lib/account-errors'
 import { apiFetch } from '../lib/api'
 import { useLocale } from '../lib/locale'
 import { changePasswordSchema } from '../lib/schemas'
@@ -49,7 +49,7 @@ export function AccountPasswordForm() {
         formApi.reset()
         setRevokeOtherSessions(true)
       } catch (e) {
-        const msg = accountErrorMessage(e, m)
+        const msg = changePasswordErrorMessage(e, m)
         toast.error(m.error, { description: msg })
         // Keep current; clear new+confirm only (spec edge policy).
         formApi.setFieldValue('newPassword', '')
@@ -69,61 +69,76 @@ export function AccountPasswordForm() {
     >
       <FieldGroup>
         <form.Field name="currentPassword">
-          {(field) => (
-            <Field data-invalid={field.state.meta.errors.length > 0}>
-              <FieldLabel htmlFor={field.name}>{m.changePasswordCurrent}</FieldLabel>
-              <Input
-                id={field.name}
-                name={field.name}
-                type="password"
-                autoComplete="current-password"
-                value={field.state.value}
-                onBlur={field.handleBlur}
-                onChange={(ev) => field.handleChange(ev.target.value)}
-              />
-              {field.state.meta.errors[0] ? (
-                <FieldError>{String(field.state.meta.errors[0])}</FieldError>
-              ) : null}
-            </Field>
-          )}
+          {(field) => {
+            const err = field.state.meta.errors[0]
+            const invalid = Boolean(err)
+            const errId = `${field.name}-error`
+            return (
+              <Field data-invalid={invalid || undefined}>
+                <FieldLabel htmlFor={field.name}>{m.changePasswordCurrent}</FieldLabel>
+                <Input
+                  id={field.name}
+                  name={field.name}
+                  type="password"
+                  autoComplete="current-password"
+                  value={field.state.value}
+                  onBlur={field.handleBlur}
+                  onChange={(ev) => field.handleChange(ev.target.value)}
+                  aria-invalid={invalid || undefined}
+                  aria-describedby={invalid ? errId : undefined}
+                />
+                {invalid ? <FieldError id={errId}>{String(err)}</FieldError> : null}
+              </Field>
+            )
+          }}
         </form.Field>
         <form.Field name="newPassword">
-          {(field) => (
-            <Field data-invalid={field.state.meta.errors.length > 0}>
-              <FieldLabel htmlFor={field.name}>{m.changePasswordNew}</FieldLabel>
-              <Input
-                id={field.name}
-                name={field.name}
-                type="password"
-                autoComplete="new-password"
-                value={field.state.value}
-                onBlur={field.handleBlur}
-                onChange={(ev) => field.handleChange(ev.target.value)}
-              />
-              {field.state.meta.errors[0] ? (
-                <FieldError>{String(field.state.meta.errors[0])}</FieldError>
-              ) : null}
-            </Field>
-          )}
+          {(field) => {
+            const err = field.state.meta.errors[0]
+            const invalid = Boolean(err)
+            const errId = `${field.name}-error`
+            return (
+              <Field data-invalid={invalid || undefined}>
+                <FieldLabel htmlFor={field.name}>{m.changePasswordNew}</FieldLabel>
+                <Input
+                  id={field.name}
+                  name={field.name}
+                  type="password"
+                  autoComplete="new-password"
+                  value={field.state.value}
+                  onBlur={field.handleBlur}
+                  onChange={(ev) => field.handleChange(ev.target.value)}
+                  aria-invalid={invalid || undefined}
+                  aria-describedby={invalid ? errId : undefined}
+                />
+                {invalid ? <FieldError id={errId}>{String(err)}</FieldError> : null}
+              </Field>
+            )
+          }}
         </form.Field>
         <form.Field name="confirm">
-          {(field) => (
-            <Field data-invalid={field.state.meta.errors.length > 0}>
-              <FieldLabel htmlFor={field.name}>{m.changePasswordConfirm}</FieldLabel>
-              <Input
-                id={field.name}
-                name={field.name}
-                type="password"
-                autoComplete="new-password"
-                value={field.state.value}
-                onBlur={field.handleBlur}
-                onChange={(ev) => field.handleChange(ev.target.value)}
-              />
-              {field.state.meta.errors[0] ? (
-                <FieldError>{String(field.state.meta.errors[0])}</FieldError>
-              ) : null}
-            </Field>
-          )}
+          {(field) => {
+            const err = field.state.meta.errors[0]
+            const invalid = Boolean(err)
+            const errId = `${field.name}-error`
+            return (
+              <Field data-invalid={invalid || undefined}>
+                <FieldLabel htmlFor={field.name}>{m.changePasswordConfirm}</FieldLabel>
+                <Input
+                  id={field.name}
+                  name={field.name}
+                  type="password"
+                  autoComplete="new-password"
+                  value={field.state.value}
+                  onBlur={field.handleBlur}
+                  onChange={(ev) => field.handleChange(ev.target.value)}
+                  aria-invalid={invalid || undefined}
+                  aria-describedby={invalid ? errId : undefined}
+                />
+                {invalid ? <FieldError id={errId}>{String(err)}</FieldError> : null}
+              </Field>
+            )
+          }}
         </form.Field>
       </FieldGroup>
 

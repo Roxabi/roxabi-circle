@@ -29,6 +29,17 @@ function sessionMutation(cookie: string): Record<string, string> {
   }
 }
 
+function assertNoPasswordMaterial(text: string, ...plaintexts: string[]) {
+  const lower = text.toLowerCase()
+  for (const p of plaintexts) {
+    expect(lower).not.toContain(p.toLowerCase())
+  }
+  expect(text).not.toMatch(/"password"\s*:/)
+  expect(text).not.toMatch(/"currentPassword"\s*:/)
+  expect(text).not.toMatch(/"newPassword"\s*:/)
+  expect(text).not.toMatch(/passwordHash|password_hash/i)
+}
+
 async function seedEnv() {
   const app = createApp()
   const env = createMemoryEnv(BA_ENV)
@@ -70,11 +81,10 @@ describe('account self-service (B-account #60)', () => {
     expect(res.status).toBe(200)
     const body = (await res.json()) as { name?: string; email?: string; subject: string }
     expect(body.email).toBe('staff@gosilex.local')
-    expect(typeof body.name).toBe('string')
-    expect(body.name!.length).toBeGreaterThan(0)
+    expect(body.name).toBe('Staff Agent')
   })
 
-  it('SC1/SC9: change-password happy path; no password fields in response', async () => {
+  it('SC1/SC9: change-password happy path; old dies; no password fields in response', async () => {
     const { app, env } = await seedEnv()
     const email = 'solo@gosilex.local'
     const cookie = await signIn(app, env, email, TENANCY_PASSWORD)
@@ -95,11 +105,7 @@ describe('account self-service (B-account #60)', () => {
     )
     expect(res.status, `change-password → ${res.status}`).toBeLessThan(400)
     const text = await res.text()
-    // Secret hygiene: response must not echo plaintext passwords or hashes as fields.
-    expect(text.toLowerCase()).not.toContain(TENANCY_PASSWORD.toLowerCase())
-    expect(text.toLowerCase()).not.toContain(newPassword.toLowerCase())
-    expect(text).not.toMatch(/"password"\s*:/)
-    expect(text).not.toMatch(/passwordHash|password_hash/i)
+    assertNoPasswordMaterial(text, TENANCY_PASSWORD, newPassword)
 
     // Login with new password works
     const loginNew = await app.request(
@@ -112,11 +118,24 @@ describe('account self-service (B-account #60)', () => {
       env,
     )
     expect(loginNew.status).toBeLessThan(400)
+
+    // Old password no longer works
+    const loginOld = await app.request(
+      '/api/auth/sign-in/email',
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', Origin: ORIGIN },
+        body: JSON.stringify({ email, password: TENANCY_PASSWORD }),
+      },
+      env,
+    )
+    expect(loginOld.status).toBeGreaterThanOrEqual(400)
   })
 
-  it('SC3/SC9: wrong current password fails without leaking secrets', async () => {
+  it('SC3/SC9: wrong current password fails; credential unchanged; no secret leak', async () => {
     const { app, env } = await seedEnv()
-    const cookie = await signIn(app, env, 'staff@gosilex.local')
+    const email = 'staff@gosilex.local'
+    const cookie = await signIn(app, env, email)
     const wrongCurrent = 'definitely-not-the-password'
     const attemptedNew = 'another-new-password-xx'
 
@@ -135,9 +154,31 @@ describe('account self-service (B-account #60)', () => {
     )
     expect(res.status).toBeGreaterThanOrEqual(400)
     const text = await res.text()
-    expect(text.toLowerCase()).not.toContain(wrongCurrent.toLowerCase())
-    expect(text.toLowerCase()).not.toContain(attemptedNew.toLowerCase())
-    expect(text).not.toMatch(/passwordHash|password_hash/i)
+    assertNoPasswordMaterial(text, wrongCurrent, attemptedNew)
+
+    // Original password still works
+    const stillOld = await app.request(
+      '/api/auth/sign-in/email',
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', Origin: ORIGIN },
+        body: JSON.stringify({ email, password: TENANCY_PASSWORD }),
+      },
+      env,
+    )
+    expect(stillOld.status).toBeLessThan(400)
+
+    // Attempted new password must not work
+    const notNew = await app.request(
+      '/api/auth/sign-in/email',
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', Origin: ORIGIN },
+        body: JSON.stringify({ email, password: attemptedNew }),
+      },
+      env,
+    )
+    expect(notNew.status).toBeGreaterThanOrEqual(400)
   })
 
   it('SC4/SC5: update-user name then me reflects it', async () => {
@@ -156,9 +197,7 @@ describe('account self-service (B-account #60)', () => {
     )
     expect(upd.status, `update-user → ${upd.status}`).toBeLessThan(400)
     const updText = await upd.text()
-    // May include user object — must not include password material
-    expect(updText).not.toMatch(/"password"\s*:/)
-    expect(updText).not.toMatch(/passwordHash/i)
+    assertNoPasswordMaterial(updText)
 
     const me = await app.request('/api/me', { headers: { cookie } }, env)
     expect(me.status).toBe(200)
