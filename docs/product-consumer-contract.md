@@ -228,7 +228,37 @@ git remote set-url --push upstream no_push
 # LEFTHOOK=0 git push upstream
 ```
 
-Kit pre-push runs `deny-upstream-push.sh`: on a **product** repo it blocks remote `upstream` or any URL containing `silex-boilerplate`. On the **kit** itself (origin = boilerplate) it is a no-op.
+### Bounce topology
+
+| Remote | Role |
+|--------|------|
+| **`origin`** | **Product** repo only (where you push) |
+| **`upstream`** | **Immediate parent only** (kit, or private chassis in a multi-hop bounce) — **fetch-only** |
+| **`pushUrl`** | Must be `no_push` on the parent remote |
+
+Kit pre-push runs `scripts/deny-upstream-push.sh` (lefthook; **do not dual-edit** the script in the product):
+
+| Context | Behavior |
+|---------|----------|
+| **Kit** (`origin` URL contains `silex-boilerplate`) | **No-op** — maintainers may push any remote |
+| **Product** | Denies remote name **`upstream`**, any URL containing **`silex-boilerplate`**, and any **extended** URL substring (below) |
+
+**Multi-hop / private chassis** (product extends without forking the kit script):
+
+```bash
+# Runtime (session / CI / direnv) — comma-separated, trimmed; prefer repo-unique slugs
+export DENY_UPSTREAM_URL_SUBSTRINGS=my-private-chassis
+
+# Or commit product-owned config (zero-edit free path):
+# docs/product/deny-upstream.json
+# { "urlSubstrings": ["my-private-chassis"] }
+```
+
+Do **not** hardcode product chassis names into kit defaults. Prefer full chassis repo slugs (not generic tokens like `api`).
+
+**Client-side only:** this hook is UX / footgun prevention. `LEFTHOOK=0` and `git push --no-verify` still bypass it. Real kit integrity = **GitHub write ACLs** (product has no write to boilerplate / chassis). Proof: `bun run test:deny-upstream` (**CP-DENY** in [`testing.md`](./testing.md)).
+
+**Misconfiguration:** if product `origin` still points at the kit, the script stays in kit no-op mode — fix remotes (topology table above).
 
 ---
 
@@ -250,6 +280,8 @@ apps/<product>-web/
 apps/<product>-mcp/
 docs/product/                              # AGENTS, frames, zero-edit-exceptions.json, kit-baseline
 docs/product/kit-baseline                  # full SHA of last-merged kit tip (required for Actions zero-edit)
+docs/product/deny-upstream.json            # multi-hop URL substrings (optional; see remotes §)
+docs/product/zero-edit-exceptions.json     # last-resort dual-edit exceptions
 .github/workflows/product-*.yml
 scripts/product/                           # product helpers; not required by kit
 apps/<product>-web/src/theme/*.css         # design token overrides

@@ -70,9 +70,36 @@ git checkout -b main upstream/main   # or merge into existing main
 bun install
 ```
 
-## 2. Deny push kit (already in kit)
+## 2. Deny push kit / bounce parents (already in kit)
 
-Lefthook pre-push runs `scripts/deny-upstream-push.sh` — no-op when `origin` is the boilerplate; **blocks** product → kit push.
+Lefthook pre-push runs `scripts/deny-upstream-push.sh` — **do not dual-edit** this file or `lefthook.yml`.
+
+| Your setup | What happens |
+|------------|----------------|
+| **Kit** (`origin` = boilerplate) | Script is a **no-op** |
+| **Product** | Blocks push to remote named **`upstream`**, any URL containing **`silex-boilerplate`**, and extended chassis substrings |
+
+**Remotes (bounce topology):**
+
+- **`origin`** → product (only remote you push to)
+- **`upstream`** → **immediate parent only** (kit, or a private chassis in multi-hop) with `git remote set-url --push upstream no_push`
+- Never `git push upstream` (even with `LEFTHOOK=0` — that bypass is process debt, not a feature)
+
+**Multi-hop / private chassis** — extend the denylist **without** forking the kit script:
+
+```bash
+# Env (comma-separated; use a repo-unique slug, not a generic token)
+export DENY_UPSTREAM_URL_SUBSTRINGS=my-private-chassis
+
+# Or product file (safe under docs/product/):
+# docs/product/deny-upstream.json
+# { "urlSubstrings": ["my-private-chassis"] }
+```
+
+Full contract: [`product-consumer-contract.md` — Git remotes](../product-consumer-contract.md#git-remotes-every-product-clone).  
+Proof in kit CI: `bun run test:deny-upstream` (**CP-DENY**).
+
+**Honesty:** the hook is **client-side UX**. Real integrity = GitHub write ACLs on kit/chassis. If product `origin` still points at the kit, deny stays a no-op — fix remotes first.
 
 ## 3. Product surface (only new files)
 
