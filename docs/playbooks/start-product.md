@@ -124,7 +124,7 @@ Until set: merge-on-green is **evaluate-only** (job green + manual merge). Do **
 - prove CF dashboard secrets
 - prove production readiness
 
-**Product owns its env inventory** (document in product app / future product-validate — not this kit gate). See [`docs/testing.md`](../testing.md) **CP-ENV**.
+**Product owns its env inventory** (document in product app / product-validate — not this kit gate). See [`docs/testing.md`](../testing.md) **CP-ENV**.
 
 ## 5. Foreign org — first product outside `go-silex`
 
@@ -154,14 +154,36 @@ git add docs/product/kit-baseline
 
 ## 7. Gates (product clone)
 
+Two bars — do not confuse them:
+
+| Bar | Command / workflow | What it proves |
+|---|---|---|
+| **Kit bar** | `bun run validate:full` (pre-push + kit CI) | Packages + `example-*` + banlist/extract/zero-edit/env:check — **not** product apps |
+| **Product bar** | `product-validate` (script + product CI) | Your `apps/<product>-*` typecheck / test / build |
+
 ```bash
+# --- Kit bar (always; still required on product clones) ---
 bun run zero-edit          # product mode: kit zones clean vs upstream/main
 bun run banlist            # no share métier strings in packages
-bun run validate:full      # same bar as kit (env:check still example-api only)
-# From kit: bash scripts/dogfood-zero-edit.sh /path/to/product
+bun run validate:full      # kit bar only (env:check still example-api only)
+
+# --- Product bar (required once apps/<product>-* exist) ---
+# 1. Copy templates (do not dual-edit kit ci.yml / test-coverage.sh):
+#    docs/templates/product-validate.example.sh  → scripts/product/validate.sh
+#      (or apps/<product>-api/scripts/product-validate.sh)
+#    docs/templates/product-ci.example.yml       → .github/workflows/product-ci.yml
+# 2. Replace <product> placeholders; run locally then in CI:
+bash scripts/product/validate.sh
 ```
 
+Templates (kit-owned examples only — never live under kit `.github/workflows/`):
+
+- [`docs/templates/product-validate.example.sh`](../templates/product-validate.example.sh)
+- [`docs/templates/product-ci.example.yml`](../templates/product-ci.example.yml)
+
 `zero-edit` in **kit mode** only validates config; in a **product** clone with `upstream` remote it diffs kit zones against `upstream/main`.
+
+**False green:** kit `validate:full` green does **not** mean product apps are typed/tested. Wire product-validate when `apps/<product>-*` exist.
 
 ## 8. Before first deploy
 
@@ -190,6 +212,8 @@ git rev-parse upstream/main | tr -d '\n' > docs/product/kit-baseline
 - [ ] No kit path diffs intentional (or time-boxed exception in `docs/product/zero-edit-exceptions.json`)
 - [ ] `docs/product/kit-baseline` pinned to last-merged kit tip
 - [ ] `bun run zero-edit` green
+- [ ] Kit bar: `bun run validate:full` green (still required; does **not** replace product bar)
+- [ ] **Product bar (required when `apps/<product>-*` exist):** copy [`product-validate.example.sh`](../templates/product-validate.example.sh) + [`product-ci.example.yml`](../templates/product-ci.example.yml) into allowed paths (`scripts/product/` or app scripts + `.github/workflows/product-ci.yml`); replace placeholders; CI runs product-validate
 - [ ] **Repo-level** CI App: `CI_APP_ID` + `CI_APP_PRIVATE_KEY` set (`gh variable/secret list -R` shows them) — Free private cannot rely on org alone
 - [ ] Smoke: open a PR → Merge on Green log has non-empty `APP_ID` (mint OK) **or** accept evaluate-only + human merge
 - [ ] Product env inventory owned by product (do not trust kit `env:check` for product)
@@ -202,8 +226,10 @@ git rev-parse upstream/main | tr -d '\n' > docs/product/kit-baseline
 | Doc | Role |
 |---|---|
 | [`docs/product-consumer-contract.md`](../product-consumer-contract.md) | Zero-edit contract |
+| [`docs/templates/product-validate.example.sh`](../templates/product-validate.example.sh) | Copyable product bar script |
+| [`docs/templates/product-ci.example.yml`](../templates/product-ci.example.yml) | Copyable product CI workflow |
 | [`docs/gosilex-ci-app-setup.md`](../gosilex-ci-app-setup.md) | App install + Free private secrets |
-| [`docs/testing.md`](../testing.md) | Local gates / CP-ENV |
+| [`docs/testing.md`](../testing.md) | Local gates / kit vs product bar / CP-ENV |
 | [`docs/architecture/adr/0001-primary-axis-packages-compose-apps.md`](../architecture/adr/0001-primary-axis-packages-compose-apps.md) | Axis packages → compose apps |
 | `config/zero-edit-zones.json` | Protected kit paths |
 | [`docs/staging-examples.md`](../staging-examples.md) | Staging deploy examples |

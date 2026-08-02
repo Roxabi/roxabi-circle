@@ -37,10 +37,20 @@ merge-on-green (label reviewed + checks)
 
 | Layer | Role | Cost expectation |
 |---|---|---|
-| **Lefthook pre-push** | **Primary quality gate** — `validate:full` | Accept wall-clock; fix here |
-| **CI** (`validate-full` job) | **Secondary** — same `validate:full` if hooks skipped or local env lied | Should almost always be green if pre-push ran |
+| **Lefthook pre-push** | **Primary kit bar** — `validate:full` | Accept wall-clock; fix here |
+| **CI** (`validate-full` job) | **Secondary kit bar** — same `validate:full` if hooks skipped or local env lied | Should almost always be green if pre-push ran |
+| **Product CI** (`product-validate`) | **Product bar** — typecheck/test/build for `apps/<product>-*` via **copied** templates ([`product-validate.example.sh`](./templates/product-validate.example.sh), [`product-ci.example.yml`](./templates/product-ci.example.yml)) | Product repos only; not kit CI |
 | **Secret scan** | Orthogonal security | Always |
 
+**Kit bar vs product bar**
+
+| Gate | Scope | Who runs it |
+|---|---|---|
+| `bun run validate` | lint · typecheck · test · banlist · extract · zero-edit · env:check on **kit** packages / examples | kit + product clones (kit zones) |
+| `bun run validate:full` | kit bar + coverage floors · license · build:kit · smoke:mcp | pre-push + kit CI — **does not** prove product apps are tested |
+| product-validate / product-ci | product packages under `apps/<product>-*` | product repo only (copy templates; never dual-edit kit `ci.yml` / `test-coverage.sh`) |
+
+False green: product with real apps and only kit `validate:full` green is **not** product-tested.
 ### Commands
 
 ```bash
@@ -52,10 +62,14 @@ bun run env:check              # schema ↔ .dev.vars.example (DX only)
 bun run i18n:check             # messages contract (also in turbo test)
 bun run license:check          # dependency SPDX allowlist (UNKNOWN = warn)
 bun run test:coverage          # floors + HTML under coverage/<pkg>/
-bun run validate:full          # lint · typecheck · banlist · extract · zero-edit · env · test:coverage · license · build:kit · smoke:mcp (= pre-push; CI same)
+bun run validate:full          # kit bar (= pre-push; kit CI same) — not product apps
 
-# Before opening a PR (explicit habit even if hooks installed):
+# Before opening a PR on the kit (explicit habit even if hooks installed):
 bun run validate:full
+
+# Product bar (product repos only — after copying templates):
+# bash scripts/product/validate.sh
+# See docs/templates/product-validate.example.sh + product-ci.example.yml
 ```
 
 ### Non-negotiable local discipline
