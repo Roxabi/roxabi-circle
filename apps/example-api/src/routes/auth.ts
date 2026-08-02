@@ -32,7 +32,9 @@ authRoutes.all('/api/auth/*', async (c) => {
     throw AppError.notFound('Organization mutations use kit APIs or seed (Phase A)')
   }
   if (BA_SENSITIVE.test(c.req.path)) {
-    assertRateLimit(`ba-auth:${clientIp(c.req)}`, LOGIN_LIMIT, LOGIN_WINDOW_MS)
+    const db = c.get('db')
+    if (!db) throw AppError.internal('db not bound — withDb middleware required')
+    await assertRateLimit(db, `ba-auth:${clientIp(c.req)}`, LOGIN_LIMIT, LOGIN_WINDOW_MS)
   }
   return auth.handler(c.req.raw)
 })

@@ -13,6 +13,7 @@ import { assertRateLimit } from '../lib/rate-limit'
 import * as orgsRepo from '../repos/orgs'
 import * as platformRolesRepo from '../repos/platform-roles'
 import * as usersRepo from '../repos/users'
+import * as auditService from './audit'
 import * as orgRolesService from './org-roles'
 import {
   newMemberId,
@@ -47,14 +48,19 @@ export type CreateAdminUserInput = {
   emailPort: EmailPort
   /** Optional path after set-password (safe relative only). */
   afterSetPasswordPath?: string
+  requestId?: string
 }
-
 /**
  * Create BA user (no clear password), optional platform role + memberships, welcome token + email.
  * Email is sent last; failure compensates by cascade-deleting the new user.
  */
 export async function createAdminUser(db: Db, input: CreateAdminUserInput) {
-  assertRateLimit(`admin-user-create:${input.actorUserId}`, CREATE_LIMIT, CREATE_WINDOW_MS)
+  await assertRateLimit(
+    db,
+    `admin-user-create:${input.actorUserId}`,
+    CREATE_LIMIT,
+    CREATE_WINDOW_MS,
+  )
 
   if (input.actorPlatformRole !== 'super_admin' && input.actorPlatformRole !== 'staff') {
     throw AppError.forbidden('Platform role required')
@@ -180,6 +186,15 @@ export async function createAdminUser(db: Db, input: CreateAdminUserInput) {
     }
   }
 
+  await auditService.emitAdminUserProvisioned(db, {
+    actorUserId: input.actorUserId,
+    userId,
+    email,
+    platformRole,
+    memberships: createdMemberships,
+    requestId: input.requestId,
+  })
+
   return {
     user: {
       id: userId,
@@ -228,7 +243,12 @@ export async function resendWelcome(
     emailPort: EmailPort
   },
 ) {
-  assertRateLimit(`admin-user-resend:${input.actorUserId}`, RESEND_LIMIT, RESEND_WINDOW_MS)
+  await assertRateLimit(
+    db,
+    `admin-user-resend:${input.actorUserId}`,
+    RESEND_LIMIT,
+    RESEND_WINDOW_MS,
+  )
 
   if (input.actorPlatformRole !== 'super_admin' && input.actorPlatformRole !== 'staff') {
     throw AppError.forbidden('Platform role required')

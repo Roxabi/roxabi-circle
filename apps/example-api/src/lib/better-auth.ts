@@ -70,6 +70,40 @@ export function createBetterAuth(env: Env, baseURL: string): KitBetterAuth {
       provider: 'sqlite',
       schema: betterAuthDrizzleSchema,
     }),
+    // B-auth-harden #61 — first successful session → audit first_login (idempotent).
+    databaseHooks: {
+      session: {
+        create: {
+          after: async (session) => {
+            try {
+              const { createDb } = await import('@gosilex/db')
+              const { schema: kitSchema } = await import('../db/schema')
+              const { tryFirstLogin } = await import('../services/audit')
+              const userId = session.userId
+              if (!userId) return
+              const kitDb = createDb(env.DB, kitSchema)
+              // method is generic "session" — BA hook has no request IP/path context
+              await tryFirstLogin(kitDb, {
+                userId,
+                actorUserId: userId,
+                method: 'session',
+              })
+            } catch (err) {
+              // best-effort — never block session mint; still surface for ops
+              console.error(
+                JSON.stringify({
+                  level: 'error',
+                  msg: 'audit_append_failed',
+                  action: 'first_login',
+                  requestId: 'session_hook',
+                  error: err instanceof Error ? err.message : String(err),
+                }),
+              )
+            }
+          },
+        },
+      },
+    },
     emailAndPassword: {
       enabled: true,
       // Default: no open registration (HMAC seed-only parity). Opt-in via ALLOW_PUBLIC_SIGNUP=true.

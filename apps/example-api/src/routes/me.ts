@@ -62,7 +62,8 @@ meRoutes.post('/api/keys', async (c) => {
     throw AppError.forbidden('API key mint requires a session cookie')
   }
   const subject = c.get('subject')!
-  assertRateLimit(`mint:${subject}`, MINT_LIMIT, MINT_WINDOW_MS)
+  const db = c.get('db')!
+  await assertRateLimit(db, `mint:${subject}`, MINT_LIMIT, MINT_WINDOW_MS)
 
   const body = z
     .object({
@@ -76,8 +77,6 @@ meRoutes.post('/api/keys', async (c) => {
 
   const orgFromHeader = c.req.header('x-org-id')?.trim()
   const organizationId = body.data.organizationId?.trim() || orgFromHeader || null
-
-  const db = c.get('db')!
   const minted = await authService.mintApiKey(db, subject, {
     name: body.data.name,
     organizationId,

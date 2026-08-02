@@ -22,8 +22,8 @@ feedbackRoutes.post('/api/report', async (c) => {
     throw AppError.forbidden('Feedback report requires a session cookie')
   }
   const subject = c.get('subject')!
-  assertRateLimit(`feedback:${subject}`, FEEDBACK_LIMIT, FEEDBACK_WINDOW_MS)
   const db = c.get('db')!
+  await assertRateLimit(db, `feedback:${subject}`, FEEDBACK_LIMIT, FEEDBACK_WINDOW_MS)
   await modulesService.ensureKitModules(db)
   const spark = await modulesService.getFeedbackSparkRuntime(db)
 

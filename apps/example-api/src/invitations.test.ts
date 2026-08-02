@@ -1,8 +1,8 @@
 import { createDb } from '@gosilex/db'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { createApp } from './app'
 import { schema } from './db/schema'
-import { resetRateLimits } from './lib/rate-limit'
+
 import { seedDemoDatabase } from './seed/seed-db'
 import { TENANCY_PASSWORD } from './seed/tenancy-data'
 import { createMemoryEnv } from './test/memory-env'
@@ -53,10 +53,6 @@ async function signIn(
   expect(cookie).toBeTruthy()
   return cookie!
 }
-
-beforeEach(() => {
-  resetRateLimits()
-})
 
 describe('org invitations (B3 S2)', () => {
   it('S3: invite unknown email creates BA user shell + pending invite', async () => {
