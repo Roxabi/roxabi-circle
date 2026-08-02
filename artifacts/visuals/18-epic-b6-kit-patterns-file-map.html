@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>#18 File map — V1 @gosilex/api-client</title>
+  <style>
+    :root { --bg:#0b0f14; --card:#141b24; --border:#243041; --text:#e7eef7; --muted:#8b9bb0; --accent:#5b9fd4; --pkg:#6b8cae; --app:#3d9a6a; }
+    * { box-sizing: border-box; }
+    body { margin:0; font:14px/1.45 system-ui,sans-serif; background:var(--bg); color:var(--text); padding:2rem; }
+    h1 { font-size:1.25rem; font-weight:600; margin:0 0 .25rem; }
+    p.sub { color:var(--muted); margin:0 0 1.5rem; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:1rem; max-width:1000px; }
+    .card { border:1px solid var(--border); border-radius:12px; background:var(--card); padding:1rem; }
+    .card h2 { margin:0 0 .5rem; font-size:.8rem; letter-spacing:.06em; text-transform:uppercase; color:var(--accent); }
+    .card.pkg h2 { color: var(--pkg); }
+    .card.app h2 { color: var(--app); }
+    ul { margin:0; padding-left:1.1rem; color:var(--muted); font-size:.9rem; }
+    code { color:var(--text); font-size:.85rem; }
+  </style>
+</head>
+<body>
+  <h1>#18 — V1 file × function map</h1>
+  <p class="sub">Epic B6 · package promote + example-web migrate</p>
+  <div class="grid">
+    <div class="card pkg">
+      <h2>packages/api-client</h2>
+      <ul>
+        <li><code>ApiError</code></li>
+        <li><code>createApiClient</code> / <code>apiFetch</code></li>
+        <li><code>apiErrorToMessage</code></li>
+        <li><code>index.test.ts</code></li>
+      </ul>
+    </div>
+    <div class="card pkg">
+      <h2>packages/types</h2>
+      <ul>
+        <li><code>ApiErrorBody</code> · <code>ErrorCodeName</code> (dep only)</li>
+      </ul>
+    </div>
+    <div class="card app">
+      <h2>apps/example-web</h2>
+      <ul>
+        <li><code>lib/api.ts</code> — thin wrap / re-export</li>
+        <li><code>lib/api.test.ts</code> — contract tests</li>
+        <li>call sites import via lib/api</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h2>docs / map</h2>
+      <ul>
+        <li>README package map row</li>
+        <li>packages/api-client README</li>
+      </ul>
+    </div>
+  </div>
+</body>
+</html>
