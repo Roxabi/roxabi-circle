@@ -13,6 +13,7 @@
     "test:e2e:design-system": "bun scripts/e2e-design-system.mjs"
   },
   "dependencies": {
+    "@gosilex/api-client": "workspace:*",
     "@gosilex/auth": "workspace:*",
     "@gosilex/feedback": "workspace:*",
     "@gosilex/i18n": "workspace:*",

@@ -85,6 +85,7 @@ Also: first login still **lazy-seeds users** via `ensureDemoUsers` if you skip `
 |---|---|
 | `@gosilex/config` | Shared `tsconfig.base.json` + Vitest coverage presets |
 | `@gosilex/types` | Error codes + `ApiErrorBody` envelope |
+| `@gosilex/api-client` | Browser `apiFetch` + `ApiError` (kit envelope, credentials include) |
 | `@gosilex/core` | `AppError`, `toApiErrorBody`, `requestId` |
 | `@gosilex/db` | Drizzle D1 factory (schemas stay in apps) |
 | `@gosilex/storage` | R2 put/get/delete + safe key join (`demo/` prefix in example) |
