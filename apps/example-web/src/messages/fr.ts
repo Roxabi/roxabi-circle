@@ -80,7 +80,24 @@ export type Messages = {
   cancel: string
   confirmDelete: string
   noteCreated: string
+  itemCreated: string
+  itemUpdated: string
+  itemDeleted: string
   noteDeleted: string
+  itemsTitle: string
+  itemsDescription: string
+  itemCreate: string
+  itemEdit: string
+  itemCode: string
+  itemLabel: string
+  itemDescription: string
+  itemActive: string
+  itemActiveYes: string
+  itemActiveNo: string
+  itemSearchPlaceholder: string
+  itemEmptyTitle: string
+  itemEmptyDescription: string
+  itemDeleteConfirmTitle: string
   keyMinted: string
   keyRevoked: string
   keysList: string
@@ -94,6 +111,7 @@ export type Messages = {
   copied: string
   navDashboard: string
   navNotes: string
+  navItems: string
   navKeys: string
   navSettings: string
   navDesignSystem: string
@@ -355,7 +373,24 @@ export const fr: Messages = {
   cancel: 'Annuler',
   confirmDelete: 'Supprimer cette note ?',
   noteCreated: 'Note créée',
+  itemCreated: 'Élément créé',
+  itemUpdated: 'Élément mis à jour',
+  itemDeleted: 'Élément supprimé',
   noteDeleted: 'Note supprimée',
+  itemsTitle: 'MasterData (démo)',
+  itemsDescription: 'Entité référentielle demo_items — pattern kit copiable (CRUD + ownership).',
+  itemCreate: 'Nouvel élément',
+  itemEdit: 'Modifier',
+  itemCode: 'Code',
+  itemLabel: 'Libellé',
+  itemDescription: 'Description',
+  itemActive: 'Actif',
+  itemActiveYes: 'Oui',
+  itemActiveNo: 'Non',
+  itemSearchPlaceholder: 'Filtrer code / libellé…',
+  itemEmptyTitle: 'Aucun élément',
+  itemEmptyDescription: 'Créez une entrée catalogue pour dogfooder le pattern MasterData.',
+  itemDeleteConfirmTitle: 'Supprimer cet élément ?',
   keyMinted: 'Clé API générée',
   keyRevoked: 'Clé révoquée',
   keysList: 'Clés actives',
@@ -370,6 +405,7 @@ export const fr: Messages = {
   copied: 'Copié dans le presse-papiers',
   navDashboard: 'Dashboard',
   navNotes: 'Notes',
+  navItems: 'Catalogue',
   navKeys: 'Clés API',
   navSettings: 'Paramètres',
   navDesignSystem: 'Design system',

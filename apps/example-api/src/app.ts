@@ -17,6 +17,7 @@ import { feedbackRoutes } from './routes/feedback'
 import { healthRoutes } from './routes/health'
 import { integrationsRoutes } from './routes/integrations'
 import { invitationsRoutes } from './routes/invitations'
+import { itemsRoutes } from './routes/items'
 import { meRoutes } from './routes/me'
 import { modulesRoutes } from './routes/modules'
 import { notesRoutes } from './routes/notes'
@@ -68,6 +69,7 @@ export function createApp() {
   app.route('/', invitationsRoutes)
   app.route('/', integrationsRoutes)
   app.route('/', notesRoutes)
+  app.route('/', itemsRoutes)
   app.route('/', demoRoutes)
   app.route('/', feedbackRoutes)
 

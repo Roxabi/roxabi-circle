@@ -56,6 +56,38 @@ export const SEED_NOTES: readonly SeedNote[] = [
   },
 ] as const
 
+export type SeedItem = {
+  id: string
+  subject: string
+  code: string
+  label: string
+  description: string
+}
+
+export const SEED_ITEMS: readonly SeedItem[] = [
+  {
+    id: 'item_seed_catalog_a',
+    subject: 'user_demo',
+    code: 'demo-sku',
+    label: 'Demo catalog item',
+    description: 'MasterData pattern seed — /app/items',
+  },
+  {
+    id: 'item_seed_catalog_b',
+    subject: 'user_demo',
+    code: 'demo-sku-2',
+    label: 'Second catalog row',
+    description: 'List filter demo',
+  },
+  {
+    id: 'item_seed_user_b',
+    subject: 'user_b',
+    code: 'user-b-sku',
+    label: 'User B item',
+    description: 'IDOR isolation seed for demo-b',
+  },
+] as const
+
 export const DEMO_EMAIL = SEED_USERS[0]!.email
 export const DEMO_PASSWORD = SEED_USERS[0]!.password
 export const DEMO_EMAIL_B = SEED_USERS[1]!.email
