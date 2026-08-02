@@ -14,7 +14,7 @@ apps/example-web/src/messages/fr.ts  # 560 lines — FR catalog; split by domain
 apps/example-web/src/routes/design-system.tsx  # 1000 lines — DS showcase; split SMELL-P6 quality-audit
 apps/example-web/src/routes/org-members.tsx  # 600 lines — multi-dialog org admin demo
 apps/example-web/src/routes/notes.tsx  # 520 lines — notes CRUD demo; split dialogs if product grows
-packages/email/src/index.ts  # 420 lines — multi-transport factory; split per transport when next consumer lands
+packages/email/src/index.ts  # 450 lines — multi-transport factory + magic-link builder (#59); split per transport when next consumer lands
 packages/feedback/src/react/FeedbackButton.tsx  # 360 lines — FAB + form + remote; split form when product fork customizes
 apps/example-api/src/routes/orgs.ts  # 340 lines — org routes demo
 apps/example-api/src/services/org-roles.ts  # 340 lines — phase-B RBAC service

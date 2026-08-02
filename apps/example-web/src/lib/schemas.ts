@@ -10,6 +10,11 @@ export const forgotPasswordSchema = z.object({
   email: z.string().email(),
 })
 
+/** Magic-link request — email only (B-magic #59). */
+export const magicLinkSchema = z.object({
+  email: z.string().email(),
+})
+
 /** BA default min password length is typically 8. */
 export const resetPasswordSchema = z
   .object({
@@ -39,6 +44,7 @@ export const createNoteSchema = z.object({
 
 export type LoginValues = z.infer<typeof loginSchema>
 export type ForgotPasswordValues = z.infer<typeof forgotPasswordSchema>
+export type MagicLinkValues = z.infer<typeof magicLinkSchema>
 export type ResetPasswordValues = z.infer<typeof resetPasswordSchema>
 export type ChangePasswordValues = z.infer<typeof changePasswordSchema>
 export type ProfileNameValues = z.infer<typeof profileNameSchema>

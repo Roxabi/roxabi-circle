@@ -212,6 +212,16 @@ Escape hatch : Postgres/Hyperdrive si un app dépasse D1 — documenté, pas def
 
 **ADR-0002 (2026-07-30) :** session navigateur = **Better Auth only** (HMAC retiré). Dual-path restant = cookie session **\|** Bearer `sk_`. Pattern : **1 instance auth / request** (bindings) + `SessionPort`.
 
+#### Auth matrix (kit dogfood)
+
+| Mode | Surface | Credential | Notes |
+|------|---------|------------|--------|
+| **Password** | `POST /api/auth/sign-in/email` · `/login` | email + password → **cookie** | default login tab |
+| **Magic link** | `POST /api/auth/sign-in/magic-link` · verify `GET /api/auth/magic-link/verify` · `/login` tab | one-shot email link (TTL **5 min**) → **cookie** | EmailPort template; `disableSignUp` = `!ALLOW_PUBLIC_SIGNUP` (default **off**); no user enumeration |
+| **Forgot / reset** | request-password-reset · reset-password | email link → set password | EmailPort |
+| **API key** | `Authorization: Bearer sk_…` | **no cookie** | MCP / machine; mint after session |
+| OAuth Google/GitHub | — | product later | hors kit default |
+
 ---
 
 ### E. MCP

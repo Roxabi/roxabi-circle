@@ -2,6 +2,7 @@ import { type CfEmailAddress, type SendEmailBinding, sendCf } from './cf'
 import { redactEmailBody } from './redact'
 import { DemoEmail } from './templates/demo'
 import { InviteEmail } from './templates/invite'
+import { MagicLinkEmail } from './templates/magic-link'
 import { ResetPasswordEmail } from './templates/reset-password'
 import { WelcomeSetPasswordEmail } from './templates/welcome-set-password'
 
@@ -78,6 +79,26 @@ export function buildWelcomeSetPasswordEmailText(params: {
   html: string
 } {
   const mail = WelcomeSetPasswordEmail(params)
+  return {
+    to: mail.to,
+    subject: mail.subject,
+    text: mail.text,
+    html: mail.html,
+  }
+}
+
+/** Magic-link sign-in email (kit copy only). */
+export function buildMagicLinkEmailText(params: {
+  to: string
+  magicUrl: string
+  expiresHint?: string
+}): {
+  to: string
+  subject: string
+  text: string
+  html: string
+} {
+  const mail = MagicLinkEmail(params)
   return {
     to: mail.to,
     subject: mail.subject,

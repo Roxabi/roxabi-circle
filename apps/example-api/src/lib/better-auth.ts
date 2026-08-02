@@ -3,9 +3,10 @@
  * Session stack is BA-only (ADR-0002).
  * Organization plugin = tenant spine (ADR-0003).
  */
-import { buildResetPasswordEmailText } from '@gosilex/email'
+import { buildMagicLinkEmailText, buildResetPasswordEmailText } from '@gosilex/email'
 import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
+import { magicLink } from 'better-auth/plugins'
 import { createAccessControl } from 'better-auth/plugins/access'
 import { organization } from 'better-auth/plugins/organization'
 import {
@@ -38,9 +39,23 @@ const readerAc = ac.newRole({
   ac: ['read'],
 })
 
-export type KitBetterAuth = ReturnType<typeof createBetterAuth>
+/**
+ * Hono context surface for BA instance (handler + session API).
+ * Structural type — avoids TS2742 when plugins (magicLink) pull non-portable zod paths
+ * into `ReturnType<typeof createBetterAuth>` under declaration emit.
+ * Aligns with `@gosilex/auth` BetterAuthLike for SessionPort.
+ */
+export type KitBetterAuth = {
+  handler: (request: Request) => Response | Promise<Response>
+  api: {
+    getSession: (opts: { headers: Headers }) => Promise<{
+      user: { id: string; email?: string | null }
+      session: { expiresAt?: Date | string | null }
+    } | null>
+  }
+}
 
-export function createBetterAuth(env: Env, baseURL: string) {
+export function createBetterAuth(env: Env, baseURL: string): KitBetterAuth {
   assertBetterAuthConfigured(env)
   const db = drizzle(env.DB, { schema: betterAuthDrizzleSchema })
   const cookieName = sessionCookieName(env)
@@ -106,6 +121,25 @@ export function createBetterAuth(env: Env, baseURL: string) {
               },
             },
           },
+        },
+      }),
+      // Passwordless sign-in (B-magic #59). Same public-signup flag as emailAndPassword.
+      magicLink({
+        expiresIn: 300,
+        disableSignUp: !publicSignup,
+        sendMagicLink: async ({ email, url }) => {
+          const tmpl = buildMagicLinkEmailText({
+            to: email,
+            magicUrl: url,
+            expiresHint: 'about 5 minutes',
+          })
+          const port = resolveEmailPort(env)
+          await port.send({
+            to: tmpl.to,
+            subject: tmpl.subject,
+            text: tmpl.text,
+            html: tmpl.html,
+          })
         },
       }),
     ],
