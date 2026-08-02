@@ -100,7 +100,7 @@ When spinning a product consumer (fork / new repo + `upstream` → this kit):
    git remote set-url --push upstream no_push
    # deny-upstream is already in kit lefthook — do not copy a divergent hook
    ```
-3. [ ] `bun install` · `bunx lefthook install` · copy `.dev.vars.example` → gitignored local only
+3. [ ] `bun install` (hooks via prepare if no `core.hooksPath`) · copy `.dev.vars.example` → gitignored local only
 4. [ ] **CI App (mandatory on Free private):** set **repo-level** `CI_APP_ID` + `CI_APP_PRIVATE_KEY` (commands above) — **never** edit `merge-on-green.yml`
 5. [ ] Confirm: draft PR → **Merge on Green** log has non-empty `APP_ID` and mint succeeds (or evaluate-only until set)
 6. [ ] Product domain only under **new** `apps/<product>-*`; never patch `example-*` / `packages/*` for métier

@@ -32,7 +32,7 @@
     "build:kit": "turbo run build --filter=@gosilex/example-api --filter=@gosilex/example-web",
     "smoke:mcp": "bun run --filter @gosilex/mcp-example smoke:stdio",
     "validate:full": "bun run lint && bun run typecheck && bun run banlist && bun run extract-dry-run && bun run zero-edit && bun run import-boundary && bun run test:import-boundary && bun run test:deny-upstream && bun run env:check && bun run test:coverage && bun run license:check && bun run quality-gates:check && bun run build:kit && bun run smoke:mcp",
-    "prepare": "lefthook install",
+    "prepare": "git config --get core.hooksPath >/dev/null 2>&1 || lefthook install",
     "dogfood:zero-edit": "bash scripts/dogfood-zero-edit.sh --self-sim",
     "test:deny-upstream": "bash scripts/test-deny-upstream.sh"
   },

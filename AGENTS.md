@@ -662,7 +662,7 @@ deploy CD             → pull après CI verte
 | Branch protection / merge-on-green | merge sans checks (Free = process + workflow) |
 | CODEOWNERS (option) | paths `auth/`, `mcp/`, `migrations/` → review requise |
 
-**Lefthook :** `bunx lefthook install` une fois par clone. **Interdit** `git push --no-verify` / `LEFTHOOK=0` sans raison documentée. Ne pas « laisser la CI rattraper ».
+**Lefthook :** `bun install` suffit — `prepare` appelle `lefthook install` **seulement** si `core.hooksPath` est absent (clone frais). Si `hooksPath` est déjà posé (hooks partagés org/perso), ne **jamais** forcer `lefthook install` (écraserait un câblage existant). Lefthook reste en devDependency vendored. **Interdit** `git push --no-verify` / `LEFTHOOK=0` sans raison documentée. Ne pas « laisser la CI rattraper ».
 
 ### 5. Review du code généré par IA
 

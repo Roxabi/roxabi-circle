@@ -1,6 +1,10 @@
 # Local quality gates — PRIMARY gate (CI is guardrail only).
 # SSoT: docs/testing.md · AGENTS.md § Gates techniques · docs/product-consumer-contract.md
-# Install: bun install (prepare)  or  bunx lefthook install
+# Install: `bun install` → prepare runs `lefthook install` only when `core.hooksPath` is
+# unset (fresh clone). If hooksPath is already set (org-wide or personal shared hooks),
+# prepare skips install so it never overwrites foreign hook wiring. Keep the vendored
+# lefthook dep so that hook path can still run this repo's lefthook.yml. Never force
+# `lefthook install` when hooksPath is set.
 # Skip (emergency only, document why): LEFTHOOK=0 git push
 # Policy: fix red HERE — do not push hoping CI will catch it.
 #

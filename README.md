@@ -167,8 +167,13 @@ Coverage HTML is gitignored (`coverage/`). **% is a ratchet** — see `docs/test
 | **GitHub Actions CI** | PR / main / staging | same suite + secret scan | **guardrail** (hooks skipped / env drift) |
 
 ```bash
-# Install git hooks (once per clone) — required
-bunx lefthook install
+# Hooks: bun install is enough (Bun on Unix-like shells).
+# prepare runs `lefthook install` only when core.hooksPath is unset (fresh clone).
+# If hooksPath is already set (org/personal shared hooks), install is skipped so
+# existing wiring is not overwritten. Keep the vendored lefthook dep; do not force
+# `lefthook install` when hooksPath is set.
+bun install
+# Optional check: test -f lefthook.yml && bunx lefthook version
 ```
 
 Do **not** push red hoping CI will catch it. Do **not** habitually use `LEFTHOOK=0` / `--no-verify`.
