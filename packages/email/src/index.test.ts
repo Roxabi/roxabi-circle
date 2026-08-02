@@ -3,6 +3,7 @@ import {
   assertEmailTransportAllowed,
   assertStagingEmailPolicy,
   buildDemoEmailText,
+  buildMagicLinkEmailText,
   createEmailPort,
   isRecipientDomainAllowed,
   parseAllowDomains,
@@ -21,6 +22,20 @@ describe('buildDemoEmailText', () => {
     expect(m.to).toBe('a@b.c')
     expect(m.subject).toContain('u1')
     expect(m.text.length).toBeGreaterThan(0)
+  })
+})
+
+describe('buildMagicLinkEmailText', () => {
+  it('builds subject and text with magic URL', () => {
+    const m = buildMagicLinkEmailText({
+      to: 'a@b.c',
+      magicUrl: 'http://localhost:8787/api/auth/magic-link/verify?token=abc',
+      expiresHint: 'about 5 minutes',
+    })
+    expect(m.to).toBe('a@b.c')
+    expect(m.subject).toMatch(/sign in/i)
+    expect(m.text).toContain('magic-link/verify')
+    expect(m.html).toContain('href=')
   })
 })
 

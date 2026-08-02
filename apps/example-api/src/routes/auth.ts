@@ -8,7 +8,7 @@ const LOGIN_LIMIT = 20
 const LOGIN_WINDOW_MS = 15 * 60 * 1000
 
 const BA_SENSITIVE =
-  /\/api\/auth\/(sign-in|sign-up|sign-out|forget-password|request-password-reset|reset-password|change-password)/i
+  /\/api\/auth\/(sign-in|sign-up|sign-out|forget-password|request-password-reset|reset-password|change-password|magic-link\/verify)/i
 
 /**
  * Phase A (ADR-0003 D10): block BA organization mutation / invite surface.

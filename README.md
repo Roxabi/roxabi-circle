@@ -69,7 +69,7 @@ bun run db:reset          # migrate + seed:reset
 
 Also: first login still **lazy-seeds users** via `ensureDemoUsers` if you skip `db:seed` (notes only via seed script).
 
-**Auth (ADR-0002):** browser session = **Better Auth only** (HMAC retired). Dual credential = **cookie session** *or* **Bearer `sk_`** (MCP/machine). After login (`sign-in/email`): HttpOnly cookie · mint org-bound `sk_` via `POST /api/keys`.
+**Auth (ADR-0002):** browser session = **Better Auth only** (HMAC retired). Dual credential = **cookie session** *or* **Bearer `sk_`** (MCP/machine). Login: **password** (`sign-in/email`) or **magic link** (`sign-in/magic-link`, TTL 5 min, EmailPort; public signup off by default). After session: HttpOnly cookie · mint org-bound `sk_` via `POST /api/keys`. See AGENTS.md auth matrix.
 
 ### Local secrets / env (do not deploy as-is)
 

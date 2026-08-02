@@ -5,6 +5,7 @@ import { Link, useNavigate, useSearch } from '@tanstack/react-router'
 import { GalleryVerticalEnd } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
+import { LoginMagicForm } from '../components/login-magic-form'
 import { apiErrorToMessage, apiFetch } from '../lib/api'
 import { defaultHomePath, type MeResponse, meQueryKey, useMe } from '../lib/auth'
 import { useLocale } from '../lib/locale'
@@ -14,17 +15,21 @@ import { loginSchema } from '../lib/schemas'
 /** Dev-only email prefill — BA tenancy staff (see seed tenancy-data). */
 const DEV_DEMO_EMAIL = import.meta.env.DEV ? 'staff@gosilex.local' : ''
 
+type LoginMode = 'password' | 'magic'
+
 function postLoginTarget(me: MeResponse, next: string | undefined): string {
   return safeInviteReturnPath(next) ?? defaultHomePath(me)
 }
 
-/** login-05 chrome: centered brand + form (password + forgot, not email-only). */
+/** login-05 chrome: centered brand + Password | Magic link modes. */
 export function LoginPage() {
   const { m, locale, setLocale } = useLocale()
   const navigate = useNavigate()
   const search = useSearch({ from: '/login' })
   const qc = useQueryClient()
   const [error, setError] = useState<string | null>(null)
+  const [mode, setMode] = useState<LoginMode>('password')
+  const [magicSent, setMagicSent] = useState(false)
   const me = useMe()
 
   useEffect(() => {
@@ -33,7 +38,7 @@ export function LoginPage() {
     void navigate({ href: target })
   }, [me.data, navigate, search.next])
 
-  const form = useForm({
+  const passwordForm = useForm({
     defaultValues: {
       email: DEV_DEMO_EMAIL,
       password: '',
@@ -106,80 +111,132 @@ export function LoginPage() {
           <p className="text-sm text-muted-foreground">{m.loginDesc}</p>
         </div>
 
-        <form
-          className="flex flex-col gap-6"
-          onSubmit={(e) => {
-            e.preventDefault()
-            e.stopPropagation()
-            void form.handleSubmit()
-          }}
+        <div
+          className="grid grid-cols-2 gap-1 rounded-lg border p-1"
+          role="tablist"
+          aria-label={m.loginTitle}
         >
-          <FieldGroup>
-            <form.Field name="email">
-              {(field) => {
-                const err = field.state.meta.errors[0]
-                const errId = `${field.name}-error`
-                const invalid = Boolean(err)
-                return (
-                  <Field>
-                    <FieldLabel htmlFor={field.name}>{m.email}</FieldLabel>
-                    <Input
-                      id={field.name}
-                      type="email"
-                      autoComplete="username"
-                      placeholder="m@example.com"
-                      value={field.state.value}
-                      onBlur={field.handleBlur}
-                      onChange={(e) => field.handleChange(e.target.value)}
-                      aria-invalid={invalid || undefined}
-                      aria-describedby={invalid ? errId : undefined}
-                    />
-                    {invalid ? <FieldError id={errId}>{String(err)}</FieldError> : null}
-                  </Field>
-                )
+          <Button
+            type="button"
+            size="sm"
+            role="tab"
+            aria-selected={mode === 'password'}
+            variant={mode === 'password' ? 'secondary' : 'ghost'}
+            onClick={() => {
+              setMode('password')
+              setError(null)
+            }}
+          >
+            {m.loginModePassword}
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            role="tab"
+            aria-selected={mode === 'magic'}
+            variant={mode === 'magic' ? 'secondary' : 'ghost'}
+            onClick={() => {
+              setMode('magic')
+              setError(null)
+              setMagicSent(false)
+            }}
+          >
+            {m.loginModeMagic}
+          </Button>
+        </div>
+
+        {mode === 'password' ? (
+          <form
+            className="flex flex-col gap-6"
+            onSubmit={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              void passwordForm.handleSubmit()
+            }}
+          >
+            <FieldGroup>
+              <passwordForm.Field name="email">
+                {(field) => {
+                  const err = field.state.meta.errors[0]
+                  const errId = `${field.name}-error`
+                  const invalid = Boolean(err)
+                  return (
+                    <Field>
+                      <FieldLabel htmlFor={field.name}>{m.email}</FieldLabel>
+                      <Input
+                        id={field.name}
+                        type="email"
+                        autoComplete="username"
+                        placeholder="m@example.com"
+                        value={field.state.value}
+                        onBlur={field.handleBlur}
+                        onChange={(e) => field.handleChange(e.target.value)}
+                        aria-invalid={invalid || undefined}
+                        aria-describedby={invalid ? errId : undefined}
+                      />
+                      {invalid ? <FieldError id={errId}>{String(err)}</FieldError> : null}
+                    </Field>
+                  )
+                }}
+              </passwordForm.Field>
+              <passwordForm.Field name="password">
+                {(field) => {
+                  const err = field.state.meta.errors[0]
+                  const errId = `${field.name}-error`
+                  const invalid = Boolean(err)
+                  return (
+                    <Field>
+                      <div className="flex items-center gap-2">
+                        <FieldLabel htmlFor={field.name}>{m.password}</FieldLabel>
+                        <Link
+                          to="/forgot-password"
+                          className="ml-auto text-sm underline-offset-4 hover:underline"
+                        >
+                          {m.forgotPassword}
+                        </Link>
+                      </div>
+                      <Input
+                        id={field.name}
+                        type="password"
+                        autoComplete="current-password"
+                        value={field.state.value}
+                        onBlur={field.handleBlur}
+                        onChange={(e) => field.handleChange(e.target.value)}
+                        aria-invalid={invalid || undefined}
+                        aria-describedby={invalid ? errId : undefined}
+                      />
+                      {invalid ? <FieldError id={errId}>{String(err)}</FieldError> : null}
+                    </Field>
+                  )
+                }}
+              </passwordForm.Field>
+              {error ? <FieldError>{error}</FieldError> : null}
+              <passwordForm.Subscribe selector={(s) => s.isSubmitting}>
+                {(isSubmitting) => (
+                  <Button type="submit" className="w-full" disabled={isSubmitting}>
+                    {m.submit}
+                  </Button>
+                )}
+              </passwordForm.Subscribe>
+            </FieldGroup>
+          </form>
+        ) : magicSent ? (
+          <div className="flex flex-col gap-4 text-center" role="status">
+            <p className="text-sm font-medium">{m.magicSentTitle}</p>
+            <p className="text-sm text-muted-foreground">{m.magicSentDesc}</p>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setMagicSent(false)
               }}
-            </form.Field>
-            <form.Field name="password">
-              {(field) => {
-                const err = field.state.meta.errors[0]
-                const errId = `${field.name}-error`
-                const invalid = Boolean(err)
-                return (
-                  <Field>
-                    <div className="flex items-center gap-2">
-                      <FieldLabel htmlFor={field.name}>{m.password}</FieldLabel>
-                      <Link
-                        to="/forgot-password"
-                        className="ml-auto text-sm underline-offset-4 hover:underline"
-                      >
-                        {m.forgotPassword}
-                      </Link>
-                    </div>
-                    <Input
-                      id={field.name}
-                      type="password"
-                      autoComplete="current-password"
-                      value={field.state.value}
-                      onBlur={field.handleBlur}
-                      onChange={(e) => field.handleChange(e.target.value)}
-                      aria-invalid={invalid || undefined}
-                      aria-describedby={invalid ? errId : undefined}
-                    />
-                    {invalid ? <FieldError id={errId}>{String(err)}</FieldError> : null}
-                  </Field>
-                )
-              }}
-            </form.Field>
-            {error ? <FieldError>{error}</FieldError> : null}
-            <form.Subscribe selector={(s) => s.isSubmitting}>
-              {(isSubmitting) => (
-                <Button type="submit" className="w-full" disabled={isSubmitting}>
-                  {m.submit}
-                </Button>
-              )}
-            </form.Subscribe>
-          </FieldGroup>
-        </form>
+            >
+              {m.backToLogin}
+            </Button>
+          </div>
+        ) : (
+          <LoginMagicForm next={search.next} onSent={() => setMagicSent(true)} />
+        )}
 
         <p className="text-center text-xs text-balance text-muted-foreground">{m.loginLegal}</p>
       </div>

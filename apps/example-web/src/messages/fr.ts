@@ -25,6 +25,13 @@ export type Messages = {
   resetPasswordMismatch: string
   backToLogin: string
   loginLegal: string
+  /** Login mode: password vs magic link (B-magic #59). */
+  loginModePassword: string
+  loginModeMagic: string
+  magicSubmit: string
+  magicSentTitle: string
+  magicSentDesc: string
+  magicHint: string
   email: string
   password: string
   submit: string
@@ -294,6 +301,12 @@ export const fr: Messages = {
   resetPasswordMismatch: 'Les mots de passe ne correspondent pas',
   backToLogin: 'Retour à la connexion',
   loginLegal: 'En continuant, vous acceptez les conditions d’utilisation du kit démo.',
+  loginModePassword: 'Mot de passe',
+  loginModeMagic: 'Lien magique',
+  magicSubmit: 'Envoyer le lien',
+  magicSentTitle: 'Vérifiez votre e-mail',
+  magicSentDesc: 'Si un compte existe, un lien de connexion a été envoyé (voir logs Mailpit/log).',
+  magicHint: 'Réponse générique (pas d’énumération). Lien valable environ 5 minutes.',
   email: 'E-mail',
   password: 'Mot de passe',
   submit: 'Se connecter',
