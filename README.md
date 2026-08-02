@@ -9,6 +9,7 @@ SSoT kit for product apps that pull this repo as git `upstream` (zero-edit contr
 | **GitHub** | [`go-silex/silex-boilerplate`](https://github.com/go-silex/silex-boilerplate) (private) |
 | **Local** | `~/projects/gosilex/silex-boilerplate/` |
 | **Start a product** | [`docs/playbooks/start-product.md`](docs/playbooks/start-product.md) · `git fetch upstream` · **push upstream = DENY** (`no_push` + lefthook) |
+| **First issue ship** | [`docs/playbooks/fork-to-first-issue.md`](docs/playbooks/fork-to-first-issue.md) — brief → Spark → GH issue → `/dev` (F-lite) |
 | **Dogfood harness** | `bun run dogfood:zero-edit` (product-mode self-sim; real product evidence still open · B5) |
 | **Live goal** | [**Goal 002**](artifacts/goals/002-product-ready-multi-tenant-goal.md) — product-ready multi-tenant (Goal 001 scaffold [superseded](artifacts/goals/001-chemin-a-boilerplate-goal.md)) |
 | **ADRs** | [0001 axis](docs/architecture/adr/0001-primary-axis-packages-compose-apps.md) · [0002 BA-only session](docs/architecture/adr/0002-session-hmac-interim-vs-better-auth.md) · [0003 multi-tenant](docs/architecture/adr/0003-multi-tenant-rbac-modules.md) · [0004 CF Email](docs/architecture/adr/0004-email-transport-cf-default.md) |
