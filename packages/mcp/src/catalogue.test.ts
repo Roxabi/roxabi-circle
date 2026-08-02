@@ -1,0 +1,167 @@
+import { describe, expect, it, vi } from 'vitest'
+import { z } from 'zod'
+import {
+  checkInputBudget,
+  createToolCatalogue,
+  INPUT_BUDGET,
+  PublicToolError,
+  WHOAMI_STATUS,
+} from './index'
+
+describe('createToolCatalogue', () => {
+  const emptyIn = z.object({})
+
+  it('assertExact fails when runtime names drift (planted extra)', () => {
+    const catalogue = createToolCatalogue([
+      {
+        name: 'ping',
+        description: 'p',
+        input: emptyIn,
+        execute: async () => ({ ok: true as const }),
+      },
+      {
+        name: 'whoami',
+        description: 'w',
+        input: emptyIn,
+        execute: async () => ({ status: 'missing_key' }),
+      },
+    ] as const)
+
+    const runtime: string[] = []
+    catalogue.registerAll({
+      addTool(t) {
+        runtime.push(t.name)
+      },
+    })
+    expect(() => catalogue.assertExact(runtime)).not.toThrow()
+
+    // Plant extra after registerAll — runtime list is the source of truth.
+    runtime.push('admin_x')
+    expect(() => catalogue.assertExact(runtime)).toThrow(/exactly/)
+  })
+
+  it('budget over depth rejects before execute body', async () => {
+    const execute = vi.fn(async () => ({ ok: true }))
+    const catalogue = createToolCatalogue([
+      {
+        name: 'deep',
+        description: 'd',
+        input: z.unknown(),
+        execute,
+      },
+    ] as const)
+
+    let handler: ((args: unknown) => Promise<unknown>) | undefined
+    catalogue.registerAll({
+      addTool(t) {
+        handler = t.execute
+      },
+    })
+
+    let nested: unknown = null
+    for (let i = 0; i < INPUT_BUDGET.maxDepth + 5; i++) {
+      nested = { a: nested }
+    }
+    await expect(handler?.(nested)).rejects.toBeInstanceOf(PublicToolError)
+    await expect(handler?.(nested)).rejects.toMatchObject({ code: 'INVALID_ARGUMENTS' })
+    expect(execute).not.toHaveBeenCalled()
+  })
+
+  it('registerAll wrap maps throw with sk_ to INTERNAL_ERROR without secret leak', async () => {
+    const secret = 'sk_test_high_entropy_leak_probe_xyz'
+    const catalogue = createToolCatalogue([
+      {
+        name: 'boom',
+        description: 'b',
+        input: emptyIn,
+        execute: async () => {
+          throw new Error(`failed for ${secret}`)
+        },
+      },
+    ] as const)
+
+    let handler: ((args: unknown) => Promise<unknown>) | undefined
+    catalogue.registerAll({
+      addTool(t) {
+        handler = t.execute
+      },
+    })
+
+    try {
+      await handler?.({})
+      expect.fail('expected throw')
+    } catch (err) {
+      expect(err).toBeInstanceOf(PublicToolError)
+      const pe = err as PublicToolError
+      expect(pe.code).toBe('INTERNAL_ERROR')
+      expect(pe.message).not.toContain(secret)
+      expect(pe.message).not.toMatch(/sk_/)
+      expect(JSON.stringify(pe.toJSON())).not.toContain(secret)
+    }
+  })
+
+  it('does not authorize by effect/auth annotations (SC12)', async () => {
+    const execute = vi.fn(async () => ({ ran: true }))
+    const catalogue = createToolCatalogue([
+      {
+        name: 'writey',
+        description: 'w',
+        input: emptyIn,
+        effect: 'write',
+        auth: 'none',
+        execute,
+      },
+    ] as const)
+
+    let handler: ((args: unknown) => Promise<unknown>) | undefined
+    catalogue.registerAll({
+      addTool(t) {
+        handler = t.execute
+      },
+    })
+
+    const out = await handler?.({})
+    expect(execute).toHaveBeenCalledOnce()
+    expect(String(out)).toContain('ran')
+  })
+
+  it('output schema fail → INTERNAL_ERROR', async () => {
+    const catalogue = createToolCatalogue([
+      {
+        name: 'bad_out',
+        description: 'b',
+        input: emptyIn,
+        output: z.object({ ok: z.literal(true) }),
+        execute: async () => ({ ok: false }),
+      },
+    ] as const)
+
+    let handler: ((args: unknown) => Promise<unknown>) | undefined
+    catalogue.registerAll({
+      addTool(t) {
+        handler = t.execute
+      },
+    })
+    await expect(handler?.({})).rejects.toMatchObject({ code: 'INTERNAL_ERROR' })
+  })
+})
+
+describe('checkInputBudget', () => {
+  it('rejects oversized arrays', () => {
+    const arr = Array.from({ length: INPUT_BUDGET.maxArrayLength + 1 }, () => 1)
+    expect(checkInputBudget(arr).ok).toBe(false)
+  })
+
+  it('rejects long keys', () => {
+    const key = 'k'.repeat(INPUT_BUDGET.maxKeyLength + 1)
+    expect(checkInputBudget({ [key]: 1 }).ok).toBe(false)
+  })
+})
+
+describe('wire SSOT', () => {
+  it('whoami status enum is stable SSOT', () => {
+    expect(WHOAMI_STATUS).toContain('ok')
+    expect(WHOAMI_STATUS).toContain('invalid_response')
+    expect(WHOAMI_STATUS).toContain('missing_key')
+  })
+})
