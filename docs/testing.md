@@ -47,7 +47,7 @@ merge-on-green (label reviewed + checks)
 | Gate | Scope | Who runs it |
 |---|---|---|
 | `bun run validate` | lint · typecheck · test · banlist · extract · zero-edit · env:check on **kit** packages / examples | kit + product clones (kit zones) |
-| `bun run validate:full` | kit bar + import-boundary · test:import-boundary · deny-upstream · coverage floors · license · quality-gates · build:kit · smoke:mcp | pre-push + kit CI — **does not** prove product apps are tested |
+| `bun run validate:full` | kit bar + import-boundary · test:import-boundary · deny-upstream · **debt:check** · **test:debt** · agents-adr · coverage floors · license · quality-gates (file+folder) · build:kit · smoke:mcp | pre-push + kit CI — **does not** prove product apps are tested |
 | product-validate / product-ci | product packages under `apps/<product>-*` | product repo only (copy templates; never dual-edit kit `ci.yml` / `test-coverage.sh`) |
 
 False green: product with real apps and only kit `validate:full` green is **not** product-tested.
@@ -163,6 +163,7 @@ Machine-enforced today via full `validate` + `test:coverage` + package tests. Pr
 | **CP-ZERO-EDIT** | product consumers do not dual-edit kit paths; design overrides preferred; exceptions time-boxed + ticketed | `scripts/check-zero-edit-zones.sh` · `config/zero-edit-zones.json` · [`product-consumer-contract.md`](./product-consumer-contract.md) |
 | **CP-DENY** | multi-hop deny-upstream: kit origin no-op; product blocks remote name `upstream`, kit URL substring, and product/env-extended chassis substrings; weaken name-guard fails harness | `bun run test:deny-upstream` · `scripts/test-deny-upstream.sh` · `scripts/deny-upstream-push.sh` (in `validate:full`) |
 | **CP-IMPORT** | static R1–R4 import edges (packages↛apps, example-web↛example-api src / `cloudflare:workers`) after exemptions; self-test plants edges in temp tree | `bun run import-boundary` · `scripts/check-import-boundaries.ts` · `bun run test:import-boundary` (in `validate:full`) |
+| **CP-DEBT** | suppressions in `apps|packages` carry `DEBT:<slug>`; untagged + expiry (default **warn**); self-test plants untagged/tagged cases | `bun run debt:check` · `scripts/check-debt.ts` · `bun run test:debt` · [`debt-tracking.md`](./debt-tracking.md) (in `validate:full`) |
 | **CP-ENV** | **Kit only:** `apps/example-api` Worker string keys documented in `apps/example-api/.dev.vars.example` (SSoT Zod schema) + root Vite placeholders; no real secrets in examples. **Does not** cover product apps’ env inventories | `bun run env:check` — **DX only**, example-api scoped; not “prod secrets validated”, not product-wide |
 | **CP-LICENSE** | third-party deps on allowlist; disallowed SPDX fails | `bun run license:check` — **compliance hygiene**, not malware audit |
 | **CP-I18N** | FR/EN non-empty copy; key parity via TypeScript `Messages` | `messages.contract.test.ts` / `i18n:check` — **not** semantic/security review |
@@ -187,6 +188,7 @@ Machine-enforced today via full `validate` + `test:coverage` + package tests. Pr
 | `i18n:check` / messages contract | Non-empty strings, no raw script tags in catalogs | Correct translation meaning, XSS if you render HTML unsafely |
 | `license:check` | SPDX allowlist vs installed tree | Package safety, correct license metadata, supply-chain integrity |
 | `import-boundary` / **CP-IMPORT** | String-literal `from` / `export … from` / side-effect `import` / `require` / `import()` edges that resolve under forbidden zones (R1–R4) after reason-required exemptions; clean tree exit 0; synthetic plant exit ≠ 0 | Runtime/DI purity; non-literal dynamic imports; full tsconfig alias graph; product-owned layer graphs; R5 routes↛repos; that excluding `*.test.ts` still polices test-only edges; `package.json` deps without a source import |
+| `debt:check` / **CP-DEBT** | Line comments `biome-ignore` / `@ts-expect-error` / `@ts-ignore` under `apps|packages` tagged with `DEBT:<slug>`; untagged + stale-without-`#N` reported (warn default, fail via env); self-test exit matrix | Line-level git blame age; `biome.json` overrides; suppressions in `scripts/`/`tools/`; full factory debt registry |
 
 Worker env SSoT: `apps/example-api/src/env.schema.ts`. Bindings `DB` / `BUCKET` stay out of `.dev.vars`.
 

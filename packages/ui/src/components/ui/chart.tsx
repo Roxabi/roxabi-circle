@@ -102,7 +102,7 @@ ${colorConfig
 
   return (
     <style
-      // biome-ignore lint/security/noDangerouslySetInnerHtml: scoped CSS custom properties from ChartConfig, not user HTML
+      // biome-ignore lint/security/noDangerouslySetInnerHtml: scoped CSS custom properties from ChartConfig, not user HTML — DEBT:chart-scoped-css
       dangerouslySetInnerHTML={{ __html: cssText }}
     />
   )

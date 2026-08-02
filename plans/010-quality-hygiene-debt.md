@@ -1,6 +1,6 @@
 # Plan 010 — Quality hygiene (DEBT expiry · optional folder size · AGENTS ADR hygiene)
 
-> **Status:** TODO  
+> **Status:** DONE (GH #70)  
 > **Date:** 2026-08-02  
 > **Source:** roxabi-factory `docs/debt-tracking.md` + `debt_expiry` + `agents_no_adr_refs` + folder size gate  
 > **Orthogonal to:** [007](007-quality-gates-post-review.md) B7 process · [008](008-mcp-agent-contracts.md) · [009](009-layer-import-gate.md)  

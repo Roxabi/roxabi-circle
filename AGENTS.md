@@ -210,7 +210,7 @@ Escape hatch : Postgres/Hyperdrive si un app dépasse D1 — documenté, pas def
 
 **Non-default :** Clerk.
 
-**ADR-0002 (2026-07-30) :** session navigateur = **Better Auth only** (HMAC retiré). Dual-path restant = cookie session **\|** Bearer `sk_`. Pattern : **1 instance auth / request** (bindings) + `SessionPort`.
+**[ADR-0002](docs/architecture/adr/0002-session-hmac-interim-vs-better-auth.md) (2026-07-30) :** session navigateur = **Better Auth only** (HMAC retiré). Dual-path restant = cookie session **\|** Bearer `sk_`. Pattern : **1 instance auth / request** (bindings) + `SessionPort`.
 
 #### Auth matrix (kit dogfood)
 
@@ -302,10 +302,10 @@ Ref pattern : `roxabi-boilerplate` (`errorCodes`, `errorUtils`, `ApiError`).
 | `@gosilex/config` | tsconfig, Biome, Vitest presets | **P0** |
 | `@gosilex/db` | Drizzle D1 + migrate | **P0** |
 | `@gosilex/storage` | R2 put/get/presign | **P0** |
-| `@gosilex/auth` | Better Auth SessionPort + API keys `sk_` + org-role helpers (ADR-0002 BA-only · ADR-0003) | **P0** |
+| `@gosilex/auth` | Better Auth SessionPort + API keys `sk_` + org-role helpers ([ADR-0002](docs/architecture/adr/0002-session-hmac-interim-vs-better-auth.md) BA-only · [ADR-0003](docs/architecture/adr/0003-multi-tenant-rbac-modules.md)) | **P0** |
 | `@gosilex/types` | Zod schemas + ErrorCode | **P0** |
 | `@gosilex/ui` | shadcn Base UI shell | **P0** |
-| `@gosilex/email` | Templates + transports `log` \| `smtp` \| **`cf`** (prod default) \| `resend` (escape) — ADR-0004 | **P0** |
+| `@gosilex/email` | Templates + transports `log` \| `smtp` \| **`cf`** (prod default) \| `resend` (escape) — [ADR-0004](docs/architecture/adr/0004-email-transport-cf-default.md) | **P0** |
 | `@gosilex/i18n` | Locale engine only; catalogs app-owned (FR/EN live) | **P0** |
 | `@gosilex/feedback` | Signaler → Spark Pilotage (core + Hono + React FAB) | **P0** kit optional module |
 | `@gosilex/mcp` | FastMCP/SDK conventions (ping/whoami) | **P0** example |
@@ -320,7 +320,7 @@ Ref pattern : `roxabi-boilerplate` (`errorCodes`, `errorUtils`, `ApiError`).
 
 ---
 
-### H2. Email — transport par environnement (ADR-0004)
+### H2. Email — transport par environnement ([ADR-0004](docs/architecture/adr/0004-email-transport-cf-default.md))
 
 | Env | Transport | UI / inspection |
 |---|---|---|
@@ -354,7 +354,7 @@ EMAIL_TRANSPORT=log | smtp | cf | resend
 | Tests | **Vitest** + `@cloudflare/vitest-pool-workers` | S0 |
 | E2E | **Playwright** | P1 |
 | Hooks | **Lefthook** (pre-commit Biome · **pre-push = validate:full** primary gate) + commitlint · CI = garde-fou | S0 |
-| CI | GH Actions `validate:full` (= lint · typecheck · coverage · banlist · extract · **zero-edit** · env · license · **build:kit** · **smoke:mcp**) + secret-scan — **bloquant** | S0 |
+| CI | GH Actions `validate:full` (= lint · typecheck · coverage · banlist · extract · **zero-edit** · import-boundary · deny-upstream · **debt** · env · license · quality-gates · **build:kit** · **smoke:mcp**) + secret-scan — **bloquant** | S0 |
 | Security headers | HSTS, X-Frame-Options, nosniff, Referrer-Policy (ShipFast) | S0/M0 |
 | Schema validation | Zod partout (ShipFast security) | S0 |
 
@@ -547,13 +547,13 @@ Quand la CI app existera : l’ajouter dans `workflow_run.workflows` de `merge-o
 
 ### Suite
 
-- [x] **Better Auth + cookies (session)** — BA-only (ADR-0002, HMAC retired) · dual credential cookie \| Bearer `sk_` · GitHub OAuth product still later  
+- [x] **Better Auth + cookies (session)** — BA-only ([ADR-0002](docs/architecture/adr/0002-session-hmac-interim-vs-better-auth.md), HMAC retired) · dual credential cookie \| Bearer `sk_` · GitHub OAuth product still later  
 - [x] packages/ui Base UI + example-web (kit shell live · `/admin` + `/app` shells)  
 - [x] i18n FR/EN catalogs (`@gosilex/i18n` engine + app catalogs ; Paraglide monorepo **park** B8)  
 - [x] **Feedback kit** (`@gosilex/feedback` + example wire · GH #8)  
-- [x] **Multi-tenant Phase A** — orgs, platform RBAC, dual-level modules (ADR-0003 · GH #11)  
+- [x] **Multi-tenant Phase A** — orgs, platform RBAC, dual-level modules ([ADR-0003](docs/architecture/adr/0003-multi-tenant-rbac-modules.md) · GH #11)  
 - [x] **Multi-tenant UX A4** — shells + kit invites + password reset (GH #15)  
-- [x] **Email CF prod transport** — `@gosilex/email` `log`\|`smtp`\|`cf`\|`resend` + staging allowlist (ADR-0004 · GH #21)  
+- [x] **Email CF prod transport** — `@gosilex/email` `log`\|`smtp`\|`cf`\|`resend` + staging allowlist ([ADR-0004](docs/architecture/adr/0004-email-transport-cf-default.md) · GH #21)  
 - [x] **RBAC Phase B (API + tests + minimal UI)** — custom org roles + module grants (GH #22 · Spark #127)  
 - [ ] FastMCP product tools + skill (hors kit strings)  
 - [ ] **Plausible** SPA recipe — hub `analytics.gosilex.com` multi-sites (park / B8)  
@@ -640,8 +640,9 @@ Règles dures pour tout agent (humain qui drive l’IA) :
 pre-commit (Lefthook) → Biome format/lint (staged)
          ↓
 pre-push (Lefthook)   → bun run validate:full
-                        (lint · typecheck · banlist · extract · zero-edit · env:check
-                         · coverage floors · license:check · build:kit · smoke:mcp)
+                        (lint · typecheck · banlist · extract · zero-edit · import-boundary
+                         · deny-upstream · debt:check · test:debt · agents-adr · env:check
+                         · coverage floors · license:check · quality-gates · build:kit · smoke:mcp)
          ↓
 PR CI                 → même suite (garde-fou) · secret scan
          ↓

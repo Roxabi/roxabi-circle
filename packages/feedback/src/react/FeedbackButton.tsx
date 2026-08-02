@@ -178,7 +178,7 @@ export function FeedbackButton({
       </button>
 
       {open ? (
-        // biome-ignore lint/a11y/noStaticElementInteractions: modal backdrop dismiss
+        // biome-ignore lint/a11y/noStaticElementInteractions: modal backdrop dismiss — DEBT:modal-a11y-backdrop
         <div
           className="sf-overlay"
           role="presentation"
@@ -263,7 +263,7 @@ export function FeedbackButton({
                     ))}
                   </div>
                   <input
-                    // biome-ignore lint/a11y/noAutofocus: intentional modal focus
+                    // biome-ignore lint/a11y/noAutofocus: intentional modal focus — DEBT:modal-a11y-autofocus
                     autoFocus
                     className="sf-input"
                     value={title}
