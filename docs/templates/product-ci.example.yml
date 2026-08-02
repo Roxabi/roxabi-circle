@@ -1,0 +1,63 @@
+# product-ci.example.yml — COPY into the product repo as:
+#   .github/workflows/product-ci.yml
+#
+# Zero-edit allowed (product-* prefix). Never commit this as a live workflow
+# under the kit's .github/workflows/ — GH runs every YAML there, and the bare
+# kit has no product apps.
+#
+# Pair with scripts/product/validate.sh (or app-local product-validate.sh)
+# copied from docs/templates/product-validate.example.sh
+#
+# See: docs/product-consumer-contract.md · docs/playbooks/start-product.md §7
+name: Product CI
+
+on:
+  push:
+    branches: [main, staging]
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches: [main, staging]
+  workflow_dispatch: {}
+
+concurrency:
+  group: product-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read
+
+jobs:
+  product-validate:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    name: product-validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - name: Install
+        run: bun install --frozen-lockfile
+
+      # Product CI on Actions usually has no `upstream` remote — pin kit tip for zero-edit.
+      - name: Product validate
+        run: |
+          set -euo pipefail
+          if [[ -f docs/product/kit-baseline ]]; then
+            export ZERO_EDIT_BASE_REF
+            ZERO_EDIT_BASE_REF="$(tr -d '[:space:]' < docs/product/kit-baseline)"
+          fi
+          # Prefer scripts/product/validate.sh; fall back to app-local path.
+          if [[ -f scripts/product/validate.sh ]]; then
+            bash scripts/product/validate.sh
+          elif [[ -f apps/<product>-api/scripts/product-validate.sh ]]; then
+            bash apps/<product>-api/scripts/product-validate.sh
+          else
+            echo "::error::missing product-validate script — copy docs/templates/product-validate.example.sh"
+            exit 1
+          fi

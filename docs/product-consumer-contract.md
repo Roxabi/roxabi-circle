@@ -240,7 +240,7 @@ Kit pre-push runs `deny-upstream-push.sh`: on a **product** repo it blocks remot
 4. Copy env examples → gitignored local files only.
 5. Ensure **gosilex-ci** (org var/secret) or accept manual merge — see [`gosilex-ci-app-setup.md`](./gosilex-ci-app-setup.md).
 6. Add product apps under `apps/<product>-*` only.
-7. Keep `bun run validate:full` green (kit gates still apply).
+7. Keep `bun run validate:full` green (kit bar). When `apps/<product>-*` exist, also wire product-validate / product-ci (see Product CI DoD below).
 
 Optional product-only files (safe for upstream merge):
 
@@ -257,21 +257,32 @@ apps/<product>-web/src/theme/*.css         # design token overrides
 
 Template for `docs/product/kit-baseline`: [`docs/templates/kit-baseline.example`](./templates/kit-baseline.example).
 
-### Optional product CI (pattern)
+### Product CI (recommended DoD when product apps exist)
 
-Kit `ci.yml` / `validate:full` stay kit-only and must not fail when product apps are absent. Products that need extra gates **add** a new workflow file:
+Kit `ci.yml` / `validate:full` stay **kit-only** and must not fail when product apps are absent.  
+**Kit bar ≠ product tested** — green `validate:full` does not typecheck/test/build `apps/<product>-*`.
+
+When the product repo has `apps/<product>-*`, product CI is **recommended DoD** (required in the [start-product playbook](./playbooks/start-product.md) checklist):
+
+1. **Copy** kit templates (do not dual-edit kit `ci.yml` / `test-coverage.sh` / root `package.json`):
+   - [`docs/templates/product-validate.example.sh`](./templates/product-validate.example.sh) → `scripts/product/validate.sh`  
+     (or `apps/<product>-api/scripts/product-validate.sh`)
+   - [`docs/templates/product-ci.example.yml`](./templates/product-ci.example.yml) → `.github/workflows/product-ci.yml`
+2. Replace `<product>` placeholders with real package names.
+3. Keep kit `bun run validate:full` green **and** run product-validate in product CI.
 
 ```text
 .github/workflows/product-ci.yml           # product-only; never edit kit ci.yml
-apps/<product>-api/scripts/product-validate.sh
+scripts/product/validate.sh                # preferred (zero-edit allowed)
+# or: apps/<product>-api/scripts/product-validate.sh
 ```
 
-Typical `product-validate.sh` shape:
+Typical `product-validate` shape (SSoT template is the file under `docs/templates/`):
 
 ```bash
 #!/usr/bin/env bash
 set -euo pipefail
-ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"   # adjust if app-local path
 cd "$ROOT"
 
 bun run zero-edit
@@ -282,8 +293,11 @@ bun run --filter @gosilex/<product>-web test
 bun run --filter @gosilex/<product>-api build   # e.g. wrangler dry-run
 ```
 
-Workflow job: checkout → setup-bun → `bun install --frozen-lockfile` → `bash apps/<product>-api/scripts/product-validate.sh`.  
-Do **not** add a kit workflow that filters product package names (it would go red on bare kit clones).
+Workflow job: checkout → setup-bun → `bun install --frozen-lockfile` → `bash scripts/product/validate.sh`  
+(with `ZERO_EDIT_BASE_REF` from `docs/product/kit-baseline` when no `upstream` remote — see template).
+
+Do **not** add a kit workflow that filters product package names (it would go red on bare kit clones).  
+Do **not** commit live `product-*.yml` into the **kit** repo under `.github/workflows/` — only into product repos.
 
 ---
 
