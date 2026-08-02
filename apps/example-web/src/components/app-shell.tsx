@@ -36,8 +36,7 @@ import {
 } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { toast } from 'sonner'
-import { apiFetch } from '../lib/api'
-import { canManageMembers, isPlatformActor, meQueryKey, useMe } from '../lib/auth'
+import { canManageMembers, isPlatformActor, signOutAndClearSession, useMe } from '../lib/auth'
 import { useLocale } from '../lib/locale'
 import { useOrgContext } from '../lib/org-context'
 import { type Theme, useTheme } from '../lib/theme'
@@ -99,14 +98,12 @@ function ShellChrome({ mode, children }: { mode: ShellMode; children: ReactNode 
 
   const logout = async () => {
     try {
-      await apiFetch('/api/auth/sign-out', { method: 'POST', body: '{}' })
+      await signOutAndClearSession(qc)
+      toast.message(m.logout)
+      await navigate({ to: '/login' })
     } catch {
-      /* still clear client cache */
+      toast.error(m.error, { description: m.errUnauthorized })
     }
-    await qc.invalidateQueries({ queryKey: meQueryKey })
-    qc.removeQueries({ queryKey: meQueryKey })
-    toast.message(m.logout)
-    await navigate({ to: '/login' })
   }
 
   const cycleTheme = () => {
@@ -118,7 +115,8 @@ function ShellChrome({ mode, children }: { mode: ShellMode; children: ReactNode 
   const themeLabel =
     theme === 'dark' ? m.themeDark : theme === 'light' ? m.themeLight : m.themeSystem
 
-  const initials = (me.data?.email ?? me.data?.subject ?? 'U').slice(0, 2).toUpperCase()
+  const displayName = me.data?.name ?? me.data?.email ?? me.data?.subject ?? m.account
+  const initials = displayName.slice(0, 2).toUpperCase()
   const title = pageTitle(pathname, m)
   const homeTo = mode === 'admin' ? '/admin' : '/app'
   const subtitle = mode === 'admin' ? m.shellAdminSubtitle : m.shellAppSubtitle
@@ -190,7 +188,7 @@ function ShellChrome({ mode, children }: { mode: ShellMode; children: ReactNode 
         <SidebarFooter>
           <NavUser
             user={{
-              name: me.data?.email ?? me.data?.subject ?? m.account,
+              name: displayName,
               email: me.data?.email ?? me.data?.subject ?? '',
               fallback: initials,
             }}

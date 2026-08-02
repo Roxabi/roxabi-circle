@@ -1,3 +1,4 @@
+import type { QueryClient } from '@tanstack/react-query'
 import { useQuery } from '@tanstack/react-query'
 import { ApiError, apiFetch } from './api'
 
@@ -17,6 +18,8 @@ export type MeOrg = {
 export type MeResponse = {
   subject: string
   email?: string
+  /** Display name from BA user (when set). */
+  name?: string
   authMethod: string
   /** @deprecated kit demo KitRole — do not use for BO gates */
   role: KitRole
@@ -34,6 +37,17 @@ export function useMe(opts?: { enabled?: boolean }) {
     retry: false,
     enabled: opts?.enabled ?? true,
   })
+}
+
+/**
+ * BA sign-out then clear client `me` cache.
+ * Fail-closed: throws if server revoke fails — callers must not navigate as if signed out.
+ * Shared by app-shell + settings (SH3 / anti parallel-path drift).
+ */
+export async function signOutAndClearSession(qc: QueryClient): Promise<void> {
+  await apiFetch('/api/auth/sign-out', { method: 'POST', body: '{}' })
+  await qc.invalidateQueries({ queryKey: meQueryKey })
+  qc.removeQueries({ queryKey: meQueryKey })
 }
 
 export function isUnauthorized(err: unknown): boolean {

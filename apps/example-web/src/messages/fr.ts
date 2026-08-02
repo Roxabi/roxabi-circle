@@ -133,6 +133,23 @@ export type Messages = {
   online: string
   offline: string
   account: string
+  displayName: string
+  displayNameHint: string
+  profileSaved: string
+  profileNameRequired: string
+  changePasswordTitle: string
+  changePasswordDesc: string
+  changePasswordCurrent: string
+  changePasswordNew: string
+  changePasswordConfirm: string
+  changePasswordSubmit: string
+  changePasswordSuccess: string
+  changePasswordWrong: string
+  changePasswordReauth: string
+  changePasswordRevokeOthers: string
+  changePasswordTooShort: string
+  changePasswordMismatch: string
+  changePasswordCurrentRequired: string
   designSystem: string
   designSystemDesc: string
   designSystemFooter: string
@@ -386,6 +403,23 @@ export const fr: Messages = {
   online: 'API OK',
   offline: 'API hors ligne',
   account: 'Compte',
+  displayName: 'Nom affiché',
+  displayNameHint: 'Visible dans le shell et les e-mails kit.',
+  profileSaved: 'Profil mis à jour',
+  profileNameRequired: 'Le nom est requis',
+  changePasswordTitle: 'Changer le mot de passe',
+  changePasswordDesc: 'Session active — pas besoin de lien e-mail.',
+  changePasswordCurrent: 'Mot de passe actuel',
+  changePasswordNew: 'Nouveau mot de passe',
+  changePasswordConfirm: 'Confirmer',
+  changePasswordSubmit: 'Mettre à jour le mot de passe',
+  changePasswordSuccess: 'Mot de passe mis à jour',
+  changePasswordWrong: 'Mot de passe actuel incorrect',
+  changePasswordReauth: 'Reconnectez-vous pour modifier le mot de passe',
+  changePasswordRevokeOthers: 'Déconnecter les autres sessions',
+  changePasswordTooShort: 'Au moins 8 caractères',
+  changePasswordMismatch: 'Les mots de passe ne correspondent pas',
+  changePasswordCurrentRequired: 'Mot de passe actuel requis',
   designSystem: 'Design system',
   designSystemDesc:
     'Catalogue shadcn Base (base-nova) · réservé plateforme · templates de page de référence',
