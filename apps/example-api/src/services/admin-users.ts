@@ -48,8 +48,8 @@ export type CreateAdminUserInput = {
   emailPort: EmailPort
   /** Optional path after set-password (safe relative only). */
   afterSetPasswordPath?: string
+  requestId?: string
 }
-
 /**
  * Create BA user (no clear password), optional platform role + memberships, welcome token + email.
  * Email is sent last; failure compensates by cascade-deleting the new user.
@@ -192,6 +192,7 @@ export async function createAdminUser(db: Db, input: CreateAdminUserInput) {
     email,
     platformRole,
     memberships: createdMemberships,
+    requestId: input.requestId,
   })
 
   return {

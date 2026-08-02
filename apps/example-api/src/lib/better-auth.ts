@@ -82,13 +82,23 @@ export function createBetterAuth(env: Env, baseURL: string): KitBetterAuth {
               const userId = session.userId
               if (!userId) return
               const kitDb = createDb(env.DB, kitSchema)
+              // method is generic "session" — BA hook has no request IP/path context
               await tryFirstLogin(kitDb, {
                 userId,
                 actorUserId: userId,
                 method: 'session',
               })
-            } catch {
-              // best-effort — never block session mint
+            } catch (err) {
+              // best-effort — never block session mint; still surface for ops
+              console.error(
+                JSON.stringify({
+                  level: 'error',
+                  msg: 'audit_append_failed',
+                  action: 'first_login',
+                  requestId: 'session_hook',
+                  error: err instanceof Error ? err.message : String(err),
+                }),
+              )
             }
           },
         },

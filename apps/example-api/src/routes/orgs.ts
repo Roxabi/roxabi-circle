@@ -134,6 +134,7 @@ orgsRoutes.post(
       role: parsed.data.role,
       acceptBaseUrl,
       emailPort: resolveEmailPort(c.env),
+      requestId: c.get('requestId'),
     })
     c.header('Location', `/api/orgs/${c.get('orgId')}/invitations/${invitation.id}`)
     return c.json({ invitation, requestId: c.get('requestId') }, 201)

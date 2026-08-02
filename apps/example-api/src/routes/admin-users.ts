@@ -93,6 +93,7 @@ adminUsersRoutes.post(
       sendEmail: parsed.data.sendEmail,
       webBaseUrl: webBase(c),
       emailPort: resolveEmailPort(c.env),
+      requestId: c.get('requestId'),
     })
     return c.json(
       {

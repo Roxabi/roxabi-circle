@@ -73,15 +73,18 @@ export async function emitAdminUserProvisioned(
     email: string
     platformRole?: string | null
     memberships: { organizationId: string; role: string }[]
+    requestId?: string | null
   },
 ): Promise<void> {
   const emailDomain = input.email.includes('@') ? input.email.split('@')[1] : undefined
+  const rid = input.requestId
   await appendAudit(db, {
     action: 'user.created',
     actorUserId: input.actorUserId,
     targetType: 'user',
     targetId: input.userId,
     meta: emailDomain ? { emailDomain } : undefined,
+    requestId: rid,
   })
   if (input.platformRole) {
     await appendAudit(db, {
@@ -90,6 +93,7 @@ export async function emitAdminUserProvisioned(
       targetType: 'user',
       targetId: input.userId,
       meta: { role: input.platformRole },
+      requestId: rid,
     })
   }
   for (const m of input.memberships) {
@@ -100,6 +104,7 @@ export async function emitAdminUserProvisioned(
       targetId: input.userId,
       orgId: m.organizationId,
       meta: { role: m.role },
+      requestId: rid,
     })
   }
 }

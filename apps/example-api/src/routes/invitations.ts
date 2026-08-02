@@ -18,6 +18,7 @@ invitationsRoutes.post('/api/invitations/:invitationId/accept', async (c) => {
     invitationId: c.req.param('invitationId'),
     subjectUserId: c.get('subject')!,
     rateKey: clientIp(c.req) || c.get('subject')!,
+    requestId: c.get('requestId'),
   })
   return c.json({ ...result, requestId: c.get('requestId') })
 })

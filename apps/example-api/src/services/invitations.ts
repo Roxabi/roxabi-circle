@@ -64,6 +64,7 @@ export async function createInvitation(
     role: string
     acceptBaseUrl: string
     emailPort?: EmailPort
+    requestId?: string
   },
 ) {
   await assertRateLimit(db, `invite-create:${input.orgId}`, CREATE_LIMIT, CREATE_WINDOW_MS)
@@ -112,6 +113,7 @@ export async function createInvitation(
       targetId: shell.userId,
       orgId: input.orgId,
       meta: emailDomain ? { emailDomain } : undefined,
+      requestId: input.requestId,
     })
   }
 
@@ -206,6 +208,7 @@ export async function acceptInvitation(
     invitationId: string
     subjectUserId: string
     rateKey: string
+    requestId?: string
   },
 ) {
   await assertRateLimit(db, `invite-accept:${input.rateKey}`, ACCEPT_LIMIT, ACCEPT_WINDOW_MS)
@@ -240,6 +243,7 @@ export async function acceptInvitation(
       targetId: row.id,
       orgId: row.organizationId,
       meta: { invitationId: row.id },
+      requestId: input.requestId,
     })
     return {
       org: { id: org.id, name: org.name, slug: org.slug },
@@ -269,6 +273,7 @@ export async function acceptInvitation(
     targetId: input.subjectUserId,
     orgId: row.organizationId,
     meta: { role: row.role },
+    requestId: input.requestId,
   })
   await auditService.appendAudit(db, {
     action: 'invite.accept',
@@ -277,6 +282,7 @@ export async function acceptInvitation(
     targetId: row.id,
     orgId: row.organizationId,
     meta: { invitationId: row.id },
+    requestId: input.requestId,
   })
 
   return {
