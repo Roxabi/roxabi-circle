@@ -7,6 +7,10 @@
 # Exit 0 only if all matrix rows + weaken probe pass.
 set -euo pipefail
 
+# When run under lefthook pre-push / nested git, ambient GIT_DIR / GIT_WORK_TREE
+# would make fixture `git -C /tmp/...` mutate the host worktree (bad).
+unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR 2>/dev/null || true
+
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SCRIPT="${ROOT}/scripts/deny-upstream-push.sh"
 FIXTURE_CHASSIS="private-chassis-fixture"
@@ -42,13 +46,23 @@ assert_exit() {
 make_repo() {
   local dir="$1"
   mkdir -p "${dir}"
-  git -C "${dir}" init -q
-  git -C "${dir}" config user.email "deny-test@example.com"
-  git -C "${dir}" config user.name "deny-test"
+  # Explicit git-dir/work-tree — never inherit ambient GIT_*
+  git --git-dir="${dir}/.git" --work-tree="${dir}" init -q
+  git --git-dir="${dir}/.git" --work-tree="${dir}" config user.email "deny-test@example.com"
+  git --git-dir="${dir}/.git" --work-tree="${dir}" config user.name "deny-test"
   echo "x" >"${dir}/README"
-  git -C "${dir}" add README
-  # Avoid host lefthook noise in fixture commits
-  LEFTHOOK=0 git -C "${dir}" commit -q -m "init"
+  git --git-dir="${dir}/.git" --work-tree="${dir}" add README
+  LEFTHOOK=0 git --git-dir="${dir}/.git" --work-tree="${dir}" commit -q -m "init"
+}
+
+set_origin() {
+  local dir="$1"
+  local url="$2"
+  if git --git-dir="${dir}/.git" --work-tree="${dir}" remote get-url origin >/dev/null 2>&1; then
+    git --git-dir="${dir}/.git" --work-tree="${dir}" remote set-url origin "${url}"
+  else
+    git --git-dir="${dir}/.git" --work-tree="${dir}" remote add origin "${url}"
+  fi
 }
 
 echo "== CP-DENY matrix =="
@@ -58,39 +72,45 @@ trap 'rm -rf "$TMP"' EXIT
 # --- row 1: kit origin → allow name upstream ---
 KIT="${TMP}/kit"
 make_repo "${KIT}"
-git -C "${KIT}" remote add origin "https://github.com/go-silex/silex-boilerplate.git"
+set_origin "${KIT}" "https://github.com/go-silex/silex-boilerplate.git"
 assert_exit "1 kit origin + name upstream → 0" 0 \
-  env -C "${KIT}" bash "${SCRIPT}" "upstream" "https://github.com/go-silex/silex-boilerplate.git"
+  env -u GIT_DIR -u GIT_WORK_TREE -u GIT_COMMON_DIR -C "${KIT}" \
+    bash "${SCRIPT}" "upstream" "https://github.com/go-silex/silex-boilerplate.git"
 
 # --- product base: origin must NOT match *silex-boilerplate* ---
 PRODUCT="${TMP}/product"
 make_repo "${PRODUCT}"
-git -C "${PRODUCT}" remote add origin "file://${PRODUCT}"
+set_origin "${PRODUCT}" "file://${PRODUCT}"
 
 # --- row 2: product + name upstream → deny ---
 assert_exit "2 product + name upstream → 1" 1 \
-  env -C "${PRODUCT}" bash "${SCRIPT}" "upstream" "https://example.com/innocent-parent.git"
+  env -u GIT_DIR -u GIT_WORK_TREE -u GIT_COMMON_DIR -C "${PRODUCT}" \
+    bash "${SCRIPT}" "upstream" "https://example.com/innocent-parent.git"
 
 # --- row 3: product + kit URL (any remote name) → deny ---
 assert_exit "3 product + kit URL → 1" 1 \
-  env -C "${PRODUCT}" bash "${SCRIPT}" "chassis" "git@github.com:go-silex/silex-boilerplate.git"
+  env -u GIT_DIR -u GIT_WORK_TREE -u GIT_COMMON_DIR -C "${PRODUCT}" \
+    bash "${SCRIPT}" "chassis" "git@github.com:go-silex/silex-boilerplate.git"
 
 # --- row 4: product + env chassis only → deny ---
 assert_exit "4 product + env chassis → 1" 1 \
-  env -C "${PRODUCT}" DENY_UPSTREAM_URL_SUBSTRINGS="${FIXTURE_CHASSIS}" \
+  env -u GIT_DIR -u GIT_WORK_TREE -u GIT_COMMON_DIR -C "${PRODUCT}" \
+    DENY_UPSTREAM_URL_SUBSTRINGS="${FIXTURE_CHASSIS}" \
     bash "${SCRIPT}" "bounce" "https://github.com/acme/${FIXTURE_CHASSIS}.git"
 
 # --- row 5: product + docs/product/deny-upstream.json only → deny ---
 mkdir -p "${PRODUCT}/docs/product"
 printf '%s\n' "{\"urlSubstrings\":[\"${FIXTURE_CHASSIS}\"]}" >"${PRODUCT}/docs/product/deny-upstream.json"
 assert_exit "5 product + product JSON chassis → 1" 1 \
-  env -C "${PRODUCT}" -u DENY_UPSTREAM_URL_SUBSTRINGS \
+  env -u GIT_DIR -u GIT_WORK_TREE -u GIT_COMMON_DIR -u DENY_UPSTREAM_URL_SUBSTRINGS \
+    -C "${PRODUCT}" \
     bash "${SCRIPT}" "bounce" "https://github.com/acme/${FIXTURE_CHASSIS}.git"
 rm -f "${PRODUCT}/docs/product/deny-upstream.json"
 
 # --- row 6: product innocent → allow ---
 assert_exit "6 product + innocent remote → 0" 0 \
-  env -C "${PRODUCT}" -u DENY_UPSTREAM_URL_SUBSTRINGS \
+  env -u GIT_DIR -u GIT_WORK_TREE -u GIT_COMMON_DIR -u DENY_UPSTREAM_URL_SUBSTRINGS \
+    -C "${PRODUCT}" \
     bash "${SCRIPT}" "origin" "file://${PRODUCT}"
 
 # --- weaken probe: without name=upstream guard, name-only push is allowed ---
@@ -114,10 +134,12 @@ STRIP
 chmod +x "${STRIPPED}"
 
 assert_exit "weaken: no name guard → name=upstream allowed (0)" 0 \
-  env -C "${PRODUCT}" bash "${STRIPPED}" "upstream" "https://example.com/innocent-parent.git"
+  env -u GIT_DIR -u GIT_WORK_TREE -u GIT_COMMON_DIR -C "${PRODUCT}" \
+    bash "${STRIPPED}" "upstream" "https://example.com/innocent-parent.git"
 
 assert_exit "real script still denies name=upstream (1)" 1 \
-  env -C "${PRODUCT}" bash "${SCRIPT}" "upstream" "https://example.com/innocent-parent.git"
+  env -u GIT_DIR -u GIT_WORK_TREE -u GIT_COMMON_DIR -C "${PRODUCT}" \
+    bash "${SCRIPT}" "upstream" "https://example.com/innocent-parent.git"
 
 echo "== summary: ${PASS} pass, ${FAIL} fail =="
 if [[ "${FAIL}" -ne 0 ]]; then
