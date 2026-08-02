@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>#69 File map — import boundary gate</title>
+  <style>
+    :root { --bg:#0b0f14; --card:#141b24; --border:#243041; --text:#e7eef7; --muted:#8b9bb0; --accent:#5b9fd4; --ok:#3d9a6a; }
+    * { box-sizing: border-box; }
+    body { margin:0; font:14px/1.45 system-ui,sans-serif; background:var(--bg); color:var(--text); padding:2rem; }
+    h1 { font-size:1.25rem; font-weight:600; margin:0 0 .25rem; }
+    p.sub { color:var(--muted); margin:0 0 1.5rem; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:1rem; max-width:1000px; }
+    .card { border:1px solid var(--border); border-radius:12px; background:var(--card); padding:1rem; }
+    .card h2 { margin:0 0 .5rem; font-size:.95rem; color:var(--accent); }
+    .card ul { margin:0; padding-left:1.1rem; color:var(--muted); font-size:.85rem; }
+    .new { border-color: var(--ok); }
+  </style>
+</head>
+<body>
+  <h1>#69 — File × function map</h1>
+  <p class="sub">Green border = new · go-silex/silex-boilerplate#69</p>
+  <div class="grid">
+    <div class="card new">
+      <h2>scripts/check-import-boundaries.ts</h2>
+      <ul>
+        <li>loadWorkspaceMap</li>
+        <li>extractImports</li>
+        <li>resolveTarget</li>
+        <li>applyRules R1–R4</li>
+        <li>loadExemptions / report</li>
+        <li>main CLI exit 0|1|2</li>
+      </ul>
+    </div>
+    <div class="card new">
+      <h2>scripts/test-import-boundaries.sh</h2>
+      <ul>
+        <li>mktemp fixture tree</li>
+        <li>plant R1 R2 R3 R4</li>
+        <li>assert exit + rule tag</li>
+        <li>exemption reason fail (exit 2)</li>
+      </ul>
+    </div>
+    <div class="card new">
+      <h2>tools/import-boundary-exemptions.txt</h2>
+      <ul>
+        <li>header comments</li>
+        <li>exact path # reason — #issue</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h2>package.json</h2>
+      <ul>
+        <li>import-boundary</li>
+        <li>test:import-boundary</li>
+        <li>validate:full chain</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h2>docs/testing.md</h2>
+      <ul>
+        <li>CP-IMPORT inventory</li>
+        <li>Proves / Does not prove</li>
+      </ul>
+    </div>
+  </div>
+</body>
+</html>
