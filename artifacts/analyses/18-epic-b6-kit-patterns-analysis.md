@@ -2,9 +2,13 @@
 title: "Epic B6 — Patterns kit productifs (MasterData, API client, jobs, presign)"
 issue: 18
 spark: 119
-status: draft
+status: approved
+tier: F-full
 date: 2026-07-30
+updated: 2026-08-03
+frame: artifacts/frames/18-epic-b6-kit-patterns-frame.md
 related:
+  - artifacts/frames/18-epic-b6-kit-patterns-frame.md
   - artifacts/reviews/2026-07-12-goal-arbitration-freeze.md
   - docs/architecture/adr/0001-primary-axis-packages-compose-apps.md
   - artifacts/analyses/001-cross-app-features-metalyde-ether-enzo-spark.md
@@ -39,6 +43,8 @@ Le kit a déjà des **embryons** (notes CRUD, `apiFetch` app-local, `@gosilex/st
 > *En partant du kit, un dev GOSILEX clone 4 patterns productifs (MasterData, API client, jobs, presign) avec example verts, sans string métier produit, et sans packages vides (A8).*
 
 ## Baseline (worktree actuel)
+
+> **Re-baseline 2026-08-03** (post B5 consumer-ready, MCP contracts, quality hygiene — ~124 commits since issue open): claims below **still hold**. No `@gosilex/jobs` / `@gosilex/api-client`; storage has put/get/delete only (no presign); example-api wrangler has no queues/cron; `apiFetch` remains app-local (`apps/example-web/src/lib/api.ts`); children #89–#92 still absent on GH. Frame approved: `artifacts/frames/18-epic-b6-kit-patterns-frame.md`.
 
 ### MasterData / notes
 
@@ -222,7 +228,17 @@ Parallélisable : Jobs ∥ Presign après API client si team ≥2. MasterData pe
 2. **Promote matrix** ci-dessus (A8 strict).
 3. **MasterData = app pattern only** ; **API client = package** ; **presign = storage grow** ; **jobs = app first ± thin package**.
 4. **Hors scope** (epic body) : import CSV bulk · orchestrateur métier · vidéo 500 MiB · share domain strings.
-5. Proceed to **`/spec`** draft per-pattern (AC/DoD/files).
+5. Spec draft already exists (`artifacts/specs/18-epic-b6-kit-patterns-spec.md`, status draft) — on analyze approve, pin § Unresolved then `/plan`.
+
+## Expert review notes (2026-08-03)
+
+| ρ | Verdict | Notes folded |
+|---|---|---|
+| product-lead | good | JTBD + DoD epic align; Shape A preserves Spark epic; child IDs must be recreated before plan |
+| architect | good | Promote matrix A8-clean; AX-18-01/02/04/06 P0 still correct; MasterData package remains killed |
+| devops | needs pin | Jobs CI: prefer mock unit + optional local queue doc (χ4) — avoid requiring CF queue in validate:full day-1 |
+
+Unresolved expert concerns → χ list (package name, entity choice, presign surface, jobs CI, child IDs).
 
 ## Evidence map (paths)
 
