@@ -8,8 +8,14 @@ import {
   Label,
   Separator,
 } from '@gosilex/ui'
+import { useQueryClient } from '@tanstack/react-query'
+import { useNavigate } from '@tanstack/react-router'
+import { toast } from 'sonner'
+import { AccountPasswordForm } from '../components/account-password-form'
+import { AccountProfileForm } from '../components/account-profile-form'
 import { PageHeader } from '../components/app-shell'
-import { useMe } from '../lib/auth'
+import { apiFetch } from '../lib/api'
+import { meQueryKey, useMe } from '../lib/auth'
 import { useLocale } from '../lib/locale'
 import { type Theme, useTheme } from '../lib/theme'
 
@@ -17,12 +23,26 @@ export function SettingsPage() {
   const { m, locale, setLocale } = useLocale()
   const { theme, setTheme } = useTheme()
   const me = useMe()
+  const navigate = useNavigate()
+  const qc = useQueryClient()
 
   const themes: { id: Theme; label: string }[] = [
     { id: 'light', label: m.themeLight },
     { id: 'dark', label: m.themeDark },
     { id: 'system', label: m.themeSystem },
   ]
+
+  const logout = async () => {
+    try {
+      await apiFetch('/api/auth/sign-out', { method: 'POST', body: '{}' })
+    } catch {
+      /* still clear client cache */
+    }
+    await qc.invalidateQueries({ queryKey: meQueryKey })
+    qc.removeQueries({ queryKey: meQueryKey })
+    toast.message(m.logout)
+    await navigate({ to: '/login' })
+  }
 
   return (
     <div>
@@ -75,16 +95,18 @@ export function SettingsPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card id="profile">
           <CardHeader>
             <CardTitle className="text-base">{m.account}</CardTitle>
             <CardDescription>{m.session}</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-3 text-sm">
+          <CardContent className="space-y-4 text-sm">
             <div className="flex items-center justify-between gap-4">
               <Label>{m.email}</Label>
               <span className="text-xs text-muted-foreground">{me.data?.email ?? '—'}</span>
             </div>
+            <Separator />
+            <AccountProfileForm />
             <Separator />
             <div className="flex items-center justify-between gap-4">
               <Label>{m.me}</Label>
@@ -107,6 +129,20 @@ export function SettingsPage() {
                 {me.data?.orgs?.map((o) => o.slug).join(', ') || '—'}
               </span>
             </div>
+            <Separator />
+            <Button type="button" variant="outline" size="sm" onClick={() => void logout()}>
+              {m.logout}
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card id="password">
+          <CardHeader>
+            <CardTitle className="text-base">{m.changePasswordTitle}</CardTitle>
+            <CardDescription>{m.changePasswordDesc}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <AccountPasswordForm />
           </CardContent>
         </Card>
       </div>

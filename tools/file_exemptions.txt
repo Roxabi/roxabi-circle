@@ -8,7 +8,7 @@ packages/ui/src/components/ui/sidebar.tsx  # 700 lines — shadcn Base UI shell;
 packages/ui/src/components/ui/chart.tsx  # 360 lines — shadcn chart primitive
 
 # i18n catalogs (bulk strings, not logic density)
-apps/example-web/src/messages/fr.ts  # 520 lines — FR catalog; split by domain when product grows
+apps/example-web/src/messages/fr.ts  # 560 lines — FR catalog; split by domain when product grows
 
 # Kit demo routes / packages still above bar (tracked debt)
 apps/example-web/src/routes/design-system.tsx  # 1000 lines — DS showcase; split SMELL-P6 quality-audit

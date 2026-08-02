@@ -34,10 +34,12 @@ meRoutes.get('/api/me', async (c) => {
 
   const baUser = await usersRepo.findBaUserById(db, subject)
   const email = baUser?.email?.trim() || undefined
+  const name = baUser?.name?.trim() || undefined
 
   return c.json({
     subject,
     ...(email ? { email } : {}),
+    ...(name ? { name } : {}),
     authMethod: c.get('authMethod'),
     /** @deprecated kit demo KitRole — do not use for BO gates (use platformRole) */
     role: authService.roleForSubject(subject),

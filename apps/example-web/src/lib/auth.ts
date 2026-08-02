@@ -17,6 +17,8 @@ export type MeOrg = {
 export type MeResponse = {
   subject: string
   email?: string
+  /** Display name from BA user (when set). */
+  name?: string
   authMethod: string
   /** @deprecated kit demo KitRole — do not use for BO gates */
   role: KitRole
