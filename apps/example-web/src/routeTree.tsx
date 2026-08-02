@@ -20,6 +20,7 @@ import { DesignSystemPage } from './routes/design-system'
 import { ForgotPasswordPage } from './routes/forgot-password'
 import { IntegrationFeedbackPage } from './routes/integration-feedback'
 import { InviteAcceptPage } from './routes/invite-accept'
+import { ItemsPage } from './routes/items'
 import { KeysPage } from './routes/keys'
 import { LoginPage } from './routes/login'
 import { NotesPage } from './routes/notes'
@@ -154,6 +155,12 @@ const appNotesRoute = createRoute({
   component: NotesPage,
 })
 
+const appItemsRoute = createRoute({
+  getParentRoute: () => appLayoutRoute,
+  path: 'items',
+  component: ItemsPage,
+})
+
 const appKeysRoute = createRoute({
   getParentRoute: () => appLayoutRoute,
   path: 'keys',
@@ -263,6 +270,7 @@ export const routeTree = rootRoute.addChildren([
   appLayoutRoute.addChildren([
     appIndexRoute,
     appNotesRoute,
+    appItemsRoute,
     appKeysRoute,
     appSettingsRoute,
     appOrgMembersRoute,

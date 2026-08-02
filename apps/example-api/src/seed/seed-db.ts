@@ -3,12 +3,12 @@ import { hashPassword as baHashPassword } from 'better-auth/crypto'
 import { eq } from 'drizzle-orm'
 import type { DrizzleD1Database } from 'drizzle-orm/d1'
 import { baAccount, baUser } from '../db/better-auth-schema'
-import { apiKeys, demoNotes, demoUsers, type schema } from '../db/schema'
+import { apiKeys, demoItems, demoNotes, demoUsers, type schema } from '../db/schema'
 import * as modulesRepo from '../repos/modules'
 import * as platformRolesRepo from '../repos/platform-roles'
 import * as modulesService from '../services/modules'
 import * as platformModulesService from '../services/platform-modules'
-import { SEED_NOTES, SEED_USERS } from './demo-data'
+import { SEED_ITEMS, SEED_NOTES, SEED_USERS } from './demo-data'
 import { seedTenancyDemo, type TenancySeedResult } from './seed-tenancy'
 
 type Db = DrizzleD1Database<typeof schema>
@@ -17,6 +17,7 @@ export type SeedResult = {
   reset: boolean
   users: { id: string; email: string; role: string; created: boolean }[]
   notes: { id: string; subject: string; title: string; created: boolean }[]
+  items: { id: string; subject: string; code: string; created: boolean }[]
   modules: { id: string; enabled: boolean; configured: boolean; created: boolean }[]
   tenancy?: TenancySeedResult
 }
@@ -25,6 +26,7 @@ export type SeedResult = {
 export async function resetDemoTables(db: Db): Promise<void> {
   await db.delete(apiKeys).run()
   await db.delete(demoNotes).run()
+  await db.delete(demoItems).run()
   await db.delete(demoUsers).run()
 }
 
@@ -146,6 +148,37 @@ export async function seedDemoDatabase(
     }
   }
 
+  const items: SeedResult['items'] = []
+  {
+    const existingItems = await db.select().from(demoItems).all()
+    const itemIds = new Set(existingItems.map((i) => i.id))
+    for (const it of SEED_ITEMS) {
+      if (itemIds.has(it.id)) {
+        items.push({ id: it.id, subject: it.subject, code: it.code, created: false })
+        continue
+      }
+      try {
+        await db
+          .insert(demoItems)
+          .values({
+            id: it.id,
+            subject: it.subject,
+            code: it.code,
+            label: it.label,
+            description: it.description,
+            active: true,
+            createdAt: now,
+            updatedAt: now,
+          })
+          .run()
+        items.push({ id: it.id, subject: it.subject, code: it.code, created: true })
+      } catch {
+        /* table may be missing pre-migration */
+        items.push({ id: it.id, subject: it.subject, code: it.code, created: false })
+      }
+    }
+  }
+
   const beforeIds = new Set((await modulesRepo.listKitModules(db)).map((r) => r.id))
   await modulesService.ensureKitModules(db)
   // ADR-0003 dual-level catalogue (migrated from kit_modules via SQL + ensure)
@@ -167,7 +200,7 @@ export async function seedDemoDatabase(
     tenancy = undefined
   }
 
-  return { reset, users, notes, modules, tenancy }
+  return { reset, users, notes, items, modules, tenancy }
 }
 
 /**
