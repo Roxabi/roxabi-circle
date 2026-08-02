@@ -97,7 +97,7 @@ Docs + template domain — “entities” are gate contracts and copyable files,
 |-------|------|----------------|-------|
 | **S1 — Templates** | `docs/templates/` has both examples; script is executable-shaped; yml not under `.github/workflows/` in kit | U1–U2 | Core deliverable |
 | **S2 — Docs honesty + DoD** | Playbook §7/§10, contract, testing.md state kit bar ≠ product bar; product-validate **required** when apps exist | U3–U6 | Depends on S1 paths for links |
-| **S3 — Optional coverage discovery** | `test-coverage.sh` runs vitest under non-example `apps/*` if any; bare kit unchanged | U7 | Same PR or park; no product names |
+| **S3 — Optional coverage discovery** | `test-coverage.sh` runs vitest under non-example `apps/*` if any; bare kit unchanged | U7 | **PARKED** (approval 2026-08-02) — follow-up; not this PR |
 
 Vertical order: **S1 → S2 → S3(optional)**. Single PR may ship S1+S2; S3 only if cheap and green.
 
@@ -123,7 +123,7 @@ Vertical order: **S1 → S2 → S3(optional)**. Single PR may ship S1+S2; S3 onl
 - [ ] SC7: `docs/testing.md` gate table distinguishes kit bar vs product bar
 - [ ] SC8: No product-specific package names in kit scripts changed by this PR (placeholders only in templates)
 - [ ] SC9: Bare kit `validate:full` still green after the PR
-- [ ] SC10: (Optional) coverage discovery runs only generic `apps/*` exclusions — or explicitly parked in plan as follow-up
+- [x] SC10: Coverage discovery **parked** (not this PR) — follow-up only
 
 ## Out of Scope
 
