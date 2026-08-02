@@ -22,6 +22,7 @@ import { meRoutes } from './routes/me'
 import { modulesRoutes } from './routes/modules'
 import { notesRoutes } from './routes/notes'
 import { orgsRoutes } from './routes/orgs'
+import { uploadsRoutes } from './routes/uploads'
 import type { AppEnv } from './types'
 
 export { corsAllowlist, environmentName, getSecret, useSecureCookie } from './lib/session-env'
@@ -70,6 +71,7 @@ export function createApp() {
   app.route('/', integrationsRoutes)
   app.route('/', notesRoutes)
   app.route('/', itemsRoutes)
+  app.route('/', uploadsRoutes)
   app.route('/', demoRoutes)
   app.route('/', feedbackRoutes)
 
