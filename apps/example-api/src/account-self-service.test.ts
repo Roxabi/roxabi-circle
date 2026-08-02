@@ -2,10 +2,10 @@
  * B-account #60 — change-password smoke + secret hygiene + me.name
  */
 import { createDb } from '@gosilex/db'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { createApp } from './app'
 import { schema } from './db/schema'
-import { resetRateLimits } from './lib/rate-limit'
+
 import { seedDemoDatabase } from './seed/seed-db'
 import { TENANCY_PASSWORD } from './seed/tenancy-data'
 import { createMemoryEnv } from './test/memory-env'
@@ -68,10 +68,6 @@ async function signIn(
   expect(cookie).toBeTruthy()
   return cookie!
 }
-
-beforeEach(() => {
-  resetRateLimits()
-})
 
 describe('account self-service (B-account #60)', () => {
   it('SC5: GET /api/me includes name from BA user', async () => {

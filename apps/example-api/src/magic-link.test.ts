@@ -1,10 +1,10 @@
 import { createDb } from '@gosilex/db'
 import { eq } from 'drizzle-orm'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { createApp } from './app'
 import { baUser, baVerification } from './db/better-auth-schema'
 import { schema } from './db/schema'
-import { assertRateLimit, resetRateLimits } from './lib/rate-limit'
+import { assertRateLimit } from './lib/rate-limit'
 import { seedDemoDatabase } from './seed/seed-db'
 import { DEMO_EMAIL } from './services/auth'
 import { createMemoryEnv } from './test/memory-env'
@@ -38,10 +38,6 @@ async function userCountByEmail(db: ReturnType<typeof createDb>, email: string):
   const rows = await db.select().from(baUser).where(eq(baUser.email, email))
   return rows.length
 }
-
-beforeEach(() => {
-  resetRateLimits()
-})
 
 describe('magic link (B-magic #59)', () => {
   it('request for known email returns success and stores a verification row', async () => {
@@ -92,9 +88,10 @@ describe('magic link (B-magic #59)', () => {
   it('magic-link path is rate-limited via BA_SENSITIVE', async () => {
     const app = createApp()
     const env = createMemoryEnv(BA_ENV)
+    const db = createDb(env.DB as unknown as D1Database, schema)
     const windowMs = 15 * 60 * 1000
     for (let i = 0; i < 20; i++) {
-      assertRateLimit('ba-auth:198.51.100.10', 20, windowMs)
+      await assertRateLimit(db, 'ba-auth:198.51.100.10', 20, windowMs)
     }
     const blocked = await app.request(
       '/api/auth/sign-in/magic-link',
@@ -117,9 +114,10 @@ describe('magic link (B-magic #59)', () => {
   it('magic-link/verify path is rate-limited via BA_SENSITIVE', async () => {
     const app = createApp()
     const env = createMemoryEnv(BA_ENV)
+    const db = createDb(env.DB as unknown as D1Database, schema)
     const windowMs = 15 * 60 * 1000
     for (let i = 0; i < 20; i++) {
-      assertRateLimit('ba-auth:198.51.100.11', 20, windowMs)
+      await assertRateLimit(db, 'ba-auth:198.51.100.11', 20, windowMs)
     }
     const blocked = await app.request(
       '/api/auth/magic-link/verify?token=not-a-real-token',

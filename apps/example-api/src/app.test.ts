@@ -1,9 +1,9 @@
 import { AppError } from '@gosilex/core'
 import { createDb } from '@gosilex/db'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { createApp } from './app'
 import { schema } from './db/schema'
-import { assertRateLimit, resetRateLimits } from './lib/rate-limit'
+import { assertRateLimit } from './lib/rate-limit'
 import { getSecret, useSecureCookie } from './lib/session-env'
 import { DEMO_EMAIL, DEMO_EMAIL_B, DEMO_PASSWORD, DEMO_PASSWORD_B } from './services/auth'
 import { createMemoryEnv } from './test/memory-env'
@@ -81,10 +81,6 @@ async function loginAs(
   const cookie = setCookie!.split(';')[0]!
   return cookie
 }
-
-beforeEach(() => {
-  resetRateLimits()
-})
 
 describe('createApp shipped entry — health & errors', () => {
   it('GET /health returns 200 with requestId', async () => {
@@ -759,28 +755,33 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     expect(body.error.code).toBe('UNAUTHORIZED')
   })
 
-  it('assertRateLimit throws AppError RATE_LIMITED with retryAfterSeconds', () => {
-    assertRateLimit('unit:test', 2, 60_000)
-    assertRateLimit('unit:test', 2, 60_000)
+  it('assertRateLimit throws AppError RATE_LIMITED with retryAfterSeconds', async () => {
+    const env = createMemoryEnv()
+    const db = createDb(env.DB as unknown as D1Database, schema)
+    await assertRateLimit(db, 'unit:test', 2, 60_000)
+    await assertRateLimit(db, 'unit:test', 2, 60_000)
     try {
-      assertRateLimit('unit:test', 2, 60_000)
+      await assertRateLimit(db, 'unit:test', 2, 60_000)
       expect.fail('expected rate limit throw')
     } catch (e) {
       expect(e).toBeInstanceOf(AppError)
       const err = e as AppError
       expect(err.code).toBe('RATE_LIMITED')
       expect(err.status).toBe(429)
-      expect(err.details).toEqual({ retryAfterSeconds: 60 })
+      const ra = (err.details as { retryAfterSeconds?: number })?.retryAfterSeconds
+      expect(ra).toBeGreaterThanOrEqual(1)
+      expect(ra).toBeLessThanOrEqual(60)
     }
   })
 
   it('login returns 429 after rate limit exceeded', async () => {
     const app = createApp()
     const env = createMemoryEnv()
+    const db = createDb(env.DB as unknown as D1Database, schema)
     // Pre-fill the same bucket key as authRoutes BA_SENSITIVE (avoids 20× BA auth in CI).
     const windowMs = 15 * 60 * 1000
     for (let i = 0; i < 20; i++) {
-      assertRateLimit('ba-auth:203.0.113.9', 20, windowMs)
+      await assertRateLimit(db, 'ba-auth:203.0.113.9', 20, windowMs)
     }
     const blocked = await app.request(
       '/api/auth/sign-in/email',
@@ -798,8 +799,10 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     expect(blocked.status).toBe(429)
     const body = (await blocked.json()) as { error: { code: string } }
     expect(body.error.code).toBe('RATE_LIMITED')
-    // Login window is 15 minutes → Retry-After should match window seconds.
-    expect(blocked.headers.get('retry-after')).toBe('900')
+    // Floor window → Retry-After is remaining seconds (≤ 900).
+    const ra = Number(blocked.headers.get('retry-after'))
+    expect(ra).toBeGreaterThanOrEqual(1)
+    expect(ra).toBeLessThanOrEqual(900)
   })
 
   it('mint returns 429 after rate limit exceeded', async () => {
@@ -808,9 +811,10 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     const cookie = await loginAs(app, env, DEMO_EMAIL, DEMO_PASSWORD)
     const me = await app.request('/api/me', { headers: { cookie } }, env)
     const subject = ((await me.json()) as { subject: string }).subject
+    const db = createDb(env.DB as unknown as D1Database, schema)
     const windowMs = 60 * 60 * 1000
     for (let i = 0; i < 30; i++) {
-      assertRateLimit(`mint:${subject}`, 30, windowMs)
+      await assertRateLimit(db, `mint:${subject}`, 30, windowMs)
     }
     const blocked = await app.request(
       '/api/keys',
@@ -820,7 +824,9 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     expect(blocked.status).toBe(429)
     const body = (await blocked.json()) as { error: { code: string } }
     expect(body.error.code).toBe('RATE_LIMITED')
-    expect(blocked.headers.get('retry-after')).toBe('3600')
+    const raMint = Number(blocked.headers.get('retry-after'))
+    expect(raMint).toBeGreaterThanOrEqual(1)
+    expect(raMint).toBeLessThanOrEqual(3600)
   })
 
   it('demo email returns 429 after rate limit exceeded', async () => {
@@ -829,9 +835,10 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     const cookie = await loginAs(app, env, DEMO_EMAIL, DEMO_PASSWORD)
     const me = await app.request('/api/me', { headers: { cookie } }, env)
     const subject = ((await me.json()) as { subject: string }).subject
+    const db = createDb(env.DB as unknown as D1Database, schema)
     const windowMs = 60 * 60 * 1000
     for (let i = 0; i < 10; i++) {
-      assertRateLimit(`email:${subject}`, 10, windowMs)
+      await assertRateLimit(db, `email:${subject}`, 10, windowMs)
     }
     const blocked = await app.request(
       '/api/demo/email',
@@ -841,7 +848,9 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     expect(blocked.status).toBe(429)
     const body = (await blocked.json()) as { error: { code: string } }
     expect(body.error.code).toBe('RATE_LIMITED')
-    expect(blocked.headers.get('retry-after')).toBe('3600')
+    const raEmail = Number(blocked.headers.get('retry-after'))
+    expect(raEmail).toBeGreaterThanOrEqual(1)
+    expect(raEmail).toBeLessThanOrEqual(3600)
   })
 
   it('login does not auto-seed demo users in production', async () => {

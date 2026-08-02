@@ -9,6 +9,7 @@ import { onError } from './middleware/error-handler'
 import { originGuard } from './middleware/origin-guard'
 import { requestIdMiddleware } from './middleware/request-id'
 import { applySecurityHeaders, securityHeaders } from './middleware/security-headers'
+import { adminAuditRoutes } from './routes/admin-audit'
 import { adminUsersRoutes } from './routes/admin-users'
 import { authRoutes } from './routes/auth'
 import { demoRoutes } from './routes/demo'
@@ -60,6 +61,7 @@ export function createApp() {
   app.route('/', healthRoutes)
   app.route('/', authRoutes)
   app.route('/', adminUsersRoutes)
+  app.route('/', adminAuditRoutes)
   app.route('/', meRoutes)
   app.route('/', modulesRoutes)
   app.route('/', orgsRoutes)

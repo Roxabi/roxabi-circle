@@ -12,6 +12,7 @@ import { assertRateLimit } from '../lib/rate-limit'
 import * as invitationsRepo from '../repos/invitations'
 import * as orgsRepo from '../repos/orgs'
 import * as usersRepo from '../repos/users'
+import * as auditService from './audit'
 import * as orgRolesService from './org-roles'
 import { provisionUserShell } from './user-shell'
 
@@ -63,9 +64,10 @@ export async function createInvitation(
     role: string
     acceptBaseUrl: string
     emailPort?: EmailPort
+    requestId?: string
   },
 ) {
-  assertRateLimit(`invite-create:${input.orgId}`, CREATE_LIMIT, CREATE_WINDOW_MS)
+  await assertRateLimit(db, `invite-create:${input.orgId}`, CREATE_LIMIT, CREATE_WINDOW_MS)
 
   const org = await orgsRepo.findOrgById(db, input.orgId)
   if (!org) throw AppError.notFound('Organization not found')
@@ -103,6 +105,16 @@ export async function createInvitation(
     const shell = await provisionUserShell(db, { email })
     provisionedUserId = shell.userId
     welcomeToken = shell.welcomeToken
+    const emailDomain = email.includes('@') ? email.split('@')[1] : undefined
+    await auditService.appendAudit(db, {
+      action: 'user.created',
+      actorUserId: input.inviterUserId,
+      targetType: 'user',
+      targetId: shell.userId,
+      orgId: input.orgId,
+      meta: emailDomain ? { emailDomain } : undefined,
+      requestId: input.requestId,
+    })
   }
 
   const now = new Date()
@@ -196,9 +208,10 @@ export async function acceptInvitation(
     invitationId: string
     subjectUserId: string
     rateKey: string
+    requestId?: string
   },
 ) {
-  assertRateLimit(`invite-accept:${input.rateKey}`, ACCEPT_LIMIT, ACCEPT_WINDOW_MS)
+  await assertRateLimit(db, `invite-accept:${input.rateKey}`, ACCEPT_LIMIT, ACCEPT_WINDOW_MS)
 
   const row = await invitationsRepo.findInvitationById(db, input.invitationId)
   if (row?.status !== 'pending') {
@@ -223,6 +236,15 @@ export async function acceptInvitation(
   const existing = await orgsRepo.findMembership(db, row.organizationId, input.subjectUserId)
   if (existing) {
     await invitationsRepo.setInvitationStatus(db, row.id, 'accepted')
+    await auditService.appendAudit(db, {
+      action: 'invite.accept',
+      actorUserId: input.subjectUserId,
+      targetType: 'invitation',
+      targetId: row.id,
+      orgId: row.organizationId,
+      meta: { invitationId: row.id },
+      requestId: input.requestId,
+    })
     return {
       org: { id: org.id, name: org.name, slug: org.slug },
       membership: {
@@ -243,6 +265,25 @@ export async function acceptInvitation(
     createdAt: new Date(),
   })
   await invitationsRepo.setInvitationStatus(db, row.id, 'accepted')
+
+  await auditService.appendAudit(db, {
+    action: 'membership.add',
+    actorUserId: input.subjectUserId,
+    targetType: 'user',
+    targetId: input.subjectUserId,
+    orgId: row.organizationId,
+    meta: { role: row.role },
+    requestId: input.requestId,
+  })
+  await auditService.appendAudit(db, {
+    action: 'invite.accept',
+    actorUserId: input.subjectUserId,
+    targetType: 'invitation',
+    targetId: row.id,
+    orgId: row.organizationId,
+    meta: { invitationId: row.id },
+    requestId: input.requestId,
+  })
 
   return {
     org: { id: org.id, name: org.name, slug: org.slug },

@@ -14,7 +14,8 @@ demoRoutes.use('/api/demo/*', requireAuth)
 
 demoRoutes.post('/api/demo/email', async (c) => {
   const subject = c.get('subject') || 'unknown'
-  assertRateLimit(`email:${subject}`, EMAIL_LIMIT, EMAIL_WINDOW_MS)
+  const db = c.get('db')!
+  await assertRateLimit(db, `email:${subject}`, EMAIL_LIMIT, EMAIL_WINDOW_MS)
   const result = await sendDemoEmail(c.env, subject)
   return c.json({ ...result, requestId: c.get('requestId') })
 })

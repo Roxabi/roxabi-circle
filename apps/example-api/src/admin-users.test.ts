@@ -1,10 +1,10 @@
 import { createDb } from '@gosilex/db'
 import { eq, like } from 'drizzle-orm'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { createApp } from './app'
 import { baMember, baUser, baVerification } from './db/better-auth-schema'
 import { schema, userPlatformRoles } from './db/schema'
-import { resetRateLimits } from './lib/rate-limit'
+
 import { seedDemoDatabase } from './seed/seed-db'
 import { TENANCY_PASSWORD } from './seed/tenancy-data'
 import { createMemoryEnv } from './test/memory-env'
@@ -66,10 +66,6 @@ async function latestWelcomeToken(db: ReturnType<typeof createDb>): Promise<stri
   if (!row?.identifier) return null
   return row.identifier.replace(/^reset-password:/, '')
 }
-
-beforeEach(() => {
-  resetRateLimits()
-})
 
 describe('admin users (B-users #58)', () => {
   it('SC1: super_admin creates user + memberships; no password in body', async () => {
