@@ -1,6 +1,6 @@
 # Plan 009 — Layer import boundary gate (machine)
 
-> **Status:** TODO  
+> **Status:** DONE (GH #69 · branch feat/69-layer-import-boundary-gate)  
 > **Date:** 2026-08-02  
 > **Source:** factory `.importlinter` + ADR-0001 (kit axial packages compose apps) — **TS light**, not Python importlinter  
 > **Inspiration:** roxabi-factory stage-axis contracts (executable boundaries)  

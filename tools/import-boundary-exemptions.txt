@@ -1,0 +1,8 @@
+# Exemptions — import-boundary gate (R1–R4).
+# Format: <exact/relative/importer/path>  # <reason> — <issue>
+# Path is the importer file relative to monorepo root (posix separators).
+# Active lines WITHOUT a non-empty reason after # fail the gate (exit 2).
+# Prefer fixing the edge over permanent exemptions.
+#
+# Example (commented):
+# packages/auth/src/evil.ts  # temporary dual-boot — #0
