@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>#57 File map — deny-upstream multi-hop</title>
+  <style>
+    :root { --bg:#0b0f14; --card:#141b24; --border:#243041; --text:#e7eef7; --muted:#8b9bb0; --accent:#5b9fd4; }
+    * { box-sizing: border-box; }
+    body { margin:0; font:14px/1.45 system-ui,sans-serif; background:var(--bg); color:var(--text); padding:2rem; }
+    h1 { font-size:1.25rem; font-weight:600; margin:0 0 .25rem; }
+    p.sub { color:var(--muted); margin:0 0 1.5rem; }
+    table { border-collapse:collapse; width:100%; max-width:900px; }
+    th, td { border:1px solid var(--border); padding:.55rem .75rem; text-align:left; }
+    th { background:var(--card); color:var(--muted); font-size:.75rem; text-transform:uppercase; letter-spacing:.06em; }
+    td code { color:var(--accent); font-size:.85rem; }
+  </style>
+</head>
+<body>
+  <h1>#57 — Files × tasks</h1>
+  <p class="sub">Single PR · S1→S2→S3 · go-silex/silex-boilerplate#57</p>
+  <table>
+    <thead><tr><th>File</th><th>Tasks</th><th>Role</th></tr></thead>
+    <tbody>
+      <tr><td><code>scripts/deny-upstream-push.sh</code></td><td>T1</td><td>Policy decision</td></tr>
+      <tr><td><code>scripts/test-deny-upstream.sh</code></td><td>T2</td><td>CP-DENY harness</td></tr>
+      <tr><td><code>package.json</code></td><td>T3</td><td>test:deny-upstream + validate:full</td></tr>
+      <tr><td><code>docs/testing.md</code></td><td>T4</td><td>CP-DENY inventory</td></tr>
+      <tr><td><code>docs/product-consumer-contract.md</code></td><td>T5</td><td>Bounce remotes + product JSON</td></tr>
+      <tr><td><code>docs/playbooks/start-product.md</code></td><td>T6</td><td>Multi-hop recipe + honesty</td></tr>
+      <tr><td><code>lefthook.yml</code></td><td>—</td><td>Unchanged wire (SC10)</td></tr>
+      <tr><td>verification</td><td>T7</td><td>RED-GATE</td></tr>
+    </tbody>
+  </table>
+</body>
+</html>
