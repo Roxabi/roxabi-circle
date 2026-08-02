@@ -2,7 +2,7 @@
 /**
  * DEBT hygiene — untagged suppressions + expiry (CP-DEBT).
  *
- * Scans apps/ + packages/ for biome-ignore / @ts-expect-error / @ts-ignore.
+ * Scans apps/ + packages/ for biome-ignore, ts-expect-error, and ts-ignore line markers.
  * Tagged form: … — DEBT:<slug> [#N]
  *
  * Env:
@@ -15,14 +15,18 @@
  *
  * Does NOT prove: line-level git blame age, biome.json overrides, tools/scripts ignores.
  */
+import { spawnSync } from 'node:child_process'
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, relative, resolve, sep } from 'node:path'
-import { spawnSync } from 'node:child_process'
 
+// Gate scripts run outside Turbo task graph (same pattern as check-import-boundaries).
+// biome-ignore lint/suspicious/noUndeclaredEnvVars: not a turbo-cached task env
 const ROOT = resolve(process.env.DEBT_ROOT ?? join(import.meta.dirname, '..'))
-
+// biome-ignore lint/suspicious/noUndeclaredEnvVars: not a turbo-cached task env
 const UNTAGGED_MODE = (process.env.DEBT_UNTAGGED_MODE ?? 'warn').toLowerCase()
+// biome-ignore lint/suspicious/noUndeclaredEnvVars: not a turbo-cached task env
 const EXPIRY_MODE = (process.env.DEBT_EXPIRY_MODE ?? 'warn').toLowerCase()
+// biome-ignore lint/suspicious/noUndeclaredEnvVars: not a turbo-cached task env
 const EXPIRY_MONTHS = Number(process.env.DEBT_EXPIRY_MONTHS ?? '6')
 
 const SCAN_ROOTS = ['apps', 'packages']
@@ -185,15 +189,11 @@ function main(): void {
 
   if (untagged.length > 0) {
     const tag = untaggedMode === 'fail' ? 'FAIL' : 'WARN'
-    console.error(
-      `\n${tag}: ${untagged.length} untagged suppression(s) (need — DEBT:<slug>):`,
-    )
+    console.error(`\n${tag}: ${untagged.length} untagged suppression(s) (need — DEBT:<slug>):`)
     for (const f of untagged) {
       console.error(`  ${f.file}:${f.line}: ${f.text}`)
     }
-    console.error(
-      '  Fix: append " — DEBT:your-slug" (optional #issue) or remove the suppression.',
-    )
+    console.error('  Fix: append " — DEBT:your-slug" (optional #issue) or remove the suppression.')
     console.error('  See docs/debt-tracking.md')
     if (untaggedMode === 'fail') hardFail = true
   }
