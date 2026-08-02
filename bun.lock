@@ -183,6 +183,7 @@
       "version": "0.0.1",
       "dependencies": {
         "@gosilex/auth": "workspace:*",
+        "zod": "^3.25.0",
       },
       "devDependencies": {
         "typescript": "^5.9.0",

@@ -153,7 +153,11 @@ Machine-enforced today via full `validate` + `test:coverage` + package tests. Pr
 | **CP-SECRET** | fail-closed `SESSION_SECRET` outside development\|test | example-api |
 | **CP-R2** | keys under intended prefix; `joinObjectKey` rejects traversal | `packages/storage`, example-api |
 | **CP-FE-CRED** | `apiFetch` always `credentials: 'include'`; maps UNAUTHORIZED | example-web |
-| **CP-MCP** | tool allowlist; live stdio `tools/list` exact `ping`/`whoami` | `packages/mcp` unit + `bun run smoke:mcp` (in `validate:full` / CI) |
+| **CP-MCP-REG** | live registered names / `tools/list` equals app catalogue.names; planted extra tool fails assert | `packages/mcp` catalogue unit + `bun run smoke:mcp` |
+| **CP-MCP-SMOKE** | stdio JSON-RPC list + ping + whoami; whoami body matches `whoamiResultSchema`; no `sk_` in result | `bun run smoke:mcp` (in `validate:full` / CI) |
+| **CP-MCP-SCHEMA** | public Zod outs + public tool error codes on kit wrap paths | `packages/mcp` unit (`catalogue.test.ts`, handlers) |
+| **CP-MCP-BUDGET** | oversized input rejected before handler body (execute not called) | `packages/mcp` unit budget cases |
+| **CP-MCP** (legacy row) | same family as above — prefer CP-MCP-* | kept for old links |
 | **CP-BAN** | no product-share strings in packages / examples | `scripts/check-banned-strings.sh` |
 | **CP-EXTRACT** | structural extractability: required tree, banlist, import graph, orphan packages, ADRs (does **not** re-run lint/typecheck/test after a simulated drop) | `scripts/extract-dry-run.sh` |
 | **CP-ZERO-EDIT** | product consumers do not dual-edit kit paths; design overrides preferred; exceptions time-boxed + ticketed | `scripts/check-zero-edit-zones.sh` · `config/zero-edit-zones.json` · [`product-consumer-contract.md`](./product-consumer-contract.md) |
@@ -163,6 +167,17 @@ Machine-enforced today via full `validate` + `test:coverage` + package tests. Pr
 | **CP-LICENSE** | third-party deps on allowlist; disallowed SPDX fails | `bun run license:check` — **compliance hygiene**, not malware audit |
 | **CP-I18N** | FR/EN non-empty copy; key parity via TypeScript `Messages` | `messages.contract.test.ts` / `i18n:check` — **not** semantic/security review |
 | **CP-UI-CONTRACT** | known Base UI traps (e.g. MenuGroupContext, closed dialog) | `packages/ui` (+ design-system smoke) |
+
+### MCP contract probes — non-claims
+
+| CP | Proves | Does **not** prove |
+|---|---|---|
+| **CP-MCP-REG** | tools/list (or captured runtime registered names) equals catalogue.names; planted extra name fails assert/smoke | tool business correctness; product apps’ registration discipline fleet-wide |
+| **CP-MCP-SMOKE** | stdio JSON-RPC list + ping + whoami path works; whoami body matches whoamiResultSchema; no sk_ in results | auth IDOR / org RBAC; cookie session; product tools |
+| **CP-MCP-SCHEMA** | public Zod outs + public error codes stable on kit paths | full FE session; API as sole schema owner for all `/api/me` fields |
+| **CP-MCP-BUDGET** | oversized input rejected before handler body; execute not called | full DoS resistance under attack; network-layer limits |
+
+**Honesty:** never claim “verified” for presence-only key checks; whoami `verified: true` only after `/api/me` subject parse OK.
 
 ### Env / i18n / license / import-boundary — non-claims
 
