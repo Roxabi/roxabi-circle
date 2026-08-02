@@ -25,7 +25,7 @@ export type ToolDef = {
   output?: z.ZodTypeAny
   effect?: ToolEffect
   auth?: ToolAuthHint
-  // biome-ignore lint/suspicious/noExplicitAny: FastMCP + Zod infer boundary
+  // biome-ignore lint/suspicious/noExplicitAny: FastMCP + Zod infer boundary — DEBT:fastmcp-zod-boundary
   execute: (input: any, ctx: ToolContext) => Promise<unknown>
 }
 
@@ -35,7 +35,7 @@ export type ToolDef = {
  * fighting contravariant parameter checks on Tool.execute / parameters.
  */
 export type ToolServer = {
-  // biome-ignore lint/suspicious/noExplicitAny: intentional duck-type for FastMCP
+  // biome-ignore lint/suspicious/noExplicitAny: intentional duck-type for FastMCP — DEBT:fastmcp-duck-type
   addTool: (tool: any) => void
 }
 

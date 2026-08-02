@@ -19,7 +19,7 @@ Each executor: read the full plan, honor STOP conditions, update this table.
 | [007](007-quality-gates-post-review.md) | **B7+** | Quality gates post code-review (B7 #19 amended · ratchet deferred) | P0→P2 | M | 002 (e2e local) | TODO |
 | [008](008-mcp-agent-contracts.md) | **MCP** | Agent contracts — ToolRegistrar, Zod publics, probes, wire SSOT | P2 | M | baseline mcp-example | TODO |
 | [009](009-layer-import-gate.md) | **Arch** | Layer import boundary gate (packages↛apps) | P1 | S–M | ADR-0001 | TODO |
-| [010](010-quality-hygiene-debt.md) | **Hygiene** | DEBT expiry · folder size · AGENTS ADR hygiene | P2 | S | after 007 A or growth | TODO |
+| [010](010-quality-hygiene-debt.md) | **Hygiene** | DEBT expiry · folder size · AGENTS ADR hygiene | P2 | S | after 007 A or growth | DONE |
 
 Status values: `TODO` | `IN PROGRESS` | `DONE` | `BLOCKED (reason)` | `REJECTED (reason)`
 
