@@ -28,7 +28,14 @@ jobsRoutes.post('/api/jobs/ping', async (c) => {
       subject: c.get('subject'),
     })
   } catch (err) {
-    throw AppError.internal('Failed to enqueue demo.ping', err)
+    console.error(
+      JSON.stringify({
+        level: 'error',
+        msg: 'demo_queue_send_failed',
+        error: err instanceof Error ? err.message : String(err),
+      }),
+    )
+    throw AppError.internal('Failed to enqueue demo.ping')
   }
   return c.json({ ok: true, enqueued: true, requestId: c.get('requestId') }, 202)
 })
