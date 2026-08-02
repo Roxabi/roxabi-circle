@@ -1,4 +1,12 @@
-import { Button, Field, FieldError, FieldGroup, FieldLabel, Input } from '@gosilex/ui'
+import {
+  Button,
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+  Input,
+} from '@gosilex/ui'
 import { useForm } from '@tanstack/react-form'
 import { toast } from 'sonner'
 import { apiErrorToMessage, apiFetch } from '../lib/api'
@@ -92,11 +100,11 @@ export function LoginMagicForm({ next, onSent }: LoginMagicFormProps) {
                   aria-describedby={invalid ? errId : undefined}
                 />
                 {invalid ? <FieldError id={errId}>{String(err)}</FieldError> : null}
+                <FieldDescription>{m.magicHint}</FieldDescription>
               </Field>
             )
           }}
         </form.Field>
-        <p className="text-xs text-muted-foreground">{m.magicHint}</p>
         <form.Subscribe selector={(s) => s.isSubmitting}>
           {(isSubmitting) => (
             <Button type="submit" className="w-full" disabled={isSubmitting}>

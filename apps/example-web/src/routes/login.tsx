@@ -111,16 +111,12 @@ export function LoginPage() {
           <p className="text-sm text-muted-foreground">{m.loginDesc}</p>
         </div>
 
-        <div
-          className="grid grid-cols-2 gap-1 rounded-lg border p-1"
-          role="tablist"
-          aria-label={m.loginTitle}
-        >
+        <fieldset className="m-0 grid grid-cols-2 gap-1 rounded-lg border p-1">
+          <legend className="sr-only">{m.loginTitle}</legend>
           <Button
             type="button"
             size="sm"
-            role="tab"
-            aria-selected={mode === 'password'}
+            aria-pressed={mode === 'password'}
             variant={mode === 'password' ? 'secondary' : 'ghost'}
             onClick={() => {
               setMode('password')
@@ -132,8 +128,7 @@ export function LoginPage() {
           <Button
             type="button"
             size="sm"
-            role="tab"
-            aria-selected={mode === 'magic'}
+            aria-pressed={mode === 'magic'}
             variant={mode === 'magic' ? 'secondary' : 'ghost'}
             onClick={() => {
               setMode('magic')
@@ -143,7 +138,7 @@ export function LoginPage() {
           >
             {m.loginModeMagic}
           </Button>
-        </div>
+        </fieldset>
 
         {mode === 'password' ? (
           <form
