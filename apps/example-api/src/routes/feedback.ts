@@ -33,7 +33,7 @@ feedbackRoutes.post('/api/report', async (c) => {
   let moduleOn: boolean
   if (orgId) {
     const org = await orgsRepo.findOrgById(db, orgId)
-    if (!org || org.status !== 'active') {
+    if (org?.status !== 'active') {
       throw AppError.notFound('Organization not found')
     }
     const membership = await orgsRepo.findMembership(db, orgId, subject)

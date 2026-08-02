@@ -14,7 +14,7 @@ export type SendEmailBinding = {
     text?: string
     html?: string
     replyTo?: CfEmailAddress
-  }) => Promise<{ messageId?: string } | void>
+  }) => Promise<{ messageId?: string } | undefined>
 }
 
 export type SendCfInput = {

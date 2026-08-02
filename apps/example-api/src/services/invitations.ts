@@ -78,7 +78,7 @@ export async function createInvitation(
   const role = input.role
 
   const email = normalizeEmail(input.email)
-  if (!email || !email.includes('@')) {
+  if (!email?.includes('@')) {
     throw AppError.validation('Invalid email', { email: ['Valid email required'] })
   }
 
@@ -201,7 +201,7 @@ export async function acceptInvitation(
   assertRateLimit(`invite-accept:${input.rateKey}`, ACCEPT_LIMIT, ACCEPT_WINDOW_MS)
 
   const row = await invitationsRepo.findInvitationById(db, input.invitationId)
-  if (!row || row.status !== 'pending') {
+  if (row?.status !== 'pending') {
     throw AppError.notFound('Invitation not found')
   }
   if (row.expiresAt && row.expiresAt.getTime() <= Date.now()) {
