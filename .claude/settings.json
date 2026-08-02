@@ -8,7 +8,6 @@
     "forge@roxabi-forge": true,
     "typescript-lsp@claude-plugins-official": true,
     "cocoindex-code@cocoindex-code": true,
-    "frontend-design@claude-plugins-official": true,
     "security-guidance@claude-plugins-official": true
   },
   "extraKnownMarketplaces": {
