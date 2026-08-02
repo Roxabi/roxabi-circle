@@ -52,14 +52,14 @@ Epic topology (for later slices, not implemented in V1): browser → api-client 
 
 ### Epic backlog (do not implement in this plan)
 
-| Slice | Pattern | Re-plan after |
-|---|---|---|
-| V2 | MasterData `demo_items` | V1 green |
-| V3 | Storage PUT presign + mock | V1 or parallel post-V1 |
-| V4 | Jobs queue/cron unit-mock | V1 or parallel post-V1 |
-| V5 | README map honesty + epic evidence close | V2–V4 done |
+| Slice | Pattern | Child | Re-plan after |
+|---|---|---|---|
+| V2 | MasterData `demo_items` | #82 | V1 green |
+| V3 | Storage PUT presign + mock | #83 | V1 or parallel post-V1 |
+| V4 | Jobs queue/cron unit-mock | #84 | V1 or parallel post-V1 |
+| V5 | README map honesty + epic evidence | — | V2–V4 children closed |
 
-Optional: create GH child issues under #18 at V1 PR or epic kickoff (spec pin `fresh-under-18`).
+Children **created** 2026-08-03: #81–#84 · parent #18 · comment on epic.
 
 ## Agents
 

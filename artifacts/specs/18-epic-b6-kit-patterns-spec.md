@@ -75,8 +75,10 @@ Four copyable productive patterns ship on the kit: package API client, MasterDat
 | 2 | MasterData entity | **New `demo_items`** (notes stay attachment/ownership demo — do not overload) |
 | 3 | Presign kit v1 | **PUT-only** (GET optional later; no multipart / video) |
 | 4 | Jobs in CI | **Unit + mock** handler tests without live CF queue; wrangler producer/consumer declared; `validate:full` must not require CF account |
-| 5 | Child issues | **Create fresh GH children under #18** (do not force numbers 89–92; link parent #18) |
+| 5 | Child issues | **Created** #81 P1 · #82 P2 · #83 P3 · #84 P4 under #18 |
 | 6 | Upload UI | **API + tests + README curl required**; minimal example-web UI is optional follow-up if cheap in P3 PR |
+| 7 | PR model | **1 PR = 1 child** — `Closes #81|82|83|84` on the child; **never** `Closes #18` on a pattern PR |
+| 8 | Epic lifecycle | **#18 stays open** until V2–V5 / epic DoD; close epic manually with evidence after all children |
 
 ## Order of implementation
 
