@@ -1,6 +1,6 @@
 # Testing strategy — Chemin A kit
 
-SSoT for **how we test** this monorepo. Complements [`AGENTS.md`](../AGENTS.md) (stack, security) and axial [ADR-0001](architecture/adr/0001-primary-axis-packages-compose-apps.md) / dual-auth [ADR-0002](architecture/adr/0002-session-hmac-interim-vs-better-auth.md).
+SSoT for **how we test** this monorepo. Complements [`AGENTS.md`](../AGENTS.md) (stack, security) and axial [ADR-0001](architecture/adr/0001-primary-axis-packages-compose-apps.md) / dual-credential [ADR-0002](architecture/adr/0002-session-hmac-interim-vs-better-auth.md) (Better Auth session **\|** Bearer `sk_`; HMAC retired).
 
 ---
 
@@ -129,7 +129,7 @@ Do not lock Better Auth internals forever. Lock **stable wire**:
 
 | Seam | Where | Stable? |
 |---|---|---|
-| 1. Crypto / session / key hash | `packages/auth` unit | Adapt when Better Auth replaces HMAC **impl** |
+| 1. Crypto / session / key hash | `packages/auth` unit | **Stable contract** — BA session + `sk_` hash; do not lock BA internals forever |
 | 2. Dual path HTTP (cookie + `sk_`) + cookie flags + IDOR | `apps/example-api` integration | **Stable** |
 | 3. FE wire: `credentials: 'include'`, envelope map, 401 | `apps/example-web` `lib/api*` (+ auth helpers) | **Stable** |
 
@@ -203,7 +203,7 @@ Worker env SSoT: `apps/example-api/src/env.schema.ts`. Bindings `DB` / `BUCKET` 
 | Zip-slip / `private_key` → 404 | **Product** when `share-*` exists |
 | Playwright cookie journey in CI | Phase B6 — Chromium smoke; until then local e2e scripts |
 | Mutation testing on `packages/auth` | Optional **nightly / manual**, not PR gate until cheap |
-| Stateless HMAC logout | ADR-0002 interim — cookie clear only; Better Auth M3 for server sessions |
+| BA session logout / revoke wire | Covered by BA handler + cookie clear; prefer server-side session revoke tests when extending admin APIs |
 
 ### Org invites local E2E (B3 S2)
 
@@ -352,5 +352,5 @@ bun run --filter @gosilex/example-api test
 | [AGENTS.md](../AGENTS.md) | Stack, dual-mission, security for AI |
 | [README.md](../README.md) | Dev quickstart, credentials, coverage table |
 | [ADR-0001](architecture/adr/0001-primary-axis-packages-compose-apps.md) | Primary axis packages → apps |
-| [ADR-0002](architecture/adr/0002-session-hmac-interim-vs-better-auth.md) | Session interim vs Better Auth |
+| [ADR-0002](architecture/adr/0002-session-hmac-interim-vs-better-auth.md) | BA-only session + Bearer `sk_` dual-path (HMAC retired) |
 | [Frame](../artifacts/frames/001-share-platform-frame.md) | Product rules (P1 tests later) |
