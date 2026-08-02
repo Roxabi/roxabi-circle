@@ -43,7 +43,8 @@ const SKIP_DIRS = new Set([
 ])
 
 const DEBT_RE = /(?:—|--?)\s*DEBT:([a-z0-9]+(?:-[a-z0-9]+)*)\b/
-const ISSUE_RE = /#([0-9]{1,6})(?:\D|$)/
+/** Issue pin only immediately after DEBT:<slug> (not bare #rgb elsewhere on the line). */
+const ISSUE_PIN_RE = /DEBT:[a-z0-9]+(?:-[a-z0-9]+)*\s+#([0-9]{1,6})\b/
 
 type Mode = 'off' | 'warn' | 'fail'
 
@@ -167,7 +168,7 @@ function main(): void {
     // Cache file dates per path
     const dateCache = new Map<string, string | null>()
     for (const hit of debtLines) {
-      if (ISSUE_RE.test(hit.text)) continue
+      if (ISSUE_PIN_RE.test(hit.text)) continue
       let last = dateCache.get(hit.abs)
       if (last === undefined) {
         last = gitFileDate(hit.abs)

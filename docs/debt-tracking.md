@@ -9,8 +9,12 @@
 ## Why
 
 Biome / TypeScript strictness will tighten (plan 007 Phase C). Silent `biome-ignore` and
-`@ts-expect-error` accumulate into invisible debt. This policy makes every suppression
-**tagged**, **time-bounded**, and **reviewable**.
+`@ts-expect-error` accumulate into invisible debt. This policy **surfaces** untagged and
+stale markers on stderr so debt is **visible and reviewable**.
+
+**Honest defaults (v1):** both gates start as **warn** (exit 0). A green `validate:full` does
+**not** prove debt is managed until `DEBT_*_MODE=fail`. Expiry uses a **file last-commit
+proxy** (any meaningful touch resets the clock), not line-level blame.
 
 ---
 
@@ -29,7 +33,7 @@ Every suppression in **`apps/`** and **`packages/`** must carry `DEBT:<slug>` af
 | Scope | `apps/**`, `packages/**` (`.ts` / `.tsx`) — not `scripts/` / `tools/` |
 | Slug | kebab-case: `[a-z0-9]+(-[a-z0-9]+)*` |
 | Separator | `— DEBT:` or `- DEBT:` (em/en dash or hyphen before `DEBT:`) |
-| Issue ref | optional `#N` on the same line — **required** to pin expiry after grace |
+| Issue pin | optional `DEBT:<slug> #<N>` only (space + `#` immediately after slug) — **hard pin**: skips expiry forever until the pin is removed |
 | Prefer | remove the suppression (fix root cause) over adding DEBT |
 
 **Not scanned (v1):** `// @ts-nocheck`, file-level biome config, `tools/` / `scripts/` helper ignores.
@@ -48,10 +52,12 @@ Every suppression in **`apps/`** and **`packages/`** must carry `DEBT:<slug>` af
 
 A `DEBT:` line is **stale** when **all** hold:
 
-1. The **file** last git-commit date is older than `DEBT_EXPIRY_MONTHS` (file-level, not blame — same as factory).
-2. The marker line has **no** issue ref `#N` (1–6 digits).
+1. The **file** last git-commit date is older than `DEBT_EXPIRY_MONTHS` (file-level inactivity proxy, not marker blame — same as factory).
+2. The marker has **no** issue pin of the form `DEBT:<slug> #<N>` (1–6 digits after the slug).
 
-Remediation: remove the debt · open/attach `#N` · or touch the file with a meaningful fix (resets the clock).
+**Pin semantics:** `#N` after the slug is a **permanent expiry exemption** (no open-issue check). Use only for actively tracked remediation. Accidental `#rgb` / mid-reason hashes do **not** pin (pin must follow the slug).
+
+Remediation: remove the debt · add `DEBT:slug #N` pin · or touch the file with a meaningful fix (resets the file-level clock for all markers in that file).
 
 **First land:** both gates default to **warn** (exit 0, stderr findings). Flip to `fail` after one sprint when the tree is tagged clean.
 
