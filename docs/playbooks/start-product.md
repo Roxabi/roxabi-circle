@@ -252,6 +252,7 @@ git rev-parse upstream/main | tr -d '\n' > docs/product/kit-baseline
 
 | Doc | Role |
 |---|---|
+| [`docs/playbooks/fork-to-first-issue.md`](./fork-to-first-issue.md) | **Full runbook** — intention produit → Spark → issue GitHub → `/dev` → first ship (post day-0) |
 | [`docs/product-consumer-contract.md`](../product-consumer-contract.md) | Zero-edit contract |
 | [`docs/templates/product-validate.example.sh`](../templates/product-validate.example.sh) | Copyable product bar script |
 | [`docs/templates/product-ci.example.yml`](../templates/product-ci.example.yml) | Copyable product CI workflow |

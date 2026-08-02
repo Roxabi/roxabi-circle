@@ -5,7 +5,7 @@
 | | |
 |---|---|
 | **Repo** | `go-silex/silex-boilerplate` (private) · local `~/projects/gosilex/silex-boilerplate/` |
-| **Product consumers** | Greenfield `go-silex/<product>` via git `upstream` → this kit · playbook [`docs/playbooks/start-product.md`](docs/playbooks/start-product.md) |
+| **Product consumers** | Greenfield `go-silex/<product>` via git `upstream` → this kit · [`start-product.md`](docs/playbooks/start-product.md) · [`fork-to-first-issue.md`](docs/playbooks/fork-to-first-issue.md) |
 | **Status** | Kit live **2026-07-13** (historically split from silex-share — **archived / deprecated**, not a live dogfood target) · product apps pull via `git fetch upstream` |
 | **Live goal** | [**Goal 002**](artifacts/goals/002-product-ready-multi-tenant-goal.md) product-ready multi-tenant (Goal 001 scaffold **superseded**) |
 | **CF account** | Gosilex (`Tool@gosilex.com` / hub `scripts/load-cf-env.sh`) when deploying examples |

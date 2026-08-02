@@ -395,5 +395,6 @@ If product build breaks after pull → fix product code or contribute a kit fix 
 | [`scripts/check-zero-edit-zones.sh`](../scripts/check-zero-edit-zones.sh) | Gate implementation |
 | ADR-0001 | packages compose apps |
 | [`playbooks/start-product.md`](./playbooks/start-product.md) | Day-1 greenfield product setup + dogfood |
+| [`playbooks/fork-to-first-issue.md`](./playbooks/fork-to-first-issue.md) | Full runbook: brief → Spark → GH issue → `/dev` first ship |
 | [`product-consumer-dogfood-evidence.md`](./product-consumer-dogfood-evidence.md) | B5 live evidence (`silex-kit-dogfood`) |
 | silex-share | **historical** split only — archived / deprecated, not a live dogfood target |
