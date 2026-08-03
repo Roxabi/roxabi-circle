@@ -102,20 +102,22 @@ Phase D — residual FE contracts (gap only; not a second MT epic)
 
 ## Phase A — B7 (#19)
 
-### A0 — Spec promote (human)
+### A0 — Spec promote (human) — **DONE 2026-08-03**
 
-Before code, ensure draft spec includes (or this plan is cited as AC delta):
+Spec [`artifacts/specs/19-epic-b7-qualite-prod-spec.md`](../artifacts/specs/19-epic-b7-qualite-prod-spec.md) is **`ready-for-implement`**. AC table (incl. **AC-FLAKE** soft-then-hard) lives in the spec body.
 
 | AC id | Requirement |
 |---|---|
-| AC-PATH | E1 uses Better Auth sign-in path actually wired by SPA (not obsolete `POST /api/auth/login` if BA route differs); design-system path = live `/admin/design-system#overlays` (or current route) |
-| AC-SCRUB | Sentry: `sendDefaultPii: false`; `beforeSend` **allowlist** fields; strip Cookie, Authorization, bodies, password/token patterns; no user email as Sentry user by default |
+| AC-PATH | E1 = `POST /api/auth/sign-in/email`; design-system = `/admin/design-system#overlays` |
+| AC-SCRUB | Sentry: `sendDefaultPii: false`; `beforeSend` **allowlist**; strip Cookie, Authorization, bodies, password/token; no email as Sentry user by default |
 | AC-CAPTURE | Capture unexpected/5xx only; not VALIDATION_ERROR / 401 / 403 noise |
 | AC-DSN | No `SENTRY_DSN` required for CI green; unset = zero network |
 | AC-E2E-CLAIM | Docs: e2e proves cookie composition + UI overlays only; dual-auth / IDOR / org RBAC = Vitest T0 |
 | AC-CR | Done = App installed **or** dated decline + revisit criteria; never required merge check |
-| AC-CREDS | E2E demo password not logged; traces scrub login request bodies or disable body retention on auth steps; prefer `E2E_DEMO_EMAIL` / `E2E_DEMO_PASSWORD` with dev/test defaults only |
-| AC-DEPS | First PR landing `@sentry/*` or `playwright*` = human review; exclude from Dependabot auto-`reviewed` until policy says otherwise |
+| AC-CREDS | E2E demo password not logged; scrub login bodies; `E2E_DEMO_*` dev/test defaults only |
+| AC-DEPS | First `@sentry/*` / `playwright*` PR = human review; no Dependabot auto-`reviewed` until policy |
+| AC-FLAKE | A1 ≥3 local greens; A2 soft ≤7d then hard after ≥10 consecutive green GHA e2e (0 retries preferred) |
+| AC-LOCAL-FIRST | e2e never in Lefthook / `validate:full` |
 
 ### A1 — Harden e2e (local)
 
@@ -138,7 +140,7 @@ Before code, ensure draft spec includes (or this plan is cited as AC delta):
 | **Artifacts** | traces/screenshots **on failure only**, retention 7d; scrub auth bodies |
 | **Retries** | Prefer **0**; max 1 job retry with issue comment if flake remains |
 | **merge-on-green** | Once job exists and fails, it blocks merge — ship only when stable. Do **not** put e2e inside `validate:full` |
-| **Soft-gate** | Avoid long `continue-on-error`. If used: ≤7 days + expire comment + testing.md “not a security control” |
+| **Soft-gate** | **Required first land** on Free private: `continue-on-error: true` (or equivalent) **≤7 calendar days** + expire date in PR + testing.md “not a security control / not merge authority yet”. Flip hard only after AC-FLAKE. |
 | **Parallel** | Only after flake budget proven; then optional drop `needs` |
 
 ### A3 — Sentry env-gated
