@@ -95,7 +95,7 @@ Also: first login still **lazy-seeds users** via `ensureDemoUsers` if you skip `
 | `@gosilex/i18n` | Locale engine only; FR/EN catalogs live in apps |
 | `@gosilex/feedback` | Signaler → Spark Pilotage (core + Hono + React FAB) |
 
-**Kit patterns (B6):** MasterData demo at `apps/example-*` → `/api/items` + `/app/items` (`demo_items`, no package). API client `@gosilex/api-client`. Presign: `POST /api/uploads/presign` + complete (`PRESIGN_MODE=mock`). Jobs: app-local Queues/cron demo (`POST /api/jobs/ping`, no `@gosilex/jobs` package yet).
+**Kit patterns (B6):** MasterData demo at `apps/example-*` → `/api/items` + `/app/items` (`demo_items`, no package). API client `@gosilex/api-client`. Presign: `POST /api/uploads/presign` + complete (`PRESIGN_MODE=mock` default; `s3` fail-closed until aws4fetch is wired). Jobs: app-local Queues/cron demo (`POST /api/jobs/ping`, no `@gosilex/jobs` package yet).
 | `@gosilex/mcp` | `ping` / `whoami` helpers + no-share-tools guard |
 
 ## Apps (examples only)

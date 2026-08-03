@@ -108,3 +108,23 @@ describe('uploads presign demo', () => {
     expect(done.key).toBe(body.key)
   })
 })
+
+import { createAppPresignSigner } from './lib/presign'
+
+describe('createAppPresignSigner fail-closed', () => {
+  it('throws when PRESIGN_MODE=s3 without credentials', () => {
+    expect(() => createAppPresignSigner({ PRESIGN_MODE: 's3' })).toThrow(/requires R2_/)
+  })
+
+  it('throws when PRESIGN_MODE=s3 even with creds until aws4fetch wired', () => {
+    expect(() =>
+      createAppPresignSigner({
+        PRESIGN_MODE: 's3',
+        R2_ACCOUNT_ID: 'acc',
+        R2_ACCESS_KEY_ID: 'key',
+        R2_SECRET_ACCESS_KEY: 'secret',
+        R2_BUCKET_NAME: 'bucket',
+      }),
+    ).toThrow(/not implemented/)
+  })
+})
