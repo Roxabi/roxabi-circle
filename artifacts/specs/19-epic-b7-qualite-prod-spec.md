@@ -93,28 +93,24 @@ SSoT commands: `docs/testing.md` · `scripts/e2e-ci.sh` (local one-shot).
 | Local cold one-shot | `bun run test:e2e:ci` | migrate + seed + start + smoke |
 | Revisit GHA | Only with product need + flake SLO + explicit issue | Not silent re-add |
 
-### Job steps (normative sketch)
+### Local one-shot steps (`scripts/e2e-ci.sh`)
 
 ```text
-1. checkout (fetch-depth 0 only if needed — e2e does not need zero-edit baseline; depth 1 OK)
-2. setup-bun (same pin as quality job)
-3. bun install --frozen-lockfile
-4. Install Chromium for Playwright (playwright install --with-deps chromium OR install browsers for playwright-core)
-5. Prepare API env (.dev.vars from example + ENVIRONMENT=development|test; SESSION_SECRET placeholder OK)
-6. Migrate D1 + seed demo users (same as local DX)
-7. Start example-api (wrangler dev / package dev) in background
-8. Start example-web (vite) in background
-9. Health poll: GET API /health and BASE_URL until ready (timeout fail)
-10. bun run test:e2e:design-system  (or bun run test:e2e if renamed umbrella)
-11. Upload Playwright/trace artifacts on failure (retention 7d)
+1. Install Playwright Chromium (playwright-core)
+2. Isolated .dev.vars for the run (restore operator file on exit)
+3. Migrate D1 + seed demo users
+4. Start example-api (wrangler) + example-web (vite)
+5. Health poll API /health + web BASE
+6. bun run test:e2e:design-system
+7. Teardown
 ```
 
 ### Browser strategy
 
 | Env | Browser |
 |---|---|
-| **CI** | Playwright-managed **Chromium** only (no system Chrome path dependency) |
-| **Local** | `CHROME_PATH` if set; else document `bunx playwright install chromium` + executable resolution; fail with clear message if missing |
+| **Local** | Playwright Chromium default; `CHROME_PATH` / system Chrome fallback |
+| **GHA** | **No default job** |
 
 ### Flake controls (required)
 
