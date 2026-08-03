@@ -88,15 +88,49 @@ Also: first login still **lazy-seeds users** via `ensureDemoUsers` if you skip `
 | `@gosilex/api-client` | Browser `apiFetch` + `ApiError` (kit envelope, credentials include) |
 | `@gosilex/core` | `AppError`, `toApiErrorBody`, `requestId` |
 | `@gosilex/db` | Drizzle D1 factory (schemas stay in apps) |
-| `@gosilex/storage` | R2 put/get/delete + safe key join (`demo/` prefix in example) |
+| `@gosilex/storage` | R2 put/get/delete + **light PUT presign** (`createPresignedUrl` / mock signer) + safe key join (`demo/`) |
 | `@gosilex/auth` | Better Auth `SessionPort` + cookie SSoT + `sk_` helpers + org-role constants (ADR-0002/0003) |
 | `@gosilex/ui` | **shadcn official** `base-nova` + `@base-ui/react` (Button, Dialog, Sidebar, Sonner, …) |
 | `@gosilex/email` | Templates + transports `log` / `smtp` / **`cf`** (prod default) / `resend` (ADR-0004) |
 | `@gosilex/i18n` | Locale engine only; FR/EN catalogs live in apps |
 | `@gosilex/feedback` | Signaler → Spark Pilotage (core + Hono + React FAB) |
-
-**Kit patterns (B6):** MasterData demo at `apps/example-*` → `/api/items` + `/app/items` (`demo_items`, no package). API client `@gosilex/api-client`. Presign: `POST /api/uploads/presign` + complete (`PRESIGN_MODE=mock` default; `s3` fail-closed until aws4fetch is wired). Jobs: app-local Queues/cron demo (`POST /api/jobs/ping`, no `@gosilex/jobs` package yet).
 | `@gosilex/mcp` | `ping` / `whoami` helpers + no-share-tools guard |
+
+### Kit patterns (B6)
+
+Copyable productive patterns (epic #18 · children #81–#84):
+
+| Pattern | Where | Notes |
+|---|---|---|
+| **API client** | `@gosilex/api-client` · `example-web` re-export | `apiFetch` + `ApiError` · credentials `include` |
+| **MasterData** | `demo_items` · `/api/items` · `/app/items` | App-only (no package) · subject-scoped CRUD |
+| **Presign** | `@gosilex/storage` + `/api/uploads/*` | PUT-only · `PRESIGN_MODE=mock` default · `s3` fail-closed until aws4fetch |
+| **Jobs** | `example-api` `queue`/`scheduled` · `/api/jobs/ping` | App-first · **no** `@gosilex/jobs` package yet |
+
+**Presign env + curl (local/CI mock)**
+
+```bash
+# .dev.vars (example-api)
+PRESIGN_MODE=mock
+
+# 1) Sign in (Better Auth) and keep the session cookie jar
+curl -sS -c /tmp/gosilex-cj -b /tmp/gosilex-cj -X POST "$API/api/auth/sign-in/email" \
+  -H 'content-type: application/json' -H "Origin: $ORIGIN" \
+  -d '{"email":"demo@gosilex.local","password":"demo-password-change-me"}'
+
+# 2) Presign a small PUT (size ≤ 5_000_000)
+curl -sS -c /tmp/gosilex-cj -b /tmp/gosilex-cj -X POST "$API/api/uploads/presign" \
+  -H 'content-type: application/json' -H "Origin: $ORIGIN" \
+  -d '{"filename":"photo.jpg","contentType":"image/jpeg","size":1024}'
+# → { uploadId, url, method, headers, expiresAt, key, requestId }
+
+# 3) Complete (mock mode records object under demo/… without real R2 PUT)
+curl -sS -c /tmp/gosilex-cj -b /tmp/gosilex-cj -X POST "$API/api/uploads/<uploadId>/complete" \
+  -H 'content-type: application/json' -H "Origin: $ORIGIN" \
+  -d '{"key":"<key from presign>"}'
+```
+
+Use `API=http://127.0.0.1:8787` and `ORIGIN=http://localhost:5173` for local wrangler + Vite. Auth required on both upload routes; secrets never appear in JSON responses.
 
 ## Apps (examples only)
 
