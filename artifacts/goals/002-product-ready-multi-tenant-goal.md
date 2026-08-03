@@ -13,6 +13,7 @@ related_adrs:
 related_prompt: artifacts/goals/002-goal-run-prompt.md
 arbitration_supersede: artifacts/reviews/2026-07-12-goal-arbitration-freeze.md
 code_review: artifacts/reviews/2026-07-30-goal-002-code-review-verdict.md
+exit_evidence: artifacts/reviews/002-goal-exit-evidence.md
 ---
 
 # Goal 002 — Kit product-ready multi-tenant
@@ -160,17 +161,19 @@ B5 consumer dogfood (#17)  ◄── kit mission outcome
 
 ## Binary program exit (DoD global)
 
-Goal **exits** when **all** are true (evidence on GH issues):
+Goal **exits** when **all** are true. **Evidence SSoT:** [`artifacts/reviews/002-goal-exit-evidence.md`](../reviews/002-goal-exit-evidence.md) (not GH epic closedness alone).
 
-1. [ ] `bun run validate:full` green on kit  
-2. [ ] **No public HMAC session path** (`AUTH_SESSION_ADAPTER` / `createHmacSessionPort` / HMAC login gone from live kit)  
-3. [ ] Local dogfood: **2 personas** use `/admin` vs `/app`; **invite + reset** work with email transport `log` (local) or `cf` (when binding present)  
-4. [ ] Tokens **never** clear-logged; `log` transport rejected outside dev/test  
-5. [ ] ≥1 product: `upstream` merge + `zero-edit` + `banlist` green + evidence on #17 (health app OK)  
-6. [ ] Phase B: migrations + **single** resolver + seed system roles + **CP-IDOR ≥8** (UI matrix optional)  
-7. [ ] AGENTS + README match BA-only + CF Email + Phase B stance (B1)  
-8. [ ] Supersede table applied (no dual park/unpark truths)  
-9. [ ] **Every critical-path epic has ≥1 merged (or green+`reviewed`) PR via `/ship`** — table of PR URLs in goal exit note
+Re-verified **2026-08-03** kit SHA `9414516` (partial — residual rows block `status: exited`):
+
+1. [x] `bun run validate:full` green on kit — **PASS** after `npm rebuild better-sqlite3` (Node 24 ABI); see exit ledger  
+2. [x] **No public HMAC session path** (`AUTH_SESSION_ADAPTER` / `createHmacSessionPort` / HMAC login gone from live kit) — **PASS** (PR #23)  
+3. [ ] Local dogfood: **2 personas** use `/admin` vs `/app`; **invite + reset** work with email transport `log` (local) or `cf` (when binding present) — **PARTIAL** (API tests green; manual 2-persona walkthrough not re-run 2026-08-03)  
+4. [x] Tokens **never** clear-logged; `log` transport rejected outside dev/test — **PASS** (email package + PR #27/#28)  
+5. [ ] ≥1 product: `upstream` merge + `zero-edit` + `banlist` green + evidence on #17 (health app OK) — **STALE** historical dogfood 2026-07-31; re-run on current `main` required  
+6. [x] Phase B: migrations + **single** resolver + seed system roles + **CP-IDOR ≥8** (UI matrix optional) — **PASS** (`resolveModuleAccess` + 14 Phase B tests; PR #30)  
+7. [x] AGENTS + README match BA-only + CF Email + Phase B stance (B1) — **PASS** (PR #29/#88)  
+8. [x] Supersede table applied (no dual park/unpark truths) — **PASS** (this file + ADRs)  
+9. [x] **Every critical-path epic has ≥1 merged (or green+`reviewed`) PR via `/ship`** — **PASS** (table in exit ledger)
 
 **Not required for exit:** Playwright hard gate forever-green, CodeRabbit enable, CF domain onboarded on Gosilex account, all four B6 patterns, TanStack Start, Paraglide, share M0 métier, GitHub OAuth.
 

@@ -83,6 +83,17 @@ bun run validate:full
 
 Rationale: on Free private, branch protection is weak; **local pre-push is the process substitute**. Making CI the only full suite trains bypass culture and burns minutes on avoidable red.
 
+### `better-sqlite3` ABI (local red herring)
+
+Memory D1 tests load native `better-sqlite3`. After a **Node major upgrade**, suites may fail with `NODE_MODULE_VERSION` mismatch (e.g. module built for 127, runtime wants 137). That is **not** a product regression until rebuild is tried:
+
+```bash
+npm rebuild better-sqlite3
+bun run validate:full
+```
+
+Goal 002 exit evidence (2026-08-03) recorded this once — see [`artifacts/reviews/002-goal-exit-evidence.md`](../artifacts/reviews/002-goal-exit-evidence.md).
+
 ---
 
 ## Risk tiers (floors + expectations)
