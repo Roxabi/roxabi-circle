@@ -1,6 +1,6 @@
 # Plan 007 — Quality gates (post code-review)
 
-> **Status:** IN PROGRESS (A0 DONE · A1 script hardened 2026-08-03 · A2 next)  
+> **Status:** IN PROGRESS (A0–A1 DONE · A2 CI soft-gate 2026-08-03 · flip hard after AC-FLAKE)  
 > **Date:** 2026-08-02 · amended 2026-08-03  
 > **Source:** conversation proposals P0–P3 + `/code-review` multi-domain (security · architect · product · tester · devops)  
 > **Primary epic:** [#19](https://github.com/go-silex/silex-boilerplate/issues/19) B7 · Spark #120 · spec **ready-for-implement** [`artifacts/specs/19-epic-b7-qualite-prod-spec.md`](../artifacts/specs/19-epic-b7-qualite-prod-spec.md)  
