@@ -1,11 +1,11 @@
 # Plan 007 — Quality gates (post code-review)
 
-> **Status:** TODO (amended)  
-> **Date:** 2026-08-02  
+> **Status:** IN PROGRESS (A0 DONE 2026-08-03 · A1 next)  
+> **Date:** 2026-08-02 · amended 2026-08-03  
 > **Source:** conversation proposals P0–P3 + `/code-review` multi-domain (security · architect · product · tester · devops)  
-> **Primary epic:** [#19](https://github.com/go-silex/silex-boilerplate/issues/19) B7 · Spark #120 · draft [`artifacts/specs/19-epic-b7-qualite-prod-spec.md`](../artifacts/specs/19-epic-b7-qualite-prod-spec.md)  
+> **Primary epic:** [#19](https://github.com/go-silex/silex-boilerplate/issues/19) B7 · Spark #120 · spec **ready-for-implement** [`artifacts/specs/19-epic-b7-qualite-prod-spec.md`](../artifacts/specs/19-epic-b7-qualite-prod-spec.md)  
 > **Doctrine:** [`docs/testing.md`](../docs/testing.md) · AGENTS §I · freeze **P8** (1 smoke e2e) · **O10** (Sentry hooks, not SaaS for green)  
-> **Sibling:** plan [008](008-mcp-agent-contracts.md) — MCP/agent contracts (**orthogonal**) · Spark #132 · GH [#68](https://github.com/go-silex/silex-boilerplate/issues/68)
+> **Sibling:** plan [008](008-mcp-agent-contracts.md) — MCP/agent contracts (**orthogonal**, GH #68 CLOSED)
 
 **Executor rule:** this plan **supersedes** the informal P0–P3 backlog from the quality discussion. Do not re-expand scope rejected below.
 
@@ -15,7 +15,7 @@
 
 | Plan slice | GH issue | Spark | State | Notes |
 |---|---|---|---|---|
-| **Phase A** (B7 Shape C) | **[#19](https://github.com/go-silex/silex-boilerplate/issues/19)** | **#120** | OPEN · `spark/status:todo` · p3 | **Only existing epic** for 007. Body DoD = e2e CI + Sentry + CodeRabbit decision. Spec draft local. |
+| **Phase A** (B7 Shape C) | **[#19](https://github.com/go-silex/silex-boilerplate/issues/19)** | **#120** | OPEN · p3 | **Only existing epic** for 007. Spec **ready-for-implement** (A0). Next = A1 e2e harden. |
 | A1 e2e harden | *(none)* | — | — | Slice of #19; no child ticket |
 | A2 CI e2e job | *(none)* | — | — | Slice of #19 |
 | A3 Sentry wire | *(none)* | — | — | Slice of #19 |
@@ -24,8 +24,8 @@
 | **Phase B** XS hygiene | *(none)* | — | — | Not in #19 body; optional ride-along or micro-issue |
 | **Phase C** TS/Biome ratchet | *(none)* | — | — | **Not filed** — open after #19 if still wanted |
 | **Phase D** FE CP residual | *(none)* | — | — | plan 005 DONE; inventory-only if gaps |
-| Related consumer CI | [#54](https://github.com/go-silex/silex-boilerplate/issues/54) groups | — | OPEN | Orthogonal (dogfood / zero-edit) — not 007 |
-| Related B6 patterns | [#18](https://github.com/go-silex/silex-boilerplate/issues/18) | #119 | OPEN · p2 | Orthogonal (MasterData, api client…) — not 007 |
+| Related consumer CI | [#54](https://github.com/go-silex/silex-boilerplate/issues/54) groups | — | CLOSED | Orthogonal (dogfood / zero-edit) — not 007 |
+| Related B6 patterns | [#18](https://github.com/go-silex/silex-boilerplate/issues/18) | #119 | CLOSED · p2 | Orthogonal (MasterData, api client…) — not 007 |
 
 **Summary:** plan 007 **n’a pas d’issues enfants**. Toute la Phase A se rattache à **un seul epic #19**. Phases B/C/D n’ont **pas** d’issue GH (et Spark → GH est one-way : créer des enfants = process Spark ou issues kit manuelles hors Spark).
 
@@ -104,20 +104,11 @@ Phase D — residual FE contracts (gap only; not a second MT epic)
 
 ### A0 — Spec promote (human) — **DONE 2026-08-03**
 
-Spec [`artifacts/specs/19-epic-b7-qualite-prod-spec.md`](../artifacts/specs/19-epic-b7-qualite-prod-spec.md) is **`ready-for-implement`**. AC table (incl. **AC-FLAKE** soft-then-hard) lives in the spec body.
+Spec [`artifacts/specs/19-epic-b7-qualite-prod-spec.md`](../artifacts/specs/19-epic-b7-qualite-prod-spec.md) is **`ready-for-implement`**.
 
-| AC id | Requirement |
-|---|---|
-| AC-PATH | E1 = `POST /api/auth/sign-in/email`; design-system = `/admin/design-system#overlays` |
-| AC-SCRUB | Sentry: `sendDefaultPii: false`; `beforeSend` **allowlist**; strip Cookie, Authorization, bodies, password/token; no email as Sentry user by default |
-| AC-CAPTURE | Capture unexpected/5xx only; not VALIDATION_ERROR / 401 / 403 noise |
-| AC-DSN | No `SENTRY_DSN` required for CI green; unset = zero network |
-| AC-E2E-CLAIM | Docs: e2e proves cookie composition + UI overlays only; dual-auth / IDOR / org RBAC = Vitest T0 |
-| AC-CR | Done = App installed **or** dated decline + revisit criteria; never required merge check |
-| AC-CREDS | E2E demo password not logged; scrub login bodies; `E2E_DEMO_*` dev/test defaults only |
-| AC-DEPS | First `@sentry/*` / `playwright*` PR = human review; no Dependabot auto-`reviewed` until policy |
-| AC-FLAKE | A1 ≥3 local greens; A2 soft ≤7d then hard after ≥10 consecutive green GHA e2e (0 retries preferred) |
-| AC-LOCAL-FIRST | e2e never in Lefthook / `validate:full` |
+**AC SSoT = spec body** (edit there first). Plan checklist of ids only:
+
+`AC-PATH` · `AC-SCRUB` · `AC-CAPTURE` · `AC-DSN` · `AC-E2E-CLAIM` · `AC-CR` · `AC-CREDS` · `AC-DEPS` · `AC-FLAKE` · `AC-LOCAL-FIRST`
 
 ### A1 — Harden e2e (local)
 
@@ -288,14 +279,14 @@ bun run validate:full          # still no browser; green
 
 ## Open decisions (human, short)
 
-1. **CodeRabbit:** enable vs decline (budget + private monorepo privacy).  
-2. **e2e `needs: [quality]`** duration before parallel (recommend: until 2 weeks green).  
-3. **Promote** draft spec #19 with A0 AC delta (this plan) before implement agents run.
+1. **CodeRabbit:** enable vs decline (budget + private monorepo privacy) — A4.  
+2. **e2e `needs: [quality]`** duration before parallel (recommend: until flake SLO + ~2 weeks green).  
+3. ~~**Promote** draft spec #19~~ — **RESOLVED 2026-08-03:** spec `ready-for-implement`; AC SSoT in spec body (this plan §A0 is summary + pointer).
 
 ---
 
 ## Chain
 
 - Predecessor: informal quality backlog + code-review 2026-08-02  
-- Successor implement: `/implement` on #19 using this plan as ordering, or promote spec then implement  
+- Successor implement: **A1** on #19 (`e2e-design-system.mjs` harden) → `/ship` PR-B7-1  
 - Related: `plans/002` e2e BA path (DONE) · B7 analysis/spec under `artifacts/`

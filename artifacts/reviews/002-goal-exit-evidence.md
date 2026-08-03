@@ -36,11 +36,11 @@ repo: go-silex/silex-boilerplate
 
 | # | Criterion | Status | Evidence |
 |---|---|---|---|
-| **1** | `bun run validate:full` green on kit | **PASS** | 2026-08-03 on SHA `9414516` after `npm rebuild better-sqlite3` (ABI Node 24 / MODULE_VERSION 137). Prior fail was native module mismatch, not product regression. Log: local session `/tmp/validate-full-goal002b.txt` exit 0. |
+| **1** | `bun run validate:full` green on kit | **PASS** | 2026-08-03 on SHA `9414516` after `npm rebuild better-sqlite3` (ABI Node 24 / MODULE_VERSION 137). Prior fail was native module mismatch, not product regression. **Re-assert:** `npm rebuild better-sqlite3 && bun run validate:full` (exit 0). Pre-push on branch `docs/19-a0-goal-002-exit-evidence` also green. No durable `/tmp` log claimed. |
 | **2** | No public HMAC session path | **PASS** | `rg` over `packages/` + `apps/`: zero `createHmacSessionPort` / `AUTH_SESSION_ADAPTER` / HMAC session exports. Ship: [PR #23](https://github.com/go-silex/silex-boilerplate/pull/23) · residual docs: [PR #88](https://github.com/go-silex/silex-boilerplate/pull/88). Live remnants only under `artifacts/` history. |
 | **3** | Local dogfood: 2 personas `/admin` vs `/app`; invite + reset with email `log` | **PARTIAL** | **Automated:** invites matrix `apps/example-api/src/invitations.test.ts`; reset `password-reset.test.ts`; shells shipped PR #24/#25/#26. **Manual browser 2-persona walkthrough on this date:** not re-run in this session → keep open until human or scripted browser pass recorded here. |
 | **4** | Tokens never clear-logged; `log` transport rejected outside dev/test | **PASS** | `packages/email`: fail-closed `EMAIL_TRANSPORT=log` outside development\|test (`index.ts`); `redactEmailBody` + unit tests `index.test.ts`. Ship: [PR #27](https://github.com/go-silex/silex-boilerplate/pull/27) + staging allowlist [PR #28](https://github.com/go-silex/silex-boilerplate/pull/28). |
-| **5** | ≥1 product upstream + zero-edit + banlist + evidence | **STALE PASS** | Historical: [`docs/product-consumer-dogfood-evidence.md`](../../docs/product-consumer-dogfood-evidence.md) (2026-07-31, product `silex-kit-dogfood`, kit baseline `ac3afbd…`). **No local dogfood clone on this machine 2026-08-03** → re-run `dogfood-zero-edit.sh` against current `main` before claiming permanent exit. |
+| **5** | ≥1 product upstream + zero-edit + banlist + evidence | **STALE** | Historical only: [`docs/product-consumer-dogfood-evidence.md`](../../docs/product-consumer-dogfood-evidence.md) (2026-07-31, product `silex-kit-dogfood`, kit baseline `ac3afbd…`). **No re-run on current `main` (2026-08-03)** → re-run `dogfood-zero-edit.sh` before exit. Do **not** treat historical evidence as current PASS. |
 | **6** | Phase B: migrations + single resolver + seed system roles + **CP-IDOR ≥8** | **PASS** | `resolveModuleAccess` in `apps/example-api/src/services/org-roles.ts` (runtime authz). `org-roles-phase-b.test.ts`: **14** cases green (includes cross-org IDOR, system immutability, grant ceiling). Ship: [PR #30](https://github.com/go-silex/silex-boilerplate/pull/30). UI matrix optional (not required). |
 | **7** | AGENTS + README match BA-only + CF Email + Phase B | **PASS** | AGENTS §D BA-only dual credential cookie\|sk_; ADR-0002/0003/0004 linked; README kit map. Ship: [PR #29](https://github.com/go-silex/silex-boilerplate/pull/29) + [PR #88](https://github.com/go-silex/silex-boilerplate/pull/88). |
 | **8** | Supersede table applied (no dual park/unpark truths) | **PASS** | Goal § Supersede + ADR-0002/0003/0004 live. B8 residual parks: Paraglide / Plausible / patchlog / TanStack Start-as-default only (GH #20). |
@@ -66,7 +66,7 @@ Do not treat that red as product DoD failure until rebuild is attempted.
 
 ---
 
-## Critical-path `/ship` PR table (DoD #9)
+## Ship PR map (critical path for DoD #9 + companions)
 
 | Epic | GH | Spark | Primary merged PR(s) |
 |---|---|---|---|
@@ -91,7 +91,7 @@ Open companions (not goal-blocking): **#19 B7**, **#20 B8**.
 | #90 | MasterData demo | **superseded → done** | GH #82 · PR #86 |
 | #91 | R2 presign demo | **superseded → done** | GH #83 · PR #89/#91 |
 | #92 | FE api-client | **superseded → done** | GH #81 · PR #85 |
-| #124 | dogfood zero-edit | **superseded → done (historical)** | B5 #118 · PR #39 · evidence doc (re-run still Goal DoD #5) |
+| #124 | dogfood zero-edit | **historical-only · goal residual open** | B5 #118 · PR #39 · evidence doc; **revalidate** = Goal DoD #5 before permanent `done` language |
 | #125 | e2e + Sentry | **keep open** under B7 #120 | implement via plan 007 |
 | #100 | patchlog UI | **park** under B8 | no implement |
 | #151 | staging examples recette | **keep open** residual ops | after B7 A2 hard flip preferred |
