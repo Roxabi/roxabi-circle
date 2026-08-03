@@ -120,13 +120,13 @@ Floors are enforced by Vitest (`packages/config/vitest-coverage.mjs` + per-packa
 | **`apps/share-*` (P1 later)** | Product risks (upload modes, zip-slip, org membership, serve) | Forks of `@gosilex/*` stacks |
 | **`scripts/*` / `tools/*`** | Architecture gates: banlist, extract, zero-edit, env:check, license:check, coverage | Domain behaviour |
 
-### Design-system e2e
+### Design-system e2e (local only)
 
 - **Kit composition proof** (`@gosilex/ui` + admin shell in `example-web`).
 - **Not** product e2e. Do not grow it into artefact/upload flows.
-- **Local (API + web already up):** `bun run test:e2e:design-system`
-- **CI / one-shot orchestrator:** `bun run test:e2e:ci` (`scripts/e2e-ci.sh` — migrate, seed, start API+web, Chromium smoke). **Not** in `validate:full` / Lefthook pre-push.
-- **CI job** `e2e` (workflow `CI`, `needs: [quality]`): soft-gate with `continue-on-error` until **2026-08-10** (B7 AC-FLAKE). Free private merge-on-green blocks on *failed* checks — soft means the workflow can stay green while e2e is red. **Not** merge authority and **not** a security control until flipped hard after flake SLO.
+- **Local (API + web already up):** `bun run test:e2e:design-system` — fast when stack is warm.
+- **Local one-shot (cold start):** `bun run test:e2e:ci` (`scripts/e2e-ci.sh` — migrate, seed, start API+web, Chromium smoke, teardown).
+- **Not** in GitHub Actions CI, `validate:full`, or Lefthook pre-push — Free minutes + flake risk; local-first gate stays machine-cheap.
 - **CP-E2E** — proves: BA cookie login path + design-system overlays open without Base UI contract console errors. **Does not prove:** dual-auth, IDOR, org RBAC, product flows, a11y matrix.
 
 ### When product lands
@@ -182,7 +182,7 @@ Machine-enforced today via full `validate` + `test:coverage` + package tests. Pr
 | **CP-LICENSE** | third-party deps on allowlist; disallowed SPDX fails | `bun run license:check` — **compliance hygiene**, not malware audit |
 | **CP-I18N** | FR/EN non-empty copy; key parity via TypeScript `Messages` | `messages.contract.test.ts` / `i18n:check` — **not** semantic/security review |
 | **CP-UI-CONTRACT** | known Base UI traps (e.g. MenuGroupContext, closed dialog) | `packages/ui` (+ design-system smoke) |
-| **CP-E2E** | BA cookie login + design-system overlays (Chromium); no Base UI contract console errors | `bun run test:e2e:design-system` / `test:e2e:ci` · CI job `e2e` (soft until 2026-08-10) — **not** dual-auth / IDOR / RBAC |
+| **CP-E2E** | BA cookie login + design-system overlays (Chromium); no Base UI contract console errors | **Local only:** `test:e2e:design-system` / `test:e2e:ci` — **not** dual-auth / IDOR / RBAC; not a CI gate |
 
 ### MCP contract probes — non-claims
 

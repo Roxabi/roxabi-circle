@@ -1,6 +1,6 @@
 # Plan 007 — Quality gates (post code-review)
 
-> **Status:** IN PROGRESS (A0–A1 DONE · A2 CI soft-gate 2026-08-03 · flip hard after AC-FLAKE)  
+> **Status:** IN PROGRESS (A0–A1 DONE · A2 amended **local-only** e2e — no GHA job · A3 Sentry next)  
 > **Date:** 2026-08-02 · amended 2026-08-03  
 > **Source:** conversation proposals P0–P3 + `/code-review` multi-domain (security · architect · product · tester · devops)  
 > **Primary epic:** [#19](https://github.com/go-silex/silex-boilerplate/issues/19) B7 · Spark #120 · spec **ready-for-implement** [`artifacts/specs/19-epic-b7-qualite-prod-spec.md`](../artifacts/specs/19-epic-b7-qualite-prod-spec.md)  
@@ -120,19 +120,15 @@ Spec [`artifacts/specs/19-epic-b7-qualite-prod-spec.md`](../artifacts/specs/19-e
 | **Verify** | Local green **≥3** consecutive runs on clean machine |
 | **STOP** | Do not add CI hard-gate until A1 green |
 
-### A2 — CI job `e2e`
+### A2 — Local-only e2e (amended 2026-08-03)
 
 | | |
 |---|---|
-| **Files** | `.github/workflows/ci.yml` · root script if needed |
-| **Job** | `name: e2e`, timeout ≤15m, **`needs: [quality]`** on first land (Free minutes) |
-| **Browser** | Playwright-managed Chromium only; pin version to lockfile; cache browsers |
-| **Env** | fetch-depth 1; demo seed only; **no** Sentry DSN |
-| **Artifacts** | traces/screenshots **on failure only**, retention 7d; scrub auth bodies |
-| **Retries** | Prefer **0**; max 1 job retry with issue comment if flake remains |
-| **merge-on-green** | Once job exists and fails, it blocks merge — ship only when stable. Do **not** put e2e inside `validate:full` |
-| **Soft-gate** | **Required first land** on Free private: `continue-on-error: true` (or equivalent) **≤7 calendar days** + expire date in PR + testing.md “not a security control / not merge authority yet”. Flip hard only after AC-FLAKE. |
-| **Parallel** | Only after flake budget proven; then optional drop `needs` |
+| **Decision** | **No** default GHA `e2e` job (Free minutes + flake). Revisit only with explicit issue. |
+| **Files** | `scripts/e2e-ci.sh` · `apps/example-web/scripts/e2e-design-system.mjs` · `docs/testing.md` · **remove** job from `ci.yml` if present |
+| **Local warm** | `bun run test:e2e:design-system` (API+web up) |
+| **Local cold** | `bun run test:e2e:ci` (one-shot orchestrator) |
+| **Out** | pre-push e2e · validate:full e2e · required CI check |
 
 ### A3 — Sentry env-gated
 
