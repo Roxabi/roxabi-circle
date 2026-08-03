@@ -54,12 +54,12 @@ Folded from [`plans/007-quality-gates-post-review.md`](../../plans/007-quality-g
 | **AC-CR** | Done = App installed **or** dated decline + revisit criteria; never required merge check. |
 | **AC-CREDS** | E2E demo password not logged; traces scrub login bodies or disable body retention on auth steps; `E2E_DEMO_EMAIL` / `E2E_DEMO_PASSWORD` with dev/test defaults only. |
 | **AC-DEPS** | First PR landing `@sentry/*` or `playwright*` = human review; exclude from Dependabot auto-`reviewed` until policy says otherwise. |
-| **AC-FLAKE** | Local A1: **≥3** consecutive greens. CI A2 first land: **soft-gate** (`continue-on-error: true` **or** equivalent always-report) with **dated expire ≤7 calendar days** + `docs/testing.md` row “not a security control / not merge authority yet”. Flip to hard-fail only after **≥10 consecutive green GHA `e2e` runs with retries = 0** (or documented alternate N) and no open unowned flake issue. Prefer **0** CI retries until SLO met. |
-| **AC-LOCAL-FIRST** | e2e **never** enters Lefthook pre-push / `validate:full`. |
+| **AC-FLAKE** | Local A1: **≥3** consecutive greens. **No GHA e2e job** (Free minutes + flake) — amended 2026-08-03: local-only via `test:e2e:design-system` / `test:e2e:ci`. Revisit CI only with explicit product need + flake SLO. |
+| **AC-LOCAL-FIRST** | e2e **never** enters Lefthook pre-push / `validate:full` / default GitHub Actions CI. |
 
 ## Expected behavior
 
-1. On PR / push to `main`|`staging`, after job **`quality`** (first land: `needs: [quality]`), job **`e2e`** starts API + web, seeds demo, runs Chromium smoke; fails on Base UI contract console errors or assertion failure — **soft then hard** per **AC-FLAKE**.
+1. Browser e2e is **local-only**: warm stack → `bun run test:e2e:design-system`; cold → `bun run test:e2e:ci`. No default GHA job (AC-FLAKE amended).
 2. Without `SENTRY_DSN`, Worker and web behave exactly as today (no network to Sentry).
 3. With `SENTRY_DSN` set (staging/prod secrets), unhandled / `AppError` paths can report with `requestId` tag; cookies/Authorization scrubbed.
 4. CodeRabbit reviews PRs **or** `docs/` (or artifacts) records **decline** + criteria to enable later.
@@ -80,33 +80,18 @@ Folded from [`plans/007-quality-gates-post-review.md`](../../plans/007-quality-g
 | Live SaaS required for kit CI green | Freeze **O10** |
 | Mutation testing / CodeRabbit as merge authority | Signal only; merge-on-green + human `reviewed` remain |
 
-## CI job design
+## CI job design (superseded — local only)
 
-### Workflow layout
-
-Prefer **same workflow file** [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) for discoverability:
-
-```text
-jobs:
-  quality:          # existing name: validate-full
-    …
-  e2e:              # NEW — check run name must be stable (e.g. "e2e")
-    name: e2e
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    needs: []       # parallel with quality OK; or needs: [quality] if minutes scarce
-    steps: …
-```
+**2026-08-03 amend:** no default GitHub Actions `e2e` job (Free minutes + flake).  
+SSoT commands: `docs/testing.md` · `scripts/e2e-ci.sh` (local one-shot).
 
 | Decision | Choice | Rationale |
 |---|---|---|
-| Parallel vs after quality | **`needs: [quality]` first land** | Free minutes: skip browser when lint/type/test fail |
-| Soft then hard | **Soft ≤7d then flip PR** (AC-FLAKE) | Free private: **any failed completed check** blocks merge-on-green — there is no true “optional required check” |
-| Include in `validate:full` | **No** | Browser not local-first primary gate |
-| merge-on-green | Failed completed check blocks | Only hard-fail e2e after flake SLO; soft uses `continue-on-error` with dated expire |
-| Job display name | Exact short name **`e2e`** | Human + optional future name match |
-| Secret-scan | Unchanged standalone workflow | Orthogonal |
-| Workflow_run list | No change required if e2e is a job under workflow `CI` | merge-on-green already listens to `CI` completion |
+| GHA e2e on every PR | **No** | Cost + flake; local-first doctrine |
+| Include in `validate:full` / pre-push | **No** | Wall-clock + bypass culture |
+| Local warm smoke | `bun run test:e2e:design-system` | Servers already up |
+| Local cold one-shot | `bun run test:e2e:ci` | migrate + seed + start + smoke |
+| Revisit GHA | Only with product need + flake SLO + explicit issue | Not silent re-add |
 
 ### Job steps (normative sketch)
 
@@ -223,7 +208,7 @@ Add optional string keys to `apps/example-api/src/env.schema.ts` and document in
 ### Docs updates (required)
 
 - Expand `docs/observability.md`: init sketch, scrub rules, what is always-on vs optional, anti-stacking (no PostHog+Replay FOMO).
-- Note in `docs/testing.md`: e2e CI job exists; CP-E2E row; still not in pre-push.
+- Note in `docs/testing.md`: e2e local-only; CP-E2E row; not in pre-push / GHA.
 
 ### Package boundary
 
@@ -263,19 +248,17 @@ Add optional string keys to `apps/example-api/src/env.schema.ts` and document in
 | Slice | Plan id | Demo-able increment | Depends |
 |---|---|---|---|
 | **S0** | A0 | Spec promoted (this file) | — **DONE 2026-08-03** |
-| **S1** | A1 | Harden e2e script (no sleep correctness; Playwright Chromium resolve; health poll) green **local ≥3** | S0 |
-| **S2a** | A2 soft | CI job `e2e` with `needs: [quality]`, soft-gate + dated expire, artifacts on failure | S1 |
-| **S2b** | A2 flip | Remove soft-gate after flake SLO (AC-FLAKE) | S2a |
+| **S1** | A1 | Harden e2e script (no sleep correctness; Playwright Chromium resolve; health poll) green **local ≥3** | S0 **DONE** |
+| **S2** | A2 | Local-only e2e: keep `test:e2e:*` + `e2e-ci.sh`; **no** GHA job (amended) | S1 **DONE** |
 | **S3** | A3 | `SENTRY_DSN` schema + example; API init + onError gated + scrub tests; observability.md | S0 (// S1 OK) |
-| **S4** | A4+A5 | CodeRabbit enable **or** decision doc + testing.md CP-E2E matrix / non-claims | S2a recommended |
+| **S4** | A4+A5 | CodeRabbit enable **or** decision doc + testing.md CP-E2E matrix / non-claims | S2 |
 
 ## Definition of Done
 
 - [x] **A0** AC table frozen in this spec (ready-for-implement).  
-- [ ] Job **`e2e`** on CI (workflow `CI`) on paths **E1+E2** (E3 optional) — soft then hard per AC-FLAKE.  
-- [ ] E2E non-flaky policy applied (no correctness sleeps; health poll; Chromium CI).  
-- [ ] Flake SLO met before hard merge authority (AC-FLAKE).  
-- [ ] E2E **not** required in Lefthook `validate:full` (documented).  
+- [x] **A1** e2e script hardened; local ≥3 greens.  
+- [x] **A2** e2e **local only** (no default GHA job) — scripts + docs.  
+- [x] E2E **not** in Lefthook / `validate:full` / default CI (documented).  
 - [ ] Sentry optional: documented + **wire** in example-api when DSN set; no DSN → no-op.  
 - [ ] `env.schema` / `.dev.vars.example` / `env:check` include optional Sentry keys.  
 - [ ] CodeRabbit **active** **or** decision documented with criteria.  
