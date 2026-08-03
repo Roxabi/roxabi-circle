@@ -28,16 +28,19 @@ export function createAppPresignSigner(env: {
 }): PresignSigner {
   const mode = resolvePresignMode(env)
   if (mode === 's3') {
-    // Fail closed without credentials — products wire aws4fetch when ready.
+    // Fail closed: never silently mint mock URLs when operator asked for S3.
+    // Kit v1 has no aws4fetch signer yet — S3 mode requires full creds and is not mock-shaped.
     const id = env.R2_ACCESS_KEY_ID
     const secret = env.R2_SECRET_ACCESS_KEY
     if (!id || !secret || !env.R2_ACCOUNT_ID || !env.R2_BUCKET_NAME) {
-      return createMockPresignSigner({ baseUrl: 'https://presign.fallback.mock' })
+      throw new Error(
+        'PRESIGN_MODE=s3 requires R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME',
+      )
     }
-    // Kit v1 still uses mock shape for S3 until aws4fetch is added as app dep.
-    return createMockPresignSigner({
-      baseUrl: `https://${env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com/${env.R2_BUCKET_NAME}`,
-    })
+    // Placeholder until aws4fetch is wired — still fail closed rather than fake real R2.
+    throw new Error(
+      'PRESIGN_MODE=s3 is not implemented in kit v1 (no aws4fetch). Use PRESIGN_MODE=mock for local/CI.',
+    )
   }
   return createMockPresignSigner()
 }
