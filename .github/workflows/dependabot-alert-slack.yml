@@ -98,7 +98,16 @@ jobs:
                   with urllib.request.urlopen(req) as r:
                       return json.load(r)
               except urllib.error.HTTPError as e:
-                  body = e.read().decode("utf-8", errors="replace")[:500]
+                  body = e.read().decode("utf-8", errors="replace")[:800]
+                  if e.code == 403 and "not accessible by integration" in body:
+                      # gosilex-ci lacks Dependabot alerts permission — do not red-spam cron.
+                      print(
+                          "::warning::Dependabot Alerts API 403 (Resource not accessible by integration). "
+                          "Add GitHub App permission **Dependabot alerts: Read** on gosilex-ci "
+                          "(+ re-approve install), see docs/gosilex-ci-app-setup.md. "
+                          "Security Dependabot *PR* notifications still work without this."
+                      )
+                      raise SystemExit(0)
                   raise SystemExit(f"GitHub API {e.code} for {url}: {body}") from e
 
           def severity(a):
