@@ -34,6 +34,7 @@ Severity for Slack: prefer `security_advisory.severity` / `security_vulnerabilit
 | Kind | Name | Source |
 |---|---|---|
 | Secret | `SLACK_FLINT_BOT_TOKEN` | BW `slack/flint` → `SLACK_BOT_TOKEN` / `SPARK_SLACK_BOT_TOKEN` |
+| Secret | `CI_APP_PRIVATE_KEY` (+ var `CI_APP_ID`) | **gosilex-ci** App — used to list Dependabot alerts (`GITHUB_TOKEN` often 403 on private) |
 | Variable | `SLACK_CHANNEL_BUGS_ALERT` | `C0BDAPS2MG8` |
 
 Rotate: update BW + `gh secret set SLACK_FLINT_BOT_TOKEN --repo go-silex/silex-boilerplate`.
