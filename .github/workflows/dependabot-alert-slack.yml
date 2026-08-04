@@ -85,7 +85,14 @@ jobs:
 
           adv = alert.get("security_advisory") or {}
           vuln = alert.get("security_vulnerability") or {}
-          severity = (alert.get("severity") or adv.get("severity") or "unknown").lower()
+          # REST/webhook: top-level alert.severity is often null on private repos.
+          # Prefer security_advisory.severity, then security_vulnerability.severity.
+          severity = (
+              alert.get("severity")
+              or adv.get("severity")
+              or vuln.get("severity")
+              or "unknown"
+          ).lower()
           ghsa = adv.get("ghsa_id") or "?"
           cve = adv.get("cve_id") or ""
           summary = (adv.get("summary") or "")[:200]
