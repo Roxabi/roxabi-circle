@@ -43,3 +43,7 @@ reports/
 .DS_Store
 apps/example-web/dist/
 packages/*/dist/
+
+# Local release GIF captures (engine output; do not commit multi-MB blobs)
+artifacts/release-gifs/*
+!artifacts/release-gifs/.gitkeep

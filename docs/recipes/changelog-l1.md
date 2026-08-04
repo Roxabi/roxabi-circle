@@ -49,8 +49,59 @@ See also: [`docs/playbooks/start-product.md`](../playbooks/start-product.md) · 
 
 - D1 / admin CMS / draft-publish workflows  
 - Shared package until ≥2 products need the same CRUD (L2 unpark)  
-- GIF recording in CI (`validate:full`) — local scripts only if you port the Metalyde pattern  
+- GIF recording in CI (`validate:full`) — **no**; use §V2 local engine  
 
 ## Park pointer
 
 Live SSoT: [`docs/park-decisions-b8.md`](../park-decisions-b8.md) — DR-B8-03 **L1 shipping** · L2 package still park.
+
+## V2 — Local release GIFs (optional)
+
+**Status:** kit engine + dogfood scripts · GH [#115](https://github.com/go-silex/silex-boilerplate/issues/115) · Spark **#163**  
+**Not** in CI / `validate:full`. **Not** a workspace package.
+
+### Ownership
+
+| Piece | Owner |
+|-------|--------|
+| Engine (`tooling/release-gifs/`) | kit (shared Node tooling) |
+| Kit scenarios (`apps/example-web/scripts/*release-gifs*`) | kit dogfood only |
+| Product scenarios + `public/release-gifs/*` | product app |
+
+### Prereqs
+
+1. `bun run db:migrate && bun run db:seed`
+2. API `apps/example-api` → `:8787` · web `apps/example-web` → `:5173`
+3. Chromium (Playwright or `CHROME_PATH`)
+4. System **ffmpeg** + **ffprobe**
+
+### Commands (kit)
+
+```bash
+bun run --filter @gosilex/example-web setup:release-gifs
+# → artifacts/release-gifs/.auth-demo.json + agent-browser.hint.json (no password)
+
+bun run --filter @gosilex/example-web record:release-gifs
+# RECORD_ONLY=02-changelog bun run --filter @gosilex/example-web record:release-gifs
+# → artifacts/release-gifs/*-share.gif
+```
+
+### Wire into changelog UI
+
+```bash
+mkdir -p apps/example-web/public/release-gifs
+cp artifacts/release-gifs/*-02-changelog-share.gif apps/example-web/public/release-gifs/
+# set gifSrc: '/release-gifs/<filename>' on a Release in src/content/releases/
+```
+
+Large GIFs: prefer gitignore + generate locally; only commit small demos if needed.
+
+### Product copy
+
+1. Import engine from `tooling/release-gifs/index.mjs` (or copy the folder into the product monorepo).
+2. Write product-only scenarios (selectors + flows).
+3. Point `outDir` at product `artifacts/release-gifs/`.
+4. Never dual-edit kit `example-web` scenarios for métier demos.
+
+Engine details: [`tooling/release-gifs/README.md`](../../tooling/release-gifs/README.md).
+

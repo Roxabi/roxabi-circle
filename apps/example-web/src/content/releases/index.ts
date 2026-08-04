@@ -43,5 +43,7 @@ export const releases: Release[] = [
         'Separate kit dogfood vs product catalogues (zero-edit)',
       ],
     },
+    // After local record: copy *-02-changelog-share.gif → public/release-gifs/
+    // gifSrc: '/release-gifs/YYYY-MM-DD-02-changelog-share.gif',
   },
 ]
