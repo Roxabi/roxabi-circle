@@ -38,7 +38,7 @@ export function ChangelogPage() {
                   {bullets.length > 0 ? (
                     <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
                       {bullets.map((line) => (
-                        <li key={line}>{line}</li>
+                        <li key={`${release.id}:${line}`}>{line}</li>
                       ))}
                     </ul>
                   ) : null}
