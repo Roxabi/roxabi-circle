@@ -16,7 +16,7 @@ Each executor: read the full plan, honor STOP conditions, update this table.
 | [004](004-reset-token-and-feedback-page.md) | **W3** | Strip reset token from URL + feedback pathname-only | P1 | S | 001 | DONE |
 | [005](005-auth-org-characterization-tests.md) | **W4** | AuthGate/org/schema tests + fail-closed `useOrgContext` | P1 | M | 003 | DONE |
 | [006](006-kit-fe-polish-optional.md) | **W5** | Optional polish (AlertDialog, roles i18n, Empty, docs) | P2 | M | 002, 005 | DONE |
-| [007](007-quality-gates-post-review.md) | **B7+** | Quality gates (B7 #19) — A0–A1 done · A2 e2e local-only | P0→P2 | M | 002 (e2e local) | **IN PROGRESS** (no GHA e2e job; A3 Sentry next) |
+| [007](007-quality-gates-post-review.md) | **B7+** | Quality gates — A0–A2 + Phase B XS done · A3/A4 parked | P0→P2 | M | 002 (e2e local) | **PARKED** (Sentry/CR later; B1/B2 XS shipped 2026-08-04) |
 | [008](008-mcp-agent-contracts.md) | **MCP** | Agent contracts — ToolRegistrar, Zod publics, probes, wire SSOT | P2 | M | baseline mcp-example | **DONE** (GH #68 CLOSED) |
 | [009](009-layer-import-gate.md) | **Arch** | Layer import boundary gate (packages↛apps) | P1 | S–M | ADR-0001 | **DONE** (GH #69 CLOSED) |
 | [010](010-quality-hygiene-debt.md) | **Hygiene** | DEBT expiry · folder size · AGENTS ADR hygiene | P2 | S | after 007 A or growth | DONE |

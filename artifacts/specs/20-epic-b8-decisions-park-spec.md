@@ -5,10 +5,11 @@
 title: "Spec — Epic B8 · Décisions park (decision records)"
 issue: 20
 spark: 121
-status: draft
+status: accepted
 type: spec
 tier: F-decision
 date: 2026-07-30
+accepted: 2026-08-04
 analysis: artifacts/analyses/20-epic-b8-decisions-park-analysis.md
 related_gh: [6, 7, 11, 13, 14, 15, 17, 19]
 ---
@@ -68,13 +69,13 @@ Every parked topic uses this record shape (fill in section D below):
 
 **DoD for “decisions written” (epic-level):**
 
-- [ ] Five DRn filled (or equivalent single multi-DR doc)
-- [ ] Unpark criteria testable (not « when we feel like it »)
-- [ ] ADR amend targets listed (even if amend PR deferred)
-- [ ] Spark #100 triage ∈ {spec, reject, later}
-- [ ] #6 / #7 posture restated as deferred-closed
-- [ ] No code change required to mark B8 decision-DoD done
-- [ ] Spec `status` moves `draft` → `accepted` after human review
+- [x] Five DRn filled (or equivalent single multi-DR doc) — DR-B8-01…05 below; 02/04 unparked to ship
+- [x] Unpark criteria testable (not « when we feel like it »)
+- [x] ADR amend targets listed (even if amend PR deferred) — § ADR / doc amend targets
+- [x] Spark #100 triage ∈ {spec, reject, later} — **later** (DR-B8-03)
+- [x] #6 / #7 posture restated as deferred-closed / superseded (DR-B8-04/05)
+- [x] No code change required to mark B8 decision-DoD done
+- [x] Spec `status` moves `draft` → **`accepted`** (2026-08-04)
 
 ---
 

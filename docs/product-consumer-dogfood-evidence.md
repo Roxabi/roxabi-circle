@@ -1,5 +1,7 @@
 # B5 consumer dogfood evidence
 
+> **Refresh 2026-08-04:** re-clone of `go-silex/silex-kit-dogfood` failed (`Repository not found` / ACL). Historical row below remains the last successful dogfood. Goal 002 DoD #5 stays **STALE** until a product consumer is re-verified on current kit `main`.
+
 | Field | Value |
 |---|---|
 | **Date** | 2026-07-31T22:04Z |
