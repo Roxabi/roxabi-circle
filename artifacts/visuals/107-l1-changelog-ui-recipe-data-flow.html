@@ -1,0 +1,15 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"/><title>#107 data flow</title>
+<style>body{font:14px/1.4 system-ui;max-width:52rem;margin:2rem auto;padding:0 1rem}
+.box{border:1px solid #ccc;border-radius:8px;padding:.75rem 1rem;margin:.5rem 0}
+.arrow{text-align:center;color:#666}</style></head><body>
+<h1>#107 L1 Changelog — data flow</h1>
+<div class="box"><b>src/content/releases/</b><br/>Release[] (static TS)</div>
+<div class="arrow">↓ import</div>
+<div class="box"><b>lib/releases.ts</b> getReleases() · sort by date desc · pick locale</div>
+<div class="arrow">↓</div>
+<div class="box"><b>routes/changelog.tsx</b> ChangelogPage · useLocale</div>
+<div class="arrow">↓</div>
+<div class="box"><b>NavUser child</b> menu → navigate /app/changelog</div>
+<div class="arrow">↓ auth</div>
+<div class="box"><b>appLayoutRoute</b> cookie session (existing)</div>
+</body></html>
