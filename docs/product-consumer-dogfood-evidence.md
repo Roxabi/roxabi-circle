@@ -9,6 +9,7 @@
 | **Kit main at verify** | `50b7a4eb47521f958adf4a6ca1e73591b6fa0e4c` |
 | **upstream push** | `no_push` |
 | **origin** | `git@github.com:go-silex/silex-kit-dogfood.git` |
+| **Role** | **Permanent** greenfield consumer (kept) — zero-edit dogfood, not one-shot |
 
 ## Remotes
 ```
@@ -72,3 +73,4 @@ bash scripts/dogfood-zero-edit.sh ~/projects/gosilex/silex-kit-dogfood
 |---|---|
 | 2026-07-31 | First B5 dogfood (prior clone; later deleted) |
 | 2026-08-04 | Recreated private repo + stubs; harness green |
+| 2026-08-04 | **Decision:** keep as permanent greenfield consumer (not archive after exit) |

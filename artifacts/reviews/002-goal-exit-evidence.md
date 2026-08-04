@@ -21,7 +21,7 @@ repo: go-silex/silex-boilerplate
 | **2** | No public HMAC session path | **PASS** | PR #23 · residual docs #88. |
 | **3** | 2 personas `/admin` vs `/app`; invite + reset | **PASS (automated)** | invitations 13 + password-reset 4 tests green; shells #24–#26. |
 | **4** | Tokens never clear-logged; `log` fail-closed | **PASS** | PR #27/#28. |
-| **5** | ≥1 product upstream + zero-edit + banlist | **PASS** | **2026-08-04 recreated** [silex-kit-dogfood](https://github.com/go-silex/silex-kit-dogfood) · product SHA `01579e6` · kit-baseline `50b7a4e` · `dogfood-zero-edit.sh` OK · zero-edit + banlist green. Evidence: [`docs/product-consumer-dogfood-evidence.md`](../../docs/product-consumer-dogfood-evidence.md). |
+| **5** | ≥1 product upstream + zero-edit + banlist | **PASS** | **2026-08-04 recreated + kept** [silex-kit-dogfood](https://github.com/go-silex/silex-kit-dogfood) (permanent greenfield consumer) · product SHA `01579e6` · kit-baseline `50b7a4e` · `dogfood-zero-edit.sh` OK · zero-edit + banlist green. Evidence: [`docs/product-consumer-dogfood-evidence.md`](../../docs/product-consumer-dogfood-evidence.md). |
 | **6** | Phase B + CP-IDOR ≥8 | **PASS** | PR #30. |
 | **7** | AGENTS + README BA-only + CF Email + Phase B | **PASS** | PR #29/#88. |
 | **8** | Supersede table / park truths | **PASS** | B8 accepted · [`docs/park-decisions-b8.md`](../../docs/park-decisions-b8.md). |
