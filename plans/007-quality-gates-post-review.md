@@ -1,6 +1,6 @@
 # Plan 007 — Quality gates (post code-review)
 
-> **Status:** IN PROGRESS (A0–A1 DONE · A2 amended **local-only** e2e — no GHA job · A3 Sentry next)  
+> **Status:** A0–A2 DONE · Phase B XS shipped 2026-08-04 · A3 Sentry / A4 CodeRabbit **parked** (operator)  
 > **Date:** 2026-08-02 · amended 2026-08-03  
 > **Source:** conversation proposals P0–P3 + `/code-review` multi-domain (security · architect · product · tester · devops)  
 > **Primary epic:** [#19](https://github.com/go-silex/silex-boilerplate/issues/19) B7 · Spark #120 · spec **ready-for-implement** [`artifacts/specs/19-epic-b7-qualite-prod-spec.md`](../artifacts/specs/19-epic-b7-qualite-prod-spec.md)  
@@ -176,12 +176,12 @@ Fold anti-list (refuse table above) into a short “Refuse” subsection.
 
 ---
 
-## Phase B — XS hygiene
+## Phase B — XS hygiene — **DONE 2026-08-04**
 
 | ID | Work | Effort | Notes |
 |---|---|---|---|
-| B1 | Add root `.editorconfig` (charset utf-8, lf, insert final newline, indent 2 spaces) | XS | Align with `biome.json`; for md/yml/sql outside Biome |
-| B2 | Fix `Math.random` in UI skeleton width if still present | XS | Prefer fixed/prop width; **no** repo-wide ban script. If later rule: only `packages/auth/**` + id/token generators |
+| B1 | Add root `.editorconfig` (charset utf-8, lf, insert final newline, indent 2 spaces) | XS | **Shipped** — root `.editorconfig` |
+| B2 | Fix `Math.random` in UI skeleton width if still present | XS | **Shipped** — `SidebarMenuSkeleton` fixed `width` prop default `70%` |
 
 ---
 

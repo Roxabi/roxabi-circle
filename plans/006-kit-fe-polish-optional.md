@@ -108,12 +108,14 @@ One short markdown file:
 
 ## Done criteria
 
-- [ ] At least AlertDialog revoke **or** documented subset shipped
-- [ ] Role labels i18n if members UI touched
-- [ ] Docs file exists and is accurate
-- [ ] typecheck + web tests + i18n:check exit 0
-- [ ] e2e design-system exit 0 (with servers)
-- [ ] `plans/README.md` 006 → DONE or REJECTED (operator skipped W5)
+- [x] At least AlertDialog revoke **or** documented subset shipped — keys revoke AlertDialog + Select/Empty dogfood
+- [x] Role labels i18n if members UI touched — FR/EN catalogs
+- [x] Docs file exists and is accurate — `docs/ui-kit.md`
+- [x] typecheck + web tests + i18n:check exit 0 — kit gates
+- [x] e2e design-system exit 0 (with servers) — A1 harden 2026-08-03
+- [x] `plans/README.md` 006 → **DONE**
+
+**Closed 2026-08-04** — plan body checkboxes aligned with README DONE (was already shipped; doc lag).
 
 ## STOP conditions
 
