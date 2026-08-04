@@ -1,0 +1,142 @@
+# Dependabot alert → Slack #int-bugs-alert (Flint bot).
+# Channel: C0BDAPS2MG8 · secrets: SLACK_FLINT_BOT_TOKEN · var: SLACK_CHANNEL_BUGS_ALERT
+# Requires repo Dependabot alerts ON (security updates recommended).
+# Cooldown in dependabot.yml does NOT apply to security updates — alerts fire immediately.
+name: Dependabot alert → Slack
+
+on:
+  dependabot_alert:
+    types: [created, reopened, reintroduced]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Post a smoke message only (no alert payload)"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  # Needed to read alert details on some event shapes
+  security-events: read
+
+concurrency:
+  group: dependabot-alert-slack-${{ github.event.alert.number || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  notify:
+    name: Post Slack
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Resolve channel
+        id: cfg
+        env:
+          CHANNEL_VAR: ${{ vars.SLACK_CHANNEL_BUGS_ALERT }}
+        run: |
+          CHANNEL="${CHANNEL_VAR:-C0BDAPS2MG8}"
+          echo "channel=$CHANNEL" >> "$GITHUB_OUTPUT"
+          if [ -z "${{ secrets.SLACK_FLINT_BOT_TOKEN }}" ]; then
+            echo "::error::Missing secret SLACK_FLINT_BOT_TOKEN (Flint xoxb from BW slack/flint)"
+            exit 1
+          fi
+
+      - name: Smoke post (workflow_dispatch)
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_FLINT_BOT_TOKEN }}
+          CHANNEL: ${{ steps.cfg.outputs.channel }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          TEXT=":shield: *Dependabot → Slack smoke* (\`${REPO}\`) — workflow OK · channel <#${CHANNEL}>"
+          RESP=$(curl -sS -X POST https://slack.com/api/chat.postMessage \
+            -H "Authorization: Bearer ${SLACK_BOT_TOKEN}" \
+            -H "Content-Type: application/json; charset=utf-8" \
+            --data "$(jq -n --arg ch "$CHANNEL" --arg t "$TEXT" '{channel:$ch, text:$t, unfurl_links:false, unfurl_media:false}')")
+          echo "$RESP" | jq -e '.ok == true' >/dev/null || { echo "$RESP" | jq .; exit 1; }
+          echo "smoke ok"
+
+      - name: Post Dependabot alert
+        if: github.event_name == 'dependabot_alert'
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_FLINT_BOT_TOKEN }}
+          CHANNEL: ${{ steps.cfg.outputs.channel }}
+          REPO: ${{ github.repository }}
+          ALERT_JSON: ${{ toJson(github.event.alert) }}
+          ACTION: ${{ github.event.action }}
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          import json, os, urllib.request
+
+          alert = json.loads(os.environ["ALERT_JSON"])
+          action = os.environ.get("ACTION", "created")
+          repo = os.environ["REPO"]
+          channel = os.environ["CHANNEL"]
+          token = os.environ["SLACK_BOT_TOKEN"]
+
+          dep = (alert.get("dependency") or {})
+          pkg = (dep.get("package") or {})
+          pkg_name = pkg.get("name") or "?"
+          eco = pkg.get("ecosystem") or "?"
+          manifest = dep.get("manifest_path") or "?"
+          scope = dep.get("scope") or ""
+
+          adv = alert.get("security_advisory") or {}
+          vuln = alert.get("security_vulnerability") or {}
+          severity = (alert.get("severity") or adv.get("severity") or "unknown").lower()
+          ghsa = adv.get("ghsa_id") or "?"
+          cve = adv.get("cve_id") or ""
+          summary = (adv.get("summary") or "")[:200]
+          number = alert.get("number")
+          html_url = alert.get("html_url") or f"https://github.com/{repo}/security/dependabot/{number}"
+
+          first_patched = (vuln.get("first_patched_version") or {}).get("identifier") or "—"
+          vulnerable = (vuln.get("vulnerable_version_range") or "—")
+
+          emoji = {
+              "critical": ":rotating_light:",
+              "high": ":warning:",
+              "medium": ":large_orange_diamond:",
+              "moderate": ":large_orange_diamond:",
+              "low": ":large_yellow_circle:",
+          }.get(severity, ":shield:")
+
+          cve_bit = f" · `{cve}`" if cve else ""
+          scope_bit = f" · scope `{scope}`" if scope else ""
+
+          text = (
+              f"{emoji} *Dependabot alert* `{severity}` — *{action}*\n"
+              f"*Repo:* `{repo}` · *#{number}*\n"
+              f"*Package:* `{pkg_name}` (`{eco}`){scope_bit}\n"
+              f"*Manifest:* `{manifest}`\n"
+              f"*Advisory:* `{ghsa}`{cve_bit}\n"
+              f"*Range:* `{vulnerable}` → patched `{first_patched}`\n"
+              f"{summary}\n"
+              f"<{html_url}|Open alert>"
+          )
+
+          body = json.dumps(
+              {
+                  "channel": channel,
+                  "text": text,
+                  "unfurl_links": False,
+                  "unfurl_media": False,
+              }
+          ).encode()
+          req = urllib.request.Request(
+              "https://slack.com/api/chat.postMessage",
+              data=body,
+              method="POST",
+              headers={
+                  "Authorization": f"Bearer {token}",
+                  "Content-Type": "application/json; charset=utf-8",
+              },
+          )
+          with urllib.request.urlopen(req) as r:
+              data = json.load(r)
+          if not data.get("ok"):
+              raise SystemExit(f"slack error: {data}")
+          print("posted", data.get("ts"))
+          PY
