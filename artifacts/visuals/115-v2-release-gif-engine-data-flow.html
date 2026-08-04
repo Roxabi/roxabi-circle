@@ -1,0 +1,14 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"/><title>#115 data flow</title>
+<style>body{font:14px/1.4 system-ui;max-width:48rem;margin:2rem auto;padding:0 1rem}
+.box{border:1px solid #ccc;border-radius:8px;padding:.75rem;margin:.4rem 0}.arrow{text-align:center;color:#666}</style></head><body>
+<h1>#115 Release GIF — data flow</h1>
+<div class="box"><b>setup</b> BA sign-in → storageState (+ cookies)</div>
+<div class="arrow">↓</div>
+<div class="box"><b>scenario.demo(page)</b> + moveClick / cursor</div>
+<div class="arrow">↓</div>
+<div class="box"><b>recordClip</b> Playwright recordVideo → webm</div>
+<div class="arrow">↓</div>
+<div class="box"><b>webmToGif</b> ffmpeg trim/speed/palette → *-share.gif</div>
+<div class="arrow">↓ optional</div>
+<div class="box"><b>public/release-gifs</b> + Release.gifSrc</div>
+</body></html>
