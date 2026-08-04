@@ -34,10 +34,12 @@ Severity for Slack: prefer `security_advisory.severity` / `security_vulnerabilit
 | Kind | Name | Source |
 |---|---|---|
 | Secret | `SLACK_FLINT_BOT_TOKEN` | BW `slack/flint` → `SLACK_BOT_TOKEN` / `SPARK_SLACK_BOT_TOKEN` |
-| Secret | `CI_APP_PRIVATE_KEY` (+ var `CI_APP_ID`) | **gosilex-ci** App — used to list Dependabot alerts (`GITHUB_TOKEN` often 403 on private) |
+| Secret | `CI_APP_PRIVATE_KEY` (+ var `CI_APP_ID`) | **gosilex-ci** App — lists Dependabot alerts |
 | Variable | `SLACK_CHANNEL_BUGS_ALERT` | `C0BDAPS2MG8` |
 
-Rotate: update BW + `gh secret set SLACK_FLINT_BOT_TOKEN --repo go-silex/silex-boilerplate`.
+**gosilex-ci must grant** repository permission **Dependabot alerts → Read** (GitHub App settings → Permissions → save → re-approve install on `go-silex`). Without it: `403 Resource not accessible by integration`. `GITHUB_TOKEN` alone is insufficient on this private repo.
+
+Rotate Slack: update BW + `gh secret set SLACK_FLINT_BOT_TOKEN --repo go-silex/silex-boilerplate`.
 
 ## Manual checks
 

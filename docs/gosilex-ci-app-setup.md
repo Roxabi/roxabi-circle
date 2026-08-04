@@ -40,6 +40,7 @@ Same role as **roxabi-ci** on the Roxabi org: ephemeral tokens for **merge-on-gr
    | **Actions** | Read-only |
    | **Workflows** | Read and write |
    | **Issues** | Read and write (optional; close-linked-issues uses `GITHUB_TOKEN` today) |
+   | **Dependabot alerts** | **Read-only** (required for `dependabot-alert-slack.yml` poll — without it API returns `403 Resource not accessible by integration`) |
 
 4. **Where can this App be installed?**  
    → **Only on this account** (`go-silex`) — or any account if you prefer flexibility.
