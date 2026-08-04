@@ -8,7 +8,7 @@
 
 ## Goal
 
-Decide which kit foundations you need, wire them by composing `@gosilex/*` + example patterns, and leave with a binary DoD « projet starté » — without AGENTS archaeology or inventing packages.
+Decide which kit foundations you need, wire them by composing `@gosilex/*` + example patterns, and leave with a DoD « projet starté » where **must** rows close only with evidence and **opt-in** rows close only with live wire **or** an explicit skip-if — without AGENTS archaeology or inventing packages.
 
 ## Three playbooks (do not confuse)
 
@@ -40,6 +40,10 @@ Not every Worker is multi-tenant SaaS. Mark sections **required | opt-in | point
 
 **Always (spine for Chemin A products):** compose `@gosilex/*` (not a dual stack) · error envelope + layers · zero-edit contract (link-out only).
 
+**Study vs wire:** checklist items that open `apps/example-*` or `packages/*` are **read-only study**. Implement only under `apps/<product>-*`. Commits that touch kit zones without a time-boxed exception = fail.
+
+**Pre-wire gate:** product app dirs exist (`apps/<product>-api` and/or web/mcp) **and** `git status` / `git diff` clean on `packages/*` + `apps/example-*` (or documented exception) before closing must DoD.
+
 ---
 
 ## 1. Auth — Better Auth + dual credential
@@ -54,16 +58,16 @@ Not every Worker is multi-tenant SaaS. Mark sections **required | opt-in | point
 | Machine | Bearer `sk_…` — **no cookies** (MCP / skill) |
 | Dual-path guard | Cookie session **or** Bearer `sk_` → same subject |
 | Cookie flags | HttpOnly · Secure (prod) · SameSite=Lax · `credentials: 'include'` on FE |
-| Env | Product-owned `.dev.vars` / CF secrets — copy **shape** from `apps/example-api/.dev.vars.example`, never commit secrets |
+| Env | Product-owned `.dev.vars` / CF secrets — copy **shape** from `apps/example-api/.dev.vars.example`, never commit secrets. Primary BA: **`BETTER_AUTH_SECRET`** (+ URL outside dev/test). `SESSION_SECRET` is residual helper only if present in the example inventory — **not** session SoT. |
 
 ### Checklist
 
-- [ ] Read ADR-0002 one-pager (BA-only + dual credential).
-- [ ] Wire or **explicitly skip** BA browser sessions (`SESSION_SECRET` / BA secrets via CF secrets, not git).
-- [ ] If machine clients: mint path for `sk_` + guard with `requireAuth` (or product equivalent using `@gosilex/auth`).
-- [ ] Confirm example dual-path middleware: `apps/example-api/src/middleware/require-auth.ts`.
-- [ ] FE api client uses `credentials: 'include'` when cookies matter (see `apps/example-web/src/lib/api.ts` pattern).
-- [ ] Skip if: API-only Worker with no browser and no `sk_` yet — document deferral in product brief.
+- [ ] Read ADR-0002 one-pager (BA-only + dual credential) — **study**.
+- [ ] Wire or **explicitly skip** BA browser sessions (`BETTER_AUTH_SECRET` via CF secrets / product `.dev.vars`, not git).
+- [ ] Machine clients in **V1**: mint path for `sk_` + `requireAuth` (or `@gosilex/auth` equivalent) is **live** before must DoD closes — a roadmap ticket alone does **not** green the must row. No machine clients → brief skip-if.
+- [ ] Confirm example dual-path middleware (**study only**): `apps/example-api/src/middleware/require-auth.ts`.
+- [ ] FE api client uses `credentials: 'include'` when cookies matter (pattern: `apps/example-web/src/lib/api.ts` — copy into product app, do not dual-edit example).
+- [ ] Skip browser half if: no browser users — write “no browser users” in product brief.
 
 ---
 
@@ -84,9 +88,9 @@ Not every Worker is multi-tenant SaaS. Mark sections **required | opt-in | point
 ### Checklist
 
 - [ ] Confirm product needs multi-tenant orgs (else **skip** and note “single-tenant / no org”).
-- [ ] Read ADR-0003 dual-level modules + membership model (tenant always = organization).
+- [ ] Read ADR-0003 dual-level modules + membership model (tenant always = organization) — **study**.
 - [ ] Map mini matrix: who can invite, manage members, enable modules (product table in `docs/product/`).
-- [ ] Guards live on routes/services — mirror example invitation / module routes, do not invent a second RBAC package.
+- [ ] Guards live on routes/services — **study** example `apps/example-api/src/routes/invitations.ts` · modules · `me.ts`; implement under product apps only.
 - [ ] Skip if: single-user or no org product.
 
 ---
@@ -162,7 +166,7 @@ Older **layer/ownership** demo: `demo_notes` (notes CRUD) — useful for routes�
 
 **Mark:** **opt-in** SPA (with §5).
 
-**SSoT:** product-consumer-contract **design_overrides** · [`docs/ui-kit.md`](../ui-kit.md) zero-edit brand rules.
+**SSoT:** [product-consumer-contract](../product-consumer-contract.md) (design_overrides) · [`config/zero-edit-zones.json`](../../config/zero-edit-zones.json) · [`docs/ui-kit.md`](../ui-kit.md).
 
 | Do | Do not |
 |---|---|
@@ -187,16 +191,16 @@ Template (copy into product vault / Spark project):
 | Epic | Outcome | Spark ticket | GH issue | Depends on |
 |---|---|---|---|---|
 | E0 Compose kit | remotes + zero-edit green | #… | #… | — |
-| E1 Auth dual-path | BA and/or `sk_` live | #… | #… | E0 |
+| E1 Auth (per decision tree) | BA and/or `sk_` as scoped — delete row if both skipped | #… | #… | E0 |
 | E2 Domain slice 1 | first métier vertical | #… | #… | E1 |
 | … | | | | |
 
-**Tooling:** Spark project linked to product repo (`githubEnabled`) · `spark-tickets` CLI · `/dev #N` on GH issues.
+Delete template rows the decision tree skipped. **Tooling:** Spark project linked to product repo (`githubEnabled`) · `spark-tickets` CLI · `/dev #N` on GH issues.
 
 ### Checklist
 
-- [ ] Product has a Spark project (or explicit “GH-only” exception).
-- [ ] At least one epic row with Spark + GH linkage.
+- [ ] Product has a Spark project (or explicit “GH-only” exception in brief).
+- [ ] ≥1 epic row with Spark ↔ GH linkage **or** GH-only exception with issue # (required for must DoD).
 - [ ] First shippable issue is **vertical** (not “setup docs forever”).
 - [ ] Agent path: ticket → `github-create` / link → `/dev` or `/implement`.
 
@@ -208,20 +212,20 @@ Split **must** vs **opt-in**. **Must** rows cannot be closed with a blank “def
 
 ### Must (always)
 
-- [ ] Product apps **compose** `@gosilex/*` (ADR-0001) — no dual runtime stack.
-- [ ] Zero-edit remotes + kit bar understood — complete consumer DoD in [`start-product.md`](./start-product.md) § Checklist DoD consumer.
+- [ ] Product app dirs exist under `apps/<product>-*` and **compose** `@gosilex/*` (ADR-0001) — no dual runtime stack.
+- [ ] Consumer DoD complete: [`start-product.md`](./start-product.md) § Checklist DoD consumer — including **`bun run zero-edit` green** (and kit bar as required there).
+- [ ] Kit zones clean: no intentional dual-edit of `packages/*` / `apps/example-*` (or time-boxed exception file).
 - [ ] Error envelope + routes→services→repos for any Hono API (§4).
-- [ ] Decision tree above completed in product brief (`docs/product/`): which opt-ins apply.
-- [ ] Dual-path plan: if machine clients exist, Bearer `sk_` path is real or ticketed with owner — not silent.
-- [ ] Banlist / no kit dual-edit for métier (product paths only).
+- [ ] Decision tree completed in product brief (`docs/product/`): which opt-ins apply.
+- [ ] Machine clients: if any in V1 → Bearer `sk_` path is **live** (mint + guard). If none → brief “no machine clients”. A roadmap ticket alone does **not** close this row.
+- [ ] ≥1 epic / first issue linked Spark ↔ GH (or GH-only exception with #) — process not empty.
 
 ### Opt-in (skip only with explicit “skip if…” in brief)
 
-- [ ] **Browser Auth:** BA cookies + login flows live **or** “no browser users” written in brief.
-- [ ] **RBAC:** ADR-0003 matrix wired **or** “single-tenant / no org” written in brief.
-- [ ] **MasterData:** product catalogue patterned on `demo_items` **or** “no referential CRUD” written in brief.
+- [ ] **Browser Auth:** BA cookies + login flows **live** **or** “no browser users” written in brief.
+- [ ] **RBAC:** ADR-0003 matrix **wired** **or** “single-tenant / no org” written in brief.
+- [ ] **MasterData:** product catalogue patterned on `demo_items` **or** “no referential CRUD” written in brief. (Kit MasterData ≠ métier `docs/product/MASTER-DATA.md` domain model.)
 - [ ] **SPA shell + tokens:** product web composes `@gosilex/ui` + app tokens **or** “API-only” written in brief.
-- [ ] **First epic** linked Spark ↔ GH and ready for `/dev`.
 
 ---
 
