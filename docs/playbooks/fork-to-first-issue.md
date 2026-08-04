@@ -347,6 +347,9 @@ bash scripts/product/validate.sh
 - [ ] Brief dans `docs/product/`
 - [ ] CI_APP_* si besoin merge-on-green
 - [ ] **Aucun** commit de secrets
+- [ ] **Foundations (kit) — scope only:** ouvrir [`start-project.md`](./start-project.md), remplir la **decision tree** / matrice opt-in dans le brief produit. **DoD must « projet starté »** seulement après `apps/<product>-*` (post B′ / early C) — pas de false green sur les seuls examples.
+
+> SSoT fondations kit (après remotes / kit bar) : [`docs/playbooks/start-project.md`](./start-project.md). Kit MasterData (`demo_items`) ≠ doc métier `MASTER-DATA.md` Phase C.
 
 ---
 
