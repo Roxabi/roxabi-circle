@@ -35,6 +35,8 @@ Wire **Better Auth**, org RBAC, invites, feedback FAB, etc. **only if** the prod
 | `@gosilex/feedback` | You want Signaler → Spark |
 | Full example admin shells | You are building a similar SaaS shell — still **compose**, do not dual-edit `example-web` |
 
+**Foundations next:** after remotes + compose spine are green, use the opinionated checklist playbook — Auth, RBAC, MasterData (`demo_items`), endpoints, UI/tokens, epic split, DoD must/opt-in: [`start-project.md`](./start-project.md).
+
 ### Last resort: copy examples
 
 `cp -R apps/example-*` is **not** the happy path. Prefer a thin app that imports packages and copies only the patterns you need.
@@ -253,6 +255,7 @@ git rev-parse upstream/main | tr -d '\n' > docs/product/kit-baseline
 | Doc | Role |
 |---|---|
 | [`docs/playbooks/fork-to-first-issue.md`](./fork-to-first-issue.md) | **Full runbook** — intention produit → Spark → issue GitHub → `/dev` → first ship (post day-0) |
+| [`docs/playbooks/start-project.md`](./start-project.md) | **Foundations** — Auth / RBAC / MasterData / UI / tokens · decision tree · DoD (after compose) |
 | [`docs/product-consumer-contract.md`](../product-consumer-contract.md) | Zero-edit contract |
 | [`docs/templates/product-validate.example.sh`](../templates/product-validate.example.sh) | Copyable product bar script |
 | [`docs/templates/product-ci.example.yml`](../templates/product-ci.example.yml) | Copyable product CI workflow |

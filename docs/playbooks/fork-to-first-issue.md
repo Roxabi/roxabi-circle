@@ -347,6 +347,9 @@ bash scripts/product/validate.sh
 - [ ] Brief dans `docs/product/`
 - [ ] CI_APP_* si besoin merge-on-green
 - [ ] **Aucun** commit de secrets
+- [ ] **Foundations (kit):** parcourir [`start-project.md`](./start-project.md) — decision tree Auth/RBAC/MasterData/UI + DoD must/opt-in (compose déjà vert ici)
+
+> SSoT fondations kit (après remotes / kit bar) : [`docs/playbooks/start-project.md`](./start-project.md). Ne pas confondre avec le cadrage **métier** Phase C.
 
 ---
 
