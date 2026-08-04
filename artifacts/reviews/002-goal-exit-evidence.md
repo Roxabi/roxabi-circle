@@ -1,41 +1,37 @@
 ---
 title: "Goal 002 — Exit evidence ledger"
 goal: artifacts/goals/002-product-ready-multi-tenant-goal.md
-status: in-progress
+status: exited
 date: 2026-08-04
-kit_sha: 1533141
+kit_sha: 50b7a4eb47521f958adf4a6ca1e73591b6fa0e4c
+product_repo: go-silex/silex-kit-dogfood
+product_sha: 01579e6b6e3f6473e153c4bded412b95257f58e7
 repo: go-silex/silex-boilerplate
 ---
 
 # Goal 002 — Exit evidence ledger
 
-**Rule:** epic `CLOSED` ≠ goal exit. Each binary DoD row flips only with re-runnable evidence below.  
-**Goal status remains `ready-for-goal` until DoD #5 is fresh PASS** (dogfood product re-run).
+**Rule:** epic `CLOSED` ≠ goal exit. Each binary DoD row flips only with re-runnable evidence below.
 
 ## Binary DoD (re-verified 2026-08-04)
 
 | # | Criterion | Status | Evidence |
 |---|---|---|---|
-| **1** | `bun run validate:full` green on kit | **PASS** | 2026-08-03/04 kit SHA `1533141` lineage; re-assert after Node ABI fix via `npm rebuild better-sqlite3 && bun run validate:full`. Pre-push gates green on residual PR. |
-| **2** | No public HMAC session path | **PASS** | Live `packages/` + `apps/`: no HMAC session exports. PR #23 · residual docs #88. |
-| **3** | 2 personas `/admin` vs `/app`; invite + reset | **PASS (automated)** | **2026-08-04:** `invitations.test.ts` 13 cases green + `password-reset.test.ts` 4 cases green (email `log` path). Shells A4: PR #24 `/admin`+`/app`. Invites #25 · reset #26. Multi-persona seed `demo` / `demo-b` / tenancy staff. **Manual SPA walkthrough** not re-run this day — optional residual UX, not blocking kit contract (API + seeded personas + shells). |
-| **4** | Tokens never clear-logged; `log` fail-closed | **PASS** | `@gosilex/email` + PR #27/#28. |
-| **5** | ≥1 product upstream + zero-edit + banlist | **STALE / blocked** | Historical: [`docs/product-consumer-dogfood-evidence.md`](../../docs/product-consumer-dogfood-evidence.md) (2026-07-31, `silex-kit-dogfood` @ `ac3afbd…`). **2026-08-04:** `git clone go-silex/silex-kit-dogfood` → **Repository not found** (private / gone / ACL). Cannot re-run zero-edit against current kit without product clone access. |
-| **6** | Phase B + CP-IDOR ≥8 | **PASS** | `resolveModuleAccess` + 14 Phase B tests · PR #30. |
+| **1** | `bun run validate:full` green on kit | **PASS** | Kit gates; ABI: `npm rebuild better-sqlite3` if Node major upgrade. |
+| **2** | No public HMAC session path | **PASS** | PR #23 · residual docs #88. |
+| **3** | 2 personas `/admin` vs `/app`; invite + reset | **PASS (automated)** | invitations 13 + password-reset 4 tests green; shells #24–#26. |
+| **4** | Tokens never clear-logged; `log` fail-closed | **PASS** | PR #27/#28. |
+| **5** | ≥1 product upstream + zero-edit + banlist | **PASS** | **2026-08-04 recreated** [silex-kit-dogfood](https://github.com/go-silex/silex-kit-dogfood) · product SHA `01579e6` · kit-baseline `50b7a4e` · `dogfood-zero-edit.sh` OK · zero-edit + banlist green. Evidence: [`docs/product-consumer-dogfood-evidence.md`](../../docs/product-consumer-dogfood-evidence.md). |
+| **6** | Phase B + CP-IDOR ≥8 | **PASS** | PR #30. |
 | **7** | AGENTS + README BA-only + CF Email + Phase B | **PASS** | PR #29/#88. |
-| **8** | Supersede table / park truths | **PASS** | Goal § Supersede + B8 accepted: [`docs/park-decisions-b8.md`](../../docs/park-decisions-b8.md) · spec #20 `accepted` 2026-08-04. |
-| **9** | Critical-path `/ship` PRs | **PASS** | Table below (+ B7 A0–A2 local: #93–#96). |
+| **8** | Supersede table / park truths | **PASS** | B8 accepted · [`docs/park-decisions-b8.md`](../../docs/park-decisions-b8.md). |
+| **9** | Critical-path `/ship` PRs | **PASS** | Table below. |
 
-### Residual before `status: exited`
+### Residual (non-exit / park)
 
-1. **DoD #5 only** — restore access to a product consumer (`silex-kit-dogfood` or new greenfield), re-run `dogfood-zero-edit.sh` / zero-edit + banlist on current `upstream/main`, update evidence doc.  
-2. Then flip goal frontmatter → `exited`.
-
-### Companion residual (non-exit)
-
-- B7 A3 Sentry · A4 CodeRabbit — **parked** (operator 2026-08-03/04).  
+- B7 A3 Sentry · A4 CodeRabbit — **parked**.  
 - E2E: **local only** (PR #96).  
-- Spark #151 staging recette · Dependabot majors.
+- Full product boot on dogfood (API+web) — optional beyond path ownership.
 
 ---
 

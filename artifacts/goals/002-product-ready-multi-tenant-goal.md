@@ -1,8 +1,9 @@
 ---
 title: "Goal — Kit product-ready multi-tenant (BA-only, CF Email, A4, Phase B, consumer)"
-status: ready-for-goal
+status: exited
 priority: P0
 date: 2026-07-30
+exited: 2026-08-04
 repo: go-silex/silex-boilerplate
 supersedes: artifacts/goals/001-chemin-a-boilerplate-goal.md
 related_adrs:
@@ -169,7 +170,7 @@ Re-verified **2026-08-03** kit SHA `9414516` (partial — residual rows block `s
 2. [x] **No public HMAC session path** — **PASS** (PR #23)  
 3. [x] Local dogfood: **2 personas** `/admin` vs `/app`; **invite + reset** — **PASS (automated)** 2026-08-04: invitations 13 + password-reset 4 tests green; shells #24–#26 (manual SPA optional)  
 4. [x] Tokens **never** clear-logged; `log` transport rejected outside dev/test — **PASS** (PR #27/#28)  
-5. [ ] ≥1 product: `upstream` + zero-edit + banlist — **STALE / blocked** 2026-08-04: `silex-kit-dogfood` clone ACL fail; historical evidence only — **blocks goal exit**  
+5. [x] ≥1 product: `upstream` + zero-edit + banlist — **PASS** 2026-08-04: recreated [silex-kit-dogfood](https://github.com/go-silex/silex-kit-dogfood) · evidence doc refreshed · harness green  
 6. [x] Phase B + **CP-IDOR ≥8** — **PASS** (PR #30)  
 7. [x] AGENTS + README BA-only + CF Email + Phase B — **PASS** (PR #29/#88)  
 8. [x] Supersede + B8 park surface — **PASS** (`docs/park-decisions-b8.md` · spec #20 accepted 2026-08-04)  
