@@ -114,6 +114,10 @@ export type Messages = {
   navItems: string
   navKeys: string
   navSettings: string
+  navChangelog: string
+  changelogTitle: string
+  changelogDesc: string
+  changelogEmpty: string
   navDesignSystem: string
   navPlatform: string
   navSecondary: string
@@ -408,6 +412,10 @@ export const fr: Messages = {
   navItems: 'Catalogue',
   navKeys: 'Clés API',
   navSettings: 'Paramètres',
+  navChangelog: 'Nouveautés',
+  changelogTitle: 'Nouveautés',
+  changelogDesc: 'Ce qui a changé dans le kit (demo app-owned).',
+  changelogEmpty: 'Aucune note de version pour le moment.',
   navDesignSystem: 'Design system',
   navPlatform: 'Plateforme',
   navSecondary: 'Plus',

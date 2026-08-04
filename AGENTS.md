@@ -556,7 +556,7 @@ Quand la CI app existera : l’ajouter dans `workflow_run.workflows` de `merge-o
 - [x] **Email CF prod transport** — `@gosilex/email` `log`\|`smtp`\|`cf`\|`resend` + staging allowlist ([ADR-0004](docs/architecture/adr/0004-email-transport-cf-default.md) · GH #21)  
 - [x] **RBAC Phase B (API + tests + minimal UI)** — custom org roles + module grants (GH #22 · Spark #127)  
 - [ ] FastMCP product tools + skill (hors kit strings)  
-- [x] **B8 park decisions** — Paraglide / patchlog / Plausible / TanStack Start-as-default ([`docs/park-decisions-b8.md`](docs/park-decisions-b8.md) · GH #20 accepted 2026-08-04)  
+- [x] **B8 park decisions** — Paraglide / Plausible / TanStack Start-as-default park · **patchlog L1 shipping** (GH #107 · [`docs/recipes/changelog-l1.md`](docs/recipes/changelog-l1.md)) · L2 package still park ([`docs/park-decisions-b8.md`](docs/park-decisions-b8.md) · GH #20)  
 - [ ] **Plausible** SPA recipe — hub `analytics.gosilex.com` multi-sites (**park** DR-B8-05 — unpark when public SPA needs it)  
 - [ ] Sentry + Better Stack (prod) — B7 A3 **parked** (revisit later)  
 - [ ] CodeRabbit (ou équiv.) sur PR — B7 A4 **parked** (revisit later)  

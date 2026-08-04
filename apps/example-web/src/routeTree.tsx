@@ -15,6 +15,7 @@ import { AdminHomePage } from './routes/admin/home'
 import { AdminModulesPage } from './routes/admin/modules'
 import { AdminOrgsPage } from './routes/admin/orgs'
 import { AdminUsersPage } from './routes/admin/users'
+import { ChangelogPage } from './routes/changelog'
 import { DashboardPage } from './routes/dashboard'
 import { DesignSystemPage } from './routes/design-system'
 import { ForgotPasswordPage } from './routes/forgot-password'
@@ -167,6 +168,12 @@ const appKeysRoute = createRoute({
   component: KeysPage,
 })
 
+const appChangelogRoute = createRoute({
+  getParentRoute: () => appLayoutRoute,
+  path: 'changelog',
+  component: ChangelogPage,
+})
+
 const appSettingsRoute = createRoute({
   getParentRoute: () => appLayoutRoute,
   path: 'settings',
@@ -273,6 +280,7 @@ export const routeTree = rootRoute.addChildren([
     appItemsRoute,
     appKeysRoute,
     appSettingsRoute,
+    appChangelogRoute,
     appOrgMembersRoute,
   ]),
   adminLayoutRoute.addChildren([

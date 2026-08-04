@@ -30,6 +30,7 @@ import {
   Moon,
   Palette,
   Settings,
+  Sparkles,
   Sun,
   SunMoon,
   Users,
@@ -74,6 +75,7 @@ function pageTitle(pathname: string, m: ReturnType<typeof useLocale>['m']): stri
   if (pathname.startsWith('/app/keys') || pathname === '/keys') return m.navKeys
   if (pathname.includes('/members')) return m.navMembers
   if (pathname.startsWith('/app/settings') || pathname.startsWith('/settings')) return m.navSettings
+  if (pathname.startsWith('/app/changelog')) return m.navChangelog
   if (pathname.startsWith('/admin/design-system') || pathname.startsWith('/design-system')) {
     return m.navDesignSystem
   }
@@ -198,10 +200,16 @@ function ShellChrome({ mode, children }: { mode: ShellMode; children: ReactNode 
             onLogout={() => void logout()}
           >
             {mode === 'app' ? (
-              <DropdownMenuItem onClick={() => void navigate({ to: '/app/settings' })}>
-                <Settings />
-                {m.settings}
-              </DropdownMenuItem>
+              <>
+                <DropdownMenuItem onClick={() => void navigate({ to: '/app/changelog' })}>
+                  <Sparkles />
+                  {m.navChangelog}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => void navigate({ to: '/app/settings' })}>
+                  <Settings />
+                  {m.settings}
+                </DropdownMenuItem>
+              </>
             ) : (
               <DropdownMenuItem
                 onClick={() => void navigate({ to: '/admin/settings/integrations/feedback' })}
