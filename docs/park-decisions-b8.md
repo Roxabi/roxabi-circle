@@ -9,7 +9,7 @@ Full decision records: [`artifacts/specs/20-epic-b8-decisions-park-spec.md`](../
 | ID | Topic | Posture | Unpark |
 |---|---|---|---|
 | **DR-B8-01** | Paraglide monorepo | **Park** — TS catalogs + `@gosilex/i18n` live | ≥2 products hit key-drift / path locales / hub mandate |
-| **DR-B8-03** | Patchlog UI (Spark #100) | **Park · later** — recipe only, not kit package | ≥2 products need in-app changelog + MD insufficient |
+| **DR-B8-03** | Patchlog UI (Spark #100) | **L1 shipping** (GH #107 · recipe + `example-web`) · **L2 package still park** | L2: ≥2 products need same in-app CRUD + MD/static insufficient |
 | **DR-B8-05** | Plausible SPA multi-site | **Deferred-closed** — opt-in hub, no phone-home default | Public SPA needs hub entry; env-gated snippet only |
 | — | TanStack Start as default backend | **No** — Vite SPA + Hono Worker | Marketing/SSR-only exception, not kit spine |
 
@@ -22,4 +22,4 @@ Full decision records: [`artifacts/specs/20-epic-b8-decisions-park-spec.md`](../
 
 ## Agent rule
 
-Do **not** add Paraglide, patchlog package, default Plausible, or TanStack Start-as-API without meeting unpark criteria **and** a new ADR/goal. Unpark = intentional, not FOMO.
+Do **not** add Paraglide, **L2** patchlog package, default Plausible, or TanStack Start-as-API without meeting unpark criteria **and** a new ADR/goal. **L1** in-app changelog recipe (`docs/recipes/changelog-l1.md`, `example-web`) is allowed. Unpark L2 = intentional, not FOMO.
