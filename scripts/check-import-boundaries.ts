@@ -117,7 +117,7 @@ function loadWorkspaceMap(root: string): WorkspaceEntry[] {
     }
   }
 
-  // Longest name first for subpath prefix match (@kit/feedback/react).
+  // Longest name first for subpath prefix match.
   entries.sort((a, b) => b.name.length - a.name.length)
   return entries
 }
