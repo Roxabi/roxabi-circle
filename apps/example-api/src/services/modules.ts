@@ -1,14 +1,10 @@
-import { AppError } from '@gosilex/core'
+import { AppError } from '@kit/core'
 import type { DrizzleD1Database } from 'drizzle-orm/d1'
 import type { schema } from '../db/schema'
 import {
-  type FeedbackIntegrationConfig,
-  feedbackIntegrationSaveSchema,
   INTEGRATION_CONFIG_PATHS,
   isModuleConfigured,
   type ModulePublicState,
-  maskApiKey,
-  parseFeedbackConfig,
 } from '../lib/integration-config'
 import { isKitModuleId, KIT_MODULE_IDS, type KitModuleId } from '../lib/kit-modules'
 import * as modulesRepo from '../repos/modules'
@@ -52,7 +48,6 @@ export async function getModulesState(db: Db): Promise<Record<KitModuleId, Modul
         return [
           id,
           {
-            // SPA "enabled" maps to platform.available in dual-level model (legacy path)
             enabled: row.enabled,
             configured: isModuleConfigured(id, row.configJson),
             configPath: INTEGRATION_CONFIG_PATHS[id],
@@ -81,75 +76,10 @@ export async function setModuleEnabled(db: Db, id: string, enabled: boolean): Pr
     )
   }
   const now = Date.now()
-  // Platform SSoT (ADR-0003 / review fix) — no kit_modules write
   await platformModulesRepo.upsertPlatformModule(db, {
     moduleId: id,
     available: enabled,
     configJson: row.configJson,
     updatedAt: now,
   })
-}
-
-export type FeedbackIntegrationPublic = {
-  id: 'feedback'
-  configured: boolean
-  sparkUrl: string
-  hasApiKey: boolean
-  apiKeyPreview: string | null
-}
-
-export async function getFeedbackIntegrationPublic(db: Db): Promise<FeedbackIntegrationPublic> {
-  await ensureKitModules(db)
-  const row = await readModuleRow(db, 'feedback')
-  const parsed = parseFeedbackConfig(row.configJson)
-  return {
-    id: 'feedback',
-    configured: parsed !== null,
-    sparkUrl: parsed?.sparkUrl ?? '',
-    hasApiKey: Boolean(parsed?.sparkApiKey),
-    apiKeyPreview: parsed?.sparkApiKey ? maskApiKey(parsed.sparkApiKey) : null,
-  }
-}
-
-export async function saveFeedbackIntegration(
-  db: Db,
-  input: { sparkUrl: string; sparkApiKey?: string },
-): Promise<FeedbackIntegrationPublic> {
-  const parsed = feedbackIntegrationSaveSchema.safeParse(input)
-  if (!parsed.success) {
-    throw AppError.validation('Invalid feedback integration', parsed.error.flatten().fieldErrors)
-  }
-
-  await ensureKitModules(db)
-  const row = await readModuleRow(db, 'feedback')
-  const existing = parseFeedbackConfig(row.configJson)
-  const apiKey = parsed.data.sparkApiKey?.trim() || existing?.sparkApiKey || ''
-  if (!apiKey) {
-    throw AppError.validation('sparkApiKey is required on first setup')
-  }
-
-  const next: FeedbackIntegrationConfig = {
-    sparkUrl: parsed.data.sparkUrl,
-    sparkApiKey: apiKey,
-  }
-  const json = JSON.stringify(next)
-  const now = Date.now()
-  // Platform SSoT only
-  await platformModulesRepo.upsertPlatformModule(db, {
-    moduleId: 'feedback',
-    available: row.enabled,
-    configJson: json,
-    updatedAt: now,
-  })
-  return getFeedbackIntegrationPublic(db)
-}
-
-export async function getFeedbackSparkRuntime(
-  db: Db,
-): Promise<{ sparkUrl: string; sparkApiKey: string } | null> {
-  await ensureKitModules(db)
-  const row = await readModuleRow(db, 'feedback')
-  const parsed = parseFeedbackConfig(row.configJson)
-  if (!parsed) return null
-  return { sparkUrl: parsed.sparkUrl, sparkApiKey: parsed.sparkApiKey }
 }

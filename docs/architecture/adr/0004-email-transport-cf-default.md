@@ -4,7 +4,7 @@ status: accepted
 date: 2026-07-30
 related:
   - packages/email
-  - GitHub epic CF Email (Spark B-email)
+  - GitHub epic CF Email
 ---
 
 # ADR-0004 — Email transport by environment
@@ -13,8 +13,8 @@ related:
 
 Transactional email is required for Better Auth flows (password reset, org invites) and future product notifs. Kit already has:
 
-- Edge-safe `sendLog` + demo templates (`@gosilex/email`)
-- Node-only SMTP → Mailpit (`@gosilex/email/server`)
+- Edge-safe `sendLog` + demo templates (`@kit/email`)
+- Node-only SMTP → Mailpit (`@kit/email/server`)
 
 AGENTS freeze listed Resend and/or **Cloudflare Email** for prod. Chemin A is Workers-first → prefer **CF Email Sending** binding (no API key in Worker).
 
@@ -25,7 +25,7 @@ AGENTS freeze listed Resend and/or **Cloudflare Email** for prod. Chemin A is Wo
 | Env | Transport | Notes |
 |---|---|---|
 | **local** | `log` (Worker) and/or SMTP → **Mailpit** (Node scripts / optional) | Never real customer inbox |
-| **staging** | **CF Email** (real send) | Client + GOSILEX dogfood · **D6 allowlist + From @gosilex.com** |
+| **staging** | **CF Email** (real send) | Client + Kit dogfood · **D6 allowlist + From @example.com** |
 | **prod** | **Cloudflare Email Sending** via Worker binding | Default · optional allowlist pin |
 
 Resend remains an **escape hatch** (`EMAIL_TRANSPORT=resend`) if a product cannot use CF Email — not the kit default.
@@ -36,12 +36,12 @@ Resend remains an **escape hatch** (`EMAIL_TRANSPORT=resend`) if a product canno
 EMAIL_TRANSPORT=log | smtp | cf | resend   # app env
 EMAIL_FROM=...
 EMAIL_ALLOW_DOMAINS=a.com,b.com            # recipient allowlist
-EMAIL_FROM_DOMAIN=gosilex.com              # optional From pin (staging default)
+EMAIL_FROM_DOMAIN=example.com              # optional From pin (staging default)
 ```
 
 - **`cf`**: `env.EMAIL.send({ to, from, subject, html, text })` — binding name configurable (default `EMAIL`)
 - **`log`**: structured console JSON (edge-safe; **must redact** reset/invite tokens in body)
-- **`smtp`**: Node-only Mailpit path (`@gosilex/email/server`) — never import from Worker bundle
+- **`smtp`**: Node-only Mailpit path (`@kit/email/server`) — never import from Worker bundle
 - **`resend`**: optional HTTP from Worker when product opts in
 
 ### D3 — Domain & deliverability (ops)
@@ -57,24 +57,24 @@ EMAIL_FROM_DOMAIN=gosilex.com              # optional From pin (staging default)
 - Secrets: CF binding needs no API key; Resend key = CF secret if used
 - Fail closed if `EMAIL_TRANSPORT=cf` and binding missing outside test
 
-### D6 — Staging recipient allowlist + From @gosilex.com (amended)
+### D6 — Staging recipient allowlist + From @example.com (amended)
 
 Staging sends **real** mail (client + internal QA), but must not spray arbitrary addresses from DB dumps.
 
 | Rule | Staging (`cf`\|`resend`) | Production |
 |---|---|---|
 | `EMAIL_ALLOW_DOMAINS` | **Required** non-empty · exact match on recipient domain | Optional; when set, enforced |
-| `EMAIL_FROM` | Must be `@gosilex.com` (default `EMAIL_FROM_DOMAIN`) | Product onboarded domain |
+| `EMAIL_FROM` | Must be `@example.com` (default `EMAIL_FROM_DOMAIN`) | Product onboarded domain |
 | Unknown `to` domain | Fail closed at send — **no** provider call | Send (unless allowlist set) |
 | Subject | Forced prefix **`[TEST STAGING]`** (idempotent) | Unchanged |
 
-Intent: ops whitelist each client test domain + `gosilex.com` for team; single GOSILEX From identity on staging; subjects never look like prod.
+Intent: ops whitelist each client test domain + `example.com` for team; single Kit From identity on staging; subjects never look like prod.
 
 ### D5 — Axial
 
-- Templates: shared builders in `@gosilex/email` (locale-aware later); **no product domain copy** in package defaults beyond kit demo strings
+- Templates: shared builders in `@kit/email` (locale-aware later); **no product domain copy** in package defaults beyond kit demo strings
 - Apps choose from-address and which flows call the port
-- No empty `@gosilex/email-cf` package — extend `@gosilex/email`
+- No empty `@kit/email-cf` package — extend `@kit/email`
 
 ## Consequences
 

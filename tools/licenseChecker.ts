@@ -9,7 +9,7 @@
  * Zero external deps. UNKNOWN licenses warn (exit 0); disallowed SPDX fails (exit 1).
  * Compliance hygiene — not a security/malware scan. See docs/testing.md CP-LICENSE.
  *
- * Ported from roxabi-boilerplate tools/licenseChecker.ts (Bun-aware walker).
+ * Ported from kit-boilerplate tools/licenseChecker.ts (Bun-aware walker).
  */
 
 import {

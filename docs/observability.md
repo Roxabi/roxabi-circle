@@ -2,7 +2,7 @@
 
 ## Always on (default)
 
-- **Structured logs** via `@gosilex/core` `createLogger` / `child({ requestId })`
+- **Structured logs** via `@kit/core` `createLogger` / `child({ requestId })`
 - Cloudflare Workers log stream (JSON lines)
 - `x-request-id` + body `requestId` on API errors
 

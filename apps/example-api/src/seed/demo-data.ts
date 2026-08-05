@@ -23,13 +23,13 @@ export type SeedNote = {
 export const SEED_USERS: readonly SeedUser[] = [
   {
     id: 'user_demo',
-    email: 'demo@gosilex.local',
+    email: 'demo@kit.local',
     password: 'demo-password-change-me',
     role: 'admin',
   },
   {
     id: 'user_b',
-    email: 'demo-b@gosilex.local',
+    email: 'demo-b@kit.local',
     password: 'demo-password-b-change-me',
     role: 'user',
   },
@@ -40,7 +40,7 @@ export const SEED_NOTES: readonly SeedNote[] = [
     id: 'note_seed_welcome',
     subject: 'user_demo',
     title: 'Welcome to the kit',
-    body: 'Seeded note for demo@gosilex.local — try /notes and /design-system (admin).',
+    body: 'Seeded note for demo@kit.local — try /notes and /design-system (admin).',
   },
   {
     id: 'note_seed_admin',
@@ -52,7 +52,39 @@ export const SEED_NOTES: readonly SeedNote[] = [
     id: 'note_seed_user_b',
     subject: 'user_b',
     title: 'User B note',
-    body: 'Belongs to demo-b@gosilex.local — subject-scoped (IDOR isolation demo).',
+    body: 'Belongs to demo-b@kit.local — subject-scoped (IDOR isolation demo).',
+  },
+] as const
+
+export type SeedItem = {
+  id: string
+  subject: string
+  code: string
+  label: string
+  description: string
+}
+
+export const SEED_ITEMS: readonly SeedItem[] = [
+  {
+    id: 'item_seed_catalog_a',
+    subject: 'user_demo',
+    code: 'demo-sku',
+    label: 'Demo catalog item',
+    description: 'MasterData pattern seed — /app/items',
+  },
+  {
+    id: 'item_seed_catalog_b',
+    subject: 'user_demo',
+    code: 'demo-sku-2',
+    label: 'Second catalog row',
+    description: 'List filter demo',
+  },
+  {
+    id: 'item_seed_user_b',
+    subject: 'user_b',
+    code: 'user-b-sku',
+    label: 'User B item',
+    description: 'IDOR isolation seed for demo-b',
   },
 ] as const
 

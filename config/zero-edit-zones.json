@@ -41,12 +41,12 @@
       {
         "id": "css-token-override",
         "where": "apps/<product>-web/src/**/*.css (typically index.css + theme/*.css)",
-        "how": "Keep @import \"@gosilex/ui/styles.css\" then redeclare CSS variables on :root / .dark (primary, radius, fonts, sidebar, charts). Tokens are the kit extension surface."
+        "how": "Keep @import \"@kit/ui/styles.css\" then redeclare CSS variables on :root / .dark (primary, radius, fonts, sidebar, charts). Tokens are the kit extension surface."
       },
       {
         "id": "compose-wrap-components",
         "where": "apps/<product>-web/src/components/**",
-        "how": "Import primitives from @gosilex/ui and compose product shells (LoadingButton, BrandHeader). Do not copy/fork files from packages/ui/src/components."
+        "how": "Import primitives from @kit/ui and compose product shells (LoadingButton, BrandHeader). Do not copy/fork files from packages/ui/src/components."
       },
       {
         "id": "app-tailwind-source",

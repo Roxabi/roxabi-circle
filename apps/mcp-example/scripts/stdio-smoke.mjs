@@ -1,11 +1,13 @@
 #!/usr/bin/env bun
 /**
  * Real stdio smoke against mcp-example entry: list tools + call ping + whoami.
- * Writes JSON-RPC transcript lines to stdout for capture.
+ * Expected tool set = app catalogue.names (REGISTERED_TOOL_NAMES) — single SSOT.
  */
 import { spawn } from 'node:child_process'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { whoamiResultSchema } from '@kit/mcp'
+import { REGISTERED_TOOL_NAMES } from '../src/index.ts'
 
 const root = dirname(fileURLToPath(import.meta.url))
 const entry = join(root, '../src/index.ts')
@@ -75,8 +77,14 @@ function waitFor(pred, timeoutMs = 5000) {
   })
 }
 
+function toolText(result) {
+  const content = result?.content
+  if (!Array.isArray(content)) return null
+  const text = content.find((c) => c?.type === 'text')?.text
+  return typeof text === 'string' ? text : null
+}
+
 async function main() {
-  // initialize
   send({
     jsonrpc: '2.0',
     id: 1,
@@ -91,22 +99,17 @@ async function main() {
 
   send({ jsonrpc: '2.0', method: 'notifications/initialized' })
 
-  // list tools
   send({ jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} })
   const listed = await waitFor((m) => m.id === 2)
   const tools = (listed.result?.tools?.map((t) => t.name) ?? []).slice().sort()
-  const expected = ['ping', 'whoami'].slice().sort()
-  // Exact allowlist — extra tools fail (not merely "includes ping+whoami")
+  // SSOT: example catalogue.names — not orphan hardcode / package-only twin
+  const expected = [...REGISTERED_TOOL_NAMES].slice().sort()
   if (JSON.stringify(tools) !== JSON.stringify(expected)) {
     throw new Error(
       `expected exact tools ${JSON.stringify(expected)}, got ${JSON.stringify(tools)}`,
     )
   }
-  if (tools.some((n) => String(n).startsWith('share_'))) {
-    throw new Error(`share_* tools forbidden: ${JSON.stringify(tools)}`)
-  }
 
-  // ping
   send({
     jsonrpc: '2.0',
     id: 3,
@@ -116,7 +119,6 @@ async function main() {
   const ping = await waitFor((m) => m.id === 3)
   if (ping.error) throw new Error(`ping failed: ${JSON.stringify(ping.error)}`)
 
-  // whoami
   send({
     jsonrpc: '2.0',
     id: 4,
@@ -126,13 +128,31 @@ async function main() {
   const who = await waitFor((m) => m.id === 4)
   if (who.error) throw new Error(`whoami failed: ${JSON.stringify(who.error)}`)
 
+  const whoText = toolText(who.result)
+  if (!whoText) throw new Error(`whoami missing text content: ${JSON.stringify(who.result)}`)
+  if (whoText.includes('sk_')) {
+    throw new Error('whoami result leaked sk_ material')
+  }
+  let whoBody
+  try {
+    whoBody = JSON.parse(whoText)
+  } catch {
+    throw new Error(`whoami text not JSON: ${whoText.slice(0, 200)}`)
+  }
+  const parsed = whoamiResultSchema.safeParse(whoBody)
+  if (!parsed.success) {
+    throw new Error(`whoami body failed schema: ${JSON.stringify(parsed.error.issues)}`)
+  }
+
   console.log(
     JSON.stringify(
       {
         ok: true,
         tools,
+        expectedFrom: 'REGISTERED_TOOL_NAMES',
         ping: ping.result,
         whoami: who.result,
+        whoamiParsed: parsed.data,
         transcript,
       },
       null,

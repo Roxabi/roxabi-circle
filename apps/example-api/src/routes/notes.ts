@@ -1,4 +1,4 @@
-import { parseOrThrow } from '@gosilex/core'
+import { parseOrThrow } from '@kit/core'
 import { Hono } from 'hono'
 import { z } from 'zod'
 import { requireAuth } from '../middleware/require-auth'

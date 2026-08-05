@@ -1,7 +1,7 @@
 # Dependabot Auto-merge — label patch/minor PRs `reviewed` so merge-on-green can land them.
 # Majors are left unlabeled (human review).
-# Token: GitHub App gosilex-ci (same as merge-on-green) — GITHUB_TOKEN cannot re-trigger workflows.
-# Setup: docs/gosilex-ci-app-setup.md
+# Token: GitHub App kit-ci (same as merge-on-green) — GITHUB_TOKEN cannot re-trigger workflows.
+# Setup: docs/kit-ci-app-setup.md
 name: Dependabot Auto-merge
 
 on:
@@ -19,25 +19,25 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Resolve gosilex-ci availability
+      - name: Resolve kit-ci availability
         id: cfg
         env:
-          APP_ID: ${{ vars.GOSILEX_CI_APP_ID }}
+          APP_ID: ${{ vars.CI_APP_ID }}
         run: |
           if [ -n "$APP_ID" ]; then
             echo "enabled=true" >> "$GITHUB_OUTPUT"
           else
             echo "enabled=false" >> "$GITHUB_OUTPUT"
-            echo "::notice title=gosilex-ci not configured::Dependabot auto-label OFF. Set GOSILEX_CI_APP_ID + GOSILEX_CI_APP_PRIVATE_KEY — docs/gosilex-ci-app-setup.md"
+            echo "::notice title=kit-ci not configured::Dependabot auto-label OFF. Set CI_APP_ID + CI_APP_PRIVATE_KEY — docs/kit-ci-app-setup.md"
           fi
 
-      - name: Mint app token (gosilex-ci)
+      - name: Mint app token (kit-ci)
         id: app
         if: steps.cfg.outputs.enabled == 'true'
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
-          app-id: ${{ vars.GOSILEX_CI_APP_ID }}
-          private-key: ${{ secrets.GOSILEX_CI_APP_PRIVATE_KEY }}
+          app-id: ${{ vars.CI_APP_ID }}
+          private-key: ${{ secrets.CI_APP_PRIVATE_KEY }}
 
       - name: Fetch dependabot metadata
         id: meta

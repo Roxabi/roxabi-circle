@@ -1,11 +1,13 @@
-import { Button, cn, Field, FieldError, FieldGroup, FieldLabel, Input } from '@gosilex/ui'
+import { Button, cn, Field, FieldError, FieldGroup, FieldLabel, Input } from '@kit/ui'
 import { useForm } from '@tanstack/react-form'
 import { Link, useNavigate, useSearch } from '@tanstack/react-router'
 import { GalleryVerticalEnd } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { apiErrorToMessage, apiFetch } from '../lib/api'
+import { defaultHomePath, type MeResponse } from '../lib/auth'
 import { useLocale } from '../lib/locale'
+import { safePostAuthPath } from '../lib/safe-return-path'
 import { resetPasswordSchema } from '../lib/schemas'
 
 /**
@@ -15,27 +17,34 @@ import { resetPasswordSchema } from '../lib/schemas'
 export function ResetPasswordPage() {
   const { m, locale, setLocale } = useLocale()
   const navigate = useNavigate()
-  const search = useSearch({ strict: false }) as { token?: string; error?: string }
+  const search = useSearch({ strict: false }) as {
+    token?: string
+    error?: string
+    next?: string
+  }
   const stripped = useRef(false)
   // Seed from search on first paint so strip replace does not flash "missing token".
   const [token, setToken] = useState(() => search.token?.trim() ?? '')
+  const [nextPath, setNextPath] = useState(() => safePostAuthPath(search.next) ?? '')
   const [linkError, setLinkError] = useState(() => search.error?.trim() || undefined)
 
   useEffect(() => {
     if (stripped.current) return
     const t = search.token?.trim() ?? ''
     const err = search.error?.trim()
+    const next = safePostAuthPath(search.next)
     if (t && t !== token) setToken(t)
+    if (next) setNextPath(next)
     if (err) setLinkError(err)
-    if (search.token || search.error) {
+    if (search.token || search.error || search.next) {
       stripped.current = true
       void navigate({
         to: '/reset-password',
-        search: { token: undefined, error: undefined },
+        search: { token: undefined, error: undefined, next: undefined },
         replace: true,
       })
     }
-  }, [search.token, search.error, navigate, token])
+  }, [search.token, search.error, search.next, navigate, token])
 
   const form = useForm({
     defaultValues: { password: '', confirm: '' },
@@ -64,7 +73,22 @@ export function ResetPasswordPage() {
           body: JSON.stringify({ newPassword: value.password, token }),
         })
         toast.success(m.resetPasswordSuccess)
-        await navigate({ to: '/login' })
+        // First-login / welcome: prefer safe next, else session home, else login
+        const preferred = safePostAuthPath(nextPath)
+        if (preferred?.startsWith('/invite/accept')) {
+          window.location.assign(preferred)
+          return
+        }
+        try {
+          // BA may auto-session after reset; try me for plane home
+          const me = await apiFetch<MeResponse>('/api/me')
+          const home =
+            preferred === '/app' || preferred === '/admin' ? preferred : defaultHomePath(me)
+          await navigate({ to: home })
+          return
+        } catch {
+          await navigate({ to: '/login' })
+        }
       } catch (e) {
         toast.error(m.error, { description: apiErrorToMessage(e, m) })
       }

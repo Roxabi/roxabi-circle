@@ -20,8 +20,8 @@ BANNED=(
   'private_key_product'
   'apps/share-'
   'shlink'
-  's\.gosilex\.com'
-  'share\.gosilex\.com'
+  's\.example\.com'
+  'share\.example\.com'
 )
 
 # rg: 0=matches, 1=no match, 2+=error. grep: 0=matches, 1=no match, 2+=error.

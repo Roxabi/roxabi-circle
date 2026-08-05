@@ -47,13 +47,13 @@ assert_no_push() {
 }
 
 if [[ "$MODE" == "--self-sim" ]]; then
-  TMP="$(mktemp -d -t gosilex-dogfood-XXXXXX)"
+  TMP="$(mktemp -d -t kit-dogfood-XXXXXX)"
   trap 'rm -rf "$TMP"' EXIT
   echo "== dogfood: self-sim in $TMP =="
   git clone --depth 1 "file://$ROOT" "$TMP/product"
   cd "$TMP/product"
 
-  # Origin must NOT match *silex-boilerplate* or zero-edit stays in kit mode.
+  # Origin must NOT match *kit* or zero-edit stays in kit mode.
   git remote rename origin kit-origin
   git remote add origin "file://$TMP/product"
   git remote add upstream "file://$ROOT"

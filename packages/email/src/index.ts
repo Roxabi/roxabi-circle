@@ -2,7 +2,9 @@ import { type CfEmailAddress, type SendEmailBinding, sendCf } from './cf'
 import { redactEmailBody } from './redact'
 import { DemoEmail } from './templates/demo'
 import { InviteEmail } from './templates/invite'
+import { MagicLinkEmail } from './templates/magic-link'
 import { ResetPasswordEmail } from './templates/reset-password'
+import { WelcomeSetPasswordEmail } from './templates/welcome-set-password'
 
 export type EmailTransport = 'log' | 'smtp' | 'cf' | 'resend'
 
@@ -64,6 +66,47 @@ export function buildResetPasswordEmailText(params: {
   }
 }
 
+/** Welcome / first-login set-password email (kit copy only). */
+export function buildWelcomeSetPasswordEmailText(params: {
+  to: string
+  setPasswordUrl: string
+  expiresHint?: string
+  name?: string
+}): {
+  to: string
+  subject: string
+  text: string
+  html: string
+} {
+  const mail = WelcomeSetPasswordEmail(params)
+  return {
+    to: mail.to,
+    subject: mail.subject,
+    text: mail.text,
+    html: mail.html,
+  }
+}
+
+/** Magic-link sign-in email (kit copy only). */
+export function buildMagicLinkEmailText(params: {
+  to: string
+  magicUrl: string
+  expiresHint?: string
+}): {
+  to: string
+  subject: string
+  text: string
+  html: string
+} {
+  const mail = MagicLinkEmail(params)
+  return {
+    to: mail.to,
+    subject: mail.subject,
+    text: mail.text,
+    html: mail.html,
+  }
+}
+
 /** Minimal port for transactional mail (edge-safe implementations only on Workers). */
 export type EmailPort = {
   send(input: {
@@ -74,8 +117,8 @@ export type EmailPort = {
   }): Promise<{ ok: boolean; transport: string }>
 }
 
-/** GOSILEX kit: staging From must be this domain (overridable via EMAIL_FROM_DOMAIN). */
-export const DEFAULT_STAGING_FROM_DOMAIN = 'gosilex.com'
+/** Kit kit: staging From must be this domain (overridable via EMAIL_FROM_DOMAIN). */
+export const DEFAULT_STAGING_FROM_DOMAIN = 'example.com'
 
 /** Forced subject prefix on every staging send (real CF/resend). */
 export const STAGING_SUBJECT_PREFIX = '[TEST STAGING]'
@@ -97,7 +140,7 @@ export type CreateEmailPortOpts = {
    */
   allowDomains?: string[] | null
   /**
-   * Required domain for EMAIL_FROM (e.g. `gosilex.com`).
+   * Required domain for EMAIL_FROM (e.g. `example.com`).
    * Staging defaults to {@link DEFAULT_STAGING_FROM_DOMAIN} when unset.
    * Production: only enforced when explicitly set.
    */
@@ -167,7 +210,7 @@ export function assertFromDomain(from: CfEmailAddress, fromDomain: string): void
 export function assertEmailTransportAllowed(transport: EmailTransport, environment?: string): void {
   if (transport === 'smtp') {
     throw new Error(
-      'EMAIL_TRANSPORT=smtp is Node-only (@gosilex/email/server) — not available on Workers',
+      'EMAIL_TRANSPORT=smtp is Node-only (@kit/email/server) — not available on Workers',
     )
   }
   if (transport === 'log' && !isDevLike(environment)) {
@@ -180,7 +223,7 @@ export function assertEmailTransportAllowed(transport: EmailTransport, environme
 /**
  * Staging real-send policy (ADR-0004 D6):
  * - recipient allowlist required
- * - From domain = gosilex.com (or EMAIL_FROM_DOMAIN)
+ * - From domain = example.com (or EMAIL_FROM_DOMAIN)
  */
 export function assertStagingEmailPolicy(opts: {
   transport: EmailTransport
@@ -318,7 +361,7 @@ function createResendEmailPort(apiKey: string, from: CfEmailAddress): EmailPort 
  * Worker-safe email port factory (ADR-0004).
  * - development|test: default callers usually pass transport=log
  * - staging|production: log rejected; cf requires binding; resend requires key
- * - staging + cf|resend: EMAIL_ALLOW_DOMAINS required; From @gosilex.com; subject `[TEST STAGING]` (D6)
+ * - staging + cf|resend: EMAIL_ALLOW_DOMAINS required; From @example.com; subject `[TEST STAGING]` (D6)
  */
 export function createEmailPort(opts: CreateEmailPortOpts): EmailPort {
   assertEmailTransportAllowed(opts.transport, opts.environment)
@@ -386,3 +429,4 @@ export { redactEmailBody } from './redact'
 export { DemoEmail } from './templates/demo'
 export { InviteEmail } from './templates/invite'
 export { ResetPasswordEmail } from './templates/reset-password'
+export { WelcomeSetPasswordEmail } from './templates/welcome-set-password'

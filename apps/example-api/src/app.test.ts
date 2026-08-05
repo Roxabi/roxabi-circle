@@ -1,9 +1,9 @@
-import { AppError } from '@gosilex/core'
-import { createDb } from '@gosilex/db'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { AppError } from '@kit/core'
+import { createDb } from '@kit/db'
+import { describe, expect, it } from 'vitest'
 import { createApp } from './app'
 import { schema } from './db/schema'
-import { assertRateLimit, resetRateLimits } from './lib/rate-limit'
+import { assertRateLimit } from './lib/rate-limit'
 import { getSecret, useSecureCookie } from './lib/session-env'
 import { DEMO_EMAIL, DEMO_EMAIL_B, DEMO_PASSWORD, DEMO_PASSWORD_B } from './services/auth'
 import { createMemoryEnv } from './test/memory-env'
@@ -17,44 +17,6 @@ function sessionMutation(cookie: string): Record<string, string> {
     'content-type': 'application/json',
     Origin: ORIGIN,
   }
-}
-
-async function saveFeedbackIntegration(
-  app: ReturnType<typeof createApp>,
-  env: ReturnType<typeof createMemoryEnv>,
-  cookie: string,
-) {
-  const res = await app.request(
-    '/api/integrations/feedback',
-    {
-      method: 'PUT',
-      headers: sessionMutation(cookie),
-      body: JSON.stringify({
-        sparkUrl: 'http://localhost:3939',
-        sparkApiKey: 'spk_test_key_12',
-      }),
-    },
-    env,
-  )
-  expect(res.status).toBe(200)
-}
-
-async function enableFeedbackModule(
-  app: ReturnType<typeof createApp>,
-  env: ReturnType<typeof createMemoryEnv>,
-  cookie: string,
-) {
-  await saveFeedbackIntegration(app, env, cookie)
-  const res = await app.request(
-    '/api/modules/feedback',
-    {
-      method: 'PATCH',
-      headers: sessionMutation(cookie),
-      body: JSON.stringify({ enabled: true }),
-    },
-    env,
-  )
-  expect(res.status).toBe(200)
 }
 
 async function loginAs(
@@ -82,10 +44,6 @@ async function loginAs(
   return cookie
 }
 
-beforeEach(() => {
-  resetRateLimits()
-})
-
 describe('createApp shipped entry — health & errors', () => {
   it('GET /health returns 200 with requestId', async () => {
     const app = createApp()
@@ -101,7 +59,7 @@ describe('createApp shipped entry — health & errors', () => {
     expect(body.ok).toBe(true)
     expect(body.environment).toBe('test')
     expect(body.demoLogin).toEqual({
-      email: 'staff@gosilex.local',
+      email: 'staff@kit.local',
       password: 'demo-password-change-me',
       role: 'staff',
     })
@@ -227,7 +185,7 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
   it('GET /api/me — staff has platformRole + membership orgs only', async () => {
     const app = createApp()
     const env = createMemoryEnv()
-    const cookie = await loginAs(app, env, 'staff@gosilex.local', 'demo-password-change-me')
+    const cookie = await loginAs(app, env, 'staff@kit.local', 'demo-password-change-me')
 
     const me = await app.request('/api/me', { headers: { cookie } }, env)
     expect(me.status).toBe(200)
@@ -238,7 +196,7 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
       orgs: { id: string; slug: string; role: string }[]
     }
     expect(body.subject).toBe('user_staff')
-    expect(body.email).toBe('staff@gosilex.local')
+    expect(body.email).toBe('staff@kit.local')
     expect(body.platformRole).toBe('staff')
     const slugs = body.orgs.map((o) => o.slug).sort()
     expect(slugs).toEqual(['acme', 'beta'])
@@ -249,7 +207,7 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
   it('GET /api/me — solo has null platformRole + org_solo only', async () => {
     const app = createApp()
     const env = createMemoryEnv()
-    const cookie = await loginAs(app, env, 'solo@gosilex.local', 'demo-password-change-me')
+    const cookie = await loginAs(app, env, 'solo@kit.local', 'demo-password-change-me')
 
     const me = await app.request('/api/me', { headers: { cookie } }, env)
     expect(me.status).toBe(200)
@@ -267,7 +225,7 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
   it('GET /api/me — super_admin platformRole; me.orgs memberships only (not catalogue)', async () => {
     const app = createApp()
     const env = createMemoryEnv()
-    const cookie = await loginAs(app, env, 'super@gosilex.local', 'demo-password-change-me')
+    const cookie = await loginAs(app, env, 'super@kit.local', 'demo-password-change-me')
 
     const me = await app.request('/api/me', { headers: { cookie } }, env)
     expect(me.status).toBe(200)
@@ -410,7 +368,7 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     const env = createMemoryEnv()
     // Seed demo users via login (session cookie unused — we mint expired key directly)
     await loginAs(app, env, DEMO_EMAIL, DEMO_PASSWORD)
-    const { createDb } = await import('@gosilex/db')
+    const { createDb } = await import('@kit/db')
     const { schema } = await import('./db/schema')
     const { mintApiKey } = await import('./services/auth')
     const db = createDb(env.DB, schema)
@@ -477,7 +435,7 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     expect(health.status).toBe(200)
     const h = (await health.json()) as { authAdapter?: string; demoLogin?: { email: string } }
     expect(h.authAdapter).toBe('better-auth')
-    expect(h.demoLogin?.email).toMatch(/@gosilex\.local/)
+    expect(h.demoLogin?.email).toMatch(/@kit\.local/)
   })
 
   it('better-auth sign-up disabled by default; dual-path works after signup when allowed', async () => {
@@ -493,7 +451,7 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
         method: 'POST',
         headers: { 'content-type': 'application/json', Origin: 'http://localhost:5173' },
         body: JSON.stringify({
-          email: 'ba-new@gosilex.local',
+          email: 'ba-new@kit.local',
           password: 'ba-password-change-me-1',
           name: 'BA User',
         }),
@@ -504,7 +462,7 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
 
     // Sign-up allowed — exercise BA handler + session cookie + dual-path sk_
     const env = createMemoryEnv({ ...baseEnv, ALLOW_PUBLIC_SIGNUP: 'true' })
-    const email = `ba-${crypto.randomUUID().slice(0, 8)}@gosilex.local`
+    const email = `ba-${crypto.randomUUID().slice(0, 8)}@kit.local`
     const password = 'ba-password-change-me-1'
     const signup = await app.request(
       '/api/auth/sign-up/email',
@@ -522,7 +480,7 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
       return
     }
     let cookie = signup.headers.get('set-cookie') ?? ''
-    if (!cookie.includes('gosilex_session') && !cookie.toLowerCase().includes('session')) {
+    if (!cookie.includes('kit_session') && !cookie.toLowerCase().includes('session')) {
       const signin = await app.request(
         '/api/auth/sign-in/email',
         {
@@ -700,7 +658,7 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
       ENVIRONMENT: 'staging',
       SESSION_SECRET: 'staging-session-secret-at-least-32ch!',
     })
-    const { createDb } = await import('@gosilex/db')
+    const { createDb } = await import('@kit/db')
     const { schema } = await import('./db/schema')
     const { seedDemoDatabase } = await import('./seed/seed-db')
     await seedDemoDatabase(createDb(env.DB, schema), { notes: false })
@@ -759,28 +717,33 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     expect(body.error.code).toBe('UNAUTHORIZED')
   })
 
-  it('assertRateLimit throws AppError RATE_LIMITED with retryAfterSeconds', () => {
-    assertRateLimit('unit:test', 2, 60_000)
-    assertRateLimit('unit:test', 2, 60_000)
+  it('assertRateLimit throws AppError RATE_LIMITED with retryAfterSeconds', async () => {
+    const env = createMemoryEnv()
+    const db = createDb(env.DB as unknown as D1Database, schema)
+    await assertRateLimit(db, 'unit:test', 2, 60_000)
+    await assertRateLimit(db, 'unit:test', 2, 60_000)
     try {
-      assertRateLimit('unit:test', 2, 60_000)
+      await assertRateLimit(db, 'unit:test', 2, 60_000)
       expect.fail('expected rate limit throw')
     } catch (e) {
       expect(e).toBeInstanceOf(AppError)
       const err = e as AppError
       expect(err.code).toBe('RATE_LIMITED')
       expect(err.status).toBe(429)
-      expect(err.details).toEqual({ retryAfterSeconds: 60 })
+      const ra = (err.details as { retryAfterSeconds?: number })?.retryAfterSeconds
+      expect(ra).toBeGreaterThanOrEqual(1)
+      expect(ra).toBeLessThanOrEqual(60)
     }
   })
 
   it('login returns 429 after rate limit exceeded', async () => {
     const app = createApp()
     const env = createMemoryEnv()
+    const db = createDb(env.DB as unknown as D1Database, schema)
     // Pre-fill the same bucket key as authRoutes BA_SENSITIVE (avoids 20× BA auth in CI).
     const windowMs = 15 * 60 * 1000
     for (let i = 0; i < 20; i++) {
-      assertRateLimit('ba-auth:203.0.113.9', 20, windowMs)
+      await assertRateLimit(db, 'ba-auth:203.0.113.9', 20, windowMs)
     }
     const blocked = await app.request(
       '/api/auth/sign-in/email',
@@ -798,8 +761,10 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     expect(blocked.status).toBe(429)
     const body = (await blocked.json()) as { error: { code: string } }
     expect(body.error.code).toBe('RATE_LIMITED')
-    // Login window is 15 minutes → Retry-After should match window seconds.
-    expect(blocked.headers.get('retry-after')).toBe('900')
+    // Floor window → Retry-After is remaining seconds (≤ 900).
+    const ra = Number(blocked.headers.get('retry-after'))
+    expect(ra).toBeGreaterThanOrEqual(1)
+    expect(ra).toBeLessThanOrEqual(900)
   })
 
   it('mint returns 429 after rate limit exceeded', async () => {
@@ -808,9 +773,10 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     const cookie = await loginAs(app, env, DEMO_EMAIL, DEMO_PASSWORD)
     const me = await app.request('/api/me', { headers: { cookie } }, env)
     const subject = ((await me.json()) as { subject: string }).subject
+    const db = createDb(env.DB as unknown as D1Database, schema)
     const windowMs = 60 * 60 * 1000
     for (let i = 0; i < 30; i++) {
-      assertRateLimit(`mint:${subject}`, 30, windowMs)
+      await assertRateLimit(db, `mint:${subject}`, 30, windowMs)
     }
     const blocked = await app.request(
       '/api/keys',
@@ -820,7 +786,9 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     expect(blocked.status).toBe(429)
     const body = (await blocked.json()) as { error: { code: string } }
     expect(body.error.code).toBe('RATE_LIMITED')
-    expect(blocked.headers.get('retry-after')).toBe('3600')
+    const raMint = Number(blocked.headers.get('retry-after'))
+    expect(raMint).toBeGreaterThanOrEqual(1)
+    expect(raMint).toBeLessThanOrEqual(3600)
   })
 
   it('demo email returns 429 after rate limit exceeded', async () => {
@@ -829,9 +797,10 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     const cookie = await loginAs(app, env, DEMO_EMAIL, DEMO_PASSWORD)
     const me = await app.request('/api/me', { headers: { cookie } }, env)
     const subject = ((await me.json()) as { subject: string }).subject
+    const db = createDb(env.DB as unknown as D1Database, schema)
     const windowMs = 60 * 60 * 1000
     for (let i = 0; i < 10; i++) {
-      assertRateLimit(`email:${subject}`, 10, windowMs)
+      await assertRateLimit(db, `email:${subject}`, 10, windowMs)
     }
     const blocked = await app.request(
       '/api/demo/email',
@@ -841,7 +810,9 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     expect(blocked.status).toBe(429)
     const body = (await blocked.json()) as { error: { code: string } }
     expect(body.error.code).toBe('RATE_LIMITED')
-    expect(blocked.headers.get('retry-after')).toBe('3600')
+    const raEmail = Number(blocked.headers.get('retry-after'))
+    expect(raEmail).toBeGreaterThanOrEqual(1)
+    expect(raEmail).toBeLessThanOrEqual(3600)
   })
 
   it('login does not auto-seed demo users in production', async () => {
@@ -934,28 +905,28 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     expect(ok.headers.get('access-control-allow-origin')).toBe('http://localhost:5173')
   })
 
-  it('GET /api/modules returns feedback disabled until configured', async () => {
+  it('GET /api/modules returns demo disabled by default (configured without remote)', async () => {
     const app = createApp()
     const env = createMemoryEnv()
     const cookie = await loginAs(app, env, DEMO_EMAIL, DEMO_PASSWORD)
     const res = await app.request('/api/modules', { headers: { cookie } }, env)
     expect(res.status).toBe(200)
     const body = (await res.json()) as {
-      modules: { feedback: { enabled: boolean; configured: boolean; configPath: string } }
+      modules: { demo: { enabled: boolean; configured: boolean; configPath: string } }
     }
-    expect(body.modules.feedback).toMatchObject({
+    expect(body.modules.demo).toMatchObject({
       enabled: false,
-      configured: false,
-      configPath: '/settings/integrations/feedback',
+      configured: true,
+      configPath: '/admin/modules',
     })
   })
 
-  it('PATCH /api/modules/feedback rejects enable when integration missing', async () => {
+  it('PATCH /api/modules/demo enables without remote integration', async () => {
     const app = createApp()
     const env = createMemoryEnv()
     const cookie = await loginAs(app, env, DEMO_EMAIL, DEMO_PASSWORD)
     const res = await app.request(
-      '/api/modules/feedback',
+      '/api/modules/demo',
       {
         method: 'PATCH',
         headers: sessionMutation(cookie),
@@ -963,43 +934,7 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
       },
       env,
     )
-    expect(res.status).toBe(400)
-    const body = (await res.json()) as {
-      error: { code: string; details?: { configPath?: string } }
-    }
-    expect(body.error.code).toBe('INTEGRATION_NOT_CONFIGURED')
-    expect(body.error.details?.configPath).toBe('/settings/integrations/feedback')
-  })
-
-  it('GET /api/integrations/feedback requires admin', async () => {
-    const app = createApp()
-    const env = createMemoryEnv()
-    const cookieB = await loginAs(app, env, DEMO_EMAIL_B, DEMO_PASSWORD_B)
-    const res = await app.request(
-      '/api/integrations/feedback',
-      { headers: { cookie: cookieB } },
-      env,
-    )
-    expect(res.status).toBe(403)
-  })
-
-  it('PUT /api/integrations/feedback requires admin', async () => {
-    const app = createApp()
-    const env = createMemoryEnv()
-    const cookieB = await loginAs(app, env, DEMO_EMAIL_B, DEMO_PASSWORD_B)
-    const res = await app.request(
-      '/api/integrations/feedback',
-      {
-        method: 'PUT',
-        headers: sessionMutation(cookieB),
-        body: JSON.stringify({
-          sparkUrl: 'http://localhost:3939',
-          sparkApiKey: 'spk_test_key_12',
-        }),
-      },
-      env,
-    )
-    expect(res.status).toBe(403)
+    expect(res.status).toBe(200)
   })
 
   it('PATCH /api/modules/:id requires admin', async () => {
@@ -1007,81 +942,11 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     const env = createMemoryEnv()
     const cookieB = await loginAs(app, env, DEMO_EMAIL_B, DEMO_PASSWORD_B)
     const res = await app.request(
-      '/api/modules/feedback',
+      '/api/modules/demo',
       {
         method: 'PATCH',
         headers: sessionMutation(cookieB),
         body: JSON.stringify({ enabled: false }),
-      },
-      env,
-    )
-    expect(res.status).toBe(403)
-  })
-
-  it('POST /api/report returns 401 without auth', async () => {
-    const app = createApp()
-    const env = createMemoryEnv()
-    const fd = new FormData()
-    fd.append('title', 'Bug')
-    const res = await app.request('/api/report', { method: 'POST', body: fd }, env)
-    expect(res.status).toBe(401)
-  })
-
-  it('POST /api/report returns 503 when feedback module is off', async () => {
-    const app = createApp()
-    const env = createMemoryEnv()
-    const cookie = await loginAs(app, env, DEMO_EMAIL, DEMO_PASSWORD)
-    await saveFeedbackIntegration(app, env, cookie)
-    const fd = new FormData()
-    fd.append('title', 'Bug')
-    const res = await app.request(
-      '/api/report',
-      { method: 'POST', headers: { cookie, Origin: ORIGIN }, body: fd },
-      env,
-    )
-    expect(res.status).toBe(503)
-    const body = (await res.json()) as { error: string }
-    expect(body.error).toContain('désactivé')
-  })
-
-  it('POST /api/report rejects Bearer sk_ (session-only)', async () => {
-    const app = createApp()
-    const env = createMemoryEnv()
-    const cookie = await loginAs(app, env, DEMO_EMAIL, DEMO_PASSWORD)
-    await enableFeedbackModule(app, env, cookie)
-    const orgRes = await app.request(
-      '/api/orgs',
-      {
-        method: 'POST',
-        headers: sessionMutation(cookie),
-        body: JSON.stringify({
-          name: 'Report Org',
-          slug: `rep-org-${crypto.randomUUID().slice(0, 8)}`,
-        }),
-      },
-      env,
-    )
-    expect(orgRes.status).toBe(201)
-    const { org } = (await orgRes.json()) as { org: { id: string } }
-    const mint = await app.request(
-      '/api/keys',
-      {
-        method: 'POST',
-        headers: sessionMutation(cookie),
-        body: JSON.stringify({ organizationId: org.id }),
-      },
-      env,
-    )
-    expect(mint.status).toBe(200)
-    const { key } = (await mint.json()) as { key: string }
-    const fd = new FormData()
-    fd.append('title', 'Bug')
-    const res = await app.request(
-      '/api/report',
-      {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${key}` },
-        body: fd,
       },
       env,
     )

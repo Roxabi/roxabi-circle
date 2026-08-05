@@ -33,7 +33,7 @@ HMAC-signed cookies shipped first as a Workers-native interim. Issue #5 landed B
 | Layer | Kit (normative) |
 |---|---|
 | Session | `createBetterAuthSessionPort` + per-request `betterAuth` instance |
-| Cookie | `gosilex_session` (overridable via `SESSION_COOKIE_NAME`) · HttpOnly · SameSite=Lax · Secure when not local |
+| Cookie | `kit_session` (overridable via `SESSION_COOKIE_NAME`) · HttpOnly · SameSite=Lax · Secure when not local |
 | Login surface | BA handler `ALL /api/auth/*` (email/password; OAuth optional later) |
 | API keys | SHA-256 `sk_` via `hashApiKey` — **unchanged** |
 | FE contract | `credentials: 'include'` + error envelope — **unchanged** |
@@ -96,7 +96,7 @@ BA implements `auth.api.getSession({ headers })`.
 
 ### Product inject recipe (updated)
 
-1. Depend on `@gosilex/auth` + peer `better-auth`.
+1. Depend on `@kit/auth` + peer `better-auth`.
 2. Apply BA migrations (`packages/auth/migrations/*` composed into app migrations).
 3. Set `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL` (and cookie name if needed). **No** `AUTH_SESSION_ADAPTER`.
 4. Per-request: `createBetterAuth(env, baseURL)` → `c.set('betterAuth', auth)`.

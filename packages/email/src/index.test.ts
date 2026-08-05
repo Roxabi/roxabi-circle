@@ -3,6 +3,7 @@ import {
   assertEmailTransportAllowed,
   assertStagingEmailPolicy,
   buildDemoEmailText,
+  buildMagicLinkEmailText,
   createEmailPort,
   isRecipientDomainAllowed,
   parseAllowDomains,
@@ -21,6 +22,20 @@ describe('buildDemoEmailText', () => {
     expect(m.to).toBe('a@b.c')
     expect(m.subject).toContain('u1')
     expect(m.text.length).toBeGreaterThan(0)
+  })
+})
+
+describe('buildMagicLinkEmailText', () => {
+  it('builds subject and text with magic URL', () => {
+    const m = buildMagicLinkEmailText({
+      to: 'a@b.c',
+      magicUrl: 'http://localhost:8787/api/auth/magic-link/verify?token=abc',
+      expiresHint: 'about 5 minutes',
+    })
+    expect(m.to).toBe('a@b.c')
+    expect(m.subject).toMatch(/sign in/i)
+    expect(m.text).toContain('magic-link/verify')
+    expect(m.html).toContain('href=')
   })
 })
 
@@ -80,28 +95,28 @@ describe('assertEmailTransportAllowed / resolveEmailTransport', () => {
 
 describe('parseAllowDomains / isRecipientDomainAllowed', () => {
   it('parses comma list', () => {
-    expect(parseAllowDomains('gosilex.com, Client.example ,')).toEqual([
-      'gosilex.com',
+    expect(parseAllowDomains('example.com, Client.example ,')).toEqual([
+      'example.com',
       'client.example',
     ])
     expect(parseAllowDomains('')).toEqual([])
   })
 
   it('exact domain match only', () => {
-    expect(isRecipientDomainAllowed('a@gosilex.com', ['gosilex.com'])).toBe(true)
-    expect(isRecipientDomainAllowed('a@evil-gosilex.com', ['gosilex.com'])).toBe(false)
-    expect(isRecipientDomainAllowed('a@mail.gosilex.com', ['gosilex.com'])).toBe(false)
-    expect(isRecipientDomainAllowed('a@client.io', ['gosilex.com', 'client.io'])).toBe(true)
+    expect(isRecipientDomainAllowed('a@example.com', ['example.com'])).toBe(true)
+    expect(isRecipientDomainAllowed('a@evil-example.com', ['example.com'])).toBe(false)
+    expect(isRecipientDomainAllowed('a@mail.example.com', ['example.com'])).toBe(false)
+    expect(isRecipientDomainAllowed('a@client.io', ['example.com', 'client.io'])).toBe(true)
   })
 })
 
 describe('assertStagingEmailPolicy', () => {
-  it('requires allowlist + @gosilex.com from on staging cf', () => {
+  it('requires allowlist + @example.com from on staging cf', () => {
     expect(() =>
       assertStagingEmailPolicy({
         transport: 'cf',
         environment: 'staging',
-        from: 'noreply@gosilex.com',
+        from: 'noreply@example.com',
         allowDomains: [],
       }),
     ).toThrow(/EMAIL_ALLOW_DOMAINS/i)
@@ -111,16 +126,16 @@ describe('assertStagingEmailPolicy', () => {
         transport: 'cf',
         environment: 'staging',
         from: 'noreply@other.com',
-        allowDomains: ['gosilex.com'],
+        allowDomains: ['example.com'],
       }),
-    ).toThrow(/EMAIL_FROM must be @gosilex.com/i)
+    ).toThrow(/EMAIL_FROM must be @example.com/i)
 
     expect(() =>
       assertStagingEmailPolicy({
         transport: 'cf',
         environment: 'staging',
-        from: 'noreply@gosilex.com',
-        allowDomains: ['gosilex.com', 'client.test'],
+        from: 'noreply@example.com',
+        allowDomains: ['example.com', 'client.test'],
       }),
     ).not.toThrow()
   })
@@ -170,15 +185,15 @@ describe('createEmailPort / sendCf', () => {
       transport: 'cf',
       environment: 'staging',
       email: { send },
-      from: 'noreply@gosilex.com',
-      allowDomains: ['gosilex.com', 'acme-client.test'],
+      from: 'noreply@example.com',
+      allowDomains: ['example.com', 'acme-client.test'],
     })
     await expect(port.send({ to: 'leak@random.org', subject: 'x', text: 'y' })).rejects.toThrow(
       /EMAIL_RECIPIENT_DOMAIN_NOT_ALLOWED/i,
     )
     expect(send).not.toHaveBeenCalled()
 
-    await port.send({ to: 'qa@gosilex.com', subject: 'x', text: 'y' })
+    await port.send({ to: 'qa@example.com', subject: 'x', text: 'y' })
     expect(send).toHaveBeenCalledTimes(1)
   })
 
@@ -191,10 +206,10 @@ describe('createEmailPort / sendCf', () => {
       transport: 'cf',
       environment: 'staging',
       email: { send },
-      from: 'noreply@gosilex.com',
-      allowDomains: ['gosilex.com'],
+      from: 'noreply@example.com',
+      allowDomains: ['example.com'],
     })
-    await port.send({ to: 'qa@gosilex.com', subject: 'Invite to org', text: 'y' })
+    await port.send({ to: 'qa@example.com', subject: 'Invite to org', text: 'y' })
     expect(send).toHaveBeenCalledWith(
       expect.objectContaining({
         subject: `${STAGING_SUBJECT_PREFIX} Invite to org`,

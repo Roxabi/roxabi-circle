@@ -17,7 +17,7 @@ import {
   SidebarProvider,
   SidebarRail,
   SidebarTrigger,
-} from '@gosilex/ui'
+} from '@kit/ui'
 import { useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useRouterState } from '@tanstack/react-router'
 import {
@@ -30,14 +30,14 @@ import {
   Moon,
   Palette,
   Settings,
+  Sparkles,
   Sun,
   SunMoon,
   Users,
 } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { toast } from 'sonner'
-import { apiFetch } from '../lib/api'
-import { canManageMembers, isPlatformActor, meQueryKey, useMe } from '../lib/auth'
+import { canManageMembers, isPlatformActor, signOutAndClearSession, useMe } from '../lib/auth'
 import { useLocale } from '../lib/locale'
 import { useOrgContext } from '../lib/org-context'
 import { type Theme, useTheme } from '../lib/theme'
@@ -70,14 +70,17 @@ function NavItem({ to, label, icon }: { to: string; label: string; icon: ReactNo
 }
 
 function pageTitle(pathname: string, m: ReturnType<typeof useLocale>['m']): string {
+  if (pathname.startsWith('/app/items')) return m.navItems
   if (pathname.startsWith('/app/notes') || pathname === '/notes') return m.navNotes
   if (pathname.startsWith('/app/keys') || pathname === '/keys') return m.navKeys
   if (pathname.includes('/members')) return m.navMembers
   if (pathname.startsWith('/app/settings') || pathname.startsWith('/settings')) return m.navSettings
+  if (pathname.startsWith('/app/changelog')) return m.navChangelog
   if (pathname.startsWith('/admin/design-system') || pathname.startsWith('/design-system')) {
     return m.navDesignSystem
   }
   if (pathname.startsWith('/admin/orgs')) return m.navOrgs
+  if (pathname.startsWith('/admin/users')) return m.navUsers
   if (pathname.startsWith('/admin/modules')) return m.navModules
   if (pathname.startsWith('/admin')) return m.navAdminHome
   if (pathname.startsWith('/app')) return m.navAppHome
@@ -98,14 +101,12 @@ function ShellChrome({ mode, children }: { mode: ShellMode; children: ReactNode 
 
   const logout = async () => {
     try {
-      await apiFetch('/api/auth/sign-out', { method: 'POST', body: '{}' })
+      await signOutAndClearSession(qc)
+      toast.message(m.logout)
+      await navigate({ to: '/login' })
     } catch {
-      /* still clear client cache */
+      toast.error(m.error, { description: m.errUnauthorized })
     }
-    await qc.invalidateQueries({ queryKey: meQueryKey })
-    qc.removeQueries({ queryKey: meQueryKey })
-    toast.message(m.logout)
-    await navigate({ to: '/login' })
   }
 
   const cycleTheme = () => {
@@ -117,7 +118,8 @@ function ShellChrome({ mode, children }: { mode: ShellMode; children: ReactNode 
   const themeLabel =
     theme === 'dark' ? m.themeDark : theme === 'light' ? m.themeLight : m.themeSystem
 
-  const initials = (me.data?.email ?? me.data?.subject ?? 'U').slice(0, 2).toUpperCase()
+  const displayName = me.data?.name ?? me.data?.email ?? me.data?.subject ?? m.account
+  const initials = displayName.slice(0, 2).toUpperCase()
   const title = pageTitle(pathname, m)
   const homeTo = mode === 'admin' ? '/admin' : '/app'
   const subtitle = mode === 'admin' ? m.shellAdminSubtitle : m.shellAppSubtitle
@@ -159,6 +161,7 @@ function ShellChrome({ mode, children }: { mode: ShellMode; children: ReactNode 
                 <SidebarMenu>
                   <NavItem to="/admin" label={m.navAdminHome} icon={<LayoutDashboard />} />
                   <NavItem to="/admin/orgs" label={m.navOrgs} icon={<Building2 />} />
+                  <NavItem to="/admin/users" label={m.navUsers} icon={<Users />} />
                   <NavItem to="/admin/modules" label={m.navModules} icon={<Boxes />} />
                   <NavItem to="/admin/design-system" label={m.navDesignSystem} icon={<Palette />} />
                 </SidebarMenu>
@@ -171,6 +174,7 @@ function ShellChrome({ mode, children }: { mode: ShellMode; children: ReactNode 
                 <SidebarMenu>
                   <NavItem to="/app" label={m.navAppHome} icon={<LayoutDashboard />} />
                   <NavItem to="/app/notes" label={m.navNotes} icon={<FileText />} />
+                  <NavItem to="/app/items" label={m.navItems} icon={<Boxes />} />
                   <NavItem to="/app/keys" label={m.navKeys} icon={<KeyRound />} />
                   {showMembers && activeOrgId ? (
                     <NavItem
@@ -188,7 +192,7 @@ function ShellChrome({ mode, children }: { mode: ShellMode; children: ReactNode 
         <SidebarFooter>
           <NavUser
             user={{
-              name: me.data?.email ?? me.data?.subject ?? m.account,
+              name: displayName,
               email: me.data?.email ?? me.data?.subject ?? '',
               fallback: initials,
             }}
@@ -196,16 +200,20 @@ function ShellChrome({ mode, children }: { mode: ShellMode; children: ReactNode 
             onLogout={() => void logout()}
           >
             {mode === 'app' ? (
-              <DropdownMenuItem onClick={() => void navigate({ to: '/app/settings' })}>
-                <Settings />
-                {m.settings}
-              </DropdownMenuItem>
+              <>
+                <DropdownMenuItem onClick={() => void navigate({ to: '/app/changelog' })}>
+                  <Sparkles />
+                  {m.navChangelog}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => void navigate({ to: '/app/settings' })}>
+                  <Settings />
+                  {m.settings}
+                </DropdownMenuItem>
+              </>
             ) : (
-              <DropdownMenuItem
-                onClick={() => void navigate({ to: '/admin/settings/integrations/feedback' })}
-              >
+              <DropdownMenuItem onClick={() => void navigate({ to: '/admin/modules' })}>
                 <Settings />
-                {m.integrationFeedbackTitle}
+                {m.navModules}
               </DropdownMenuItem>
             )}
             {platform && mode === 'admin' ? (

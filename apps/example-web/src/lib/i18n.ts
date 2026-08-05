@@ -1,4 +1,4 @@
-import { createI18n } from '@gosilex/i18n'
+import { createI18n } from '@kit/i18n'
 import { en } from '../messages/en'
 import { fr, type Messages } from '../messages/fr'
 

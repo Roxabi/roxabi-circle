@@ -8,13 +8,13 @@ import {
   type SessionPort,
   sessionCookieName,
   verifyApiKey,
-} from '@gosilex/auth'
+} from '@kit/auth'
 import type { Env } from '../env'
 
 // re-export crypto helpers used by tests
 export { hashApiKey, verifyApiKey }
 
-import { AppError } from '@gosilex/core'
+import { AppError } from '@kit/core'
 import type { DrizzleD1Database } from 'drizzle-orm/d1'
 import type { schema } from '../db/schema'
 import * as keysRepo from '../repos/keys'

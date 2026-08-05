@@ -10,7 +10,7 @@ import {
 
 export type Theme = 'light' | 'dark' | 'system'
 
-const STORAGE_KEY = 'gosilex.theme'
+const STORAGE_KEY = 'kit.theme'
 
 type ThemeCtx = {
   theme: Theme

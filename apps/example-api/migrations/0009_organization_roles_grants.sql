@@ -1,4 +1,4 @@
--- ADR-0003 Phase B — per-org custom roles + module grants (Spark #127 / GH #22).
+-- ADR-0003 Phase B — per-org custom roles + module grants (GH #22).
 
 CREATE TABLE IF NOT EXISTS "organization_roles" (
   "id" text PRIMARY KEY NOT NULL,

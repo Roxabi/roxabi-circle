@@ -19,7 +19,7 @@ import {
   EmptyMedia,
   EmptyTitle,
   Input,
-} from '@gosilex/ui'
+} from '@kit/ui'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Copy, KeyRound, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'

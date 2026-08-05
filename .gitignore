@@ -42,3 +42,7 @@ packages/*/dist/
 
 # Separate live repo (Roxabi/circle-applications) — clone alongside; do not nest-commit
 /circle-applications/
+
+# Local release GIF captures (engine output; do not commit multi-MB blobs)
+artifacts/release-gifs/*
+!artifacts/release-gifs/.gitkeep

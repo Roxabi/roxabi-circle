@@ -1,13 +1,20 @@
-import { normalizeEmail } from '@gosilex/auth'
-import { AppError } from '@gosilex/core'
-import { buildInviteEmailText, createLogEmailPort, type EmailPort } from '@gosilex/email'
+import { normalizeEmail } from '@kit/auth'
+import { AppError } from '@kit/core'
+import {
+  buildInviteEmailText,
+  buildWelcomeSetPasswordEmailText,
+  createLogEmailPort,
+  type EmailPort,
+} from '@kit/email'
 import type { DrizzleD1Database } from 'drizzle-orm/d1'
 import type { schema } from '../db/schema'
 import { assertRateLimit } from '../lib/rate-limit'
 import * as invitationsRepo from '../repos/invitations'
 import * as orgsRepo from '../repos/orgs'
 import * as usersRepo from '../repos/users'
+import * as auditService from './audit'
 import * as orgRolesService from './org-roles'
+import { provisionUserShell } from './user-shell'
 
 type Db = DrizzleD1Database<typeof schema>
 
@@ -57,9 +64,10 @@ export async function createInvitation(
     role: string
     acceptBaseUrl: string
     emailPort?: EmailPort
+    requestId?: string
   },
 ) {
-  assertRateLimit(`invite-create:${input.orgId}`, CREATE_LIMIT, CREATE_WINDOW_MS)
+  await assertRateLimit(db, `invite-create:${input.orgId}`, CREATE_LIMIT, CREATE_WINDOW_MS)
 
   const org = await orgsRepo.findOrgById(db, input.orgId)
   if (!org) throw AppError.notFound('Organization not found')
@@ -72,7 +80,7 @@ export async function createInvitation(
   const role = input.role
 
   const email = normalizeEmail(input.email)
-  if (!email || !email.includes('@')) {
+  if (!email?.includes('@')) {
     throw AppError.validation('Invalid email', { email: ['Valid email required'] })
   }
 
@@ -90,6 +98,25 @@ export async function createInvitation(
     throw AppError.conflict('A pending invitation already exists for this email')
   }
 
+  // S3: unknown email → shell user + welcome set-password (no public signup)
+  let provisionedUserId: string | null = null
+  let welcomeToken: string | null = null
+  if (!existingUser) {
+    const shell = await provisionUserShell(db, { email })
+    provisionedUserId = shell.userId
+    welcomeToken = shell.welcomeToken
+    const emailDomain = email.includes('@') ? email.split('@')[1] : undefined
+    await auditService.appendAudit(db, {
+      action: 'user.created',
+      actorUserId: input.inviterUserId,
+      targetType: 'user',
+      targetId: shell.userId,
+      orgId: input.orgId,
+      meta: emailDomain ? { emailDomain } : undefined,
+      requestId: input.requestId,
+    })
+  }
+
   const now = new Date()
   const expiresAt = new Date(now.getTime() + INVITE_TTL_MS)
   const id = newInviteId()
@@ -105,29 +132,47 @@ export async function createInvitation(
     inviterId: input.inviterUserId,
   })
 
-  const acceptUrl = `${input.acceptBaseUrl.replace(/\/$/, '')}/invite/accept?invitationId=${encodeURIComponent(id)}`
+  const base = input.acceptBaseUrl.replace(/\/$/, '')
+  const acceptUrl = `${base}/invite/accept?invitationId=${encodeURIComponent(id)}`
   const inviter = await usersRepo.findBaUserById(db, input.inviterUserId)
-  const tmpl = buildInviteEmailText({
-    to: email,
-    orgName: org.name,
-    acceptUrl,
-    expiresAt,
-    inviterLabel: inviter?.email ?? input.inviterUserId,
-  })
-
   const port = input.emailPort ?? createLogEmailPort()
+
   try {
-    const sent = await port.send({
-      to: tmpl.to,
-      subject: tmpl.subject,
-      text: tmpl.text,
-      html: tmpl.html,
-    })
-    if (!sent.ok) {
-      throw new Error('email send returned not ok')
+    if (welcomeToken && provisionedUserId) {
+      const setPasswordUrl = `${base}/reset-password?token=${encodeURIComponent(welcomeToken)}&next=${encodeURIComponent(`/invite/accept?invitationId=${id}`)}`
+      const tmpl = buildWelcomeSetPasswordEmailText({
+        to: email,
+        setPasswordUrl,
+        expiresHint: 'about 1 hour',
+      })
+      const sent = await port.send({
+        to: tmpl.to,
+        subject: tmpl.subject,
+        text: tmpl.text,
+        html: tmpl.html,
+      })
+      if (!sent.ok) throw new Error('email send returned not ok')
+    } else {
+      const tmpl = buildInviteEmailText({
+        to: email,
+        orgName: org.name,
+        acceptUrl,
+        expiresAt,
+        inviterLabel: inviter?.email ?? input.inviterUserId,
+      })
+      const sent = await port.send({
+        to: tmpl.to,
+        subject: tmpl.subject,
+        text: tmpl.text,
+        html: tmpl.html,
+      })
+      if (!sent.ok) throw new Error('email send returned not ok')
     }
   } catch {
     await invitationsRepo.setInvitationStatus(db, id, 'canceled')
+    if (provisionedUserId) {
+      await usersRepo.deleteBaUserCascade(db, provisionedUserId)
+    }
     throw AppError.internal('Failed to send invitation email')
   }
 
@@ -163,12 +208,13 @@ export async function acceptInvitation(
     invitationId: string
     subjectUserId: string
     rateKey: string
+    requestId?: string
   },
 ) {
-  assertRateLimit(`invite-accept:${input.rateKey}`, ACCEPT_LIMIT, ACCEPT_WINDOW_MS)
+  await assertRateLimit(db, `invite-accept:${input.rateKey}`, ACCEPT_LIMIT, ACCEPT_WINDOW_MS)
 
   const row = await invitationsRepo.findInvitationById(db, input.invitationId)
-  if (!row || row.status !== 'pending') {
+  if (row?.status !== 'pending') {
     throw AppError.notFound('Invitation not found')
   }
   if (row.expiresAt && row.expiresAt.getTime() <= Date.now()) {
@@ -190,6 +236,15 @@ export async function acceptInvitation(
   const existing = await orgsRepo.findMembership(db, row.organizationId, input.subjectUserId)
   if (existing) {
     await invitationsRepo.setInvitationStatus(db, row.id, 'accepted')
+    await auditService.appendAudit(db, {
+      action: 'invite.accept',
+      actorUserId: input.subjectUserId,
+      targetType: 'invitation',
+      targetId: row.id,
+      orgId: row.organizationId,
+      meta: { invitationId: row.id },
+      requestId: input.requestId,
+    })
     return {
       org: { id: org.id, name: org.name, slug: org.slug },
       membership: {
@@ -210,6 +265,25 @@ export async function acceptInvitation(
     createdAt: new Date(),
   })
   await invitationsRepo.setInvitationStatus(db, row.id, 'accepted')
+
+  await auditService.appendAudit(db, {
+    action: 'membership.add',
+    actorUserId: input.subjectUserId,
+    targetType: 'user',
+    targetId: input.subjectUserId,
+    orgId: row.organizationId,
+    meta: { role: row.role },
+    requestId: input.requestId,
+  })
+  await auditService.appendAudit(db, {
+    action: 'invite.accept',
+    actorUserId: input.subjectUserId,
+    targetType: 'invitation',
+    targetId: row.id,
+    orgId: row.organizationId,
+    meta: { invitationId: row.id },
+    requestId: input.requestId,
+  })
 
   return {
     org: { id: org.id, name: org.name, slug: org.slug },

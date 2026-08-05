@@ -1,5 +1,5 @@
-import { createBetterAuthSessionPort, createRequireAuth } from '@gosilex/auth'
-import { AppError } from '@gosilex/core'
+import { createBetterAuthSessionPort, createRequireAuth } from '@kit/auth'
+import { AppError } from '@kit/core'
 import type { MiddlewareHandler } from 'hono'
 import type { KitDb } from '../lib/db-type'
 import { sessionCookieName } from '../lib/session-env'

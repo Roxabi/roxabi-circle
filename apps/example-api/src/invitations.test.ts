@@ -1,8 +1,8 @@
-import { createDb } from '@gosilex/db'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { createDb } from '@kit/db'
+import { describe, expect, it } from 'vitest'
 import { createApp } from './app'
 import { schema } from './db/schema'
-import { resetRateLimits } from './lib/rate-limit'
+
 import { seedDemoDatabase } from './seed/seed-db'
 import { TENANCY_PASSWORD } from './seed/tenancy-data'
 import { createMemoryEnv } from './test/memory-env'
@@ -54,20 +54,59 @@ async function signIn(
   return cookie!
 }
 
-beforeEach(() => {
-  resetRateLimits()
-})
-
 describe('org invitations (B3 S2)', () => {
-  it('team-owner invites solo@ as member → pending', async () => {
-    const { app, env } = await seedEnv()
-    const cookie = await signIn(app, env, 'team-owner@gosilex.local')
+  it('S3: invite unknown email creates BA user shell + pending invite', async () => {
+    const app = createApp()
+    const env = createMemoryEnv({
+      ...BA_ENV,
+      ALLOW_PUBLIC_SIGNUP: 'false',
+    })
+    const db = createDb(env.DB as unknown as D1Database, schema)
+    await seedDemoDatabase(db, { notes: false, environment: 'test' })
+    const cookie = await signIn(app, env, 'team-owner@kit.local')
     const res = await app.request(
       '/api/orgs/org_team/invitations',
       {
         method: 'POST',
         headers: sessionMutation(cookie),
-        body: JSON.stringify({ email: 'solo@gosilex.local', role: 'member' }),
+        body: JSON.stringify({ email: 'brand-new@kit.local', role: 'member' }),
+      },
+      env,
+    )
+    expect(res.status).toBe(201)
+    const body = (await res.json()) as { invitation: { email: string; status: string } }
+    expect(body.invitation.email).toBe('brand-new@kit.local')
+    expect(body.invitation.status).toBe('pending')
+    const { baUser } = await import('./db/better-auth-schema')
+    const { eq } = await import('drizzle-orm')
+    const users = await db.select().from(baUser).where(eq(baUser.email, 'brand-new@kit.local'))
+    expect(users.length).toBe(1)
+    // public signup still off — sign-up should fail
+    const signup = await app.request(
+      '/api/auth/sign-up/email',
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', Origin: ORIGIN },
+        body: JSON.stringify({
+          email: 'another-public@kit.local',
+          password: TENANCY_PASSWORD,
+          name: 'Nope',
+        }),
+      },
+      env,
+    )
+    expect(signup.status).toBeGreaterThanOrEqual(400)
+  })
+
+  it('team-owner invites solo@ as member → pending', async () => {
+    const { app, env } = await seedEnv()
+    const cookie = await signIn(app, env, 'team-owner@kit.local')
+    const res = await app.request(
+      '/api/orgs/org_team/invitations',
+      {
+        method: 'POST',
+        headers: sessionMutation(cookie),
+        body: JSON.stringify({ email: 'solo@kit.local', role: 'member' }),
       },
       env,
     )
@@ -75,7 +114,7 @@ describe('org invitations (B3 S2)', () => {
     const body = (await res.json()) as {
       invitation: { id: string; email: string; role: string; status: string }
     }
-    expect(body.invitation.email).toBe('solo@gosilex.local')
+    expect(body.invitation.email).toBe('solo@kit.local')
     expect(body.invitation.role).toBe('member')
     expect(body.invitation.status).toBe('pending')
     expect(body.invitation.id.startsWith('inv_')).toBe(true)
@@ -83,20 +122,20 @@ describe('org invitations (B3 S2)', () => {
 
   it('invitee accepts with matching email → membership', async () => {
     const { app, env } = await seedEnv()
-    const ownerCookie = await signIn(app, env, 'team-owner@gosilex.local')
+    const ownerCookie = await signIn(app, env, 'team-owner@kit.local')
     const create = await app.request(
       '/api/orgs/org_team/invitations',
       {
         method: 'POST',
         headers: sessionMutation(ownerCookie),
-        body: JSON.stringify({ email: 'solo@gosilex.local', role: 'member' }),
+        body: JSON.stringify({ email: 'solo@kit.local', role: 'member' }),
       },
       env,
     )
     expect(create.status).toBe(201)
     const { invitation } = (await create.json()) as { invitation: { id: string } }
 
-    const soloCookie = await signIn(app, env, 'solo@gosilex.local')
+    const soloCookie = await signIn(app, env, 'solo@kit.local')
     const accept = await app.request(
       `/api/invitations/${invitation.id}/accept`,
       { method: 'POST', headers: sessionMutation(soloCookie), body: '{}' },
@@ -122,19 +161,19 @@ describe('org invitations (B3 S2)', () => {
 
   it('accept with mismatched email → 403', async () => {
     const { app, env } = await seedEnv()
-    const ownerCookie = await signIn(app, env, 'team-owner@gosilex.local')
+    const ownerCookie = await signIn(app, env, 'team-owner@kit.local')
     const create = await app.request(
       '/api/orgs/org_team/invitations',
       {
         method: 'POST',
         headers: sessionMutation(ownerCookie),
-        body: JSON.stringify({ email: 'solo@gosilex.local', role: 'reader' }),
+        body: JSON.stringify({ email: 'solo@kit.local', role: 'reader' }),
       },
       env,
     )
     const { invitation } = (await create.json()) as { invitation: { id: string } }
 
-    const staffCookie = await signIn(app, env, 'staff@gosilex.local')
+    const staffCookie = await signIn(app, env, 'staff@kit.local')
     const accept = await app.request(
       `/api/invitations/${invitation.id}/accept`,
       { method: 'POST', headers: sessionMutation(staffCookie), body: '{}' },
@@ -148,13 +187,13 @@ describe('org invitations (B3 S2)', () => {
 
   it('reader cannot create invite → 403', async () => {
     const { app, env } = await seedEnv()
-    const cookie = await signIn(app, env, 'team-reader@gosilex.local')
+    const cookie = await signIn(app, env, 'team-reader@kit.local')
     const res = await app.request(
       '/api/orgs/org_team/invitations',
       {
         method: 'POST',
         headers: sessionMutation(cookie),
-        body: JSON.stringify({ email: 'solo@gosilex.local', role: 'member' }),
+        body: JSON.stringify({ email: 'solo@kit.local', role: 'member' }),
       },
       env,
     )
@@ -163,13 +202,13 @@ describe('org invitations (B3 S2)', () => {
 
   it('invite owner role → 400', async () => {
     const { app, env } = await seedEnv()
-    const cookie = await signIn(app, env, 'team-owner@gosilex.local')
+    const cookie = await signIn(app, env, 'team-owner@kit.local')
     const res = await app.request(
       '/api/orgs/org_team/invitations',
       {
         method: 'POST',
         headers: sessionMutation(cookie),
-        body: JSON.stringify({ email: 'solo@gosilex.local', role: 'owner' }),
+        body: JSON.stringify({ email: 'solo@kit.local', role: 'owner' }),
       },
       env,
     )
@@ -179,13 +218,13 @@ describe('org invitations (B3 S2)', () => {
   it('admin cannot invite admin (ceiling) → 400', async () => {
     const { app, env } = await seedEnv()
     // staff is admin on acme
-    const cookie = await signIn(app, env, 'staff@gosilex.local')
+    const cookie = await signIn(app, env, 'staff@kit.local')
     const res = await app.request(
       '/api/orgs/org_acme/invitations',
       {
         method: 'POST',
         headers: sessionMutation(cookie),
-        body: JSON.stringify({ email: 'solo@gosilex.local', role: 'admin' }),
+        body: JSON.stringify({ email: 'solo@kit.local', role: 'admin' }),
       },
       env,
     )
@@ -195,20 +234,20 @@ describe('org invitations (B3 S2)', () => {
 
   it('cross-org delete invite → 404', async () => {
     const { app, env } = await seedEnv()
-    const ownerCookie = await signIn(app, env, 'team-owner@gosilex.local')
+    const ownerCookie = await signIn(app, env, 'team-owner@kit.local')
     const create = await app.request(
       '/api/orgs/org_team/invitations',
       {
         method: 'POST',
         headers: sessionMutation(ownerCookie),
-        body: JSON.stringify({ email: 'solo@gosilex.local', role: 'member' }),
+        body: JSON.stringify({ email: 'solo@kit.local', role: 'member' }),
       },
       env,
     )
     const { invitation } = (await create.json()) as { invitation: { id: string } }
 
     // solo owns org_solo but not team invite management
-    const soloCookie = await signIn(app, env, 'solo@gosilex.local')
+    const soloCookie = await signIn(app, env, 'solo@kit.local')
     const del = await app.request(
       `/api/orgs/org_solo/invitations/${invitation.id}`,
       { method: 'DELETE', headers: sessionMutation(soloCookie) },
@@ -219,7 +258,7 @@ describe('org invitations (B3 S2)', () => {
 
   it('sk_ cannot create or accept invites', async () => {
     const { app, env } = await seedEnv()
-    const cookie = await signIn(app, env, 'team-owner@gosilex.local')
+    const cookie = await signIn(app, env, 'team-owner@kit.local')
     const mint = await app.request(
       '/api/keys',
       {
@@ -242,7 +281,7 @@ describe('org invitations (B3 S2)', () => {
           Origin: ORIGIN,
           'X-Org-Id': 'org_team',
         },
-        body: JSON.stringify({ email: 'solo@gosilex.local', role: 'member' }),
+        body: JSON.stringify({ email: 'solo@kit.local', role: 'member' }),
       },
       env,
     )
@@ -254,7 +293,7 @@ describe('org invitations (B3 S2)', () => {
       {
         method: 'POST',
         headers: sessionMutation(cookie),
-        body: JSON.stringify({ email: 'solo@gosilex.local', role: 'member' }),
+        body: JSON.stringify({ email: 'solo@kit.local', role: 'member' }),
       },
       env,
     )
@@ -277,13 +316,13 @@ describe('org invitations (B3 S2)', () => {
 
   it('already member → 409 on create', async () => {
     const { app, env } = await seedEnv()
-    const cookie = await signIn(app, env, 'team-owner@gosilex.local')
+    const cookie = await signIn(app, env, 'team-owner@kit.local')
     const res = await app.request(
       '/api/orgs/org_team/invitations',
       {
         method: 'POST',
         headers: sessionMutation(cookie),
-        body: JSON.stringify({ email: 'team-reader@gosilex.local', role: 'member' }),
+        body: JSON.stringify({ email: 'team-reader@kit.local', role: 'member' }),
       },
       env,
     )
@@ -292,13 +331,13 @@ describe('org invitations (B3 S2)', () => {
 
   it('super_admin without membership cannot create invite', async () => {
     const { app, env } = await seedEnv()
-    const cookie = await signIn(app, env, 'super@gosilex.local')
+    const cookie = await signIn(app, env, 'super@kit.local')
     const res = await app.request(
       '/api/orgs/org_team/invitations',
       {
         method: 'POST',
         headers: sessionMutation(cookie),
-        body: JSON.stringify({ email: 'solo@gosilex.local', role: 'member' }),
+        body: JSON.stringify({ email: 'solo@kit.local', role: 'member' }),
       },
       env,
     )
@@ -308,13 +347,13 @@ describe('org invitations (B3 S2)', () => {
 
   it('list pending + cancel works for owner', async () => {
     const { app, env } = await seedEnv()
-    const cookie = await signIn(app, env, 'team-owner@gosilex.local')
+    const cookie = await signIn(app, env, 'team-owner@kit.local')
     const create = await app.request(
       '/api/orgs/org_team/invitations',
       {
         method: 'POST',
         headers: sessionMutation(cookie),
-        body: JSON.stringify({ email: 'solo@gosilex.local', role: 'member' }),
+        body: JSON.stringify({ email: 'solo@kit.local', role: 'member' }),
       },
       env,
     )
@@ -339,7 +378,7 @@ describe('org invitations (B3 S2)', () => {
 
   it('BA native invite path remains DENY', async () => {
     const { app, env } = await seedEnv()
-    const cookie = await signIn(app, env, 'team-owner@gosilex.local')
+    const cookie = await signIn(app, env, 'team-owner@kit.local')
     const res = await app.request(
       '/api/auth/organization/invite-member',
       {

@@ -1,29 +1,72 @@
-import { AppError } from '@gosilex/core'
+import { AppError } from '@kit/core'
+import { sql } from 'drizzle-orm'
+import { rateLimitBuckets } from '../db/schema'
+import type { KitDb } from './db-type'
 
 /**
- * In-memory sliding window — **demo / single-isolate only**.
+ * Durable fixed-window rate limit on **D1** (shared across Workers isolates).
  *
- * Product multi-region: replace with Durable Object, KV, D1 counter, or
- * Cloudflare Rate Limiting binding. Same `assertRateLimit` call sites.
- * Do not treat this Map as a production auth control across isolates.
+ * Algorithm: floor-aligned windows
+ *   windowStartMs = Math.floor(now / windowMs) * windowMs
+ * Atomic counter: INSERT … ON CONFLICT DO UPDATE SET count = count + 1 RETURNING count.
+ *
+ * Caveats (documented for ops):
+ * - Multi-isolate safety comes from D1, not process memory.
+ * - Floor windows allow ~2× the limit across a boundary (not a sliding Map).
+ * - Fail-closed: D1 errors → AppError.internal (500), never skip the limit.
+ *
+ * Escape hatch (not implemented): KV or Cloudflare Rate Limiting binding.
  */
-const buckets = new Map<string, number[]>()
 
 /**
- * Fail closed when `limit` hits occur within `windowMs` for `key`.
- * Throws `AppError.rateLimited` (429) with `retryAfterSeconds` ≈ window.
+ * Fail closed when `limit` hits occur within the current window for `key`.
+ * Throws `AppError.rateLimited` (429) with `retryAfterSeconds` for remaining window.
  */
-export function assertRateLimit(key: string, limit: number, windowMs: number): void {
-  const now = Date.now()
-  const prev = buckets.get(key) ?? []
-  const hits = prev.filter((t) => now - t < windowMs)
-  if (hits.length >= limit) {
-    buckets.set(key, hits)
-    const retryAfterSeconds = Math.max(1, Math.ceil(windowMs / 1000))
-    throw AppError.rateLimited('Too many requests', { retryAfterSeconds })
+export async function assertRateLimit(
+  db: KitDb,
+  key: string,
+  limit: number,
+  windowMs: number,
+): Promise<void> {
+  if (limit < 1 || windowMs < 1) {
+    throw AppError.internal('Invalid rate limit configuration')
   }
-  hits.push(now)
-  buckets.set(key, hits)
+  const now = Date.now()
+  const windowStartMs = Math.floor(now / windowMs) * windowMs
+
+  try {
+    // Lazy GC of expired windows for this key (best-effort; ignore errors).
+    try {
+      await db
+        .delete(rateLimitBuckets)
+        .where(
+          sql`${rateLimitBuckets.bucketKey} = ${key} AND ${rateLimitBuckets.windowStartMs} + ${windowMs} < ${now}`,
+        )
+    } catch {
+      // ignore GC failures
+    }
+
+    const rows = await db
+      .insert(rateLimitBuckets)
+      .values({ bucketKey: key, windowStartMs, count: 1 })
+      .onConflictDoUpdate({
+        target: [rateLimitBuckets.bucketKey, rateLimitBuckets.windowStartMs],
+        set: { count: sql`${rateLimitBuckets.count} + 1` },
+      })
+      .returning({ count: rateLimitBuckets.count })
+
+    const count = rows[0]?.count
+    if (count == null) {
+      throw AppError.internal('Rate limit counter returned no row')
+    }
+    if (count > limit) {
+      const retryAfterSeconds = Math.max(1, Math.ceil((windowStartMs + windowMs - now) / 1000))
+      throw AppError.rateLimited('Too many requests', { retryAfterSeconds })
+    }
+  } catch (err) {
+    if (err instanceof AppError) throw err
+    throw AppError.internal('Rate limit store unavailable')
+  }
 }
 
 /**
@@ -36,7 +79,7 @@ export function clientIp(headers: { header: (name: string) => string | undefined
   return 'local'
 }
 
-/** Test helper — clear all buckets. */
-export function resetRateLimits(): void {
-  buckets.clear()
+/** Test helper — clear all D1 rate-limit buckets. */
+export async function resetRateLimits(db: KitDb): Promise<void> {
+  await db.delete(rateLimitBuckets)
 }

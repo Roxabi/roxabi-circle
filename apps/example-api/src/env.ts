@@ -10,7 +10,7 @@ export type SendEmailBinding = {
     subject: string
     text?: string
     html?: string
-  }) => Promise<{ messageId?: string } | void>
+  }) => Promise<{ messageId?: string } | undefined>
 }
 
 /**

@@ -133,7 +133,7 @@ export function createMemoryEnv(overrides?: Partial<EnvLike>): EnvLike {
     BETTER_AUTH_SECRET: 'test-better-auth-secret-at-least-32!!',
     BETTER_AUTH_URL: 'http://localhost:8787',
     ENVIRONMENT: 'test',
-    DEMO_USER_EMAIL: 'demo@gosilex.local',
+    DEMO_USER_EMAIL: 'demo@kit.local',
     ...overrides,
   }
 }

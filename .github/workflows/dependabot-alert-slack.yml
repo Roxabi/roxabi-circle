@@ -1,0 +1,274 @@
+# Dependabot CVE → Slack #int-bugs-alert (Flint bot).
+#
+# Note: `dependabot_alert` is a *webhook* event only — NOT a valid GitHub Actions
+# workflow trigger (parser: Unexpected value 'dependabot_alert'). We poll the
+# Dependabot Alerts REST API on a short cron + catch Dependabot security PRs.
+#
+# Channel: C0BDAPS2MG8 · secret: SLACK_FLINT_BOT_TOKEN · var: SLACK_CHANNEL_BUGS_ALERT
+# Docs: docs/security-dependabot.md
+name: Dependabot alert → Slack
+
+on:
+  schedule:
+    # ~15 min; overlap with lookback window below
+    - cron: "*/15 * * * *"
+  pull_request:
+    types: [opened]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  # List Dependabot alerts
+  security-events: read
+  # Optional: read PR metadata
+  pull-requests: read
+
+concurrency:
+  group: dependabot-alert-slack-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  notify-alerts:
+    name: Poll open alerts
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # GITHUB_TOKEN often 403s on Dependabot Alerts API for private repos.
+      # Reuse kit-ci (same as merge-on-green) when configured.
+      - name: Resolve kit-ci availability
+        id: cfg
+        env:
+          APP_ID: ${{ vars.CI_APP_ID }}
+        run: |
+          if [ -n "$APP_ID" ]; then
+            echo "app=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "app=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::CI_APP_ID unset — falling back to GITHUB_TOKEN (may 403 on alerts)"
+          fi
+
+      - name: Mint app token (kit-ci)
+        id: app
+        if: steps.cfg.outputs.app == 'true'
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ vars.CI_APP_ID }}
+          private-key: ${{ secrets.CI_APP_PRIVATE_KEY }}
+
+      - name: Post new / recent Dependabot alerts to Slack
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_FLINT_BOT_TOKEN }}
+          CHANNEL: ${{ vars.SLACK_CHANNEL_BUGS_ALERT || 'C0BDAPS2MG8' }}
+          GH_TOKEN: ${{ steps.app.outputs.token || github.token }}
+          REPO: ${{ github.repository }}
+          # Minutes of lookback (cron 15m → 20m buffer)
+          LOOKBACK_MIN: "20"
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SLACK_BOT_TOKEN:-}" ]; then
+            echo "::error::Missing secret SLACK_FLINT_BOT_TOKEN"
+            exit 1
+          fi
+          python3 <<'PY'
+          import json, os, urllib.request, urllib.error
+          from datetime import datetime, timezone, timedelta
+
+          repo = os.environ["REPO"]
+          channel = os.environ["CHANNEL"]
+          token = os.environ["SLACK_BOT_TOKEN"]
+          gh = os.environ["GH_TOKEN"]
+          lookback = int(os.environ.get("LOOKBACK_MIN", "20"))
+          event_name = os.environ.get("EVENT_NAME", "schedule")
+          # workflow_dispatch: post all open (smoke / catch-up). schedule: only recent.
+          post_all_open = event_name == "workflow_dispatch"
+
+          def gh_get(url):
+              req = urllib.request.Request(
+                  url,
+                  headers={
+                      "Authorization": f"Bearer {gh}",
+                      "Accept": "application/vnd.github+json",
+                      "X-GitHub-Api-Version": "2022-11-28",
+                      "User-Agent": "kit-dependabot-slack",
+                  },
+              )
+              try:
+                  with urllib.request.urlopen(req) as r:
+                      return json.load(r)
+              except urllib.error.HTTPError as e:
+                  body = e.read().decode("utf-8", errors="replace")[:800]
+                  if e.code == 403 and "not accessible by integration" in body:
+                      # kit-ci lacks Dependabot alerts permission — do not red-spam cron.
+                      print(
+                          "::warning::Dependabot Alerts API 403 (Resource not accessible by integration). "
+                          "Add GitHub App permission **Dependabot alerts: Read** on kit-ci "
+                          "(+ re-approve install), see docs/kit-ci-app-setup.md. "
+                          "Security Dependabot *PR* notifications still work without this."
+                      )
+                      raise SystemExit(0)
+                  raise SystemExit(f"GitHub API {e.code} for {url}: {body}") from e
+
+          def severity(a):
+              return (
+                  a.get("severity")
+                  or (a.get("security_advisory") or {}).get("severity")
+                  or (a.get("security_vulnerability") or {}).get("severity")
+                  or "unknown"
+              ).lower()
+
+          def slack_post(text):
+              body = json.dumps(
+                  {
+                      "channel": channel,
+                      "text": text,
+                      "unfurl_links": False,
+                      "unfurl_media": False,
+                  }
+              ).encode()
+              req = urllib.request.Request(
+                  "https://slack.com/api/chat.postMessage",
+                  data=body,
+                  method="POST",
+                  headers={
+                      "Authorization": f"Bearer {token}",
+                      "Content-Type": "application/json; charset=utf-8",
+                  },
+              )
+              with urllib.request.urlopen(req) as r:
+                  data = json.load(r)
+              if not data.get("ok"):
+                  raise SystemExit(f"slack error: {data}")
+              return data.get("ts")
+
+          alerts = gh_get(
+              f"https://api.github.com/repos/{repo}/dependabot/alerts?state=open&per_page=100"
+          )
+          if not isinstance(alerts, list):
+              raise SystemExit(f"unexpected alerts payload: {type(alerts)}")
+
+          now = datetime.now(timezone.utc)
+          cutoff = now - timedelta(minutes=lookback)
+          posted = 0
+
+          if post_all_open:
+              if not alerts:
+                  slack_post(
+                      f":shield: *Dependabot → Slack smoke* (`{repo}`) — 0 open alerts · channel <#{channel}>"
+                  )
+                  print("smoke: 0 open")
+                  raise SystemExit(0)
+              lines = [
+                  f":shield: *{len(alerts)} Dependabot alert(s) open* on `{repo}` (manual dispatch):"
+              ]
+              for a in alerts:
+                  name = ((a.get("dependency") or {}).get("package") or {}).get("name") or "?"
+                  sev = severity(a)
+                  num = a.get("number")
+                  url = a.get("html_url") or f"https://github.com/{repo}/security/dependabot/{num}"
+                  ghsa = (a.get("security_advisory") or {}).get("ghsa_id") or "?"
+                  patched = (
+                      ((a.get("security_vulnerability") or {}).get("first_patched_version") or {}).get(
+                          "identifier"
+                      )
+                      or "—"
+                  )
+                  lines.append(
+                      f"• `#{num}` *{sev}* `{name}` · `{ghsa}` · fix `{patched}` · <{url}|open>"
+                  )
+              slack_post("\n".join(lines))
+              print(f"smoke posted {len(alerts)}")
+              raise SystemExit(0)
+
+          for a in alerts:
+              created = a.get("created_at") or a.get("updated_at")
+              if not created:
+                  continue
+              # GitHub ISO with Z
+              ts = datetime.fromisoformat(created.replace("Z", "+00:00"))
+              if ts < cutoff:
+                  continue
+              dep = (a.get("dependency") or {})
+              pkg = (dep.get("package") or {})
+              pkg_name = pkg.get("name") or "?"
+              eco = pkg.get("ecosystem") or "?"
+              manifest = dep.get("manifest_path") or "?"
+              adv = a.get("security_advisory") or {}
+              vuln = a.get("security_vulnerability") or {}
+              sev = severity(a)
+              ghsa = adv.get("ghsa_id") or "?"
+              cve = adv.get("cve_id") or ""
+              summary = (adv.get("summary") or "")[:200]
+              number = a.get("number")
+              html_url = a.get("html_url") or f"https://github.com/{repo}/security/dependabot/{number}"
+              first_patched = (vuln.get("first_patched_version") or {}).get("identifier") or "—"
+              vulnerable = vuln.get("vulnerable_version_range") or "—"
+              emoji = {
+                  "critical": ":rotating_light:",
+                  "high": ":warning:",
+                  "medium": ":large_orange_diamond:",
+                  "moderate": ":large_orange_diamond:",
+                  "low": ":large_yellow_circle:",
+              }.get(sev, ":shield:")
+              cve_bit = f" · `{cve}`" if cve else ""
+              text = (
+                  f"{emoji} *Dependabot alert* `{sev}` — *open*\n"
+                  f"*Repo:* `{repo}` · *#{number}*\n"
+                  f"*Package:* `{pkg_name}` (`{eco}`)\n"
+                  f"*Manifest:* `{manifest}`\n"
+                  f"*Advisory:* `{ghsa}`{cve_bit}\n"
+                  f"*Range:* `{vulnerable}` → patched `{first_patched}`\n"
+                  f"{summary}\n"
+                  f"<{html_url}|Open alert>"
+              )
+              slack_post(text)
+              posted += 1
+              print("posted", number, sev, pkg_name)
+          print(f"done posted={posted} open={len(alerts)}")
+          PY
+
+  notify-security-pr:
+    name: Dependabot security PR opened
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.action == 'opened' &&
+      (github.actor == 'dependabot[bot]' || github.event.pull_request.user.login == 'dependabot[bot]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Post Dependabot PR to Slack (security-ish)
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_FLINT_BOT_TOKEN }}
+          CHANNEL: ${{ vars.SLACK_CHANNEL_BUGS_ALERT || 'C0BDAPS2MG8' }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          PR_NUM: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SLACK_BOT_TOKEN:-}" ]; then
+            echo "::error::Missing secret SLACK_FLINT_BOT_TOKEN"
+            exit 1
+          fi
+          # Heuristic: security update PRs mention security / GHSA / CVE / Bumps … from advisory
+          BODY_LC=$(printf '%s' "$PR_BODY" | tr '[:upper:]' '[:lower:]')
+          TITLE_LC=$(printf '%s' "$PR_TITLE" | tr '[:upper:]' '[:lower:]')
+          if ! printf '%s\n%s' "$BODY_LC" "$TITLE_LC" | grep -qE 'security|ghsa-|cve-|vulnerab|dependabot security'; then
+            # Still notify for all Dependabot opens on this channel? Prefer security-only.
+            # Version bumps are noisy — skip pure version updates.
+            if ! printf '%s' "$BODY_LC" | grep -q 'security vulnerability\|security update'; then
+              echo "skip: Dependabot PR does not look like a security update"
+              exit 0
+            fi
+          fi
+          TEXT=":warning: *Dependabot security PR* opened on \`${REPO}\`
+          *#${PR_NUM}* — ${PR_TITLE}
+          <${PR_URL}|Open PR>"
+          RESP=$(curl -sS -X POST https://slack.com/api/chat.postMessage \
+            -H "Authorization: Bearer ${SLACK_BOT_TOKEN}" \
+            -H "Content-Type: application/json; charset=utf-8" \
+            --data "$(jq -n --arg ch "$CHANNEL" --arg t "$TEXT" '{channel:$ch, text:$t, unfurl_links:false, unfurl_media:false}')")
+          echo "$RESP" | jq -e '.ok == true' >/dev/null || { echo "$RESP" | jq .; exit 1; }
+          echo "posted PR #$PR_NUM"

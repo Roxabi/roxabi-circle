@@ -1,12 +1,4 @@
-import {
-  Badge,
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-  Skeleton,
-} from '@gosilex/ui'
+import { Badge, Card, CardContent, CardDescription, CardHeader, CardTitle, Skeleton } from '@kit/ui'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import { Boxes, Building2, Palette } from 'lucide-react'

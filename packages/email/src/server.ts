@@ -100,7 +100,7 @@ export async function sendSmtp(
     `To: ${scrub(input.to)}`,
     `Subject: ${scrub(input.subject)}`,
     `Date: ${new Date().toUTCString()}`,
-    `Message-ID: <${crypto.randomUUID()}@gosilex.local>`,
+    `Message-ID: <${crypto.randomUUID()}@kit.local>`,
     ``,
     input.text,
     ``,

@@ -4,13 +4,13 @@ import {
   type EmailTransport,
   parseAllowDomains,
   resolveEmailTransport,
-} from '@gosilex/email'
+} from '@kit/email'
 import type { Env } from '../env'
 
 /**
  * Resolve Worker EmailPort from env (ADR-0004).
  * development|test → default log; staging|production → require cf|resend.
- * Staging + cf|resend → EMAIL_ALLOW_DOMAINS + From @gosilex.com (D6).
+ * Staging + cf|resend → EMAIL_ALLOW_DOMAINS + From @example.com (D6).
  */
 export function resolveEmailPort(env: Env): EmailPort {
   const environment = env.ENVIRONMENT

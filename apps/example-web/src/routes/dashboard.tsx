@@ -7,7 +7,7 @@ import {
   CardHeader,
   CardTitle,
   Skeleton,
-} from '@gosilex/ui'
+} from '@kit/ui'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import { Activity, FileText, KeyRound, Mail } from 'lucide-react'

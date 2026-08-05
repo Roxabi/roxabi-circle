@@ -25,5 +25,18 @@ name = "EMAIL"
 
 # Non-secret defaults for local/dev tooling. Secrets stay in .dev.vars / CF secrets.
 [vars]
-DEMO_USER_EMAIL = "demo@gosilex.local"
+DEMO_USER_EMAIL = "demo@kit.local"
 CORS_ORIGINS = "http://localhost:5173,http://127.0.0.1:5173"
+
+# B6 P4 #84 — demo queue + hourly cron (local/remote names)
+[[queues.producers]]
+binding = "DEMO_QUEUE"
+queue = "example-api-demo"
+
+[[queues.consumers]]
+queue = "example-api-demo"
+max_batch_size = 10
+max_batch_timeout = 5
+
+[triggers]
+crons = ["0 * * * *"]

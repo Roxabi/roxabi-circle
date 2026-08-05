@@ -1,4 +1,4 @@
-import { Toaster, TooltipProvider } from '@gosilex/ui'
+import { Toaster, TooltipProvider } from '@kit/ui'
 import { HotkeysProvider } from '@tanstack/react-hotkeys'
 import { MutationCache, QueryCache, QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createRouter, RouterProvider } from '@tanstack/react-router'

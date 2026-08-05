@@ -1,5 +1,5 @@
-import { parseCookie } from '@gosilex/auth'
-import { AppError } from '@gosilex/core'
+import { parseCookie } from '@kit/auth'
+import { AppError } from '@kit/core'
 import type { MiddlewareHandler } from 'hono'
 import { corsAllowlist, sessionCookieName } from '../lib/session-env'
 import type { AppEnv } from '../types'

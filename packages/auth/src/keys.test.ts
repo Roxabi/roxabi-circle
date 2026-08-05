@@ -117,7 +117,7 @@ describe('resolveDualAuth', () => {
 
   it('CP-AUTH-DUAL: invalid Bearer fails closed even with valid session', async () => {
     await expect(
-      resolveDualAuth('Bearer sk_deadbeef0001', 'gosilex_session=opaque', {
+      resolveDualAuth('Bearer sk_deadbeef0001', 'kit_session=opaque', {
         sessions: baPort({ id: 'u1', email: 'a@b.c' }),
         findApiKeyByPrefix: async () => null,
       }),
@@ -125,7 +125,7 @@ describe('resolveDualAuth', () => {
   })
 
   it('CP-AUTH-DUAL: valid BA session alone succeeds', async () => {
-    const r = await resolveDualAuth(null, 'gosilex_session=x', {
+    const r = await resolveDualAuth(null, 'kit_session=x', {
       sessions: baPort({ id: 'u1', email: 'a@b.c' }),
       findApiKeyByPrefix: async () => null,
     })
@@ -134,7 +134,7 @@ describe('resolveDualAuth', () => {
 })
 
 describe('sessionCookieName SSoT', () => {
-  it('defaults to gosilex_session', () => {
+  it('defaults to kit_session', () => {
     expect(sessionCookieName()).toBe(SESSION_COOKIE)
     expect(sessionCookieName({ name: '  ' })).toBe(SESSION_COOKIE)
   })
@@ -149,17 +149,17 @@ describe('SessionPort (Better Auth adapter)', () => {
     const mockAuth: BetterAuthLike = {
       api: {
         getSession: async () => ({
-          user: { id: 'ba-user-1', email: 'ba@gosilex.local' },
+          user: { id: 'ba-user-1', email: 'ba@kit.local' },
           session: { expiresAt: exp },
         }),
       },
     }
     const port = createBetterAuthSessionPort({ getAuth: () => mockAuth })
     const payload = await port.resolveSession({
-      cookieHeader: 'gosilex_session=opaque',
+      cookieHeader: 'kit_session=opaque',
       cookieName: SESSION_COOKIE,
     })
-    expect(payload).toMatchObject({ sub: 'ba-user-1', email: 'ba@gosilex.local' })
+    expect(payload).toMatchObject({ sub: 'ba-user-1', email: 'ba@kit.local' })
     expect(payload!.exp).toBeGreaterThan(Math.floor(Date.now() / 1000))
   })
 
@@ -173,7 +173,7 @@ describe('SessionPort (Better Auth adapter)', () => {
       },
     }
     const port = createBetterAuthSessionPort({ getAuth: () => mockAuth })
-    const r = await resolveDualAuth(null, 'gosilex_session=x', {
+    const r = await resolveDualAuth(null, 'kit_session=x', {
       sessions: port,
       cookieName: SESSION_COOKIE,
       findApiKeyByPrefix: async () => null,
@@ -258,10 +258,10 @@ describe('SessionPort (Better Auth adapter)', () => {
       }),
     })
     await port.resolveSession({
-      cookieHeader: 'gosilex_session=opaque-token',
+      cookieHeader: 'kit_session=opaque-token',
       cookieName: SESSION_COOKIE,
     })
-    expect(seenCookie).toBe('gosilex_session=opaque-token')
+    expect(seenCookie).toBe('kit_session=opaque-token')
   })
 })
 
@@ -280,7 +280,7 @@ describe('resolveDualAuth cookieName inject', () => {
 describe('session cookie helpers', () => {
   it('sessionCookieHeader sets HttpOnly SameSite Path', () => {
     const h = sessionCookieHeader('tok', { secure: true, maxAge: 60 })
-    expect(h).toMatch(/gosilex_session=tok/)
+    expect(h).toMatch(/kit_session=tok/)
     expect(h).toMatch(/HttpOnly/)
     expect(h).toMatch(/Secure/)
     expect(h).toMatch(/SameSite=Lax/i)
@@ -292,7 +292,7 @@ describe('session cookie helpers', () => {
     expect(h).toMatch(/HttpOnly/)
   })
   it('parseCookie extracts name', () => {
-    expect(parseCookie('a=1; gosilex_session=abc; b=2', SESSION_COOKIE)).toBe('abc')
+    expect(parseCookie('a=1; kit_session=abc; b=2', SESSION_COOKIE)).toBe('abc')
     expect(parseCookie(null, SESSION_COOKIE)).toBeNull()
   })
 })
@@ -308,7 +308,7 @@ describe('createRequireAuth', () => {
     await mw(
       {
         req: {
-          header: (n: string) => (n.toLowerCase() === 'cookie' ? 'gosilex_session=x' : undefined),
+          header: (n: string) => (n.toLowerCase() === 'cookie' ? 'kit_session=x' : undefined),
         },
         set: (k, v) => {
           store[k] = v

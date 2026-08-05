@@ -1,5 +1,5 @@
-import { isOrgRoleKey, type OrgKind, type OrgRoleKey } from '@gosilex/auth'
-import { AppError } from '@gosilex/core'
+import { isOrgRoleKey, type OrgKind, type OrgRoleKey } from '@kit/auth'
+import { AppError } from '@kit/core'
 import type { DrizzleD1Database } from 'drizzle-orm/d1'
 import type { schema } from '../db/schema'
 import * as orgsRepo from '../repos/orgs'

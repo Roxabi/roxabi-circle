@@ -2,7 +2,7 @@ import { createContext, type ReactNode, useCallback, useContext, useMemo, useSta
 import type { Messages } from '../messages/fr'
 import { defaultLocale, type Locale, t } from './i18n'
 
-const STORAGE_KEY = 'gosilex.locale'
+const STORAGE_KEY = 'kit.locale'
 
 type LocaleCtx = {
   locale: Locale

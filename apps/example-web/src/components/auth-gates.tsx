@@ -1,4 +1,4 @@
-import { Button, Skeleton } from '@gosilex/ui'
+import { Button, Skeleton } from '@kit/ui'
 import { useNavigate } from '@tanstack/react-router'
 import { type ReactNode, useEffect } from 'react'
 import { toast } from 'sonner'
@@ -6,7 +6,6 @@ import { isPlatformActor, isUnauthorized, type MeResponse, useMe } from '../lib/
 import { useLocale } from '../lib/locale'
 import { OrgProvider } from '../lib/org-context'
 import { AppShell, type ShellMode } from './app-shell'
-import { FeedbackFab } from './feedback-fab'
 
 /** BO gate: platform staff | super_admin only. */
 export function PlatformGate({ children }: { children: ReactNode }) {
@@ -101,7 +100,6 @@ export function AuthGate({ children, mode = 'app' }: { children: ReactNode; mode
   return (
     <OrgProvider me={me.data as MeResponse}>
       <AppShell mode={mode}>{children}</AppShell>
-      <FeedbackFab />
     </OrgProvider>
   )
 }

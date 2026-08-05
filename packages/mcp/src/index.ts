@@ -1,42 +1,66 @@
-import { parseBearer } from '@gosilex/auth'
+import { parseBearer } from '@kit/auth'
+import { DEFAULT_EXAMPLE_TOOL_NAMES, type WhoamiStatus } from './agentWire'
+import { assertToolsMatchAllowlist } from './catalogue'
+import { meResponseSchema } from './schemas'
 
-/**
- * Assert registered tool names equal an app-supplied allowlist (order-insensitive).
- * Kit purity (no product-domain tools) is enforced by scripts/check-banned-strings.sh,
- * not by hardcoding product lexicon in this package.
- */
-export function assertToolsMatchAllowlist(names: string[], allowlist: readonly string[]): void {
-  const sorted = [...names].sort()
-  const expected = [...allowlist].sort()
-  if (sorted.length !== expected.length || sorted.some((n, i) => n !== expected[i])) {
-    throw new Error(
-      `MCP tools must be exactly ${expected.join(',')}; got ${sorted.join(',') || '(none)'}`,
-    )
-  }
-}
+export {
+  DEFAULT_EXAMPLE_TOOL_NAMES,
+  type DefaultExampleToolName,
+  INPUT_BUDGET,
+  MCP_BEARER_HEADER,
+  MCP_BEARER_PREFIX,
+  MCP_ENV_KEYS,
+  MCP_TOOL_NAMES,
+  type McpToolName,
+  PUBLIC_TOOL_ERROR_CODES,
+  PUBLIC_TOOL_ERROR_MESSAGES,
+  type PublicToolErrorCode,
+  WHOAMI_STATUS,
+  type WhoamiStatus,
+} from './agentWire'
+export { type BudgetFailure, type BudgetOk, checkInputBudget } from './budget'
+export {
+  assertToolsMatchAllowlist,
+  createToolCatalogue,
+  type ToolAuthHint,
+  type ToolCatalogue,
+  type ToolContext,
+  type ToolDef,
+  type ToolEffect,
+  type ToolServer,
+} from './catalogue'
+export {
+  isPublicToolErrorCode,
+  PublicToolError,
+  type PublicToolErrorBody,
+  stableStringify,
+  toPublicToolError,
+} from './publicErrors'
+export {
+  type MeResponse,
+  meResponseSchema,
+  type PingResult,
+  pingResultSchema,
+  type WhoamiResultParsed,
+  whoamiResultSchema,
+} from './schemas'
 
 /**
  * @deprecated Use {@link assertToolsMatchAllowlist} with an app-local allowlist.
  * Kept as thin alias so older call sites keep compiling during migrate.
  */
 export function assertExactKitTools(names: string[]): void {
-  // Default example allowlist only — products must pass their own list.
-  assertToolsMatchAllowlist(names, ['ping', 'whoami'])
+  assertToolsMatchAllowlist(names, [...DEFAULT_EXAMPLE_TOOL_NAMES])
 }
 
 /** @deprecated Prefer banlist script + app allowlist; no product tokens in kit package. */
 export function assertNoShareTools(names: string[]): void {
   for (const n of names) {
-    // Generic: reject empty / non-identifier tool names only (not product lexicon).
     if (!n || !/^[a-z][a-z0-9_]*$/i.test(n)) {
       throw new Error(`invalid MCP tool name: ${n}`)
     }
   }
 }
-
-/** Example kit tool names — for docs/tests; apps own registration SSoT. */
-export const MCP_TOOL_NAMES = ['ping', 'whoami'] as const
-export type McpToolName = (typeof MCP_TOOL_NAMES)[number]
 
 function asSkKey(token: string | null | undefined): string | null {
   if (!token?.startsWith('sk_')) return null
@@ -47,7 +71,6 @@ export function extractBearerFromEnv(env: Record<string, string | undefined>): s
   const auth = env.AUTHORIZATION?.trim()
   if (auth) {
     // Accept bare sk_… or full "Bearer sk_…" without double-prefixing.
-    // Only sk_ machine keys — same contract as API_KEY.
     const fromBearer = parseBearer(auth) ?? parseBearer(`Bearer ${auth}`)
     const sk = asSkKey(fromBearer)
     if (sk) return sk
@@ -64,8 +87,8 @@ export type WhoamiResult = {
   verified: boolean
   /** Subject from GET /api/me when verified; never key material. */
   subject: string | null
-  /** Machine-readable fail reason when not verified. */
-  status: 'ok' | 'missing_key' | 'unauthorized' | 'unreachable' | 'invalid_response' | 'bad_config'
+  /** Domain channel — machine-readable fail reason when not verified. */
+  status: WhoamiStatus
 }
 
 export type WhoamiFetch = (
@@ -106,6 +129,7 @@ function isAllowedApiBase(apiBaseUrl: string, allowedHosts: string[]): URL | nul
 /**
  * Verify Bearer sk_ against GET {apiBaseUrl}/api/me.
  * Never returns key material. Fail-closed on network/auth/config errors (does not throw).
+ * Domain outcomes stay on WhoamiResult.status (not PublicToolError).
  */
 export async function handleWhoami(
   apiKey: string | null,
@@ -147,11 +171,17 @@ export async function handleWhoami(
     if (!res.ok) {
       return { keyPresent: true, verified: false, subject: null, status: 'unreachable' }
     }
-    const body = (await res.json()) as { subject?: unknown }
-    if (typeof body.subject !== 'string' || body.subject.length === 0) {
+    const body: unknown = await res.json()
+    const parsed = meResponseSchema.safeParse(body)
+    if (!parsed.success) {
       return { keyPresent: true, verified: false, subject: null, status: 'invalid_response' }
     }
-    return { keyPresent: true, verified: true, subject: body.subject, status: 'ok' }
+    return {
+      keyPresent: true,
+      verified: true,
+      subject: parsed.data.subject,
+      status: 'ok',
+    }
   } catch {
     return { keyPresent: true, verified: false, subject: null, status: 'unreachable' }
   } finally {

@@ -1,4 +1,4 @@
-import { newRequestId } from '@gosilex/core'
+import { newRequestId } from '@kit/core'
 import type { MiddlewareHandler } from 'hono'
 import type { KitBetterAuth } from '../lib/better-auth'
 import type { KitDb } from '../lib/db-type'

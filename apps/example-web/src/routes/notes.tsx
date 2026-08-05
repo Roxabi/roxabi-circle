@@ -42,7 +42,7 @@ import {
   TableHeader,
   TableRow,
   Textarea,
-} from '@gosilex/ui'
+} from '@kit/ui'
 import { Markdown } from '@tanstack/markdown/react'
 import { useForm } from '@tanstack/react-form'
 import { useHotkey } from '@tanstack/react-hotkeys'

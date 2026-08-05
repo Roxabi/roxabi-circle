@@ -60,7 +60,7 @@ describe('OrgProvider / useOrgContext', () => {
   })
 
   it('keeps valid stored org id', () => {
-    localStorage.setItem('gosilex.activeOrgId', 'org_b')
+    localStorage.setItem('kit.activeOrgId', 'org_b')
     render(
       <OrgProvider me={meWithOrgs}>
         <Probe />
@@ -70,7 +70,7 @@ describe('OrgProvider / useOrgContext', () => {
   })
 
   it('resets invalid stored org id', () => {
-    localStorage.setItem('gosilex.activeOrgId', 'org_gone')
+    localStorage.setItem('kit.activeOrgId', 'org_gone')
     render(
       <OrgProvider me={meWithOrgs}>
         <Probe />

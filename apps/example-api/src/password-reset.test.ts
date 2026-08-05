@@ -1,10 +1,10 @@
-import { createDb } from '@gosilex/db'
+import { createDb } from '@kit/db'
 import { like } from 'drizzle-orm'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { createApp } from './app'
 import { baVerification } from './db/better-auth-schema'
 import { schema } from './db/schema'
-import { resetRateLimits } from './lib/rate-limit'
+
 import { seedDemoDatabase } from './seed/seed-db'
 import { DEMO_EMAIL, DEMO_PASSWORD } from './services/auth'
 import { createMemoryEnv } from './test/memory-env'
@@ -37,10 +37,6 @@ async function latestResetToken(db: ReturnType<typeof createDb>): Promise<string
   return row.identifier.replace(/^reset-password:/, '')
 }
 
-beforeEach(() => {
-  resetRateLimits()
-})
-
 describe('password reset (B3 S3)', () => {
   it('request for known email returns generic success and stores token', async () => {
     const { app, env, db } = await seedEnv()
@@ -71,7 +67,7 @@ describe('password reset (B3 S3)', () => {
         method: 'POST',
         headers: { 'content-type': 'application/json', Origin: ORIGIN },
         body: JSON.stringify({
-          email: 'nobody-exists@gosilex.local',
+          email: 'nobody-exists@kit.local',
           redirectTo: `${ORIGIN}/reset-password`,
         }),
       },

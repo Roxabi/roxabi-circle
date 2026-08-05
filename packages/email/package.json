@@ -1,5 +1,5 @@
 {
-  "name": "@gosilex/email",
+  "name": "@kit/email",
   "version": "0.0.1",
   "private": true,
   "type": "module",

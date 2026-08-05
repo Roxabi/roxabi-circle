@@ -154,3 +154,74 @@ export class StorageClient {
     return []
   }
 }
+
+// ── Light presign (A25 kit — PUT only; secrets never in package) ─────────────
+
+export type PresignMethod = 'PUT'
+
+export type PresignInput = {
+  key: string
+  method: PresignMethod
+  /** seconds — clamped to [60, 3600] */
+  expiresIn: number
+  contentType?: string
+}
+
+export type PresignResult = {
+  url: string
+  method: PresignMethod
+  headers?: Record<string, string>
+  expiresAt: number
+}
+
+export type PresignSigner = {
+  sign(input: PresignInput): Promise<PresignResult>
+}
+
+function clampExpiresIn(seconds: number): number {
+  if (!Number.isFinite(seconds)) return 300
+  return Math.min(3600, Math.max(60, Math.floor(seconds)))
+}
+
+/**
+ * Validate key safety then delegate to an app-provided signer (S3 or mock).
+ * Package never holds R2 secrets.
+ */
+export async function createPresignedUrl(
+  signer: PresignSigner,
+  input: PresignInput,
+): Promise<PresignResult> {
+  assertObjectKey(input.key)
+  if (input.method !== 'PUT') {
+    throw new StorageError('IO', 'only PUT presign is supported in kit v1')
+  }
+  const expiresIn = clampExpiresIn(input.expiresIn)
+  return signer.sign({
+    key: input.key,
+    method: 'PUT',
+    expiresIn,
+    contentType: input.contentType,
+  })
+}
+
+/** Deterministic mock signer for local/CI — does not contact Cloudflare. */
+export function createMockPresignSigner(opts?: {
+  baseUrl?: string
+  store?: Map<string, string>
+}): PresignSigner {
+  const baseUrl = opts?.baseUrl ?? 'https://presign.mock.local'
+  const store = opts?.store
+  return {
+    async sign(input) {
+      const expiresAt = Date.now() + input.expiresIn * 1000
+      const url = `${baseUrl}/${encodeURIComponent(input.key)}?mock=1&exp=${expiresAt}`
+      if (store) store.set(input.key, url)
+      return {
+        url,
+        method: 'PUT',
+        headers: input.contentType ? { 'Content-Type': input.contentType } : undefined,
+        expiresAt,
+      }
+    },
+  }
+}

@@ -26,28 +26,26 @@ describe('module-grants (Phase B pure)', () => {
   })
 
   it('systemRoleGrantSeed covers all roles × modules', () => {
-    const rows = systemRoleGrantSeed(['feedback', 'notes'])
+    const rows = systemRoleGrantSeed(['demo', 'notes'])
     expect(rows).toHaveLength(8)
-    expect(rows.find((r) => r.roleKey === 'reader' && r.moduleId === 'feedback')?.access).toBe(
-      'read',
-    )
+    expect(rows.find((r) => r.roleKey === 'reader' && r.moduleId === 'demo')?.access).toBe('read')
   })
 
   it('grantsDominate enforces ceiling', () => {
     const actor = new Map([
-      ['feedback', 'write' as const],
+      ['demo', 'write' as const],
       ['notes', 'read' as const],
     ])
     const weaker = new Map([
-      ['feedback', 'read' as const],
+      ['demo', 'read' as const],
       ['notes', 'read' as const],
     ])
     const stronger = new Map([
-      ['feedback', 'write' as const],
+      ['demo', 'write' as const],
       ['notes', 'write' as const],
     ])
-    expect(grantsDominate(actor, weaker, ['feedback', 'notes'])).toBe(true)
-    expect(grantsDominate(actor, stronger, ['feedback', 'notes'])).toBe(false)
+    expect(grantsDominate(actor, weaker, ['demo', 'notes'])).toBe(true)
+    expect(grantsDominate(actor, stronger, ['demo', 'notes'])).toBe(false)
   })
 
   it('isAssignableRoleKey allows invitable system + custom, never owner', () => {

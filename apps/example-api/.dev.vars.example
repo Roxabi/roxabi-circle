@@ -6,19 +6,20 @@ SESSION_SECRET=dev-session-secret-change-me-32chars!!
 # Better Auth (session stack — ADR-0002 BA-only; min 32 chars; no kit placeholders in prod)
 BETTER_AUTH_SECRET=dev-better-auth-secret-change-me-32c!!
 BETTER_AUTH_URL=http://localhost:8787
-# SESSION_COOKIE_NAME=gosilex_session
+# SESSION_COOKIE_NAME=kit_session
 # ALLOW_PUBLIC_SIGNUP=true   # default off — open registration is a security risk
 CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 # Prefer tenancy BA users after seed (staff@ / solo@ …) — see README / tenancy-data.ts
-DEMO_USER_EMAIL=staff@gosilex.local
+DEMO_USER_EMAIL=staff@kit.local
 SMTP_HOST=127.0.0.1
 SMTP_PORT=1025
 # Email (ADR-0004) — Worker path: log (local) | cf (staging/prod binding) | resend (escape hatch)
 EMAIL_TRANSPORT=log
-# EMAIL_FROM=noreply@gosilex.com
-# EMAIL_FROM_NAME=GOSILEX Kit
-# Staging (cf|resend): recipient allowlist REQUIRED + From @gosilex.com (default EMAIL_FROM_DOMAIN)
-# EMAIL_ALLOW_DOMAINS=gosilex.com,client-acme.test
-# EMAIL_FROM_DOMAIN=gosilex.com
+# EMAIL_FROM=noreply@example.com
+# EMAIL_FROM_NAME=Kit Kit
+# Staging (cf|resend): recipient allowlist REQUIRED + From @example.com (default EMAIL_FROM_DOMAIN)
+# EMAIL_ALLOW_DOMAINS=example.com,client-acme.test
+# EMAIL_FROM_DOMAIN=example.com
 # RESEND_API_KEY=   # only when EMAIL_TRANSPORT=resend
-# Integrations (Spark feedback, etc.) → D1 platform_modules.config_json — configure in admin UI.
+# Integrations (optional modules) → D1 platform_modules.config_json — configure in admin UI.
+PRESIGN_MODE=mock

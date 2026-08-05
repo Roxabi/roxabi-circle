@@ -1,0 +1,132 @@
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { ApiError, apiErrorToMessage, apiFetch, createApiClient } from './index'
+
+describe('ApiError', () => {
+  it('maps nested envelope', () => {
+    const err = new ApiError(401, {
+      error: { code: 'UNAUTHORIZED', message: 'Unauthorized' },
+      requestId: 'req_abc',
+    })
+    expect(err.code).toBe('UNAUTHORIZED')
+    expect(err.requestId).toBe('req_abc')
+    expect(err.status).toBe(401)
+    expect(err.name).toBe('ApiError')
+  })
+})
+
+describe('apiErrorToMessage', () => {
+  it('prefers wire message without catalog', () => {
+    const err = new ApiError(400, {
+      error: { code: 'VALIDATION_ERROR', message: 'Invalid note' },
+      requestId: 'req_x',
+    })
+    expect(apiErrorToMessage(err)).toBe('Invalid note')
+    expect(apiErrorToMessage(new Error('boom'))).toBe('boom')
+    expect(apiErrorToMessage(null, 'fallback')).toBe('fallback')
+  })
+
+  it('maps ErrorCode via messages catalog', () => {
+    const err = new ApiError(401, {
+      error: { code: 'UNAUTHORIZED', message: 'Unauthorized' },
+      requestId: 'req_x',
+    })
+    expect(
+      apiErrorToMessage(err, {
+        fallback: 'Error',
+        messages: { UNAUTHORIZED: 'Session expired' },
+      }),
+    ).toBe('Session expired')
+  })
+})
+
+describe('apiFetch / createApiClient', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('defaults credentials include and parses ok JSON', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: async () => JSON.stringify({ ok: true }),
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const data = await apiFetch<{ ok: boolean }>('/health')
+    expect(data.ok).toBe(true)
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/health',
+      expect.objectContaining({ credentials: 'include' }),
+    )
+  })
+
+  it('prefixes baseUrl', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: async () => '{}',
+    })
+    const { apiFetch: clientFetch } = createApiClient({
+      baseUrl: 'https://api.example',
+      fetch: fetchMock as unknown as typeof fetch,
+    })
+    await clientFetch('/v1/me')
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://api.example/v1/me',
+      expect.objectContaining({ credentials: 'include' }),
+    )
+  })
+
+  it('throws ApiError for kit envelope', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 401,
+        text: async () =>
+          JSON.stringify({
+            error: { code: 'UNAUTHORIZED', message: 'Unauthorized' },
+            requestId: 'req_x',
+          }),
+      }),
+    )
+    await expect(apiFetch('/api/me')).rejects.toMatchObject({
+      name: 'ApiError',
+      code: 'UNAUTHORIZED',
+      requestId: 'req_x',
+      status: 401,
+    })
+  })
+
+  it('calls onUnauthorized on 401 before throw', async () => {
+    const onUnauthorized = vi.fn()
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 401,
+        text: async () =>
+          JSON.stringify({
+            error: { code: 'UNAUTHORIZED', message: 'Unauthorized' },
+            requestId: 'req_x',
+          }),
+      }),
+    )
+    await expect(apiFetch('/api/me', undefined, { onUnauthorized })).rejects.toBeInstanceOf(
+      ApiError,
+    )
+    expect(onUnauthorized).toHaveBeenCalledTimes(1)
+    expect(onUnauthorized.mock.calls[0]?.[0]).toMatchObject({ code: 'UNAUTHORIZED' })
+  })
+
+  it('throws generic Error on non-JSON error body', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 502,
+        text: async () => '<html>bad gateway</html>',
+      }),
+    )
+    await expect(apiFetch('/api/me')).rejects.toThrow(/HTTP 502/)
+  })
+})

@@ -10,8 +10,8 @@ import {
   ORG_ROLE_KEYS,
   type OrgRoleKey,
   systemRoleGrantSeed,
-} from '@gosilex/auth'
-import { AppError } from '@gosilex/core'
+} from '@kit/auth'
+import { AppError } from '@kit/core'
 import type { DrizzleD1Database } from 'drizzle-orm/d1'
 import type { schema } from '../db/schema'
 import { isKitModuleId, KIT_MODULE_IDS } from '../lib/kit-modules'
