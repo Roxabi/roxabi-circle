@@ -4,19 +4,18 @@
 
 | | |
 |---|---|
-| **HEAD (kit SSoT)** | [`Roxabi/roxabi-cf-template`](https://github.com/Roxabi/roxabi-cf-template) · local `~/projects/roxabi-cf-template/` · lineage [`docs/roxabi/bounce.md`](docs/roxabi/bounce.md) |
-| **Kit mirror** | `go-silex/silex-boilerplate` · `upstream` = HEAD · inherit `fetch`/`merge` · contribute shared kit: `git push upstream` |
-| **Product consumers** | `Roxabi/<product>` → HEAD · `go-silex/<product>` → mirror (or HEAD) · playbooks [`start-product.md`](docs/playbooks/start-product.md) · [`fork-to-first-issue.md`](docs/playbooks/fork-to-first-issue.md) |
-| **Status** | Kit live **2026-07-13** · product apps pull via `git fetch upstream` |
+| **What** | Extractible monorepo kit: packages + `apps/example-*` + CI + auth/UI/MCP |
+| **Product consumers** | Greenfield products via git `upstream` → kit · [`start-product.md`](docs/playbooks/start-product.md) · [`fork-to-first-issue.md`](docs/playbooks/fork-to-first-issue.md) |
+| **Status** | Kit live **2026-07-13** · products pull via `git fetch upstream` |
 | **Live goal** | [**Goal 002**](artifacts/goals/002-product-ready-multi-tenant-goal.md) product-ready multi-tenant (Goal 001 scaffold **superseded**) |
 | **Stack SSoT** | section ci-dessous (figée **2026-07-12**, amendée BA-only / multi-tenant A / CF Email / feedback / i18n) |
+| **Org remotes / HEAD vs mirror** | **Not in this repo** — operator SSoT `~/projects/ssot/chemin-a-kit-lineage.ssot.md` |
 
 ---
 
 ## Mission — kit only (2026-07-13)
 
-**HEAD** = monorepo extractible Chemin A : conventions + CI + auth + UI kit + MCP kit + libs SaaS classiques.  
-**Mirror** `silex-boilerplate` hérite de HEAD et peut re-pousser le kit partagé via `git push upstream`.
+Ce monorepo est le **boilerplate Chemin A** : conventions + CI + auth + UI kit + MCP kit + libs SaaS classiques.
 
 | Priorité | Livrable | Intention |
 |---|---|---|
@@ -26,38 +25,34 @@
 **JTBD :**  
 > *En partant de ce monorepo, un dev clone le kit CF, a `example-api` + `example-web` + `mcp-example` verts (lint/typecheck/test), auth demo, UI shadcn, erreurs centralisées, i18n FR/EN, email catcher local — sans aucune string métier produit.*
 
-### Downstream
+### Downstream product apps
 
-| Role | Repo | Sync |
-|---|---|---|
-| **HEAD** | `Roxabi/roxabi-cf-template` | `git push origin` |
-| **Kit mirror** | `go-silex/silex-boilerplate` | inherit HEAD · contribute: `git push upstream` |
-| **Roxabi products** | `Roxabi/<product>` | `upstream` → HEAD · `fetch`/`merge` · `no_push` |
-| **go-silex products** | `go-silex/<product>` | `upstream` → mirror (ou HEAD) · `no_push` |
-| silex-share (legacy) | archived / deprecated | **Not** a live consumer dogfood target |
+| App | Sync |
+|---|---|
+| **Greenfield products** | `upstream` → kit parent · `fetch` + `merge upstream/main` · product `no_push` on upstream |
+| silex-share (legacy) | archived / deprecated — **not** a live dogfood target |
 
-**Règle :** changements kit partagés → **HEAD d’abord** (`roxabi-cf-template`) · mirrors inherit · products pullent. Ne pas inventer de features métier dans le kit.
+**Règle :** changements kit → dans le **kit** d’abord · les products pullent. Ne pas inventer de features métier dans ce repo.  
+Which clone is canonical HEAD vs mirror = **operator lineage** (ssot), not kit docs.
 
 #### Contrat consumer (obligatoire) — zero-edit upstream + push DENY
 
-**SSoT détaillé :** [`docs/product-consumer-contract.md`](docs/product-consumer-contract.md) · lineage [`docs/roxabi/bounce.md`](docs/roxabi/bounce.md)
+**SSoT technique (kit) :** [`docs/product-consumer-contract.md`](docs/product-consumer-contract.md)  
+**SSoT topologie remotes (operator) :** `~/projects/ssot/chemin-a-kit-lineage.ssot.md`
 
-Tout repo **produit** qui prend ce kit (HEAD ou mirror) comme `upstream` **doit** :
+Tout repo **produit** qui prend ce kit comme `upstream` **doit** :
 
 1. **Fetch-only** sur `upstream` :
    ```bash
-   # Roxabi product → HEAD
-   git remote add upstream git@github.com:Roxabi/roxabi-cf-template.git
-   # go-silex product → org mirror (typical)
-   # git remote add upstream git@github.com:go-silex/silex-boilerplate.git
+   git remote add upstream <kit-parent-url>   # URL from operator lineage / vault
    git remote set-url --push upstream no_push
    ```
 2. **Ne pas modifier les fichiers kit** pour configurer le produit (CI, lefthook, package.json racine, `packages/*`, `apps/example-*`).  
    Config = **vars/secrets GH**, **`.dev.vars`**, apps **`apps/<product>-*`** (fichiers **nouveaux**).
-3. **Deny push kit** : livré **dans le kit** (`scripts/deny-upstream-push.sh` + lefthook pre-push) — no-op si `origin` = HEAD ou mirror ; bloque product → kit.  
+3. **Deny push kit** : livré **dans le kit** (`scripts/deny-upstream-push.sh` + lefthook pre-push) — no-op sur clones kit ; bloque product → parent.  
    **Ne pas forker** une copie divergente dans le product.
-4. **Jamais** `git push upstream` depuis un clone **produit** (kit mirror **peut** `push upstream` vers HEAD).
-5. Kit shared : coder sur **HEAD** (`~/projects/roxabi-cf-template`) ou sur le mirror puis `git push upstream`.
+4. **Jamais** `git push upstream` / `LEFTHOOK=0 git push upstream` depuis un clone **produit**.
+5. Kit shared : coder les changements partagés sur un **clone kit** (voir lineage operator pour lequel est HEAD).
 
 | Produit peut | Produit ne doit pas |
 |---|---|

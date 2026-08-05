@@ -12,31 +12,23 @@ Pulling `upstream/main` should only conflict when the **product** deliberately t
 
 ```text
 ┌─────────────────────────────────────────────────────────┐
-│  Roxabi/roxabi-cf-template  (kit HEAD / SSoT)           │
-│  packages/* · apps/example-* · .github/workflows/*      │
-│  scripts/* · lefthook · biome · turbo · AGENTS.md       │
-└──────────▲──────────────────────────────▲───────────────┘
-           │ inherit                      │ git push upstream
-           │ fetch/merge                  │ (kit mirror only)
-┌──────────┴──────────────┐    ┌──────────┴──────────────────┐
-│ go-silex/silex-boilerplate │    │ Roxabi/<product>           │
-│ (kit mirror)               │    │ origin=product             │
-│ origin = mirror            │    │ upstream=HEAD · no_push    │
-│ upstream = HEAD            │    └────────────────────────────┘
-└──────────▲─────────────────┘
-           │ fetch/merge · never push
-┌──────────┴──────────────────────────────────────────────┐
-│  go-silex/<product>  (greenfield product repo)          │
-│  origin = product · upstream = mirror (or HEAD)         │
+│  kit monorepo (packages · apps/example-* · CI · scripts)│
+└──────────────────────▲──────────────────────────────────┘
+                       │ git fetch/merge upstream only
+                       │ (product never push upstream)
+┌──────────────────────┴──────────────────────────────────┐
+│  product repo                                           │
+│  origin = product                                       │
 │  ADD only: apps/<product>-* · product docs · optional   │
 │            product-only workflows (new files)           │
 │  DO NOT edit kit-owned paths below                      │
 └─────────────────────────────────────────────────────────┘
 ```
 
-Lineage detail: [`docs/roxabi/bounce.md`](./roxabi/bounce.md).
-
 **Axis:** kit = shared capability; product = new apps + config **outside** kit paths.
+
+Which GitHub repo is kit HEAD vs mirror / which URL to set as `upstream` is **operator topology**, not this contract.  
+Machine gates here only care: product does not dual-edit kit paths; `upstream` is fetch-only for products.
 
 ---
 
@@ -181,7 +173,7 @@ GitHub Actions on a **product** repo has:
 Kit `ci.yml` therefore:
 
 1. Checks out with **`fetch-depth: 0`** (full history — kit tip SHAs must be reachable after merge).
-2. If `github.repository` is **not** `go-silex/silex-boilerplate`:
+2. If `github.repository` is **not** a known **kit** origin (see kit-mode list in `.github/workflows/ci.yml`):
    - requires product file **`docs/product/kit-baseline`**
    - exports `ZERO_EDIT_BASE_REF` from that file (single line = full SHA)
    - verifies the SHA exists: `git rev-parse --verify "${SHA}^{commit}"`
@@ -229,34 +221,27 @@ Do **not** rely on org secrets to fetch private `upstream` solely for zero-edit 
 ## Git remotes (every product clone)
 
 ```bash
-# Roxabi product → kit HEAD
-git remote add upstream git@github.com:Roxabi/roxabi-cf-template.git   # if missing
-# go-silex product → org kit mirror (typical)
-# git remote add upstream git@github.com:go-silex/silex-boilerplate.git
-
+# <kit-parent-url> = whatever your org uses as immediate kit parent (operator-owned).
+git remote add upstream <kit-parent-url>   # if missing
 git remote set-url --push upstream no_push
 
 # Never from a product clone:
 # git push upstream
 # LEFTHOOK=0 git push upstream
-#
-# Kit mirror only may: git push upstream  (contribute shared kit to HEAD)
 ```
-
-### Topology
 
 | Remote | Role |
 |--------|------|
-| **`origin`** | **This** repo only (product or kit mirror) |
-| **`upstream`** | **Immediate parent** (HEAD for Roxabi products / mirror; mirror for go-silex products) |
-| **`pushUrl`** | Products: `no_push` · Kit mirror: may point at HEAD for contribute |
+| **`origin`** | **Product** repo only (where you push) |
+| **`upstream`** | Immediate kit parent — **fetch-only** on products |
+| **`pushUrl`** | Must be `no_push` on the parent remote for products |
 
 Kit pre-push runs `scripts/deny-upstream-push.sh` (lefthook; **do not dual-edit** the script in the product):
 
 | Context | Behavior |
 |---------|----------|
-| **Kit** (`origin` URL contains `silex-boilerplate`) | **No-op** — maintainers may push any remote |
-| **Product** | Denies remote name **`upstream`**, any URL containing **`silex-boilerplate`**, and any **extended** URL substring (below) |
+| **Kit clone** (`origin` matches a kit slug known to the script) | **No-op** — maintainers may push any remote |
+| **Product** | Denies remote name **`upstream`**, URLs matching builtin kit substrings, and any **extended** URL substring (below) |
 
 **Multi-hop / private chassis** (product extends without forking the kit script):
 
