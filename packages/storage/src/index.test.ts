@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
+  createMockPresignSigner,
+  createPresignedUrl,
   deleteObject,
   getObject,
   joinObjectKey,
@@ -106,5 +108,33 @@ describe('StorageClient', () => {
 
   it('rejects invalid base prefix', () => {
     expect(() => new StorageClient(memoryBucket(), 'a/../b')).toThrow(StorageError)
+  })
+})
+
+describe('createPresignedUrl', () => {
+  it('rejects unsafe keys before sign', async () => {
+    const signer = createMockPresignSigner()
+    await expect(
+      createPresignedUrl(signer, {
+        key: 'demo/../secret',
+        method: 'PUT',
+        expiresIn: 300,
+      }),
+    ).rejects.toThrow(/traversal/)
+  })
+
+  it('returns mock PUT url with clamped expiry', async () => {
+    const signer = createMockPresignSigner({ baseUrl: 'https://mock.test' })
+    const res = await createPresignedUrl(signer, {
+      key: 'demo/user/u1/file.bin',
+      method: 'PUT',
+      expiresIn: 10,
+      contentType: 'application/octet-stream',
+    })
+    expect(res.method).toBe('PUT')
+    expect(res.url).toContain('https://mock.test/')
+    expect(res.headers?.['Content-Type']).toBe('application/octet-stream')
+    // expiresIn 10 → clamped to 60s
+    expect(res.expiresAt).toBeGreaterThan(Date.now() + 50_000)
   })
 })

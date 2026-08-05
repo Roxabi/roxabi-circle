@@ -54,7 +54,7 @@ Pulling `upstream/main` should only conflict when the **product** deliberately t
 
 | Need | Do this | Not this |
 |------|---------|----------|
-| CI auto-merge | Org/repo **vars/secrets** `GOSILEX_CI_APP_*` | Edit `merge-on-green.yml` |
+| CI auto-merge | Org/repo **vars/secrets** **`CI_APP_ID`** (var) + **`CI_APP_PRIVATE_KEY`** (secret) | Edit `merge-on-green.yml`; invent other secret names |
 | Session / CORS / SMTP / CF | `apps/<product>-api/.dev.vars` + CF dashboard secrets | Commit secrets; edit kit examples permanently |
 | Product Worker name / D1 / R2 | `apps/<product>-api/wrangler.toml` (**new**) | Edit `apps/example-api/wrangler.toml` |
 | Product UI routes | `apps/<product>-web/**` | Patch `example-web` into a product |
@@ -63,6 +63,28 @@ Pulling `upstream/main` should only conflict when the **product** deliberately t
 | Deny push to kit | **Already in kit** lefthook + `scripts/deny-upstream-push.sh` | Copy-paste divergent lefthook in product |
 | Brand / design system | **Design overrides** (below) in `apps/<product>-web` | Edit `packages/ui/**` |
 | Gate “did we touch kit paths?” | `bun run zero-edit` (in `validate` / `validate:full`) | Hope merge conflicts never happen |
+| Env completeness | Product owns inventory for `apps/<product>-*` | Treat kit `env:check` as product-wide (it is **example-api only**) |
+
+---
+
+## Foreign org — first product outside `go-silex`
+
+Kit workflows read fixed credential names. The **App** is org-local; the **names** are not.
+
+| Contract name | Kind | Role |
+|---|---|---|
+| **`CI_APP_ID`** | Actions **variable** (non-secret) | Enable flag for merge-on-green mint |
+| **`CI_APP_PRIVATE_KEY`** | Actions **secret** | PEM for App JWT → installation token |
+
+| Do | Do not |
+|---|---|
+| Create/install a GitHub App on **your** org | Expect `go-silex` org secrets to appear on a foreign org |
+| Map App ID/PEM to **`CI_APP_ID` / `CI_APP_PRIVATE_KEY`** | Rename to `GOSILEX_CI_*` or `MYORG_CI_*` without forking workflows |
+| Leave unset until ready — job stays **evaluate-only** (manual merge) | Edit `merge-on-green.yml` to soft-fail differently |
+
+Setup detail: [`docs/gosilex-ci-app-setup.md`](./gosilex-ci-app-setup.md). Bootstrap narrative: [`docs/playbooks/start-product.md`](./playbooks/start-product.md).
+
+> Historical note: kit briefly used `GOSILEX_CI_APP_*`; canonical names are **`CI_APP_*`** only.
 
 ---
 
@@ -206,7 +228,37 @@ git remote set-url --push upstream no_push
 # LEFTHOOK=0 git push upstream
 ```
 
-Kit pre-push runs `deny-upstream-push.sh`: on a **product** repo it blocks remote `upstream` or any URL containing `silex-boilerplate`. On the **kit** itself (origin = boilerplate) it is a no-op.
+### Bounce topology
+
+| Remote | Role |
+|--------|------|
+| **`origin`** | **Product** repo only (where you push) |
+| **`upstream`** | **Immediate parent only** (kit, or private chassis in a multi-hop bounce) — **fetch-only** |
+| **`pushUrl`** | Must be `no_push` on the parent remote |
+
+Kit pre-push runs `scripts/deny-upstream-push.sh` (lefthook; **do not dual-edit** the script in the product):
+
+| Context | Behavior |
+|---------|----------|
+| **Kit** (`origin` URL contains `silex-boilerplate`) | **No-op** — maintainers may push any remote |
+| **Product** | Denies remote name **`upstream`**, any URL containing **`silex-boilerplate`**, and any **extended** URL substring (below) |
+
+**Multi-hop / private chassis** (product extends without forking the kit script):
+
+```bash
+# Runtime (session / CI / direnv) — comma-separated, trimmed; prefer repo-unique slugs
+export DENY_UPSTREAM_URL_SUBSTRINGS=my-private-chassis
+
+# Or commit product-owned config (zero-edit free path):
+# docs/product/deny-upstream.json
+# { "urlSubstrings": ["my-private-chassis"] }
+```
+
+Do **not** hardcode product chassis names into kit defaults. Prefer full chassis repo slugs (not generic tokens like `api`).
+
+**Client-side only:** this hook is UX / footgun prevention. `LEFTHOOK=0` and `git push --no-verify` still bypass it. Real kit integrity = **GitHub write ACLs** (product has no write to boilerplate / chassis). Proof: `bun run test:deny-upstream` (**CP-DENY** in [`testing.md`](./testing.md)).
+
+**Misconfiguration:** if product `origin` still points at the kit, the script stays in kit no-op mode — fix remotes (topology table above).
 
 ---
 
@@ -214,11 +266,11 @@ Kit pre-push runs `deny-upstream-push.sh`: on a **product** repo it blocks remot
 
 1. Create private repo `go-silex/<product>` (empty or from kit history).
 2. Point `origin` at product; add `upstream` fetch-only (above).
-3. `bun install` · `bunx lefthook install`.
+3. `bun install` (prepare wires lefthook only if `core.hooksPath` is unset).
 4. Copy env examples → gitignored local files only.
 5. Ensure **gosilex-ci** (org var/secret) or accept manual merge — see [`gosilex-ci-app-setup.md`](./gosilex-ci-app-setup.md).
 6. Add product apps under `apps/<product>-*` only.
-7. Keep `bun run validate:full` green (kit gates still apply).
+7. Keep `bun run validate:full` green (kit bar). When `apps/<product>-*` exist, also wire product-validate / product-ci (see Product CI DoD below).
 
 Optional product-only files (safe for upstream merge):
 
@@ -228,6 +280,8 @@ apps/<product>-web/
 apps/<product>-mcp/
 docs/product/                              # AGENTS, frames, zero-edit-exceptions.json, kit-baseline
 docs/product/kit-baseline                  # full SHA of last-merged kit tip (required for Actions zero-edit)
+docs/product/deny-upstream.json            # multi-hop URL substrings (optional; see remotes §)
+docs/product/zero-edit-exceptions.json     # last-resort dual-edit exceptions
 .github/workflows/product-*.yml
 scripts/product/                           # product helpers; not required by kit
 apps/<product>-web/src/theme/*.css         # design token overrides
@@ -235,21 +289,32 @@ apps/<product>-web/src/theme/*.css         # design token overrides
 
 Template for `docs/product/kit-baseline`: [`docs/templates/kit-baseline.example`](./templates/kit-baseline.example).
 
-### Optional product CI (pattern)
+### Product CI (recommended DoD when product apps exist)
 
-Kit `ci.yml` / `validate:full` stay kit-only and must not fail when product apps are absent. Products that need extra gates **add** a new workflow file:
+Kit `ci.yml` / `validate:full` stay **kit-only** and must not fail when product apps are absent.  
+**Kit bar ≠ product tested** — green `validate:full` does not typecheck/test/build `apps/<product>-*`.
+
+When the product repo has `apps/<product>-*`, product CI is **recommended DoD** (required in the [start-product playbook](./playbooks/start-product.md) checklist):
+
+1. **Copy** kit templates (do not dual-edit kit `ci.yml` / `test-coverage.sh` / root `package.json`):
+   - [`docs/templates/product-validate.example.sh`](./templates/product-validate.example.sh) → `scripts/product/validate.sh`  
+     (or `apps/<product>-api/scripts/product-validate.sh`)
+   - [`docs/templates/product-ci.example.yml`](./templates/product-ci.example.yml) → `.github/workflows/product-ci.yml`
+2. Replace `<product>` placeholders with real package names.
+3. Keep kit `bun run validate:full` green **and** run product-validate in product CI.
 
 ```text
 .github/workflows/product-ci.yml           # product-only; never edit kit ci.yml
-apps/<product>-api/scripts/product-validate.sh
+scripts/product/validate.sh                # preferred (zero-edit allowed)
+# or: apps/<product>-api/scripts/product-validate.sh
 ```
 
-Typical `product-validate.sh` shape:
+Typical `product-validate` shape (SSoT template is the file under `docs/templates/`):
 
 ```bash
 #!/usr/bin/env bash
 set -euo pipefail
-ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"   # adjust if app-local path
 cd "$ROOT"
 
 bun run zero-edit
@@ -260,8 +325,11 @@ bun run --filter @gosilex/<product>-web test
 bun run --filter @gosilex/<product>-api build   # e.g. wrangler dry-run
 ```
 
-Workflow job: checkout → setup-bun → `bun install --frozen-lockfile` → `bash apps/<product>-api/scripts/product-validate.sh`.  
-Do **not** add a kit workflow that filters product package names (it would go red on bare kit clones).
+Workflow job: checkout → setup-bun → `bun install --frozen-lockfile` → `bash scripts/product/validate.sh`  
+(with `ZERO_EDIT_BASE_REF` from `docs/product/kit-baseline` when no `upstream` remote — see template).
+
+Do **not** add a kit workflow that filters product package names (it would go red on bare kit clones).  
+Do **not** commit live `product-*.yml` into the **kit** repo under `.github/workflows/` — only into product repos.
 
 ---
 
@@ -327,5 +395,6 @@ If product build breaks after pull → fix product code or contribute a kit fix 
 | [`scripts/check-zero-edit-zones.sh`](../scripts/check-zero-edit-zones.sh) | Gate implementation |
 | ADR-0001 | packages compose apps |
 | [`playbooks/start-product.md`](./playbooks/start-product.md) | Day-1 greenfield product setup + dogfood |
+| [`playbooks/fork-to-first-issue.md`](./playbooks/fork-to-first-issue.md) | Full runbook: brief → Spark → GH issue → `/dev` first ship |
 | [`product-consumer-dogfood-evidence.md`](./product-consumer-dogfood-evidence.md) | B5 live evidence (`silex-kit-dogfood`) |
 | silex-share | **historical** split only — archived / deprecated, not a live dogfood target |

@@ -10,9 +10,12 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "test:e2e:design-system": "bun scripts/e2e-design-system.mjs"
+    "test:e2e:design-system": "bun scripts/e2e-design-system.mjs",
+    "setup:release-gifs": "bun scripts/setup-release-gifs.mjs",
+    "record:release-gifs": "bun scripts/record-release-gifs.mjs"
   },
   "dependencies": {
+    "@gosilex/api-client": "workspace:*",
     "@gosilex/auth": "workspace:*",
     "@gosilex/feedback": "workspace:*",
     "@gosilex/i18n": "workspace:*",

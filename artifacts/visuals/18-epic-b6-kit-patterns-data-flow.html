@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>#18 Data flow — V1 @gosilex/api-client</title>
+  <style>
+    :root { --bg:#0b0f14; --card:#141b24; --border:#243041; --text:#e7eef7; --muted:#8b9bb0; --accent:#5b9fd4; --ok:#3d9a6a; }
+    * { box-sizing: border-box; }
+    body { margin:0; font:14px/1.45 system-ui,sans-serif; background:var(--bg); color:var(--text); padding:2rem; }
+    h1 { font-size:1.25rem; font-weight:600; margin:0 0 .25rem; }
+    p.sub { color:var(--muted); margin:0 0 1.5rem; }
+    .flow { display:flex; flex-wrap:wrap; gap:.75rem; align-items:stretch; max-width:1200px; }
+    .step { border:1px solid var(--border); border-radius:12px; background:var(--card); padding:.85rem 1rem; min-width:130px; flex:1; }
+    .step strong { display:block; margin-bottom:.35rem; color:var(--accent); font-size:.75rem; letter-spacing:.06em; text-transform:uppercase; }
+    .step span { color:var(--muted); font-size:.85rem; }
+    .arrow { align-self:center; color:var(--muted); font-size:1.25rem; }
+    .ok { border-color: var(--ok); }
+  </style>
+</head>
+<body>
+  <h1>#18 — V1 API client data flow</h1>
+  <p class="sub">Epic B6 · go-silex/silex-boilerplate#18 · slice V1</p>
+  <div class="flow">
+    <div class="step"><strong>1 SPA call</strong><span>example-web lib/api re-export · baseUrl VITE_API_URL</span></div>
+    <div class="arrow">→</div>
+    <div class="step ok"><strong>2 apiFetch</strong><span>@gosilex/api-client · credentials include · fetch</span></div>
+    <div class="arrow">→</div>
+    <div class="step"><strong>3 Hono</strong><span>example-api · cookie or sk_ · AppError envelope</span></div>
+    <div class="arrow">→</div>
+    <div class="step"><strong>4 Parse</strong><span>JSON · ApiErrorBody → ApiError · onUnauthorized 401</span></div>
+    <div class="arrow">→</div>
+    <div class="step"><strong>5 UI</strong><span>apiErrorToMessage(catalog) · toast / fields</span></div>
+  </div>
+</body>
+</html>

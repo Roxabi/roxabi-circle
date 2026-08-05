@@ -43,6 +43,7 @@
       "name": "@gosilex/example-web",
       "version": "0.0.1",
       "dependencies": {
+        "@gosilex/api-client": "workspace:*",
         "@gosilex/auth": "workspace:*",
         "@gosilex/feedback": "workspace:*",
         "@gosilex/i18n": "workspace:*",
@@ -87,6 +88,17 @@
       "devDependencies": {
         "@types/bun": "^1.2.0",
         "@types/node": "^22.15.0",
+        "typescript": "^5.9.0",
+        "vitest": "^3.2.0",
+      },
+    },
+    "packages/api-client": {
+      "name": "@gosilex/api-client",
+      "version": "0.0.1",
+      "dependencies": {
+        "@gosilex/types": "workspace:*",
+      },
+      "devDependencies": {
         "typescript": "^5.9.0",
         "vitest": "^3.2.0",
       },
@@ -183,6 +195,7 @@
       "version": "0.0.1",
       "dependencies": {
         "@gosilex/auth": "workspace:*",
+        "zod": "^3.25.0",
       },
       "devDependencies": {
         "typescript": "^5.9.0",
@@ -473,6 +486,8 @@
     "@floating-ui/utils": ["@floating-ui/utils@0.2.12", "", {}, "sha512-HpCo8tmWzLVad5s2d19EhAz5zqrrQ6s69qd6moPMQvkOuSwDT1YgRfWSVuc4ennqrgv3OHppiOGMQ7oC13yIww=="],
 
     "@fontsource-variable/geist": ["@fontsource-variable/geist@5.2.9", "", {}, "sha512-TP+QSBG3wxKGPE33CbMy/L0Nu3qvJ6Fy81Yc4LnQ95xH+i+cfEp8fyU8/kfV14YwszxIFPhnoMTbjL71waVpyQ=="],
+
+    "@gosilex/api-client": ["@gosilex/api-client@workspace:packages/api-client"],
 
     "@gosilex/auth": ["@gosilex/auth@workspace:packages/auth"],
 

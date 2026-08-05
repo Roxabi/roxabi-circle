@@ -9,6 +9,8 @@ SSoT kit for product apps that pull this repo as git `upstream` (zero-edit contr
 | **GitHub** | [`go-silex/silex-boilerplate`](https://github.com/go-silex/silex-boilerplate) (private) |
 | **Local** | `~/projects/gosilex/silex-boilerplate/` |
 | **Start a product** | [`docs/playbooks/start-product.md`](docs/playbooks/start-product.md) · `git fetch upstream` · **push upstream = DENY** (`no_push` + lefthook) |
+| **Start project (foundations)** | [`docs/playbooks/start-project.md`](docs/playbooks/start-project.md) — Auth / RBAC / MasterData / UI / tokens · decision tree · DoD |
+| **First issue ship** | [`docs/playbooks/fork-to-first-issue.md`](docs/playbooks/fork-to-first-issue.md) — brief → Spark → GH issue → `/dev` (F-lite) |
 | **Dogfood harness** | `bun run dogfood:zero-edit` (product-mode self-sim; real product evidence still open · B5) |
 | **Live goal** | [**Goal 002**](artifacts/goals/002-product-ready-multi-tenant-goal.md) — product-ready multi-tenant (Goal 001 scaffold [superseded](artifacts/goals/001-chemin-a-boilerplate-goal.md)) |
 | **ADRs** | [0001 axis](docs/architecture/adr/0001-primary-axis-packages-compose-apps.md) · [0002 BA-only session](docs/architecture/adr/0002-session-hmac-interim-vs-better-auth.md) · [0003 multi-tenant](docs/architecture/adr/0003-multi-tenant-rbac-modules.md) · [0004 CF Email](docs/architecture/adr/0004-email-transport-cf-default.md) |
@@ -68,7 +70,7 @@ bun run db:reset          # migrate + seed:reset
 
 Also: first login still **lazy-seeds users** via `ensureDemoUsers` if you skip `db:seed` (notes only via seed script).
 
-**Auth (ADR-0002):** browser session = **Better Auth only** (HMAC retired). Dual credential = **cookie session** *or* **Bearer `sk_`** (MCP/machine). After login (`sign-in/email`): HttpOnly cookie · mint org-bound `sk_` via `POST /api/keys`.
+**Auth (ADR-0002):** browser session = **Better Auth only** (HMAC retired). Dual credential = **cookie session** *or* **Bearer `sk_`** (MCP/machine). Login: **password** (`sign-in/email`) or **magic link** (`sign-in/magic-link`, TTL 5 min, EmailPort; public signup off by default). After session: HttpOnly cookie · mint org-bound `sk_` via `POST /api/keys`. See AGENTS.md auth matrix.
 
 ### Local secrets / env (do not deploy as-is)
 
@@ -84,15 +86,52 @@ Also: first login still **lazy-seeds users** via `ensureDemoUsers` if you skip `
 |---|---|
 | `@gosilex/config` | Shared `tsconfig.base.json` + Vitest coverage presets |
 | `@gosilex/types` | Error codes + `ApiErrorBody` envelope |
+| `@gosilex/api-client` | Browser `apiFetch` + `ApiError` (kit envelope, credentials include) |
 | `@gosilex/core` | `AppError`, `toApiErrorBody`, `requestId` |
 | `@gosilex/db` | Drizzle D1 factory (schemas stay in apps) |
-| `@gosilex/storage` | R2 put/get/delete + safe key join (`demo/` prefix in example) |
+| `@gosilex/storage` | R2 put/get/delete + **light PUT presign** (`createPresignedUrl` / mock signer) + safe key join (`demo/`) |
 | `@gosilex/auth` | Better Auth `SessionPort` + cookie SSoT + `sk_` helpers + org-role constants (ADR-0002/0003) |
 | `@gosilex/ui` | **shadcn official** `base-nova` + `@base-ui/react` (Button, Dialog, Sidebar, Sonner, …) |
 | `@gosilex/email` | Templates + transports `log` / `smtp` / **`cf`** (prod default) / `resend` (ADR-0004) |
 | `@gosilex/i18n` | Locale engine only; FR/EN catalogs live in apps |
 | `@gosilex/feedback` | Signaler → Spark Pilotage (core + Hono + React FAB) |
 | `@gosilex/mcp` | `ping` / `whoami` helpers + no-share-tools guard |
+
+### Kit patterns (B6)
+
+Copyable productive patterns (epic #18 · children #81–#84):
+
+| Pattern | Where | Notes |
+|---|---|---|
+| **API client** | `@gosilex/api-client` · `example-web` re-export | `apiFetch` + `ApiError` · credentials `include` |
+| **MasterData** | `demo_items` · `/api/items` · `/app/items` | App-only (no package) · subject-scoped CRUD |
+| **Presign** | `@gosilex/storage` + `/api/uploads/*` | PUT-only · `PRESIGN_MODE=mock` default · `s3` fail-closed until aws4fetch |
+| **Jobs** | `example-api` `queue`/`scheduled` · `/api/jobs/ping` | App-first · **no** `@gosilex/jobs` package yet |
+
+**Presign env + curl (local/CI mock)**
+
+```bash
+# .dev.vars (example-api)
+PRESIGN_MODE=mock
+
+# 1) Sign in (Better Auth) and keep the session cookie jar
+curl -sS -c /tmp/gosilex-cj -b /tmp/gosilex-cj -X POST "$API/api/auth/sign-in/email" \
+  -H 'content-type: application/json' -H "Origin: $ORIGIN" \
+  -d '{"email":"demo@gosilex.local","password":"demo-password-change-me"}'
+
+# 2) Presign a small PUT (size ≤ 5_000_000)
+curl -sS -c /tmp/gosilex-cj -b /tmp/gosilex-cj -X POST "$API/api/uploads/presign" \
+  -H 'content-type: application/json' -H "Origin: $ORIGIN" \
+  -d '{"filename":"photo.jpg","contentType":"image/jpeg","size":1024}'
+# → { uploadId, url, method, headers, expiresAt, key, requestId }
+
+# 3) Complete (mock mode records object under demo/… without real R2 PUT)
+curl -sS -c /tmp/gosilex-cj -b /tmp/gosilex-cj -X POST "$API/api/uploads/<uploadId>/complete" \
+  -H 'content-type: application/json' -H "Origin: $ORIGIN" \
+  -d '{"key":"<key from presign>"}'
+```
+
+Use `API=http://127.0.0.1:8787` and `ORIGIN=http://localhost:5173` for local wrangler + Vite. Auth required on both upload routes; secrets never appear in JSON responses.
 
 ## Apps (examples only)
 
@@ -166,8 +205,13 @@ Coverage HTML is gitignored (`coverage/`). **% is a ratchet** — see `docs/test
 | **GitHub Actions CI** | PR / main / staging | same suite + secret scan | **guardrail** (hooks skipped / env drift) |
 
 ```bash
-# Install git hooks (once per clone) — required
-bunx lefthook install
+# Hooks: bun install is enough (Bun on Unix-like shells).
+# prepare runs `lefthook install` only when core.hooksPath is unset (fresh clone).
+# If hooksPath is already set (org/personal shared hooks), install is skipped so
+# existing wiring is not overwritten. Keep the vendored lefthook dep; do not force
+# `lefthook install` when hooksPath is set.
+bun install
+# Optional check: test -f lefthook.yml && bunx lefthook version
 ```
 
 Do **not** push red hoping CI will catch it. Do **not** habitually use `LEFTHOOK=0` / `--no-verify`.

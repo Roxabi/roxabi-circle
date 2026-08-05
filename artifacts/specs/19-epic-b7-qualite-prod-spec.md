@@ -2,10 +2,13 @@
 title: "Spec — B7 · Qualité prod (Playwright CI, obs, CodeRabbit)"
 issue: 19
 spark: 120
-status: draft
+status: ready-for-implement
 tier: F-full
 date: 2026-07-30
+promoted: 2026-08-03
 analysis: artifacts/analyses/19-epic-b7-qualite-prod-analysis.md
+plan: plans/007-quality-gates-post-review.md
+exit_evidence: artifacts/reviews/002-goal-exit-evidence.md
 ---
 
 # Spec #19 — B7 Qualité prod
@@ -14,9 +17,10 @@ analysis: artifacts/analyses/19-epic-b7-qualite-prod-analysis.md
 
 - **Issue:** [#19](https://github.com/go-silex/silex-boilerplate/issues/19) · Spark **#120**
 - **Analysis:** [`artifacts/analyses/19-epic-b7-qualite-prod-analysis.md`](../analyses/19-epic-b7-qualite-prod-analysis.md) — Shape **C**
+- **Plan (ordering + AC delta):** [`plans/007-quality-gates-post-review.md`](../../plans/007-quality-gates-post-review.md)
 - **Doctrine:** [`docs/testing.md`](../../docs/testing.md) · [`docs/observability.md`](../../docs/observability.md)
 - **Freeze:** P8 (one Playwright smoke, not matrix) · O10 (Sentry/BS hooks, not live SaaS for exit)
-- **Status:** **draft** (not approved for implement until human / `/spec` promote)
+- **Status:** **ready-for-implement** (A0 promoted 2026-08-03 — plan 007 AC folded below)
 
 ## Goal
 
@@ -36,9 +40,26 @@ Close kit **prod quality** gaps without product domain:
 | Security reviewer | No PII dump to Sentry by default; no CodeRabbit without privacy OK |
 | Free-plan operator | Bounded CI minutes; no flake storm |
 
+## Acceptance criteria (A0 — normative)
+
+Folded from [`plans/007-quality-gates-post-review.md`](../../plans/007-quality-gates-post-review.md) §A0 + advisory 2026-08-03 (flake SLO / Free merge-on-green).
+
+| AC id | Requirement |
+|---|---|
+| **AC-PATH** | E1 uses live Better Auth path **`POST /api/auth/sign-in/email`** (not obsolete `/api/auth/login`). Design-system path = **`/admin/design-system#overlays`** (kit route). |
+| **AC-SCRUB** | Sentry: `sendDefaultPii: false`; `beforeSend` **allowlist** fields; strip Cookie, Authorization, bodies, password/token patterns; no user email as Sentry user by default. |
+| **AC-CAPTURE** | Capture unexpected/5xx only; not VALIDATION_ERROR / 401 / 403 noise. |
+| **AC-DSN** | No `SENTRY_DSN` required for CI green; unset = zero network. |
+| **AC-E2E-CLAIM** | Docs: e2e proves cookie composition + UI overlays only; dual-auth / IDOR / org RBAC = Vitest T0. |
+| **AC-CR** | Done = App installed **or** dated decline + revisit criteria; never required merge check. |
+| **AC-CREDS** | E2E demo password not logged; traces scrub login bodies or disable body retention on auth steps; `E2E_DEMO_EMAIL` / `E2E_DEMO_PASSWORD` with dev/test defaults only. |
+| **AC-DEPS** | First PR landing `@sentry/*` or `playwright*` = human review; exclude from Dependabot auto-`reviewed` until policy says otherwise. |
+| **AC-FLAKE** | Local A1: **≥3** consecutive greens. **No GHA e2e job** (Free minutes + flake) — amended 2026-08-03: local-only via `test:e2e:design-system` / `test:e2e:ci`. Revisit CI only with explicit product need + flake SLO. |
+| **AC-LOCAL-FIRST** | e2e **never** enters Lefthook pre-push / `validate:full` / default GitHub Actions CI. |
+
 ## Expected behavior
 
-1. On PR / push to `main`|`staging`, after (or parallel to) `validate-full`, job **`e2e`** starts API + web, seeds demo, runs Chromium smoke; fails on Base UI contract console errors or assertion failure.
+1. Browser e2e is **local-only**: warm stack → `bun run test:e2e:design-system`; cold → `bun run test:e2e:ci`. No default GHA job (AC-FLAKE amended).
 2. Without `SENTRY_DSN`, Worker and web behave exactly as today (no network to Sentry).
 3. With `SENTRY_DSN` set (staging/prod secrets), unhandled / `AppError` paths can report with `requestId` tag; cookies/Authorization scrubbed.
 4. CodeRabbit reviews PRs **or** `docs/` (or artifacts) records **decline** + criteria to enable later.
@@ -59,56 +80,37 @@ Close kit **prod quality** gaps without product domain:
 | Live SaaS required for kit CI green | Freeze **O10** |
 | Mutation testing / CodeRabbit as merge authority | Signal only; merge-on-green + human `reviewed` remain |
 
-## CI job design
+## CI job design (superseded — local only)
 
-### Workflow layout
-
-Prefer **same workflow file** [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) for discoverability:
-
-```text
-jobs:
-  quality:          # existing name: validate-full
-    …
-  e2e:              # NEW — check run name must be stable (e.g. "e2e")
-    name: e2e
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    needs: []       # parallel with quality OK; or needs: [quality] if minutes scarce
-    steps: …
-```
+**2026-08-03 amend:** no default GitHub Actions `e2e` job (Free minutes + flake).  
+SSoT commands: `docs/testing.md` · `scripts/e2e-ci.sh` (local one-shot).
 
 | Decision | Choice | Rationale |
 |---|---|---|
-| Parallel vs after quality | **Parallel default** | Faster feedback; e2e failures independent of coverage |
-| Optional `needs: [quality]` | Only if org wants to skip e2e minutes when lint fails | Acceptable alternate |
-| Include in `validate:full` | **No** | Browser not local-first primary gate |
-| merge-on-green | Any failed completed check already blocks | After e2e is non-flaky, it **is** a merge gate — do not ship red |
-| Job display name | Exact short name **`e2e`** | Human + optional future name match |
-| Secret-scan | Unchanged standalone workflow | Orthogonal |
-| Workflow_run list | No change required if e2e is a job under workflow `CI` | merge-on-green already listens to `CI` completion |
+| GHA e2e on every PR | **No** | Cost + flake; local-first doctrine |
+| Include in `validate:full` / pre-push | **No** | Wall-clock + bypass culture |
+| Local warm smoke | `bun run test:e2e:design-system` | Servers already up |
+| Local cold one-shot | `bun run test:e2e:ci` | migrate + seed + start + smoke |
+| Revisit GHA | Only with product need + flake SLO + explicit issue | Not silent re-add |
 
-### Job steps (normative sketch)
+### Local one-shot steps (`scripts/e2e-ci.sh`)
 
 ```text
-1. checkout (fetch-depth 0 only if needed — e2e does not need zero-edit baseline; depth 1 OK)
-2. setup-bun (same pin as quality job)
-3. bun install --frozen-lockfile
-4. Install Chromium for Playwright (playwright install --with-deps chromium OR install browsers for playwright-core)
-5. Prepare API env (.dev.vars from example + ENVIRONMENT=development|test; SESSION_SECRET placeholder OK)
-6. Migrate D1 + seed demo users (same as local DX)
-7. Start example-api (wrangler dev / package dev) in background
-8. Start example-web (vite) in background
-9. Health poll: GET API /health and BASE_URL until ready (timeout fail)
-10. bun run test:e2e:design-system  (or bun run test:e2e if renamed umbrella)
-11. Upload Playwright/trace artifacts on failure (retention 7d)
+1. Install Playwright Chromium (playwright-core)
+2. Isolated .dev.vars for the run (restore operator file on exit)
+3. Migrate D1 + seed demo users
+4. Start example-api (wrangler) + example-web (vite)
+5. Health poll API /health + web BASE
+6. bun run test:e2e:design-system
+7. Teardown
 ```
 
 ### Browser strategy
 
 | Env | Browser |
 |---|---|
-| **CI** | Playwright-managed **Chromium** only (no system Chrome path dependency) |
-| **Local** | `CHROME_PATH` if set; else document `bunx playwright install chromium` + executable resolution; fail with clear message if missing |
+| **Local** | Playwright Chromium default; `CHROME_PATH` / system Chrome fallback |
+| **GHA** | **No default job** |
 
 ### Flake controls (required)
 
@@ -126,9 +128,9 @@ jobs:
 
 | # | Path | Assertions | CP link |
 |---|---|---|---|
-| E1 | `/login` → session via `POST /api/auth/login` + `credentials: 'include'` | Login OK; no Base UI contract console errors | CP-FE-CRED / CP-AUTH-SESSION (browser wire) |
-| E2 | `/design-system#overlays` | Dropdown open (label Actions); Dialog open; Sheet open | CP-UI-CONTRACT |
-| E3 (optional same job) | After login, `/` or notes list smoke | Me/notes page loads without pageerror | composition only — **not** IDOR (stays Vitest) |
+| E1 | `/login` → session via **`POST /api/auth/sign-in/email`** + `credentials: 'include'` | Login OK; no Base UI contract console errors | CP-FE-CRED / CP-AUTH-SESSION (browser wire) |
+| E2 | **`/admin/design-system#overlays`** (after session) | Dropdown open (label Actions); Dialog open; Sheet open | CP-UI-CONTRACT |
+| E3 (optional same job) | After login, `/app` or notes list smoke | Me/notes page loads without pageerror | composition only — **not** IDOR (stays Vitest) |
 
 **Not covered in B7 e2e:** Bearer key mint UI, org RBAC, i18n switch matrix, mobile viewport matrix, MCP, email, R2 upload UI, dark mode exhaustive.
 
@@ -202,7 +204,7 @@ Add optional string keys to `apps/example-api/src/env.schema.ts` and document in
 ### Docs updates (required)
 
 - Expand `docs/observability.md`: init sketch, scrub rules, what is always-on vs optional, anti-stacking (no PostHog+Replay FOMO).
-- Note in `docs/testing.md`: e2e CI job exists; CP-E2E row; still not in pre-push.
+- Note in `docs/testing.md`: e2e local-only; CP-E2E row; not in pre-push / GHA.
 
 ### Package boundary
 
@@ -237,21 +239,22 @@ Add optional string keys to `apps/example-api/src/env.schema.ts` and document in
 - Not a required check in merge-on-green (reviews are signal; may be `neutral`).  
 - Not an excuse to skip `validate:full`.
 
-## Slices (implementation order)
+## Slices (implementation order) — `/ship` per slice
 
-| Slice | Demo-able increment | Depends |
-|---|---|---|
-| **S1** | Harden e2e script (no sleep correctness; browser resolve; health poll) green **local** | — |
-| **S2** | CI job `e2e` green on PR; artifacts on failure; docs testing.md CP-E2E | S1 |
-| **S3** | `SENTRY_DSN` in schema + example; API init + onError gated; observability.md | — (parallel S1) |
-| **S4** | CodeRabbit enable **or** decision doc | — (parallel) |
-| **S5** | Optional FE Sentry + optional me/notes browser step | S2, S3 |
+| Slice | Plan id | Demo-able increment | Depends |
+|---|---|---|---|
+| **S0** | A0 | Spec promoted (this file) | — **DONE 2026-08-03** |
+| **S1** | A1 | Harden e2e script (no sleep correctness; Playwright Chromium resolve; health poll) green **local ≥3** | S0 **DONE** |
+| **S2** | A2 | Local-only e2e: keep `test:e2e:*` + `e2e-ci.sh`; **no** GHA job (amended) | S1 **DONE** |
+| **S3** | A3 | `SENTRY_DSN` schema + example; API init + onError gated + scrub tests; observability.md | S0 (// S1 OK) |
+| **S4** | A4+A5 | CodeRabbit enable **or** decision doc + testing.md CP-E2E matrix / non-claims | S2 |
 
 ## Definition of Done
 
-- [ ] Job **`e2e`** on CI (workflow `CI`) green on main kit paths **E1+E2** (E3 optional).  
-- [ ] E2E non-flaky policy applied (no correctness sleeps; health poll; Chromium CI).  
-- [ ] E2E **not** required in Lefthook `validate:full` (documented).  
+- [x] **A0** AC table frozen in this spec (ready-for-implement).  
+- [x] **A1** e2e script hardened; local ≥3 greens.  
+- [x] **A2** e2e **local only** (no default GHA job) — scripts + docs.  
+- [x] E2E **not** in Lefthook / `validate:full` / default CI (documented).  
 - [ ] Sentry optional: documented + **wire** in example-api when DSN set; no DSN → no-op.  
 - [ ] `env.schema` / `.dev.vars.example` / `env:check` include optional Sentry keys.  
 - [ ] CodeRabbit **active** **or** decision documented with criteria.  
@@ -292,13 +295,14 @@ CI: both `validate-full` and `e2e` green on the PR.
 | CodeRabbit signal or documented decline | Automated secure code certification |
 | Floors maintained | 100% e2e coverage of CP-\* (most CP stay Vitest) |
 
-## Open questions (non-blocking for draft)
+## Open questions (non-blocking)
 
-1. `needs: [quality]` vs fully parallel e2e?  
-2. FE Sentry in same PR as S3 or S5 only?  
-3. Exact Sentry SDK package name/version for Workers (pin at implement via Context7 / CF docs).  
-4. Prefer `.coderabbit.yaml` minimal vs App UI defaults only?
+1. Exact Sentry SDK package name/version for Workers (pin at implement via Context7 / CF docs).  
+2. Prefer `.coderabbit.yaml` minimal vs App UI defaults only?  
+3. Soft-gate mechanism: job-level `continue-on-error` (simplest) vs always-green reporter — pick at PR-B7-2.
+
+**Resolved at A0:** `needs: [quality]` first land; FE Sentry optional/deferred; soft-then-hard e2e per AC-FLAKE; login path BA `sign-in/email`; design-system under `/admin`.
 
 ## Status
 
-**draft** — analysis Shape C · ready for human approve / implement after promote. No commit of implement work under this analysis/spec alone.
+**ready-for-implement** (A0 2026-08-03). Next: **A1** harden `apps/example-web/scripts/e2e-design-system.mjs` (≥3 local greens) → `/ship` PR-B7-1.

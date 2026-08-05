@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>#69 Data flow — import boundary scanner</title>
+  <style>
+    :root { --bg:#0b0f14; --card:#141b24; --border:#243041; --text:#e7eef7; --muted:#8b9bb0; --accent:#5b9fd4; --ok:#3d9a6a; --deny:#c45c5c; }
+    * { box-sizing: border-box; }
+    body { margin:0; font:14px/1.45 system-ui,sans-serif; background:var(--bg); color:var(--text); padding:2rem; }
+    h1 { font-size:1.25rem; font-weight:600; margin:0 0 .25rem; }
+    p.sub { color:var(--muted); margin:0 0 1.5rem; }
+    .flow { display:flex; flex-wrap:wrap; gap:.75rem; align-items:stretch; max-width:1100px; }
+    .step { border:1px solid var(--border); border-radius:12px; background:var(--card); padding:.85rem 1rem; min-width:140px; flex:1; }
+    .step strong { display:block; margin-bottom:.35rem; color:var(--accent); font-size:.8rem; letter-spacing:.06em; text-transform:uppercase; }
+    .step span { color:var(--muted); font-size:.85rem; }
+    .arrow { align-self:center; color:var(--muted); font-size:1.25rem; }
+    .deny { border-color: var(--deny); }
+    .ok { border-color: var(--ok); }
+  </style>
+</head>
+<body>
+  <h1>#69 — Import boundary data flow</h1>
+  <p class="sub">validate:full / pre-push · go-silex/silex-boilerplate#69</p>
+  <div class="flow">
+    <div class="step"><strong>1 Load</strong><span>workspace package.json names · exemptions file · walk packages/ + apps/</span></div>
+    <div class="arrow">→</div>
+    <div class="step"><strong>2 Extract</strong><span>from / export-from / import '' / require / import()</span></div>
+    <div class="arrow">→</div>
+    <div class="step"><strong>3 Resolve</strong><span>longest @gosilex/* prefix · relative path normalize</span></div>
+    <div class="arrow">→</div>
+    <div class="step"><strong>4 Rules</strong><span>R1–R4 zone checks · exact-path exemptions</span></div>
+    <div class="arrow">→</div>
+    <div class="step deny"><strong>5 Report</strong><span>RULE file:line → import · footer · exit 1|2</span></div>
+    <div class="arrow">→</div>
+    <div class="step ok"><strong>6 Self-test</strong><span>temp dir plants · validate:full chain</span></div>
+  </div>
+</body>
+</html>

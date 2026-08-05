@@ -89,8 +89,47 @@ export const organizationRoleModuleGrants = sqliteTable(
   (t) => [primaryKey({ columns: [t.roleId, t.moduleId] })],
 )
 
+/**
+ * Durable fixed-window rate-limit counters (B-auth-harden #61).
+ * Shared across Workers isolates via D1 — not an in-memory Map.
+ */
+export const rateLimitBuckets = sqliteTable(
+  'rate_limit_buckets',
+  {
+    bucketKey: text('bucket_key').notNull(),
+    windowStartMs: integer('window_start_ms', { mode: 'number' }).notNull(),
+    count: integer('count', { mode: 'number' }).notNull().default(0),
+  },
+  (t) => [primaryKey({ columns: [t.bucketKey, t.windowStartMs] })],
+)
+
+/** Append-only security-relevant events (super_admin list API). */
+export const auditEvents = sqliteTable('audit_events', {
+  id: text('id').primaryKey(),
+  createdAt: integer('created_at', { mode: 'number' }).notNull(),
+  actorUserId: text('actor_user_id'),
+  action: text('action').notNull(),
+  targetType: text('target_type'),
+  targetId: text('target_id'),
+  orgId: text('org_id'),
+  ip: text('ip'),
+  metaJson: text('meta_json'),
+})
+
+export const demoItems = sqliteTable('demo_items', {
+  id: text('id').primaryKey(),
+  subject: text('subject').notNull(),
+  code: text('code').notNull(),
+  label: text('label').notNull(),
+  description: text('description').notNull().default(''),
+  active: integer('active', { mode: 'boolean' }).notNull().default(true),
+  createdAt: integer('created_at', { mode: 'number' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'number' }).notNull(),
+})
+
 export const schema = {
   demoNotes,
+  demoItems,
   apiKeys,
   demoUsers,
   kitModules,
@@ -99,5 +138,7 @@ export const schema = {
   organizationModules,
   organizationRoles,
   organizationRoleModuleGrants,
+  rateLimitBuckets,
+  auditEvents,
   ...betterAuthDrizzleSchema,
 }

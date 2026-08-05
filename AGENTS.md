@@ -5,7 +5,7 @@
 | | |
 |---|---|
 | **Repo** | `go-silex/silex-boilerplate` (private) · local `~/projects/gosilex/silex-boilerplate/` |
-| **Product consumers** | Greenfield `go-silex/<product>` via git `upstream` → this kit · playbook [`docs/playbooks/start-product.md`](docs/playbooks/start-product.md) |
+| **Product consumers** | Greenfield `go-silex/<product>` via git `upstream` → this kit · [`start-product.md`](docs/playbooks/start-product.md) · [`fork-to-first-issue.md`](docs/playbooks/fork-to-first-issue.md) |
 | **Status** | Kit live **2026-07-13** (historically split from silex-share — **archived / deprecated**, not a live dogfood target) · product apps pull via `git fetch upstream` |
 | **Live goal** | [**Goal 002**](artifacts/goals/002-product-ready-multi-tenant-goal.md) product-ready multi-tenant (Goal 001 scaffold **superseded**) |
 | **CF account** | Gosilex (`Tool@gosilex.com` / hub `scripts/load-cf-env.sh`) when deploying examples |
@@ -58,7 +58,7 @@ Tout repo produit qui prend **ce kit** comme `upstream` **doit** :
 | Ajouter `docs/product/*`, `product-*.yml` | Brancher le produit en patchant `example-web` |
 | Design: CSS tokens + wrap `@gosilex/ui` dans l’app | Patcher `packages/ui` pour la marque |
 | Exception zero-edit time-boxed (dernier recours) | Dual-edit permanent sans ticket / `expires` |
-| Vars `GOSILEX_CI_*`, secrets CF | Commit de secrets / wrangler prod dans le kit |
+| Vars `CI_APP_*` (merge-on-green), secrets CF | Commit de secrets / wrangler prod dans le kit |
 
 Gate machine: `bun run zero-edit` · SSoT [`docs/product-consumer-contract.md`](docs/product-consumer-contract.md) · `config/zero-edit-zones.json`.
 
@@ -210,7 +210,17 @@ Escape hatch : Postgres/Hyperdrive si un app dépasse D1 — documenté, pas def
 
 **Non-default :** Clerk.
 
-**ADR-0002 (2026-07-30) :** session navigateur = **Better Auth only** (HMAC retiré). Dual-path restant = cookie session **\|** Bearer `sk_`. Pattern : **1 instance auth / request** (bindings) + `SessionPort`.
+**[ADR-0002](docs/architecture/adr/0002-session-hmac-interim-vs-better-auth.md) (2026-07-30) :** session navigateur = **Better Auth only** (HMAC retiré). Dual-path restant = cookie session **\|** Bearer `sk_`. Pattern : **1 instance auth / request** (bindings) + `SessionPort`.
+
+#### Auth matrix (kit dogfood)
+
+| Mode | Surface | Credential | Notes |
+|------|---------|------------|--------|
+| **Password** | `POST /api/auth/sign-in/email` · `/login` | email + password → **cookie** | default login tab |
+| **Magic link** | `POST /api/auth/sign-in/magic-link` · verify `GET /api/auth/magic-link/verify` · `/login` tab | one-shot email link (TTL **5 min**) → **cookie** | EmailPort template; `disableSignUp` = `!ALLOW_PUBLIC_SIGNUP` (default **off**); no user enumeration |
+| **Forgot / reset** | request-password-reset · reset-password | email link → set password | EmailPort |
+| **API key** | `Authorization: Bearer sk_…` | **no cookie** | MCP / machine; mint after session |
+| OAuth Google/GitHub | — | product later | hors kit default |
 
 ---
 
@@ -292,10 +302,10 @@ Ref pattern : `roxabi-boilerplate` (`errorCodes`, `errorUtils`, `ApiError`).
 | `@gosilex/config` | tsconfig, Biome, Vitest presets | **P0** |
 | `@gosilex/db` | Drizzle D1 + migrate | **P0** |
 | `@gosilex/storage` | R2 put/get/presign | **P0** |
-| `@gosilex/auth` | Better Auth SessionPort + API keys `sk_` + org-role helpers (ADR-0002 BA-only · ADR-0003) | **P0** |
+| `@gosilex/auth` | Better Auth SessionPort + API keys `sk_` + org-role helpers ([ADR-0002](docs/architecture/adr/0002-session-hmac-interim-vs-better-auth.md) BA-only · [ADR-0003](docs/architecture/adr/0003-multi-tenant-rbac-modules.md)) | **P0** |
 | `@gosilex/types` | Zod schemas + ErrorCode | **P0** |
 | `@gosilex/ui` | shadcn Base UI shell | **P0** |
-| `@gosilex/email` | Templates + transports `log` \| `smtp` \| **`cf`** (prod default) \| `resend` (escape) — ADR-0004 | **P0** |
+| `@gosilex/email` | Templates + transports `log` \| `smtp` \| **`cf`** (prod default) \| `resend` (escape) — [ADR-0004](docs/architecture/adr/0004-email-transport-cf-default.md) | **P0** |
 | `@gosilex/i18n` | Locale engine only; catalogs app-owned (FR/EN live) | **P0** |
 | `@gosilex/feedback` | Signaler → Spark Pilotage (core + Hono + React FAB) | **P0** kit optional module |
 | `@gosilex/mcp` | FastMCP/SDK conventions (ping/whoami) | **P0** example |
@@ -310,7 +320,7 @@ Ref pattern : `roxabi-boilerplate` (`errorCodes`, `errorUtils`, `ApiError`).
 
 ---
 
-### H2. Email — transport par environnement (ADR-0004)
+### H2. Email — transport par environnement ([ADR-0004](docs/architecture/adr/0004-email-transport-cf-default.md))
 
 | Env | Transport | UI / inspection |
 |---|---|---|
@@ -344,7 +354,7 @@ EMAIL_TRANSPORT=log | smtp | cf | resend
 | Tests | **Vitest** + `@cloudflare/vitest-pool-workers` | S0 |
 | E2E | **Playwright** | P1 |
 | Hooks | **Lefthook** (pre-commit Biome · **pre-push = validate:full** primary gate) + commitlint · CI = garde-fou | S0 |
-| CI | GH Actions `validate:full` (= lint · typecheck · coverage · banlist · extract · **zero-edit** · env · license · **build:kit** · **smoke:mcp**) + secret-scan — **bloquant** | S0 |
+| CI | GH Actions `validate:full` (= lint · typecheck · coverage · banlist · extract · **zero-edit** · import-boundary · deny-upstream · **debt** · env · license · quality-gates · **build:kit** · **smoke:mcp**) + secret-scan — **bloquant** | S0 |
 | Security headers | HSTS, X-Frame-Options, nosniff, Referrer-Policy (ShipFast) | S0/M0 |
 | Schema validation | Zod partout (ShipFast security) | S0 |
 
@@ -491,10 +501,10 @@ Règles : guard first · Zod double frontière · pas de god file · packages �
 
 - [x] **PR template sécu** — `.github/PULL_REQUEST_TEMPLATE.md`  
 - [x] **Secret scan CI** — `.github/workflows/secret-scan.yml` (TruffleHog `--only-verified`)  
-- [x] **Merge-on-green** — `.github/workflows/merge-on-green.yml` (label `reviewed` + checks green)  
+- [x] **Merge-on-green** — `.github/workflows/merge-on-green.yml` (label `reviewed` + fin CI/Secret only — pas de check_suite/sync spam ; close issues → `close-linked-issues.yml`)  
 - [x] Label **`reviewed`** créé sur le repo  
 - [x] Merge token = **GitHub App `gosilex-ci`** (pas de PAT) — setup : [`docs/gosilex-ci-app-setup.md`](docs/gosilex-ci-app-setup.md)  
-- [x] Créer/installer App + set `GOSILEX_CI_APP_ID` (var) / `GOSILEX_CI_APP_PRIVATE_KEY` (secret) — org-level live · [`docs/gosilex-ci-app-setup.md`](docs/gosilex-ci-app-setup.md) · staging: [`docs/staging-examples.md`](docs/staging-examples.md)
+- [x] Créer/installer App + set `CI_APP_ID` (var) / `CI_APP_PRIVATE_KEY` (secret) — org-level live · [`docs/gosilex-ci-app-setup.md`](docs/gosilex-ci-app-setup.md) · staging: [`docs/staging-examples.md`](docs/staging-examples.md)
 - [ ] Branch protection / rulesets — **bloqué plan Free privé** (voir § GitHub Free)  
 - [x] Bun workspaces + Turbo  
 - [x] Biome + CI app (`validate:full` incl. build:kit + smoke:mcp) — local pre-push + GH job `validate-full`
@@ -519,8 +529,8 @@ Règles : guard first · Zod double frontière · pas de god file · packages �
 
 | Kind | Name |
 |---|---|
-| Variable | `GOSILEX_CI_APP_ID` |
-| Secret | `GOSILEX_CI_APP_PRIVATE_KEY` |
+| Variable | `CI_APP_ID` |
+| Secret | `CI_APP_PRIVATE_KEY` |
 
 Runbook : [`docs/gosilex-ci-app-setup.md`](docs/gosilex-ci-app-setup.md).
 
@@ -537,20 +547,21 @@ Quand la CI app existera : l’ajouter dans `workflow_run.workflows` de `merge-o
 
 ### Suite
 
-- [x] **Better Auth + cookies (session)** — BA-only (ADR-0002, HMAC retired) · dual credential cookie \| Bearer `sk_` · GitHub OAuth product still later  
+- [x] **Better Auth + cookies (session)** — BA-only ([ADR-0002](docs/architecture/adr/0002-session-hmac-interim-vs-better-auth.md), HMAC retired) · dual credential cookie \| Bearer `sk_` · GitHub OAuth product still later  
 - [x] packages/ui Base UI + example-web (kit shell live · `/admin` + `/app` shells)  
 - [x] i18n FR/EN catalogs (`@gosilex/i18n` engine + app catalogs ; Paraglide monorepo **park** B8)  
 - [x] **Feedback kit** (`@gosilex/feedback` + example wire · GH #8)  
-- [x] **Multi-tenant Phase A** — orgs, platform RBAC, dual-level modules (ADR-0003 · GH #11)  
+- [x] **Multi-tenant Phase A** — orgs, platform RBAC, dual-level modules ([ADR-0003](docs/architecture/adr/0003-multi-tenant-rbac-modules.md) · GH #11)  
 - [x] **Multi-tenant UX A4** — shells + kit invites + password reset (GH #15)  
-- [x] **Email CF prod transport** — `@gosilex/email` `log`\|`smtp`\|`cf`\|`resend` + staging allowlist (ADR-0004 · GH #21)  
+- [x] **Email CF prod transport** — `@gosilex/email` `log`\|`smtp`\|`cf`\|`resend` + staging allowlist ([ADR-0004](docs/architecture/adr/0004-email-transport-cf-default.md) · GH #21)  
 - [x] **RBAC Phase B (API + tests + minimal UI)** — custom org roles + module grants (GH #22 · Spark #127)  
 - [ ] FastMCP product tools + skill (hors kit strings)  
-- [ ] **Plausible** SPA recipe — hub `analytics.gosilex.com` multi-sites (park / B8)  
-- [ ] Sentry + Better Stack (prod) — B7  
-- [ ] CodeRabbit (ou équiv.) sur PR — B7  
-- [ ] Playwright e2e en CI — B7  
-- [x] Consumer dogfood zero-edit (B5 · GH #17) — playbook + harness + **live greenfield** [`silex-kit-dogfood`](https://github.com/go-silex/silex-kit-dogfood) · evidence [`docs/product-consumer-dogfood-evidence.md`](docs/product-consumer-dogfood-evidence.md)
+- [x] **B8 park decisions** — Paraglide / Plausible / TanStack Start-as-default park · **patchlog L1 shipping** (GH #107 · [`docs/recipes/changelog-l1.md`](docs/recipes/changelog-l1.md)) · L2 package still park ([`docs/park-decisions-b8.md`](docs/park-decisions-b8.md) · GH #20)  
+- [ ] **Plausible** SPA recipe — hub `analytics.gosilex.com` multi-sites (**park** DR-B8-05 — unpark when public SPA needs it)  
+- [ ] Sentry + Better Stack (prod) — B7 A3 **parked** (revisit later)  
+- [ ] CodeRabbit (ou équiv.) sur PR — B7 A4 **parked** (revisit later)  
+- [x] Playwright e2e — **local only** (`test:e2e:design-system` / `test:e2e:ci`; no default GHA job · PR #96)  
+- [x] Consumer dogfood zero-edit (B5 · GH #17) — playbook + harness + **permanent greenfield** [`silex-kit-dogfood`](https://github.com/go-silex/silex-kit-dogfood) (recreated + kept 2026-08-04) · evidence [`docs/product-consumer-dogfood-evidence.md`](docs/product-consumer-dogfood-evidence.md)
 - [ ] Extract dry-run « suite green after drop product » (aujourd’hui structure + banlist)
 
 **Critère extractible :** supprimer `apps/share-*` → examples + packages verts, 0 string métier share.
@@ -630,8 +641,9 @@ Règles dures pour tout agent (humain qui drive l’IA) :
 pre-commit (Lefthook) → Biome format/lint (staged)
          ↓
 pre-push (Lefthook)   → bun run validate:full
-                        (lint · typecheck · banlist · extract · zero-edit · env:check
-                         · coverage floors · license:check · build:kit · smoke:mcp)
+                        (lint · typecheck · banlist · extract · zero-edit · import-boundary
+                         · deny-upstream · debt:check · test:debt · agents-adr · env:check
+                         · coverage floors · license:check · quality-gates · build:kit · smoke:mcp)
          ↓
 PR CI                 → même suite (garde-fou) · secret scan
          ↓
@@ -652,7 +664,7 @@ deploy CD             → pull après CI verte
 | Branch protection / merge-on-green | merge sans checks (Free = process + workflow) |
 | CODEOWNERS (option) | paths `auth/`, `mcp/`, `migrations/` → review requise |
 
-**Lefthook :** `bunx lefthook install` une fois par clone. **Interdit** `git push --no-verify` / `LEFTHOOK=0` sans raison documentée. Ne pas « laisser la CI rattraper ».
+**Lefthook :** `bun install` suffit — `prepare` appelle `lefthook install` **seulement** si `core.hooksPath` est absent (clone frais). Si `hooksPath` est déjà posé (hooks partagés org/perso), ne **jamais** forcer `lefthook install` (écraserait un câblage existant). Lefthook reste en devDependency vendored. **Interdit** `git push --no-verify` / `LEFTHOOK=0` sans raison documentée. Ne pas « laisser la CI rattraper ».
 
 ### 5. Review du code généré par IA
 

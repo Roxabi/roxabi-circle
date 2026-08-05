@@ -22,8 +22,8 @@ feedbackRoutes.post('/api/report', async (c) => {
     throw AppError.forbidden('Feedback report requires a session cookie')
   }
   const subject = c.get('subject')!
-  assertRateLimit(`feedback:${subject}`, FEEDBACK_LIMIT, FEEDBACK_WINDOW_MS)
   const db = c.get('db')!
+  await assertRateLimit(db, `feedback:${subject}`, FEEDBACK_LIMIT, FEEDBACK_WINDOW_MS)
   await modulesService.ensureKitModules(db)
   const spark = await modulesService.getFeedbackSparkRuntime(db)
 
@@ -33,7 +33,7 @@ feedbackRoutes.post('/api/report', async (c) => {
   let moduleOn: boolean
   if (orgId) {
     const org = await orgsRepo.findOrgById(db, orgId)
-    if (!org || org.status !== 'active') {
+    if (org?.status !== 'active') {
       throw AppError.notFound('Organization not found')
     }
     const membership = await orgsRepo.findMembership(db, orgId, subject)

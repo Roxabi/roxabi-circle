@@ -8,7 +8,7 @@ const LOGIN_LIMIT = 20
 const LOGIN_WINDOW_MS = 15 * 60 * 1000
 
 const BA_SENSITIVE =
-  /\/api\/auth\/(sign-in|sign-up|sign-out|forget-password|request-password-reset|reset-password|change-password)/i
+  /\/api\/auth\/(sign-in|sign-up|sign-out|forget-password|request-password-reset|reset-password|change-password|magic-link\/verify)/i
 
 /**
  * Phase A (ADR-0003 D10): block BA organization mutation / invite surface.
@@ -32,7 +32,9 @@ authRoutes.all('/api/auth/*', async (c) => {
     throw AppError.notFound('Organization mutations use kit APIs or seed (Phase A)')
   }
   if (BA_SENSITIVE.test(c.req.path)) {
-    assertRateLimit(`ba-auth:${clientIp(c.req)}`, LOGIN_LIMIT, LOGIN_WINDOW_MS)
+    const db = c.get('db')
+    if (!db) throw AppError.internal('db not bound — withDb middleware required')
+    await assertRateLimit(db, `ba-auth:${clientIp(c.req)}`, LOGIN_LIMIT, LOGIN_WINDOW_MS)
   }
   return auth.handler(c.req.raw)
 })

@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>#55 Data flow — author → docs → consumer</title>
+  <style>
+    :root { --bg:#0b0f14; --card:#141b24; --border:#243041; --text:#e7eef7; --muted:#8b9bb0; --a:#5b9fd4; }
+    body { margin:0; font:14px/1.45 system-ui,sans-serif; background:var(--bg); color:var(--text); padding:2rem; }
+    h1 { font-size:1.2rem; margin:0 0 .5rem; }
+    p.sub { color:var(--muted); margin:0 0 1.5rem; }
+    .flow { display:flex; flex-wrap:wrap; gap:.75rem; align-items:center; max-width:1000px; }
+    .box { border:1px solid var(--border); background:var(--card); border-radius:12px; padding:.75rem 1rem; min-width:140px; }
+    .box strong { display:block; font-size:.9rem; }
+    .box span { color:var(--muted); font-size:.75rem; }
+    .arrow { color:var(--a); font-weight:700; }
+  </style>
+</head>
+<body>
+  <h1>#55 — Data flow (docs pipeline)</h1>
+  <p class="sub">Author edits → narrative contracts → engineer decisions at bootstrap/deploy</p>
+  <div class="flow">
+    <div class="box"><strong>Issue #55 / frame / spec</strong><span>acceptance SC1–SC10</span></div>
+    <span class="arrow">→</span>
+    <div class="box"><strong>doc-writer edits</strong><span>playbook · contract · CI · testing · header</span></div>
+    <span class="arrow">→</span>
+    <div class="box"><strong>Linked SSoT</strong><span>ADR-0001 (read-only)</span></div>
+    <span class="arrow">→</span>
+    <div class="box"><strong>Product eng</strong><span>compose spine · CI_APP_* · env honesty · deploy checklist</span></div>
+  </div>
+</body>
+</html>

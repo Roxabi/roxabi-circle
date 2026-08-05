@@ -25,6 +25,13 @@ export type Messages = {
   resetPasswordMismatch: string
   backToLogin: string
   loginLegal: string
+  /** Login mode: password vs magic link (B-magic #59). */
+  loginModePassword: string
+  loginModeMagic: string
+  magicSubmit: string
+  magicSentTitle: string
+  magicSentDesc: string
+  magicHint: string
   email: string
   password: string
   submit: string
@@ -73,7 +80,24 @@ export type Messages = {
   cancel: string
   confirmDelete: string
   noteCreated: string
+  itemCreated: string
+  itemUpdated: string
+  itemDeleted: string
   noteDeleted: string
+  itemsTitle: string
+  itemsDescription: string
+  itemCreate: string
+  itemEdit: string
+  itemCode: string
+  itemLabel: string
+  itemDescription: string
+  itemActive: string
+  itemActiveYes: string
+  itemActiveNo: string
+  itemSearchPlaceholder: string
+  itemEmptyTitle: string
+  itemEmptyDescription: string
+  itemDeleteConfirmTitle: string
   keyMinted: string
   keyRevoked: string
   keysList: string
@@ -87,14 +111,20 @@ export type Messages = {
   copied: string
   navDashboard: string
   navNotes: string
+  navItems: string
   navKeys: string
   navSettings: string
+  navChangelog: string
+  changelogTitle: string
+  changelogDesc: string
+  changelogEmpty: string
   navDesignSystem: string
   navPlatform: string
   navSecondary: string
   navAdmin: string
   navApp: string
   navOrgs: string
+  navUsers: string
   navModules: string
   navMembers: string
   navAdminHome: string
@@ -104,6 +134,20 @@ export type Messages = {
   orgPicker: string
   orgPickerEmpty: string
   adminOrgsDesc: string
+  adminUsersDesc: string
+  adminUserCreateTitle: string
+  adminUserCreateDesc: string
+  adminUserName: string
+  adminUserPlane: string
+  adminUserPlaneClient: string
+  adminUserOrg: string
+  adminUserOrgNone: string
+  adminUserSendEmail: string
+  adminUserSubmit: string
+  adminUserCreated: string
+  adminUserSearch: string
+  adminUserResend: string
+  adminUserWelcomeResent: string
   orgCatalogueBadge: string
   orgCreate: string
   orgCreateTitle: string
@@ -118,6 +162,23 @@ export type Messages = {
   online: string
   offline: string
   account: string
+  displayName: string
+  displayNameHint: string
+  profileSaved: string
+  profileNameRequired: string
+  changePasswordTitle: string
+  changePasswordDesc: string
+  changePasswordCurrent: string
+  changePasswordNew: string
+  changePasswordConfirm: string
+  changePasswordSubmit: string
+  changePasswordSuccess: string
+  changePasswordWrong: string
+  changePasswordReauth: string
+  changePasswordRevokeOthers: string
+  changePasswordTooShort: string
+  changePasswordMismatch: string
+  changePasswordCurrentRequired: string
   designSystem: string
   designSystemDesc: string
   designSystemFooter: string
@@ -262,6 +323,12 @@ export const fr: Messages = {
   resetPasswordMismatch: 'Les mots de passe ne correspondent pas',
   backToLogin: 'Retour à la connexion',
   loginLegal: 'En continuant, vous acceptez les conditions d’utilisation du kit démo.',
+  loginModePassword: 'Mot de passe',
+  loginModeMagic: 'Lien magique',
+  magicSubmit: 'Envoyer le lien',
+  magicSentTitle: 'Vérifiez votre e-mail',
+  magicSentDesc: 'Si un compte existe, un lien de connexion a été envoyé (voir logs Mailpit/log).',
+  magicHint: 'Réponse générique (pas d’énumération). Lien valable environ 5 minutes.',
   email: 'E-mail',
   password: 'Mot de passe',
   submit: 'Se connecter',
@@ -310,7 +377,24 @@ export const fr: Messages = {
   cancel: 'Annuler',
   confirmDelete: 'Supprimer cette note ?',
   noteCreated: 'Note créée',
+  itemCreated: 'Élément créé',
+  itemUpdated: 'Élément mis à jour',
+  itemDeleted: 'Élément supprimé',
   noteDeleted: 'Note supprimée',
+  itemsTitle: 'MasterData (démo)',
+  itemsDescription: 'Entité référentielle demo_items — pattern kit copiable (CRUD + ownership).',
+  itemCreate: 'Nouvel élément',
+  itemEdit: 'Modifier',
+  itemCode: 'Code',
+  itemLabel: 'Libellé',
+  itemDescription: 'Description',
+  itemActive: 'Actif',
+  itemActiveYes: 'Oui',
+  itemActiveNo: 'Non',
+  itemSearchPlaceholder: 'Filtrer code / libellé…',
+  itemEmptyTitle: 'Aucun élément',
+  itemEmptyDescription: 'Créez une entrée catalogue pour dogfooder le pattern MasterData.',
+  itemDeleteConfirmTitle: 'Supprimer cet élément ?',
   keyMinted: 'Clé API générée',
   keyRevoked: 'Clé révoquée',
   keysList: 'Clés actives',
@@ -325,14 +409,20 @@ export const fr: Messages = {
   copied: 'Copié dans le presse-papiers',
   navDashboard: 'Dashboard',
   navNotes: 'Notes',
+  navItems: 'Catalogue',
   navKeys: 'Clés API',
   navSettings: 'Paramètres',
+  navChangelog: 'Nouveautés',
+  changelogTitle: 'Nouveautés',
+  changelogDesc: 'Ce qui a changé dans le kit (demo app-owned).',
+  changelogEmpty: 'Aucune note de version pour le moment.',
   navDesignSystem: 'Design system',
   navPlatform: 'Plateforme',
   navSecondary: 'Plus',
   navAdmin: 'Back-office',
   navApp: 'Espace client',
   navOrgs: 'Organisations',
+  navUsers: 'Utilisateurs',
   navModules: 'Modules plateforme',
   navMembers: 'Membres',
   navAdminHome: 'Accueil BO',
@@ -342,6 +432,20 @@ export const fr: Messages = {
   orgPicker: 'Organisation active',
   orgPickerEmpty: 'Aucune organisation',
   adminOrgsDesc: 'Staff = memberships · super = catalogue',
+  adminUsersDesc: 'Provisionner des comptes, plane et memberships',
+  adminUserCreateTitle: 'Créer un utilisateur',
+  adminUserCreateDesc: 'Compte BA + e-mail de première connexion (set password).',
+  adminUserName: 'Nom',
+  adminUserPlane: 'Plane (platformRole)',
+  adminUserPlaneClient: 'Client (aucun)',
+  adminUserOrg: 'Organisation (optionnel)',
+  adminUserOrgNone: '— aucune —',
+  adminUserSendEmail: 'Envoyer l’e-mail de bienvenue',
+  adminUserSubmit: 'Créer et envoyer',
+  adminUserCreated: 'Utilisateur créé',
+  adminUserSearch: 'Rechercher…',
+  adminUserResend: 'Renvoyer welcome',
+  adminUserWelcomeResent: 'E-mail de bienvenue renvoyé',
   orgCatalogueBadge: 'catalogue',
   orgCreate: 'Créer une organisation',
   orgCreateTitle: 'Nouvelle organisation',
@@ -356,6 +460,23 @@ export const fr: Messages = {
   online: 'API OK',
   offline: 'API hors ligne',
   account: 'Compte',
+  displayName: 'Nom affiché',
+  displayNameHint: 'Visible dans le shell et les e-mails kit.',
+  profileSaved: 'Profil mis à jour',
+  profileNameRequired: 'Le nom est requis',
+  changePasswordTitle: 'Changer le mot de passe',
+  changePasswordDesc: 'Session active — pas besoin de lien e-mail.',
+  changePasswordCurrent: 'Mot de passe actuel',
+  changePasswordNew: 'Nouveau mot de passe',
+  changePasswordConfirm: 'Confirmer',
+  changePasswordSubmit: 'Mettre à jour le mot de passe',
+  changePasswordSuccess: 'Mot de passe mis à jour',
+  changePasswordWrong: 'Mot de passe actuel incorrect',
+  changePasswordReauth: 'Reconnectez-vous pour modifier le mot de passe',
+  changePasswordRevokeOthers: 'Déconnecter les autres sessions',
+  changePasswordTooShort: 'Au moins 8 caractères',
+  changePasswordMismatch: 'Les mots de passe ne correspondent pas',
+  changePasswordCurrentRequired: 'Mot de passe actuel requis',
   designSystem: 'Design system',
   designSystemDesc:
     'Catalogue shadcn Base (base-nova) · réservé plateforme · templates de page de référence',

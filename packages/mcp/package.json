@@ -17,7 +17,8 @@
     "build": "echo ok"
   },
   "dependencies": {
-    "@gosilex/auth": "workspace:*"
+    "@gosilex/auth": "workspace:*",
+    "zod": "^3.25.0"
   },
   "devDependencies": {
     "typescript": "^5.9.0",

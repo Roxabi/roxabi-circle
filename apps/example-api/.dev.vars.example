@@ -22,3 +22,4 @@ EMAIL_TRANSPORT=log
 # EMAIL_FROM_DOMAIN=gosilex.com
 # RESEND_API_KEY=   # only when EMAIL_TRANSPORT=resend
 # Integrations (Spark feedback, etc.) → D1 platform_modules.config_json — configure in admin UI.
+PRESIGN_MODE=mock

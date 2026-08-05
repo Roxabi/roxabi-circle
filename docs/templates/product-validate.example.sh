@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+# product-validate.example.sh — COPY into the product repo (never run as-is from kit CI).
+#
+# Preferred copy targets (zero-edit allowed):
+#   scripts/product/validate.sh
+#   apps/<product>-api/scripts/product-validate.sh
+#
+# Then replace <product> placeholders with your package names and adjust filters.
+# Kit `validate:full` / `scripts/test-coverage.sh` stay kit-only — do not dual-edit them
+# to add product packages.
+#
+# See: docs/product-consumer-contract.md · docs/playbooks/start-product.md §7
+set -euo pipefail
+
+# Resolve monorepo root from this script location.
+# If you copy to scripts/product/validate.sh → two levels up.
+# If you copy to apps/<product>-api/scripts/product-validate.sh → three levels up.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [[ -f "${SCRIPT_DIR}/../../package.json" ]]; then
+  ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+elif [[ -f "${SCRIPT_DIR}/../../../package.json" ]]; then
+  ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
+else
+  echo "product-validate: cannot find monorepo root from ${SCRIPT_DIR}" >&2
+  exit 1
+fi
+cd "$ROOT"
+
+echo "→ product-validate (ROOT=$ROOT)"
+
+# Product mode: kit zones clean vs upstream (or ZERO_EDIT_BASE_REF / kit-baseline in CI).
+bun run zero-edit
+
+# --- replace <product> with your app package names ---
+bun run --filter "@gosilex/<product>-api" typecheck
+bun run --filter "@gosilex/<product>-api" test
+bun run --filter "@gosilex/<product>-web" typecheck
+bun run --filter "@gosilex/<product>-web" test
+# Optional: wrangler dry-run / turbo build for the product API
+# bun run --filter "@gosilex/<product>-api" build
+
+echo "✓ product-validate OK"

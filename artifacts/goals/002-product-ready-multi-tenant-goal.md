@@ -1,8 +1,9 @@
 ---
 title: "Goal — Kit product-ready multi-tenant (BA-only, CF Email, A4, Phase B, consumer)"
-status: ready-for-goal
+status: exited
 priority: P0
 date: 2026-07-30
+exited: 2026-08-04
 repo: go-silex/silex-boilerplate
 supersedes: artifacts/goals/001-chemin-a-boilerplate-goal.md
 related_adrs:
@@ -13,6 +14,7 @@ related_adrs:
 related_prompt: artifacts/goals/002-goal-run-prompt.md
 arbitration_supersede: artifacts/reviews/2026-07-12-goal-arbitration-freeze.md
 code_review: artifacts/reviews/2026-07-30-goal-002-code-review-verdict.md
+exit_evidence: artifacts/reviews/002-goal-exit-evidence.md
 ---
 
 # Goal 002 — Kit product-ready multi-tenant
@@ -160,17 +162,19 @@ B5 consumer dogfood (#17)  ◄── kit mission outcome
 
 ## Binary program exit (DoD global)
 
-Goal **exits** when **all** are true (evidence on GH issues):
+Goal **exits** when **all** are true. **Evidence SSoT:** [`artifacts/reviews/002-goal-exit-evidence.md`](../reviews/002-goal-exit-evidence.md) (not GH epic closedness alone).
 
-1. [ ] `bun run validate:full` green on kit  
-2. [ ] **No public HMAC session path** (`AUTH_SESSION_ADAPTER` / `createHmacSessionPort` / HMAC login gone from live kit)  
-3. [ ] Local dogfood: **2 personas** use `/admin` vs `/app`; **invite + reset** work with email transport `log` (local) or `cf` (when binding present)  
-4. [ ] Tokens **never** clear-logged; `log` transport rejected outside dev/test  
-5. [ ] ≥1 product: `upstream` merge + `zero-edit` + `banlist` green + evidence on #17 (health app OK)  
-6. [ ] Phase B: migrations + **single** resolver + seed system roles + **CP-IDOR ≥8** (UI matrix optional)  
-7. [ ] AGENTS + README match BA-only + CF Email + Phase B stance (B1)  
-8. [ ] Supersede table applied (no dual park/unpark truths)  
-9. [ ] **Every critical-path epic has ≥1 merged (or green+`reviewed`) PR via `/ship`** — table of PR URLs in goal exit note
+Re-verified **2026-08-03** kit SHA `9414516` (partial — residual rows block `status: exited`):
+
+1. [x] `bun run validate:full` green on kit — **PASS** (exit ledger; Node ABI rebuild if needed)  
+2. [x] **No public HMAC session path** — **PASS** (PR #23)  
+3. [x] Local dogfood: **2 personas** `/admin` vs `/app`; **invite + reset** — **PASS (automated)** 2026-08-04: invitations 13 + password-reset 4 tests green; shells #24–#26 (manual SPA optional)  
+4. [x] Tokens **never** clear-logged; `log` transport rejected outside dev/test — **PASS** (PR #27/#28)  
+5. [x] ≥1 product: `upstream` + zero-edit + banlist — **PASS** 2026-08-04: recreated [silex-kit-dogfood](https://github.com/go-silex/silex-kit-dogfood) · evidence doc refreshed · harness green  
+6. [x] Phase B + **CP-IDOR ≥8** — **PASS** (PR #30)  
+7. [x] AGENTS + README BA-only + CF Email + Phase B — **PASS** (PR #29/#88)  
+8. [x] Supersede + B8 park surface — **PASS** (`docs/park-decisions-b8.md` · spec #20 accepted 2026-08-04)  
+9. [x] Critical-path `/ship` PRs — **PASS** (exit ledger)
 
 **Not required for exit:** Playwright hard gate forever-green, CodeRabbit enable, CF domain onboarded on Gosilex account, all four B6 patterns, TanStack Start, Paraglide, share M0 métier, GitHub OAuth.
 

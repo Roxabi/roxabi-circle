@@ -1,6 +1,6 @@
 # Testing strategy — Chemin A kit
 
-SSoT for **how we test** this monorepo. Complements [`AGENTS.md`](../AGENTS.md) (stack, security) and axial [ADR-0001](architecture/adr/0001-primary-axis-packages-compose-apps.md) / dual-auth [ADR-0002](architecture/adr/0002-session-hmac-interim-vs-better-auth.md).
+SSoT for **how we test** this monorepo. Complements [`AGENTS.md`](../AGENTS.md) (stack, security) and axial [ADR-0001](architecture/adr/0001-primary-axis-packages-compose-apps.md) / dual-credential [ADR-0002](architecture/adr/0002-session-hmac-interim-vs-better-auth.md) (Better Auth session **\|** Bearer `sk_`; HMAC retired).
 
 ---
 
@@ -37,14 +37,24 @@ merge-on-green (label reviewed + checks)
 
 | Layer | Role | Cost expectation |
 |---|---|---|
-| **Lefthook pre-push** | **Primary quality gate** — `validate:full` | Accept wall-clock; fix here |
-| **CI** (`validate-full` job) | **Secondary** — same `validate:full` if hooks skipped or local env lied | Should almost always be green if pre-push ran |
+| **Lefthook pre-push** | **Primary kit bar** — `validate:full` | Accept wall-clock; fix here |
+| **CI** (`validate-full` job) | **Secondary kit bar** — same `validate:full` if hooks skipped or local env lied | Should almost always be green if pre-push ran |
+| **Product CI** (`product-validate`) | **Product bar** — typecheck/test/build for `apps/<product>-*` via **copied** templates ([`product-validate.example.sh`](./templates/product-validate.example.sh), [`product-ci.example.yml`](./templates/product-ci.example.yml)) | Product repos only; not kit CI |
 | **Secret scan** | Orthogonal security | Always |
 
+**Kit bar vs product bar**
+
+| Gate | Scope | Who runs it |
+|---|---|---|
+| `bun run validate` | lint · typecheck · test · banlist · extract · zero-edit · env:check on **kit** packages / examples | kit + product clones (kit zones) |
+| `bun run validate:full` | kit bar + import-boundary · test:import-boundary · deny-upstream · **debt:check** · **test:debt** · agents-adr · coverage floors · license · quality-gates (file+folder) · build:kit · smoke:mcp | pre-push + kit CI — **does not** prove product apps are tested |
+| product-validate / product-ci | product packages under `apps/<product>-*` | product repo only (copy templates; never dual-edit kit `ci.yml` / `test-coverage.sh`) |
+
+False green: product with real apps and only kit `validate:full` green is **not** product-tested.
 ### Commands
 
 ```bash
-bunx lefthook install          # once per clone
+bun install                    # prepare → lefthook install only if core.hooksPath unset
 
 bun run validate               # lint · typecheck · test · banlist · extract · zero-edit · env:check
 bun run zero-edit              # product must not diverge kit paths without exception (kit = config only)
@@ -52,22 +62,37 @@ bun run env:check              # schema ↔ .dev.vars.example (DX only)
 bun run i18n:check             # messages contract (also in turbo test)
 bun run license:check          # dependency SPDX allowlist (UNKNOWN = warn)
 bun run test:coverage          # floors + HTML under coverage/<pkg>/
-bun run validate:full          # lint · typecheck · banlist · extract · zero-edit · env · test:coverage · license · build:kit · smoke:mcp (= pre-push; CI same)
+bun run validate:full          # kit bar (= pre-push; kit CI same) — not product apps
 
-# Before opening a PR (explicit habit even if hooks installed):
+# Before opening a PR on the kit (explicit habit even if hooks installed):
 bun run validate:full
+
+# Product bar (product repos only — after copying templates):
+# bash scripts/product/validate.sh
+# See docs/templates/product-validate.example.sh + product-ci.example.yml
 ```
 
 ### Non-negotiable local discipline
 
 | Rule | |
 |---|---|
-| Install hooks | `bunx lefthook install` after clone |
+| Install hooks | `bun install` — prepare installs only if `core.hooksPath` unset; never force install when set (would overwrite foreign hook wiring) |
 | **Forbidden** without written reason | `git push --no-verify`, `LEFTHOOK=0` |
 | If pre-push is red | Fix locally; do **not** “let CI tell us” |
 | Docs-only exception | Still run hooks unless emergency; extract/banlist are cheap insurance |
 
 Rationale: on Free private, branch protection is weak; **local pre-push is the process substitute**. Making CI the only full suite trains bypass culture and burns minutes on avoidable red.
+
+### `better-sqlite3` ABI (local red herring)
+
+Memory D1 tests load native `better-sqlite3`. After a **Node major upgrade**, suites may fail with `NODE_MODULE_VERSION` mismatch (e.g. module built for 127, runtime wants 137). That is **not** a product regression until rebuild is tried:
+
+```bash
+npm rebuild better-sqlite3
+bun run validate:full
+```
+
+Goal 002 exit evidence (2026-08-03) recorded this once — see [`artifacts/reviews/002-goal-exit-evidence.md`](../artifacts/reviews/002-goal-exit-evidence.md).
 
 ---
 
@@ -95,11 +120,14 @@ Floors are enforced by Vitest (`packages/config/vitest-coverage.mjs` + per-packa
 | **`apps/share-*` (P1 later)** | Product risks (upload modes, zip-slip, org membership, serve) | Forks of `@gosilex/*` stacks |
 | **`scripts/*` / `tools/*`** | Architecture gates: banlist, extract, zero-edit, env:check, license:check, coverage | Domain behaviour |
 
-### Design-system e2e
+### Design-system e2e (local only)
 
 - **Kit composition proof** (`@gosilex/ui` + admin shell in `example-web`).
 - **Not** product e2e. Do not grow it into artefact/upload flows.
-- Command: `bun run test:e2e:design-system` (API + web up).
+- **Local (API + web already up):** `bun run test:e2e:design-system` — fast when stack is warm.
+- **Local one-shot (cold start):** `bun run test:e2e:ci` (`scripts/e2e-ci.sh` — migrate, seed, start API+web, Chromium smoke, teardown).
+- **Not** in GitHub Actions CI, `validate:full`, or Lefthook pre-push — Free minutes + flake risk; local-first gate stays machine-cheap.
+- **CP-E2E** — proves: BA cookie login path + design-system overlays open without Base UI contract console errors. **Does not prove:** dual-auth, IDOR, org RBAC, product flows, a11y matrix.
 
 ### When product lands
 
@@ -115,7 +143,7 @@ Do not lock Better Auth internals forever. Lock **stable wire**:
 
 | Seam | Where | Stable? |
 |---|---|---|
-| 1. Crypto / session / key hash | `packages/auth` unit | Adapt when Better Auth replaces HMAC **impl** |
+| 1. Crypto / session / key hash | `packages/auth` unit | **Stable contract** — BA session + `sk_` hash; do not lock BA internals forever |
 | 2. Dual path HTTP (cookie + `sk_`) + cookie flags + IDOR | `apps/example-api` integration | **Stable** |
 | 3. FE wire: `credentials: 'include'`, envelope map, 401 | `apps/example-web` `lib/api*` (+ auth helpers) | **Stable** |
 
@@ -139,22 +167,43 @@ Machine-enforced today via full `validate` + `test:coverage` + package tests. Pr
 | **CP-SECRET** | fail-closed `SESSION_SECRET` outside development\|test | example-api |
 | **CP-R2** | keys under intended prefix; `joinObjectKey` rejects traversal | `packages/storage`, example-api |
 | **CP-FE-CRED** | `apiFetch` always `credentials: 'include'`; maps UNAUTHORIZED | example-web |
-| **CP-MCP** | tool allowlist; live stdio `tools/list` exact `ping`/`whoami` | `packages/mcp` unit + `bun run smoke:mcp` (in `validate:full` / CI) |
+| **CP-MCP-REG** | live registered names / `tools/list` equals app catalogue.names; planted extra tool fails assert | `packages/mcp` catalogue unit + `bun run smoke:mcp` |
+| **CP-MCP-SMOKE** | stdio JSON-RPC list + ping + whoami; whoami body matches `whoamiResultSchema`; no `sk_` in result | `bun run smoke:mcp` (in `validate:full` / CI) |
+| **CP-MCP-SCHEMA** | public Zod outs + public tool error codes on kit wrap paths | `packages/mcp` unit (`catalogue.test.ts`, handlers) |
+| **CP-MCP-BUDGET** | oversized input rejected before handler body (execute not called) | `packages/mcp` unit budget cases |
+| **CP-MCP** (legacy row) | same family as above — prefer CP-MCP-* | kept for old links |
 | **CP-BAN** | no product-share strings in packages / examples | `scripts/check-banned-strings.sh` |
 | **CP-EXTRACT** | structural extractability: required tree, banlist, import graph, orphan packages, ADRs (does **not** re-run lint/typecheck/test after a simulated drop) | `scripts/extract-dry-run.sh` |
 | **CP-ZERO-EDIT** | product consumers do not dual-edit kit paths; design overrides preferred; exceptions time-boxed + ticketed | `scripts/check-zero-edit-zones.sh` · `config/zero-edit-zones.json` · [`product-consumer-contract.md`](./product-consumer-contract.md) |
-| **CP-ENV** | Worker string env keys documented in `.dev.vars.example` (SSoT Zod schema); no real secrets in examples | `bun run env:check` — **DX only**, not “prod secrets validated” |
+| **CP-DENY** | multi-hop deny-upstream: kit origin no-op; product blocks remote name `upstream`, kit URL substring, and product/env-extended chassis substrings; weaken name-guard fails harness | `bun run test:deny-upstream` · `scripts/test-deny-upstream.sh` · `scripts/deny-upstream-push.sh` (in `validate:full`) |
+| **CP-IMPORT** | static R1–R4 import edges (packages↛apps, example-web↛example-api src / `cloudflare:workers`) after exemptions; self-test plants edges in temp tree | `bun run import-boundary` · `scripts/check-import-boundaries.ts` · `bun run test:import-boundary` (in `validate:full`) |
+| **CP-DEBT** | suppressions in `apps|packages` carry `DEBT:<slug>`; untagged + expiry (default **warn**, non-blocking); self-test plants untagged/tagged **and** expiry (stale / pin / warn) cases | `bun run debt:check` · `scripts/check-debt.ts` · `bun run test:debt` · [`debt-tracking.md`](./debt-tracking.md) (in `validate:full`) |
+| **CP-ENV** | **Kit only:** `apps/example-api` Worker string keys documented in `apps/example-api/.dev.vars.example` (SSoT Zod schema) + root Vite placeholders; no real secrets in examples. **Does not** cover product apps’ env inventories | `bun run env:check` — **DX only**, example-api scoped; not “prod secrets validated”, not product-wide |
 | **CP-LICENSE** | third-party deps on allowlist; disallowed SPDX fails | `bun run license:check` — **compliance hygiene**, not malware audit |
 | **CP-I18N** | FR/EN non-empty copy; key parity via TypeScript `Messages` | `messages.contract.test.ts` / `i18n:check` — **not** semantic/security review |
 | **CP-UI-CONTRACT** | known Base UI traps (e.g. MenuGroupContext, closed dialog) | `packages/ui` (+ design-system smoke) |
+| **CP-E2E** | BA cookie login + design-system overlays (Chromium); no Base UI contract console errors | **Local only:** `test:e2e:design-system` / `test:e2e:ci` — **not** dual-auth / IDOR / RBAC; not a CI gate |
 
-### Env / i18n / license — non-claims
+### MCP contract probes — non-claims
+
+| CP | Proves | Does **not** prove |
+|---|---|---|
+| **CP-MCP-REG** | tools/list (or captured runtime registered names) equals catalogue.names; planted extra name fails assert/smoke | tool business correctness; product apps’ registration discipline fleet-wide |
+| **CP-MCP-SMOKE** | stdio JSON-RPC list + ping + whoami path works; whoami body matches whoamiResultSchema; no sk_ in results | auth IDOR / org RBAC; cookie session; product tools |
+| **CP-MCP-SCHEMA** | public Zod outs + public error codes stable on kit paths | full FE session; API as sole schema owner for all `/api/me` fields |
+| **CP-MCP-BUDGET** | oversized input rejected before handler body; execute not called | full DoS resistance under attack; network-layer limits |
+
+**Honesty:** never claim “verified” for presence-only key checks; whoami `verified: true` only after `/api/me` subject parse OK.
+
+### Env / i18n / license / import-boundary — non-claims
 
 | Gate | Proves | Does **not** prove |
 |---|---|---|
-| `env:check` | Schema ↔ example file inventory | Runtime secret strength, CF dashboard secrets, deploy config |
+| `env:check` | **`apps/example-api`** schema ↔ `apps/example-api/.dev.vars.example` (+ root `VITE_*` placeholders) | Product app env schemas; runtime secret strength; CF dashboard secrets; deploy config; “all monorepo envs are complete” |
 | `i18n:check` / messages contract | Non-empty strings, no raw script tags in catalogs | Correct translation meaning, XSS if you render HTML unsafely |
 | `license:check` | SPDX allowlist vs installed tree | Package safety, correct license metadata, supply-chain integrity |
+| `import-boundary` / **CP-IMPORT** | String-literal `from` / `export … from` / side-effect `import` / `require` / `import()` edges that resolve under forbidden zones (R1–R4) after reason-required exemptions; clean tree exit 0; synthetic plant exit ≠ 0 | Runtime/DI purity; non-literal dynamic imports; full tsconfig alias graph; product-owned layer graphs; R5 routes↛repos; that excluding `*.test.ts` still polices test-only edges; `package.json` deps without a source import |
+| `debt:check` / **CP-DEBT** | Line comments `biome-ignore` / `@ts-expect-error` / `@ts-ignore` under `apps|packages` tagged with `DEBT:<slug>`; untagged + stale-without-pin reported (warn default → exit 0; fail via env); self-test covers untagged matrix **and** expiry (stale fail/warn, pin exempt) | That warn mode “manages” debt; line-level blame age; open GitHub issue existence for `#N` pins; `biome.json` overrides; suppressions in `scripts/`/`tools/`; full factory debt registry |
 
 Worker env SSoT: `apps/example-api/src/env.schema.ts`. Bindings `DB` / `BUCKET` stay out of `.dev.vars`.
 
@@ -169,7 +218,7 @@ Worker env SSoT: `apps/example-api/src/env.schema.ts`. Bindings `DB` / `BUCKET` 
 | Zip-slip / `private_key` → 404 | **Product** when `share-*` exists |
 | Playwright cookie journey in CI | Phase B6 — Chromium smoke; until then local e2e scripts |
 | Mutation testing on `packages/auth` | Optional **nightly / manual**, not PR gate until cheap |
-| Stateless HMAC logout | ADR-0002 interim — cookie clear only; Better Auth M3 for server sessions |
+| BA session logout / revoke wire | Covered by BA handler + cookie clear; prefer server-side session revoke tests when extending admin APIs |
 
 ### Org invites local E2E (B3 S2)
 
@@ -242,7 +291,7 @@ Avoid pure “mock every repo” theatre unless a bug proves the need.
         ├──────────────────────┤
         │  package units       │  auth, core, storage, types, mcp, ui contracts
         ├──────────────────────┤
-        │  architecture scripts│  banlist · extract · env:check · license (full)
+        │  architecture scripts│  banlist · extract · zero-edit · import-boundary · env:check · license (full)
         └──────────────────────┘
 ```
 
@@ -318,5 +367,5 @@ bun run --filter @gosilex/example-api test
 | [AGENTS.md](../AGENTS.md) | Stack, dual-mission, security for AI |
 | [README.md](../README.md) | Dev quickstart, credentials, coverage table |
 | [ADR-0001](architecture/adr/0001-primary-axis-packages-compose-apps.md) | Primary axis packages → apps |
-| [ADR-0002](architecture/adr/0002-session-hmac-interim-vs-better-auth.md) | Session interim vs Better Auth |
+| [ADR-0002](architecture/adr/0002-session-hmac-interim-vs-better-auth.md) | BA-only session + Bearer `sk_` dual-path (HMAC retired) |
 | [Frame](../artifacts/frames/001-share-platform-frame.md) | Product rules (P1 tests later) |

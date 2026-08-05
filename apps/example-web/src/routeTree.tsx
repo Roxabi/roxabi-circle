@@ -14,11 +14,14 @@ import {
 import { AdminHomePage } from './routes/admin/home'
 import { AdminModulesPage } from './routes/admin/modules'
 import { AdminOrgsPage } from './routes/admin/orgs'
+import { AdminUsersPage } from './routes/admin/users'
+import { ChangelogPage } from './routes/changelog'
 import { DashboardPage } from './routes/dashboard'
 import { DesignSystemPage } from './routes/design-system'
 import { ForgotPasswordPage } from './routes/forgot-password'
 import { IntegrationFeedbackPage } from './routes/integration-feedback'
 import { InviteAcceptPage } from './routes/invite-accept'
+import { ItemsPage } from './routes/items'
 import { KeysPage } from './routes/keys'
 import { LoginPage } from './routes/login'
 import { NotesPage } from './routes/notes'
@@ -73,6 +76,7 @@ const resetPasswordRoute = createRoute({
   validateSearch: (search: Record<string, unknown>) => ({
     token: typeof search.token === 'string' ? search.token : undefined,
     error: typeof search.error === 'string' ? search.error : undefined,
+    next: typeof search.next === 'string' ? search.next : undefined,
   }),
   component: ResetPasswordPage,
 })
@@ -152,10 +156,22 @@ const appNotesRoute = createRoute({
   component: NotesPage,
 })
 
+const appItemsRoute = createRoute({
+  getParentRoute: () => appLayoutRoute,
+  path: 'items',
+  component: ItemsPage,
+})
+
 const appKeysRoute = createRoute({
   getParentRoute: () => appLayoutRoute,
   path: 'keys',
   component: KeysPage,
+})
+
+const appChangelogRoute = createRoute({
+  getParentRoute: () => appLayoutRoute,
+  path: 'changelog',
+  component: ChangelogPage,
 })
 
 const appSettingsRoute = createRoute({
@@ -207,6 +223,12 @@ const adminOrgsRoute = createRoute({
   component: AdminOrgsPage,
 })
 
+const adminUsersRoute = createRoute({
+  getParentRoute: () => adminLayoutRoute,
+  path: 'users',
+  component: AdminUsersPage,
+})
+
 const adminModulesRoute = createRoute({
   getParentRoute: () => adminLayoutRoute,
   path: 'modules',
@@ -255,13 +277,16 @@ export const routeTree = rootRoute.addChildren([
   appLayoutRoute.addChildren([
     appIndexRoute,
     appNotesRoute,
+    appItemsRoute,
     appKeysRoute,
     appSettingsRoute,
+    appChangelogRoute,
     appOrgMembersRoute,
   ]),
   adminLayoutRoute.addChildren([
     adminIndexRoute,
     adminOrgsRoute,
+    adminUsersRoute,
     adminModulesRoute,
     adminDesignSystemRoute,
     adminFeedbackRoute,

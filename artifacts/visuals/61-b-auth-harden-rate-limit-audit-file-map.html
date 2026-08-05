@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="diagram:title" content="#61 B-auth-harden — file map">
+<title>#61 B-auth-harden — file map</title>
+<style>
+  :root { color-scheme: dark; --bg:#0d1117; --card:#161b22; --border:#30363d; --text:#fafafa; --muted:#8b93a1; --accent:#c084fc; --ok:#10b981; }
+  body { margin:0; font:14px/1.5 Inter,system-ui,sans-serif; background:var(--bg); color:var(--text); padding:2rem; }
+  h1 { font-size:1.25rem; }
+  p { color:var(--muted); }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(16rem,1fr)); gap:1rem; margin-top:1.25rem; }
+  .card { background:var(--card); border:1px solid var(--border); border-radius:8px; padding:1rem; }
+  .card h2 { margin:0 0 0.5rem; font-size:0.8rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--accent); }
+  ul { margin:0; padding-left:1.1rem; color:var(--muted); }
+  code { color:var(--ok); font-family:ui-monospace,monospace; font-size:0.85em; }
+</style>
+</head>
+<body>
+  <h1>#61 B-auth-harden — file × function map</h1>
+  <p>App-first under <code>apps/example-api</code>. No new packages.</p>
+  <div class="grid">
+    <div class="card">
+      <h2>Schema / migrate</h2>
+      <ul>
+        <li><code>migrations/0010_*.sql</code> — buckets + audit_events</li>
+        <li><code>db/schema.ts</code> — Drizzle tables</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h2>Rate limit</h2>
+      <ul>
+        <li><code>lib/rate-limit.ts</code> — assertRateLimit async, clientIp, resetRateLimits</li>
+        <li>Call sites: auth, admin-users, invitations, me, demo, feedback</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h2>Audit</h2>
+      <ul>
+        <li><code>repos/audit.ts</code> · <code>services/audit.ts</code></li>
+        <li><code>routes/admin-audit.ts</code> — GET list</li>
+        <li>Emit: admin-users, invitations, better-auth session hook</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h2>Tests / docs</h2>
+      <ul>
+        <li>rate-limit + audit integration tests</li>
+        <li><code>docs/auth-abuse-response.md</code></li>
+      </ul>
+    </div>
+  </div>
+</body>
+</html>

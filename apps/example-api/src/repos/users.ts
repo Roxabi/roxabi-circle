@@ -1,7 +1,7 @@
-import { eq } from 'drizzle-orm'
+import { desc, eq, like, or } from 'drizzle-orm'
 import type { DrizzleD1Database } from 'drizzle-orm/d1'
-import { baUser } from '../db/better-auth-schema'
-import { demoUsers, type schema } from '../db/schema'
+import { baAccount, baMember, baUser, baVerification } from '../db/better-auth-schema'
+import { demoUsers, type schema, userPlatformRoles } from '../db/schema'
 
 type Db = DrizzleD1Database<typeof schema>
 
@@ -20,4 +20,104 @@ export async function findBaUserById(db: Db, userId: string) {
 export async function findBaUserByEmail(db: Db, email: string) {
   const rows = await db.select().from(baUser).where(eq(baUser.email, email)).limit(1)
   return rows[0] ?? null
+}
+
+/** Insert BA user + credential account (seed / admin provision path). */
+export async function insertBaUserWithCredential(
+  db: Db,
+  row: {
+    id: string
+    email: string
+    name: string
+    passwordHash: string
+    emailVerified?: boolean
+    now?: Date
+  },
+) {
+  const now = row.now ?? new Date()
+  await db.insert(baUser).values({
+    id: row.id,
+    name: row.name,
+    email: row.email,
+    emailVerified: row.emailVerified ?? true,
+    createdAt: now,
+    updatedAt: now,
+  })
+  await db.insert(baAccount).values({
+    id: `acc_${row.id}`,
+    accountId: row.id,
+    providerId: 'credential',
+    userId: row.id,
+    password: row.passwordHash,
+    createdAt: now,
+    updatedAt: now,
+  })
+}
+
+/** List BA users (newest first). Optional email/name `q` substring filter. */
+export async function listBaUsers(db: Db, opts?: { q?: string; limit?: number; offset?: number }) {
+  const limit = Math.min(Math.max(opts?.limit ?? 50, 1), 100)
+  const offset = Math.max(opts?.offset ?? 0, 0)
+  const q = opts?.q?.trim()
+  if (q) {
+    const pattern = `%${q}%`
+    return db
+      .select({
+        id: baUser.id,
+        email: baUser.email,
+        name: baUser.name,
+        emailVerified: baUser.emailVerified,
+        createdAt: baUser.createdAt,
+      })
+      .from(baUser)
+      .where(or(like(baUser.email, pattern), like(baUser.name, pattern)))
+      .orderBy(desc(baUser.createdAt))
+      .limit(limit)
+      .offset(offset)
+  }
+  return db
+    .select({
+      id: baUser.id,
+      email: baUser.email,
+      name: baUser.name,
+      emailVerified: baUser.emailVerified,
+      createdAt: baUser.createdAt,
+    })
+    .from(baUser)
+    .orderBy(desc(baUser.createdAt))
+    .limit(limit)
+    .offset(offset)
+}
+
+/** Mint BA-compatible reset-password verification token. Returns raw token. */
+export async function insertResetPasswordToken(
+  db: Db,
+  input: { userId: string; token: string; expiresAt: Date; now?: Date },
+) {
+  const now = input.now ?? new Date()
+  await db.insert(baVerification).values({
+    id: `ver_${crypto.randomUUID().replace(/-/g, '')}`,
+    identifier: `reset-password:${input.token}`,
+    value: input.userId,
+    expiresAt: input.expiresAt,
+    createdAt: now,
+    updatedAt: now,
+  })
+}
+
+/** Delete verification rows for a user (value = userId). */
+export async function deleteVerificationsForUser(db: Db, userId: string) {
+  await db.delete(baVerification).where(eq(baVerification.value, userId))
+}
+
+/**
+ * Compensate a failed provision: members → platform role → verification → account → user.
+ * Best-effort ordered deletes (D1 has no multi-statement TX).
+ */
+export async function deleteBaUserCascade(db: Db, userId: string) {
+  await db.delete(baMember).where(eq(baMember.userId, userId))
+  await db.delete(userPlatformRoles).where(eq(userPlatformRoles.userId, userId))
+  await deleteVerificationsForUser(db, userId)
+  await db.delete(baAccount).where(eq(baAccount.userId, userId))
+  await db.delete(baUser).where(eq(baUser.id, userId))
 }
