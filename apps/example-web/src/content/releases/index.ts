@@ -1,5 +1,5 @@
 /**
- * App-owned release notes (L1 changelog recipe — GH #107 / Pilotage #100).
+ * App-owned release notes (L1 changelog recipe — GH #107).
  * Product forks: keep your client notes under apps/<product>-web only (zero-edit).
  */
 

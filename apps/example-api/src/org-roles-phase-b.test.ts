@@ -1,6 +1,6 @@
 /**
  * ADR-0003 Phase B — custom roles + grants + IDOR matrix (CP-IDOR ≥ 8).
- * Pilotage #127 · GH #22
+ * GH #22
  */
 import { createDb } from '@kit/db'
 import { describe, expect, it } from 'vitest'

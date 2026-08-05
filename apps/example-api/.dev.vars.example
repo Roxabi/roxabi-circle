@@ -21,5 +21,5 @@ EMAIL_TRANSPORT=log
 # EMAIL_ALLOW_DOMAINS=example.com,client-acme.test
 # EMAIL_FROM_DOMAIN=example.com
 # RESEND_API_KEY=   # only when EMAIL_TRANSPORT=resend
-# Integrations (Pilotage feedback, etc.) → D1 platform_modules.config_json — configure in admin UI.
+# Integrations (optional modules) → D1 platform_modules.config_json — configure in admin UI.
 PRESIGN_MODE=mock
