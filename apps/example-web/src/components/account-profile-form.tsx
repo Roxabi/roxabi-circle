@@ -1,12 +1,4 @@
-import {
-  Button,
-  Field,
-  FieldDescription,
-  FieldError,
-  FieldGroup,
-  FieldLabel,
-  Input,
-} from '@gosilex/ui'
+import { Button, Field, FieldDescription, FieldError, FieldGroup, FieldLabel, Input } from '@kit/ui'
 import { useForm } from '@tanstack/react-form'
 import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef } from 'react'

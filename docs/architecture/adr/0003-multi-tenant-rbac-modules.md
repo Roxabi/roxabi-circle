@@ -4,7 +4,7 @@ status: accepted
 date: 2026-07-17
 amended: 2026-07-30
 axial: false
-consensus: artifacts/analyses/002-multi-tenant-rbac-modules-consensus.md
+consensus: (archived operator notes)
 supersedes_notes: >
   2026-07-30: A0 = HMAC session retired (see ADR-0002 amend).
   Phase B custom roles unparked as planned ship (after A4/invites UX);
@@ -23,12 +23,12 @@ Chemin A kit must support multi-actor SaaS on Cloudflare (Workers · Hono · D1 
 4. **Modules** — features can be available platform-wide, then enabled per client.
 5. **Solo vs team client** — one person *or* many people under the same client; one data model only.
 
-Spark / Metalyde / Ether are **inspiration only**. This kit is the **schema SSoT**; product apps converge here.
+This kit is the **schema SSoT**; product apps converge here.
 
 Session identity is covered by [ADR-0002](./0002-session-hmac-interim-vs-better-auth.md) (`SessionPort`, **Better Auth only**, dual credential cookie \| `sk_`). This ADR covers **tenancy + authorization + modules** on top of identity. Org/RBAC surfaces assume BA session (HMAC retired).
 
 Human + multi-agent consensus (architect, security-auditor, backend-dev):  
-[`artifacts/analyses/002-multi-tenant-rbac-modules-consensus.md`](../../../artifacts/analyses/002-multi-tenant-rbac-modules-consensus.md).
+operator analysis archive.
 
 ## Options considered
 
@@ -107,7 +107,7 @@ organization_role_module_grants (role_id, module_id, access: write | read | disa
 - Templates later = copy-on-create blueprints, not live shared grant rows.
 - System roles `owner|admin|member|reader` remain `is_system=true` with seed capability matrix as defaults.
 - Custom role keys map via `member.role` / membership role field per BA + kit convention; **fine grants resolve kit-side** (not BA static AC alone).
-- **Empty `@gosilex/rbac` package forbidden** — helpers live in `@gosilex/auth` (pure) and/or app services until ≥2 call sites (A8).
+- **Empty `@kit/rbac` package forbidden** — helpers live in `@kit/auth` (pure) and/or app services until ≥2 call sites (A8).
 - **Ship order:** after BA-only (ADR-0002 A0) + A4 shells/invites (UX to exercise grants). Implementation epic: GitHub (RBAC Phase B).
 
 ### D5 — Platform roles
@@ -235,15 +235,15 @@ requireOrgRole(minRole?)         -- owner > admin > member > reader
 requireModule(moduleId, op?)     -- effective module access
 ```
 
-Protected by default; public routes explicit. Prefer **404** on cross-tenant resource IDOR; **403** on authenticated “not allowed” management actions (stable codes in `@gosilex/core` / types).
+Protected by default; public routes explicit. Prefer **404** on cross-tenant resource IDOR; **403** on authenticated “not allowed” management actions (stable codes in `@kit/core` / types).
 
 ### D13 — Package placement (ADR-0001)
 
 | Location | Owns |
 |---|---|
-| `@gosilex/auth` | SQL compose artifacts for BA org (+ kit RBAC SQL if shared); role constants; pure hierarchy helpers; thin guard factories with injected ports (**no** product `MODULE_IDS`) |
+| `@kit/auth` | SQL compose artifacts for BA org (+ kit RBAC SQL if shared); role constants; pure hierarchy helpers; thin guard factories with injected ports (**no** product `MODULE_IDS`) |
 | `apps/example-*` | Drizzle wire-up, routes, seed multi-persona, module registry, integration tests |
-| New `@gosilex/rbac` / `@gosilex/tenancy` | **No** empty package in Phase A (promote only at two call sites or superseding ADR) |
+| New `@kit/rbac` / `@kit/tenancy` | **No** empty package in Phase A (promote only at two call sites or superseding ADR) |
 
 ### D14 — Seed acceptance (kit demo)
 
@@ -289,7 +289,7 @@ IDOR / cross-role tests are a **quality gate** for tenant routes (see consensus 
 
 ### Neutral
 
-- Spark/Metalyde/Ether remain reference products; they do not define kit vocabulary (`LEAD`/`CONSULTANT` stay product-specific).
+- Product apps define their own role vocabulary.
 
 ## Anti-patterns
 
@@ -300,13 +300,13 @@ IDOR / cross-role tests are a **quality gate** for tenant routes (see consensus 
 - Subject-global API keys across multiple orgs.
 - Authorizing mutations from BA active-org cookie alone (no path/header re-check).
 - Module enablement only in BA static AC statements (no D1 available/enabled).
-- Empty `@gosilex/rbac` package “for later”.
+- Empty `@kit/rbac` package “for later”.
 - Copying share-frame `private_acl` / GitHub org recheck as kit multi-tenant spine.
 
 ## Related
 
 - [ADR-0001](./0001-primary-axis-packages-compose-apps.md) — packages compose apps  
 - [ADR-0002](./0002-session-hmac-interim-vs-better-auth.md) — BA-only session + `sk_` dual-path  
-- Consensus: `artifacts/analyses/002-multi-tenant-rbac-modules-consensus.md`  
-- Cross-app features: `artifacts/analyses/001-cross-app-features-metalyde-ether-enzo-spark.md`  
+- Consensus: operator archive  
+
 - Phase A modules: `platform_modules` / `organization_modules` (legacy `kit_modules` migrated in #11)

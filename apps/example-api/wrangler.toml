@@ -25,7 +25,7 @@ name = "EMAIL"
 
 # Non-secret defaults for local/dev tooling. Secrets stay in .dev.vars / CF secrets.
 [vars]
-DEMO_USER_EMAIL = "demo@gosilex.local"
+DEMO_USER_EMAIL = "demo@kit.local"
 CORS_ORIGINS = "http://localhost:5173,http://127.0.0.1:5173"
 
 # B6 P4 #84 — demo queue + hourly cron (local/remote names)

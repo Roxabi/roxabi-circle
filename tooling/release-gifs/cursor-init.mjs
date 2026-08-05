@@ -1,4 +1,4 @@
-/** Demo cursor init script (from Metalyde pattern — kit-generic). */
+/** Demo cursor init script (from product pattern — kit-generic). */
 export const CURSOR_INIT_SCRIPT = `
 (() => {
   if (window.__pwDemoCursorReady) return;

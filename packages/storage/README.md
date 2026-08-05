@@ -1,4 +1,4 @@
-# `@gosilex/storage`
+# `@kit/storage`
 
 R2 helpers for Chemin A kit apps: safe keys, prefix-enforced client, light **PUT** presign.
 
@@ -19,7 +19,7 @@ R2 helpers for Chemin A kit apps: safe keys, prefix-enforced client, light **PUT
 - Example app: `PRESIGN_MODE=mock` (default) · `s3` **fail-closed** until a real signer is wired.
 
 ```ts
-import { createMockPresignSigner, createPresignedUrl } from '@gosilex/storage'
+import { createMockPresignSigner, createPresignedUrl } from '@kit/storage'
 
 const signer = createMockPresignSigner()
 const { url, headers, expiresAt } = await createPresignedUrl(signer, {
@@ -34,11 +34,11 @@ Demo HTTP (auth required):
 
 ```bash
 # after cookie session on $API (see root README Kit patterns B6)
-curl -sS -b /tmp/gosilex-cj -c /tmp/gosilex-cj -X POST "$API/api/uploads/presign" \
+curl -sS -b /tmp/kit-cj -c /tmp/kit-cj -X POST "$API/api/uploads/presign" \
   -H 'content-type: application/json' -H "Origin: $ORIGIN" \
   -d '{"filename":"file.bin","contentType":"application/octet-stream","size":1024}'
 
-curl -sS -b /tmp/gosilex-cj -c /tmp/gosilex-cj -X POST "$API/api/uploads/<uploadId>/complete" \
+curl -sS -b /tmp/kit-cj -c /tmp/kit-cj -X POST "$API/api/uploads/<uploadId>/complete" \
   -H 'content-type: application/json' -H "Origin: $ORIGIN" \
   -d '{"key":"<key from presign>"}'
 ```

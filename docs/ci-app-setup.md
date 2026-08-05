@@ -1,15 +1,15 @@
-# GitHub App `gosilex-ci` — setup (no PAT)
+# GitHub App `kit-ci` — setup (no PAT)
 
-Same role as **roxabi-ci** on the Roxabi org: ephemeral tokens for **merge-on-green**, cascade `push` workflows, and merge of PRs that touch `.github/workflows/*`.
+Same role as **kit-ci** on the operator org: ephemeral tokens for **merge-on-green**, cascade `push` workflows, and merge of PRs that touch `.github/workflows/*`.
 
-**No classic PAT.** Prefer this App org-wide for all `go-silex/*` private repos on Free plan.
+**No classic PAT.** Prefer this App org-wide for all `your-org/*` private repos on Free plan.
 
 > **Why this matters:** auto-merge (label `reviewed` + green checks → merge commit) needs this App.
 >
 > | State | How you know | Merge |
 > |---|---|---|
-> | **App not set** | Job green + **warning** `Manual merge required` + Job Summary « gosilex-ci: not configured » | **Human** (`gh pr merge --merge` or UI) |
-> | **App set** | Mint step runs; merge attributed to `gosilex-ci[bot]` | Auto when `reviewed` + CI green |
+> | **App not set** | Job green + **warning** `Manual merge required` + Job Summary « kit-ci: not configured » | **Human** (`gh pr merge --merge` or UI) |
+> | **App set** | Mint step runs; merge attributed to `kit-ci[bot]` | Auto when `reviewed` + CI green |
 >
 > Gate flag = **non-secret** org/repo var `CI_APP_ID` (never check secrets in `if:`).
 > Private key stays in secret `CI_APP_PRIVATE_KEY` and is only used when the var is set.
@@ -17,15 +17,15 @@ Same role as **roxabi-ci** on the Roxabi org: ephemeral tokens for **merge-on-gr
 ## 1. Create the App (UI — one-time)
 
 1. Open (org owner) :  
-   **https://github.com/organizations/go-silex/settings/apps/new**  
+   **https://github.com/organizations/your-org/settings/apps/new**  
    (or *Settings → Developer settings → GitHub Apps → New GitHub App* under the org)
 
 2. **Identity**
 
    | Field | Value |
    |---|---|
-   | GitHub App name | `gosilex-ci` (must be unique on GitHub) |
-   | Homepage URL | `https://github.com/go-silex` |
+   | GitHub App name | `kit-ci` (must be unique on GitHub) |
+   | Homepage URL | `https://github.com/your-org` |
    | Callback URL | leave empty / n/a |
    | Webhook | **uncheck** Active (token mint only; no webhook needed) |
 
@@ -43,7 +43,7 @@ Same role as **roxabi-ci** on the Roxabi org: ephemeral tokens for **merge-on-gr
    | **Dependabot alerts** | **Read-only** (required for `dependabot-alert-slack.yml` poll — without it API returns `403 Resource not accessible by integration`) |
 
 4. **Where can this App be installed?**  
-   → **Only on this account** (`go-silex`) — or any account if you prefer flexibility.
+   → **Only on this account** (`your-org`) — or any account if you prefer flexibility.
 
 5. Create App → note **App ID** (numeric, top of app settings).
 
@@ -51,32 +51,32 @@ Same role as **roxabi-ci** on the Roxabi org: ephemeral tokens for **merge-on-gr
 
 ## 2. Install on the org
 
-1. App settings → **Install App** → **go-silex**
+1. App settings → **Install App** → **your-org**
 2. **All repositories** (recommended for agency CI)  
-   or only `silex-boilerplate` first, then product consumers
+   or only `kit` first, then product consumers
 
 ## 3. Store credentials
 
-### Free private org (go-silex) — **repo-level is required**
+### Free private org (your-org) — **repo-level is required**
 
 On GitHub **Free** plans, **organization** Actions variables/secrets with visibility “all” often **do not reach private repositories**. Symptom: merge-on-green log shows `APP_ID:` empty + warning `Manual merge required`, even when org vars exist.
 
 **Always set repo-level** on each private consumer (and on the kit if needed):
 
 ```bash
-# PEM from Vaultwarden github/gosilex/gosilex-ci → ~/.roxabi/secrets/gosilex-ci.private-key.pem
-APP_ID=4297393   # gosilex-ci App ID
-PEM=~/.roxabi/secrets/gosilex-ci.private-key.pem
+# PEM from Vaultwarden github/your-org/kit-ci → ~/.kit/secrets/kit-ci.private-key.pem
+APP_ID=4297393   # kit-ci App ID
+PEM=~/.kit/secrets/kit-ci.private-key.pem
 
-gh variable set CI_APP_ID -R go-silex/<repo> --body "$APP_ID"
-gh secret set CI_APP_PRIVATE_KEY -R go-silex/<repo> < "$PEM"
+gh variable set CI_APP_ID -R your-org/<repo> --body "$APP_ID"
+gh secret set CI_APP_PRIVATE_KEY -R your-org/<repo> < "$PEM"
 ```
 
 Optional org-level (nice for public repos / future Team plan; **not sufficient alone** on Free private):
 
 ```bash
-gh variable set CI_APP_ID --org go-silex --body '<APP_ID>' --visibility all
-gh secret set CI_APP_PRIVATE_KEY --org go-silex --visibility all < /path/to/gosilex-ci.pem
+gh variable set CI_APP_ID --org your-org --body '<APP_ID>' --visibility all
+gh secret set CI_APP_PRIVATE_KEY --org your-org --visibility all < /path/to/kit-ci.pem
 ```
 
 ### Dual-branch products (`main` + `staging`)
@@ -94,10 +94,10 @@ Full **zero-edit** contract: [`product-consumer-contract.md`](./product-consumer
 
 When spinning a product consumer (fork / new repo + `upstream` → this kit):
 
-1. [ ] Create GitHub private repo (under `go-silex` **or** a foreign org — see below)
+1. [ ] Create GitHub private repo (under `your-org` **or** a foreign org — see below)
 2. [ ] Clone kit as starting point; set remotes (**no kit file edits**):
    ```bash
-   git remote add upstream git@github.com:go-silex/silex-boilerplate.git
+   git remote add upstream git@github.com:kit-parent.git
    git remote set-url --push upstream no_push
    # deny-upstream is already in kit lefthook — do not copy a divergent hook
    ```
@@ -110,8 +110,8 @@ When spinning a product consumer (fork / new repo + `upstream` → this kit):
 Verify **repo** credentials (this is what Free private actually uses):
 
 ```bash
-gh variable list -R go-silex/<repo> | grep CI_APP
-gh secret list -R go-silex/<repo> | grep CI_APP
+gh variable list -R your-org/<repo> | grep CI_APP
+gh secret list -R your-org/<repo> | grep CI_APP
 ```
 
 ### First product on a foreign org
@@ -132,22 +132,22 @@ Secret/var **names are kit contract** — do not rename them to match the org br
 | **`CI_APP_ID`** | variable (enable flag) |
 | **`CI_APP_PRIVATE_KEY`** | secret (PEM) |
 
-Do **not** use obsolete `GOSILEX_CI_APP_*` names — workflows read **`CI_APP_*` only**.
+Do **not** use obsolete `Kit_CI_APP_*` names — workflows read **`CI_APP_*` only**.
 
 ## 4. Workflow consumers
 
 | Workflow | Usage |
 |---|---|
-| `silex-boilerplate` `.github/workflows/merge-on-green.yml` | mint token → merge when `reviewed` + checks green |
-| Product repos (`silex-share`, …) | same mint step / org secrets (do not push to this kit as upstream) |
+| `kit` `.github/workflows/merge-on-green.yml` | mint token → merge when `reviewed` + checks green |
+| Product repos (`legacy-product`, …) | same mint step / org secrets (do not push to this kit as upstream) |
 
 ## 5. Smoke test
 
 1. Open a tiny PR to `staging` (docs typo)
 2. Wait for **Secret scan** green
-3. `gh pr edit <n> -R go-silex/silex-boilerplate --add-label reviewed`
+3. `gh pr edit <n> -R kit-parent --add-label reviewed`
 4. Expect **Merge on Green** to merge with a **merge commit**
-5. Check run log: mint step succeeds; merge attributed to **`gosilex-ci[bot]`**
+5. Check run log: mint step succeeds; merge attributed to **`kit-ci[bot]`**
 
 If mint fails with *private-key must be set*: secret not visible to the repo (install App + secret visibility).
 
@@ -168,9 +168,9 @@ If mint fails with *private-key must be set*: secret not visible to the repo (in
 
 ## Refs
 
-- Roxabi twin: `ROXABI_CI_APP_ID` / `ROXABI_CI_APP_PRIVATE_KEY` + forge `auto-merge.yml`  
+- operator twin: `KIT_CI_APP_ID` / `KIT_CI_APP_PRIVATE_KEY` + forge `auto-merge.yml`  
 - Action: `actions/create-github-app-token`  
-- silex-share: `AGENTS.md` § GitHub Free  
+- legacy-product: `AGENTS.md` § GitHub Free  
 
 ## Related
 

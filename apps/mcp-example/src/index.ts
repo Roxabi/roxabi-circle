@@ -2,9 +2,9 @@
 /**
  * MCP example — stdio tools: ping, whoami only.
  *
- * Registration is **only** via @gosilex/mcp createToolCatalogue + registerAll.
+ * Registration is **only** via @kit/mcp createToolCatalogue + registerAll.
  *
- * whoami verifies Bearer sk_ via GET {API_BASE_URL}/api/me (see @gosilex/mcp).
+ * whoami verifies Bearer sk_ via GET {API_BASE_URL}/api/me (see @kit/mcp).
  *
  * Env:
  * - AUTHORIZATION=sk_… or API_KEY=sk_…  (machine key)
@@ -19,7 +19,7 @@ import {
   pingResultSchema,
   type ToolDef,
   whoamiResultSchema,
-} from '@gosilex/mcp'
+} from '@kit/mcp'
 import { FastMCP } from 'fastmcp'
 import { z } from 'zod'
 
@@ -65,7 +65,7 @@ export const catalogue = createToolCatalogue([pingTool, whoamiTool])
 export const REGISTERED_TOOL_NAMES = catalogue.names
 
 const server = new FastMCP({
-  name: 'gosilex-mcp-example',
+  name: 'kit-mcp-example',
   version: '0.0.1',
 })
 

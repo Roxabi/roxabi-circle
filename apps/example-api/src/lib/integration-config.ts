@@ -6,16 +6,16 @@ export const INTEGRATION_CONFIG_PATHS: Record<KitModuleId, string> = {
 }
 
 export const feedbackIntegrationSchema = z.object({
-  sparkUrl: z.string().url(),
-  sparkApiKey: z.string().min(8),
+  pilotageUrl: z.string().url(),
+  pilotageApiKey: z.string().min(8),
 })
 
 export type FeedbackIntegrationConfig = z.infer<typeof feedbackIntegrationSchema>
 
 export const feedbackIntegrationSaveSchema = z.object({
-  sparkUrl: z.string().url(),
+  pilotageUrl: z.string().url(),
   /** Omit or empty to keep the stored key. */
-  sparkApiKey: z.string().optional(),
+  pilotageApiKey: z.string().optional(),
 })
 
 export type ModulePublicState = {

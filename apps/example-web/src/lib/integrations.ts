@@ -5,7 +5,7 @@ import { modulesQueryKey } from './modules'
 export type FeedbackIntegration = {
   id: 'feedback'
   configured: boolean
-  sparkUrl: string
+  pilotageUrl: string
   hasApiKey: boolean
   apiKeyPreview: string | null
 }
@@ -28,7 +28,7 @@ export function useIntegration(id: string, opts?: { enabled?: boolean }) {
 export function useSaveIntegration(id: string) {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (body: { sparkUrl: string; sparkApiKey?: string }) =>
+    mutationFn: async (body: { pilotageUrl: string; pilotageApiKey?: string }) =>
       apiFetch<IntegrationResponse>(`/api/integrations/${id}`, {
         method: 'PUT',
         body: JSON.stringify(body),

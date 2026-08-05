@@ -18,8 +18,8 @@ describe('handleFeedbackReport', () => {
     expect(res.status).toBe(400)
   })
 
-  it('returns 503 when Spark key missing', async () => {
-    const app = new Hono<{ Bindings: { FEEDBACK_ENABLED: string; SPARK_URL: string } }>()
+  it('returns 503 when Pilotage key missing', async () => {
+    const app = new Hono<{ Bindings: { FEEDBACK_ENABLED: string; PILOTAGE_URL: string } }>()
     app.post('/api/report', (c) =>
       handleFeedbackReport(c, {
         getAuthor: () => 'demo',
@@ -32,7 +32,7 @@ describe('handleFeedbackReport', () => {
     const res = await app.request(
       'http://localhost/api/report',
       { method: 'POST', body: fd },
-      { FEEDBACK_ENABLED: 'true', SPARK_URL: 'http://localhost:3939' },
+      { FEEDBACK_ENABLED: 'true', PILOTAGE_URL: 'http://localhost:3939' },
     )
     expect(res.status).toBe(503)
   })
@@ -54,7 +54,7 @@ describe('handleFeedbackReport', () => {
     expect(body.error).toContain('désactivés')
   })
 
-  it('proxies to Spark when enabled', async () => {
+  it('proxies to Pilotage when enabled', async () => {
     const fetchMock = vi.fn(
       async () =>
         new Response(JSON.stringify({ ref: 7, clientSlug: 'kit', type: 'bug' }), { status: 200 }),
@@ -63,8 +63,8 @@ describe('handleFeedbackReport', () => {
     const app = new Hono<{
       Bindings: {
         FEEDBACK_ENABLED: string
-        SPARK_URL: string
-        SPARK_API_KEY: string
+        PILOTAGE_URL: string
+        PILOTAGE_API_KEY: string
       }
     }>()
     app.post('/api/report', (c) =>
@@ -83,8 +83,8 @@ describe('handleFeedbackReport', () => {
       { method: 'POST', body: fd },
       {
         FEEDBACK_ENABLED: 'true',
-        SPARK_URL: 'http://localhost:3939',
-        SPARK_API_KEY: 'spk_test',
+        PILOTAGE_URL: 'http://localhost:3939',
+        PILOTAGE_API_KEY: 'fbk_test',
       },
     )
 

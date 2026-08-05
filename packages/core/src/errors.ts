@@ -1,5 +1,5 @@
-import type { ApiErrorBody, ErrorCodeName } from '@gosilex/types'
-import { ErrorCode } from '@gosilex/types'
+import type { ApiErrorBody, ErrorCodeName } from '@kit/types'
+import { ErrorCode } from '@kit/types'
 
 const CODE_STATUS: Record<ErrorCodeName, number> = {
   UNAUTHORIZED: 401,

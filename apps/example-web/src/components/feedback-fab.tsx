@@ -1,5 +1,5 @@
-import { FeedbackButton } from '@gosilex/feedback/react'
-import '@gosilex/feedback/styles.css'
+import { FeedbackButton } from '@kit/feedback/react'
+import '@kit/feedback/styles.css'
 import { useLocale } from '../lib/locale'
 import { isModuleOn, useModules } from '../lib/modules'
 

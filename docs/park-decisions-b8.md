@@ -1,15 +1,15 @@
 # B8 — Park decisions (live SSoT pointer)
 
-**Status:** accepted · **Date:** 2026-08-04 · **Epic:** [GH #20](https://github.com/go-silex/silex-boilerplate/issues/20) · Spark **#121**
+**Status:** accepted · **Date:** 2026-08-04 · **Epic:** [GH #20](https://example.com/kit/issues/20)
 
-Full decision records: [`artifacts/specs/20-epic-b8-decisions-park-spec.md`](../artifacts/specs/20-epic-b8-decisions-park-spec.md)
+Decision records: operator tracker.
 
 ## Live park surface (do not implement without unpark)
 
 | ID | Topic | Posture | Unpark |
 |---|---|---|---|
-| **DR-B8-01** | Paraglide monorepo | **Park** — TS catalogs + `@gosilex/i18n` live | ≥2 products hit key-drift / path locales / hub mandate |
-| **DR-B8-03** | Patchlog UI (Spark #100) | **L1 shipping** (GH #107 · recipe + `example-web`) · **L2 package still park** | L2: ≥2 products need same in-app CRUD + MD/static insufficient |
+| **DR-B8-01** | Paraglide monorepo | **Park** — TS catalogs + `@kit/i18n` live | ≥2 products hit key-drift / path locales / hub mandate |
+| **DR-B8-03** | Patchlog UI () | **L1 shipping** (GH #107 · recipe + `example-web`) · **L2 package still park** | L2: ≥2 products need same in-app CRUD + MD/static insufficient |
 | **DR-B8-05** | Plausible SPA multi-site | **Deferred-closed** — opt-in hub, no phone-home default | Public SPA needs hub entry; env-gated snippet only |
 | — | TanStack Start as default backend | **No** — Vite SPA + Hono Worker | Marketing/SSR-only exception, not kit spine |
 

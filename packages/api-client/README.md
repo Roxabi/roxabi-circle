@@ -1,17 +1,17 @@
-# `@gosilex/api-client`
+# `@kit/api-client`
 
-Isomorphic HTTP helper for GOSILEX kit apps: `fetch` + kit error envelope + cookie credentials.
+Isomorphic HTTP helper for Kit kit apps: `fetch` + kit error envelope + cookie credentials.
 
 ## Install (workspace)
 
 ```json
-"@gosilex/api-client": "workspace:*"
+"@kit/api-client": "workspace:*"
 ```
 
 ## Usage
 
 ```ts
-import { createApiClient, ApiError, apiErrorToMessage } from '@gosilex/api-client'
+import { createApiClient, ApiError, apiErrorToMessage } from '@kit/api-client'
 
 const { apiFetch } = createApiClient({
   baseUrl: import.meta.env.VITE_API_URL ?? '',

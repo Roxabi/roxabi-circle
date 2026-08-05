@@ -1,4 +1,4 @@
-import { createDb } from '@gosilex/db'
+import { createDb } from '@kit/db'
 import { eq } from 'drizzle-orm'
 import { describe, expect, it, vi } from 'vitest'
 import { createApp } from './app'
@@ -60,7 +60,7 @@ describe('audit (B-auth-harden #61)', () => {
 
   it('create user emits user.created + membership + optional platform_role', async () => {
     const { app, env, db } = await seedEnv()
-    const cookie = await signIn(app, env, 'super@gosilex.local')
+    const cookie = await signIn(app, env, 'super@kit.local')
     const email = `audit-user-${Date.now()}@example.com`
     const res = await app.request(
       '/api/admin/users',
@@ -95,11 +95,11 @@ describe('audit (B-auth-harden #61)', () => {
 
   it('first_login is idempotent across two sessions', async () => {
     const { app, env, db } = await seedEnv()
-    await signIn(app, env, 'super@gosilex.local')
-    await signIn(app, env, 'super@gosilex.local')
+    await signIn(app, env, 'super@kit.local')
+    await signIn(app, env, 'super@kit.local')
     const me = await app.request(
       '/api/me',
-      { headers: { cookie: await signIn(app, env, 'super@gosilex.local') } },
+      { headers: { cookie: await signIn(app, env, 'super@kit.local') } },
       env,
     )
     const subject = ((await me.json()) as { subject: string }).subject
@@ -110,8 +110,8 @@ describe('audit (B-auth-harden #61)', () => {
 
   it('GET /api/admin/audit-events super_admin only', async () => {
     const { app, env } = await seedEnv()
-    const superCookie = await signIn(app, env, 'super@gosilex.local')
-    const staffCookie = await signIn(app, env, 'staff@gosilex.local')
+    const superCookie = await signIn(app, env, 'super@kit.local')
+    const staffCookie = await signIn(app, env, 'staff@kit.local')
 
     const ok = await app.request(
       '/api/admin/audit-events?limit=10',

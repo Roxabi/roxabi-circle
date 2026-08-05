@@ -1,4 +1,4 @@
-import { createDb } from '@gosilex/db'
+import { createDb } from '@kit/db'
 import { eq } from 'drizzle-orm'
 import { describe, expect, it } from 'vitest'
 import { createApp } from './app'
@@ -55,7 +55,7 @@ describe('org RBAC (ADR-0003 Phase A) — IDOR matrix', () => {
 
   it('BA org mutation paths are denied (Phase A seed-only)', async () => {
     const { app, env } = await seedEnv()
-    const cookie = await signIn(app, env, 'staff@gosilex.local')
+    const cookie = await signIn(app, env, 'staff@kit.local')
     const res = await app.request(
       '/api/auth/organization/create',
       {
@@ -74,7 +74,7 @@ describe('org RBAC (ADR-0003 Phase A) — IDOR matrix', () => {
 
   it('staff can open acme membership org', async () => {
     const { app, env } = await seedEnv()
-    const cookie = await signIn(app, env, 'staff@gosilex.local')
+    const cookie = await signIn(app, env, 'staff@kit.local')
     const res = await app.request(
       '/api/orgs/org_acme',
       { headers: { cookie, Origin: ORIGIN } },
@@ -85,7 +85,7 @@ describe('org RBAC (ADR-0003 Phase A) — IDOR matrix', () => {
 
   it('staff without membership gets 404 on solo org', async () => {
     const { app, env } = await seedEnv()
-    const cookie = await signIn(app, env, 'staff@gosilex.local')
+    const cookie = await signIn(app, env, 'staff@kit.local')
     const res = await app.request(
       '/api/orgs/org_solo',
       { headers: { cookie, Origin: ORIGIN } },
@@ -96,7 +96,7 @@ describe('org RBAC (ADR-0003 Phase A) — IDOR matrix', () => {
 
   it('team reader cannot PATCH org modules', async () => {
     const { app, env } = await seedEnv()
-    const cookie = await signIn(app, env, 'team-reader@gosilex.local')
+    const cookie = await signIn(app, env, 'team-reader@kit.local')
     const res = await app.request(
       '/api/orgs/org_team/modules/feedback',
       {
@@ -115,7 +115,7 @@ describe('org RBAC (ADR-0003 Phase A) — IDOR matrix', () => {
 
   it('non-super platform PATCH modules is 403', async () => {
     const { app, env } = await seedEnv()
-    const cookie = await signIn(app, env, 'staff@gosilex.local')
+    const cookie = await signIn(app, env, 'staff@kit.local')
     const res = await app.request(
       '/api/platform/modules/feedback',
       {
@@ -134,7 +134,7 @@ describe('org RBAC (ADR-0003 Phase A) — IDOR matrix', () => {
 
   it('path vs X-Org-Id mismatch returns 403', async () => {
     const { app, env } = await seedEnv()
-    const cookie = await signIn(app, env, 'staff@gosilex.local')
+    const cookie = await signIn(app, env, 'staff@kit.local')
     const res = await app.request(
       '/api/orgs/org_acme',
       {
@@ -151,7 +151,7 @@ describe('org RBAC (ADR-0003 Phase A) — IDOR matrix', () => {
 
   it('BA mint requires organizationId', async () => {
     const { app, env } = await seedEnv()
-    const cookie = await signIn(app, env, 'staff@gosilex.local')
+    const cookie = await signIn(app, env, 'staff@kit.local')
     const res = await app.request(
       '/api/keys',
       {
@@ -170,7 +170,7 @@ describe('org RBAC (ADR-0003 Phase A) — IDOR matrix', () => {
 
   it('mint for non-member org is forbidden', async () => {
     const { app, env } = await seedEnv()
-    const cookie = await signIn(app, env, 'staff@gosilex.local')
+    const cookie = await signIn(app, env, 'staff@kit.local')
     const res = await app.request(
       '/api/keys',
       {
@@ -189,7 +189,7 @@ describe('org RBAC (ADR-0003 Phase A) — IDOR matrix', () => {
 
   it('org-bound key cannot hop to another membership org', async () => {
     const { app, env, db } = await seedEnv()
-    const cookie = await signIn(app, env, 'staff@gosilex.local')
+    const cookie = await signIn(app, env, 'staff@kit.local')
     const mint = await app.request(
       '/api/keys',
       {
@@ -239,7 +239,7 @@ describe('org RBAC (ADR-0003 Phase A) — IDOR matrix', () => {
       .update(baOrganization)
       .set({ status: 'suspended' })
       .where(eq(baOrganization.id, 'org_acme'))
-    const cookie = await signIn(app, env, 'staff@gosilex.local')
+    const cookie = await signIn(app, env, 'staff@kit.local')
     const res = await app.request(
       '/api/orgs/org_acme',
       { headers: { cookie, Origin: ORIGIN } },
@@ -250,7 +250,7 @@ describe('org RBAC (ADR-0003 Phase A) — IDOR matrix', () => {
 
   it('super_admin cannot write tenant modules without break-glass', async () => {
     const { app, env } = await seedEnv()
-    const cookie = await signIn(app, env, 'super@gosilex.local')
+    const cookie = await signIn(app, env, 'super@kit.local')
     // super is not a member of org_solo; write default off → 404 (no membership leak path)
     const res = await app.request(
       '/api/orgs/org_solo/modules/feedback',
@@ -270,7 +270,7 @@ describe('org RBAC (ADR-0003 Phase A) — IDOR matrix', () => {
 
   it('super_admin can read foreign org with allowSuperAdmin route', async () => {
     const { app, env } = await seedEnv()
-    const cookie = await signIn(app, env, 'super@gosilex.local')
+    const cookie = await signIn(app, env, 'super@kit.local')
     // GET /api/orgs/:id uses allowSuperAdmin: true
     const res = await app.request(
       '/api/orgs/org_solo',
@@ -282,7 +282,7 @@ describe('org RBAC (ADR-0003 Phase A) — IDOR matrix', () => {
 
   it('team owner can list own org members', async () => {
     const { app, env } = await seedEnv()
-    const cookie = await signIn(app, env, 'team-owner@gosilex.local')
+    const cookie = await signIn(app, env, 'team-owner@kit.local')
     const res = await app.request(
       '/api/orgs/org_team/members',
       { headers: { cookie, Origin: ORIGIN } },
@@ -293,8 +293,8 @@ describe('org RBAC (ADR-0003 Phase A) — IDOR matrix', () => {
 
   it('super_admin can list platform modules; staff can list too', async () => {
     const { app, env } = await seedEnv()
-    const superCookie = await signIn(app, env, 'super@gosilex.local')
-    const staffCookie = await signIn(app, env, 'staff@gosilex.local')
+    const superCookie = await signIn(app, env, 'super@kit.local')
+    const staffCookie = await signIn(app, env, 'staff@kit.local')
     const s = await app.request(
       '/api/platform/modules',
       { headers: { cookie: superCookie, Origin: ORIGIN } },
@@ -311,7 +311,7 @@ describe('org RBAC (ADR-0003 Phase A) — IDOR matrix', () => {
 
   it('team owner can GET org modules effective shape', async () => {
     const { app, env } = await seedEnv()
-    const cookie = await signIn(app, env, 'team-owner@gosilex.local')
+    const cookie = await signIn(app, env, 'team-owner@kit.local')
     const res = await app.request(
       '/api/orgs/org_team/modules',
       { headers: { cookie, Origin: ORIGIN } },
@@ -327,7 +327,7 @@ describe('org RBAC (ADR-0003 Phase A) — IDOR matrix', () => {
 
   it('key list includes organizationId; org list scoped for bound key', async () => {
     const { app, env } = await seedEnv()
-    const cookie = await signIn(app, env, 'staff@gosilex.local')
+    const cookie = await signIn(app, env, 'staff@kit.local')
     const mint = await app.request(
       '/api/keys',
       {

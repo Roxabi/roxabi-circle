@@ -7,7 +7,7 @@ import {
   CardHeader,
   CardTitle,
   Skeleton,
-} from '@gosilex/ui'
+} from '@kit/ui'
 import { useQuery } from '@tanstack/react-query'
 import { PageHeader } from '../../components/app-shell'
 import { apiErrorToMessage, apiFetch } from '../../lib/api'

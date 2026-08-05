@@ -1,4 +1,4 @@
-import { AppError } from '@gosilex/core'
+import { AppError } from '@kit/core'
 import { apiKeyPrefix, parseBearer, verifyApiKey } from './keys'
 import { SESSION_COOKIE } from './session'
 import type { SessionPort } from './session-port'

@@ -1,4 +1,4 @@
-import { createDb } from '@gosilex/db'
+import { createDb } from '@kit/db'
 import type { MiddlewareHandler } from 'hono'
 import { schema } from '../db/schema'
 import type { AppEnv } from '../types'

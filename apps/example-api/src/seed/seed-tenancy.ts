@@ -128,7 +128,7 @@ export async function seedTenancyDemo(
   // Make feedback available on platform for demos (config may still be empty)
   const feedback = await platformModulesRepo.getPlatformModule(db, 'feedback')
   if (feedback && !feedback.available) {
-    // leave available=false until configured — seed does not invent Spark secrets
+    // leave available=false until configured — seed does not invent Pilotage secrets
   }
 
   const platformRoles = TENANCY_PERSONAS.filter((p) => p.platformRole).map((p) => ({

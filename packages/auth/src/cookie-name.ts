@@ -7,7 +7,7 @@ export type SessionCookieNameOpts = {
 
 /**
  * Cookie name SSoT for dual-auth + originGuard.
- * Default remains `gosilex_session` (SESSION_COOKIE) for FE/API contract stability.
+ * Default remains `kit_session` (SESSION_COOKIE) for FE/API contract stability.
  */
 export function sessionCookieName(opts?: SessionCookieNameOpts): string {
   const n = opts?.name?.trim()

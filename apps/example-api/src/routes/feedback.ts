@@ -1,5 +1,5 @@
-import { AppError } from '@gosilex/core'
-import { handleFeedbackReport } from '@gosilex/feedback/hono'
+import { AppError } from '@kit/core'
+import { handleFeedbackReport } from '@kit/feedback/hono'
 import { Hono } from 'hono'
 import { assertRateLimit } from '../lib/rate-limit'
 import { requireAuth } from '../middleware/require-auth'
@@ -25,7 +25,7 @@ feedbackRoutes.post('/api/report', async (c) => {
   const db = c.get('db')!
   await assertRateLimit(db, `feedback:${subject}`, FEEDBACK_LIMIT, FEEDBACK_WINDOW_MS)
   await modulesService.ensureKitModules(db)
-  const spark = await modulesService.getFeedbackSparkRuntime(db)
+  const pilotage = await modulesService.getFeedbackPilotageRuntime(db)
 
   // Org path: single resolver (platform ∧ org.enabled ∧ grant write).
   // No X-Org-Id: platform catalogue only (legacy SPA demo without tenancy).
@@ -58,9 +58,9 @@ feedbackRoutes.post('/api/report', async (c) => {
 
   return handleFeedbackReport(c, {
     getAuthor: () => subject,
-    enabled: () => moduleOn && spark !== null,
-    sparkUrl: spark?.sparkUrl,
-    apiKey: spark?.sparkApiKey,
+    enabled: () => moduleOn && pilotage !== null,
+    pilotageUrl: pilotage?.pilotageUrl,
+    apiKey: pilotage?.pilotageApiKey,
     disabledMessage: 'Le module feedback est désactivé.',
   })
 })

@@ -1,4 +1,4 @@
-import { AppError } from '@gosilex/core'
+import { AppError } from '@kit/core'
 import type { DrizzleD1Database } from 'drizzle-orm/d1'
 import type { schema } from '../db/schema'
 import {
@@ -93,7 +93,7 @@ export async function setModuleEnabled(db: Db, id: string, enabled: boolean): Pr
 export type FeedbackIntegrationPublic = {
   id: 'feedback'
   configured: boolean
-  sparkUrl: string
+  pilotageUrl: string
   hasApiKey: boolean
   apiKeyPreview: string | null
 }
@@ -105,15 +105,15 @@ export async function getFeedbackIntegrationPublic(db: Db): Promise<FeedbackInte
   return {
     id: 'feedback',
     configured: parsed !== null,
-    sparkUrl: parsed?.sparkUrl ?? '',
-    hasApiKey: Boolean(parsed?.sparkApiKey),
-    apiKeyPreview: parsed?.sparkApiKey ? maskApiKey(parsed.sparkApiKey) : null,
+    pilotageUrl: parsed?.pilotageUrl ?? '',
+    hasApiKey: Boolean(parsed?.pilotageApiKey),
+    apiKeyPreview: parsed?.pilotageApiKey ? maskApiKey(parsed.pilotageApiKey) : null,
   }
 }
 
 export async function saveFeedbackIntegration(
   db: Db,
-  input: { sparkUrl: string; sparkApiKey?: string },
+  input: { pilotageUrl: string; pilotageApiKey?: string },
 ): Promise<FeedbackIntegrationPublic> {
   const parsed = feedbackIntegrationSaveSchema.safeParse(input)
   if (!parsed.success) {
@@ -123,14 +123,14 @@ export async function saveFeedbackIntegration(
   await ensureKitModules(db)
   const row = await readModuleRow(db, 'feedback')
   const existing = parseFeedbackConfig(row.configJson)
-  const apiKey = parsed.data.sparkApiKey?.trim() || existing?.sparkApiKey || ''
+  const apiKey = parsed.data.pilotageApiKey?.trim() || existing?.pilotageApiKey || ''
   if (!apiKey) {
-    throw AppError.validation('sparkApiKey is required on first setup')
+    throw AppError.validation('pilotageApiKey is required on first setup')
   }
 
   const next: FeedbackIntegrationConfig = {
-    sparkUrl: parsed.data.sparkUrl,
-    sparkApiKey: apiKey,
+    pilotageUrl: parsed.data.pilotageUrl,
+    pilotageApiKey: apiKey,
   }
   const json = JSON.stringify(next)
   const now = Date.now()
@@ -144,12 +144,12 @@ export async function saveFeedbackIntegration(
   return getFeedbackIntegrationPublic(db)
 }
 
-export async function getFeedbackSparkRuntime(
+export async function getFeedbackPilotageRuntime(
   db: Db,
-): Promise<{ sparkUrl: string; sparkApiKey: string } | null> {
+): Promise<{ pilotageUrl: string; pilotageApiKey: string } | null> {
   await ensureKitModules(db)
   const row = await readModuleRow(db, 'feedback')
   const parsed = parseFeedbackConfig(row.configJson)
   if (!parsed) return null
-  return { sparkUrl: parsed.sparkUrl, sparkApiKey: parsed.sparkApiKey }
+  return { pilotageUrl: parsed.pilotageUrl, pilotageApiKey: parsed.pilotageApiKey }
 }

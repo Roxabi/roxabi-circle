@@ -1,4 +1,4 @@
-import { parseBearer } from '@gosilex/auth'
+import { parseBearer } from '@kit/auth'
 import { DEFAULT_EXAMPLE_TOOL_NAMES, type WhoamiStatus } from './agentWire'
 import { assertToolsMatchAllowlist } from './catalogue'
 import { meResponseSchema } from './schemas'

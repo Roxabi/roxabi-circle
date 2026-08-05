@@ -1,4 +1,4 @@
-import { canInviteRole, isOrgRoleKey } from '@gosilex/auth'
+import { canInviteRole, isOrgRoleKey } from '@kit/auth'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,7 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
   Skeleton,
-} from '@gosilex/ui'
+} from '@kit/ui'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useParams } from '@tanstack/react-router'
 import { useEffect, useMemo, useState } from 'react'

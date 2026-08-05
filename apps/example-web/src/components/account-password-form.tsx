@@ -1,4 +1,4 @@
-import { Button, Field, FieldError, FieldGroup, FieldLabel, Input } from '@gosilex/ui'
+import { Button, Field, FieldError, FieldGroup, FieldLabel, Input } from '@kit/ui'
 import { useForm } from '@tanstack/react-form'
 import { useState } from 'react'
 import { toast } from 'sonner'

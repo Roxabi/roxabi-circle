@@ -1,4 +1,4 @@
-import { createDb } from '@gosilex/db'
+import { createDb } from '@kit/db'
 import { describe, expect, it } from 'vitest'
 import { schema } from '../db/schema'
 import { createMemoryEnv } from '../test/memory-env'
@@ -26,8 +26,8 @@ describe('platform-modules service (coverage / ADR dual-level)', () => {
     await platformModulesService.ensurePlatformModules(d)
     // configure + make available via modules SSoT
     await modulesService.saveFeedbackIntegration(d, {
-      sparkUrl: 'http://localhost:3939',
-      sparkApiKey: 'spk_test_key_12',
+      pilotageUrl: 'http://localhost:3939',
+      pilotageApiKey: 'fbk_test_key_12',
     })
     await platformModulesService.setPlatformAvailable(d, 'feedback', true)
 
@@ -55,8 +55,8 @@ describe('platform-modules service (coverage / ADR dual-level)', () => {
     const d = await db()
     await platformModulesService.ensurePlatformModules(d)
     await modulesService.saveFeedbackIntegration(d, {
-      sparkUrl: 'http://localhost:3939',
-      sparkApiKey: 'spk_test_key_12',
+      pilotageUrl: 'http://localhost:3939',
+      pilotageApiKey: 'fbk_test_key_12',
     })
     await platformModulesService.setPlatformAvailable(d, 'feedback', true)
     const { upsertOrgModule } = await import('../repos/platform-modules')

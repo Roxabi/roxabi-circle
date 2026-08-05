@@ -1,9 +1,9 @@
 export type FeedbackEnvSlice = {
   FEEDBACK_ENABLED?: string
-  SPARK_URL?: string
-  SPARK_FEEDBACK_API_URL?: string
-  SPARK_API_KEY?: string
-  SPARK_FEEDBACK_API_KEY?: string
+  PILOTAGE_URL?: string
+  PILOTAGE_FEEDBACK_API_URL?: string
+  PILOTAGE_API_KEY?: string
+  PILOTAGE_FEEDBACK_API_KEY?: string
 }
 
 /** Worker / Vitest env keys for feedback (subset of app Bindings). */
@@ -21,12 +21,12 @@ export function isFeedbackEnabled(env: FeedbackEnvSlice): boolean {
   return isTruthyEnvFlag(env.FEEDBACK_ENABLED)
 }
 
-export function readSparkEnv(source: FeedbackEnvSlice): {
+export function readPilotageEnv(source: FeedbackEnvSlice): {
   baseUrl?: string
   apiKey: string
 } {
-  const baseUrl = source.SPARK_URL?.trim() || source.SPARK_FEEDBACK_API_URL?.trim()
-  const apiKey = source.SPARK_API_KEY?.trim() || source.SPARK_FEEDBACK_API_KEY?.trim() || ''
+  const baseUrl = source.PILOTAGE_URL?.trim() || source.PILOTAGE_FEEDBACK_API_URL?.trim()
+  const apiKey = source.PILOTAGE_API_KEY?.trim() || source.PILOTAGE_FEEDBACK_API_KEY?.trim() || ''
   return { baseUrl, apiKey }
 }
 

@@ -1,4 +1,4 @@
-import { Button, cn, Field, FieldError, FieldGroup, FieldLabel, Input } from '@gosilex/ui'
+import { Button, cn, Field, FieldError, FieldGroup, FieldLabel, Input } from '@kit/ui'
 import { useForm } from '@tanstack/react-form'
 import { Link, useNavigate, useSearch } from '@tanstack/react-router'
 import { GalleryVerticalEnd } from 'lucide-react'

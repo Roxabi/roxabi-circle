@@ -1,7 +1,7 @@
 # Recipe L1 — In-app changelog (Nouveautés)
 
-**Status:** shipping in kit dogfood (`example-web`) · GH [#107](https://github.com/go-silex/silex-boilerplate/issues/107) · Spark **#100**  
-**Package:** **no** (`@gosilex/patchlog` stays park — DR-B8-03 L2 only)
+**Status:** shipping in kit dogfood (`example-web`) · GH [#107](https://example.com/kit/issues/107)  
+**Package:** **no** (`@kit/patchlog` stays park — DR-B8-03 L2 only)
 
 ## Goal
 
@@ -57,7 +57,7 @@ Live SSoT: [`docs/park-decisions-b8.md`](../park-decisions-b8.md) — DR-B8-03 *
 
 ## V2 — Local release GIFs (optional)
 
-**Status:** kit engine + dogfood scripts · GH [#115](https://github.com/go-silex/silex-boilerplate/issues/115) · Spark **#163**  
+**Status:** kit engine + dogfood scripts · GH [#115](https://example.com/kit/issues/115)  
 **Not** in CI / `validate:full`. **Not** a workspace package.
 
 ### Ownership
@@ -78,11 +78,11 @@ Live SSoT: [`docs/park-decisions-b8.md`](../park-decisions-b8.md) — DR-B8-03 *
 ### Commands (kit)
 
 ```bash
-bun run --filter @gosilex/example-web setup:release-gifs
+bun run --filter @kit/example-web setup:release-gifs
 # → artifacts/release-gifs/.auth-demo.json + agent-browser.hint.json (no password)
 
-bun run --filter @gosilex/example-web record:release-gifs
-# RECORD_ONLY=02-changelog bun run --filter @gosilex/example-web record:release-gifs
+bun run --filter @kit/example-web record:release-gifs
+# RECORD_ONLY=02-changelog bun run --filter @kit/example-web record:release-gifs
 # → artifacts/release-gifs/*-share.gif
 ```
 

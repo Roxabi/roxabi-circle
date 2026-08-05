@@ -10,7 +10,7 @@
  *
  * Usage:
  *   bun apps/example-web/scripts/e2e-design-system.mjs
- *   # or: bun run --filter @gosilex/example-web test:e2e:design-system
+ *   # or: bun run --filter @kit/example-web test:e2e:design-system
  *
  * Env:
  *   E2E_BASE_URL (default http://127.0.0.1:5173)
@@ -23,7 +23,7 @@ import { chromium } from 'playwright-core'
 
 const BASE = process.env.E2E_BASE_URL ?? 'http://127.0.0.1:5173'
 const API = process.env.E2E_API_URL ?? 'http://127.0.0.1:8787'
-const DEMO_EMAIL = process.env.E2E_DEMO_EMAIL ?? 'demo@gosilex.local'
+const DEMO_EMAIL = process.env.E2E_DEMO_EMAIL ?? 'demo@kit.local'
 const DEMO_PASSWORD = process.env.E2E_DEMO_PASSWORD ?? 'demo-password-change-me'
 
 const pageErrors = []
@@ -139,7 +139,7 @@ try {
   if (process.env.E2E_DEBUG) console.error('[e2e] sign-in evaluate')
   await page.evaluate(
     async ({ email, password }) => {
-      localStorage.setItem('gosilex.theme', 'light')
+      localStorage.setItem('kit.theme', 'light')
       document.documentElement.classList.remove('dark')
       const res = await fetch('/api/auth/sign-in/email', {
         method: 'POST',

@@ -1,4 +1,4 @@
-import { createDb } from '@gosilex/db'
+import { createDb } from '@kit/db'
 import { describe, expect, it } from 'vitest'
 import { schema } from '../db/schema'
 import { createMemoryEnv } from '../test/memory-env'
@@ -32,13 +32,13 @@ describe('kit modules service', () => {
     })
   })
 
-  it('allows enable after Spark config is saved', async () => {
+  it('allows enable after Pilotage config is saved', async () => {
     const env = createMemoryEnv()
     const db = createDb(env.DB, schema)
     await ensureKitModules(db)
     await saveFeedbackIntegration(db, {
-      sparkUrl: 'http://localhost:3939',
-      sparkApiKey: 'spk_test_key_12',
+      pilotageUrl: 'http://localhost:3939',
+      pilotageApiKey: 'fbk_test_key_12',
     })
     await setModuleEnabled(db, 'feedback', true)
     expect(await isModuleEnabled(db, 'feedback')).toBe(true)

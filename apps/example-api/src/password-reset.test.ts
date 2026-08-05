@@ -1,4 +1,4 @@
-import { createDb } from '@gosilex/db'
+import { createDb } from '@kit/db'
 import { like } from 'drizzle-orm'
 import { describe, expect, it } from 'vitest'
 import { createApp } from './app'
@@ -67,7 +67,7 @@ describe('password reset (B3 S3)', () => {
         method: 'POST',
         headers: { 'content-type': 'application/json', Origin: ORIGIN },
         body: JSON.stringify({
-          email: 'nobody-exists@gosilex.local',
+          email: 'nobody-exists@kit.local',
           redirectTo: `${ORIGIN}/reset-password`,
         }),
       },

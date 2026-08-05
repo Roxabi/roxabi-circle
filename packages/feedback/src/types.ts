@@ -29,7 +29,7 @@ export type FeedbackSubmitError = {
 
 export type FeedbackSubmitResult = FeedbackSubmitSuccess | FeedbackSubmitError
 
-export type SparkRemoteConfig = {
+export type PilotageRemoteConfig = {
   baseUrl: string
   apiKey: string
   fetch?: typeof fetch

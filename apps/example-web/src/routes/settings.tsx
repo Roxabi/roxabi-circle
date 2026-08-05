@@ -7,7 +7,7 @@ import {
   CardTitle,
   Label,
   Separator,
-} from '@gosilex/ui'
+} from '@kit/ui'
 import { useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { toast } from 'sonner'

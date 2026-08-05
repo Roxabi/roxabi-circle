@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { resolveSparkRemoteConfig, submitRemoteFeedback } from './remote-client'
+import { resolvePilotageRemoteConfig, submitRemoteFeedback } from './remote-client'
 import type { FeedbackFormFields } from './types'
 
 const fields: FeedbackFormFields = {
@@ -17,35 +17,35 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-describe('resolveSparkRemoteConfig', () => {
+describe('resolvePilotageRemoteConfig', () => {
   it('errors without api key', () => {
-    vi.stubEnv('SPARK_API_KEY', '')
-    vi.stubEnv('SPARK_FEEDBACK_API_KEY', '')
-    const r = resolveSparkRemoteConfig({ baseUrl: 'https://spark.example' })
-    expect(r).toMatchObject({ error: expect.stringContaining('SPARK_API_KEY') })
+    vi.stubEnv('PILOTAGE_API_KEY', '')
+    vi.stubEnv('PILOTAGE_FEEDBACK_API_KEY', '')
+    const r = resolvePilotageRemoteConfig({ baseUrl: 'https://pilotage.example' })
+    expect(r).toMatchObject({ error: expect.stringContaining('PILOTAGE_API_KEY') })
   })
 
   it('reads env', () => {
-    vi.stubEnv('SPARK_URL', 'http://localhost:3939/')
-    vi.stubEnv('SPARK_API_KEY', 'spk_test')
-    const r = resolveSparkRemoteConfig()
+    vi.stubEnv('PILOTAGE_URL', 'http://localhost:3939/')
+    vi.stubEnv('PILOTAGE_API_KEY', 'fbk_test')
+    const r = resolvePilotageRemoteConfig()
     expect(r).toEqual({
       baseUrl: 'http://localhost:3939',
-      apiKey: 'spk_test',
+      apiKey: 'fbk_test',
       fetch: undefined,
     })
   })
 
   it('reads Worker-style env record', () => {
-    const r = resolveSparkRemoteConfig({
+    const r = resolvePilotageRemoteConfig({
       env: {
-        SPARK_URL: 'http://localhost:3939',
-        SPARK_API_KEY: 'spk_kit',
+        PILOTAGE_URL: 'http://localhost:3939',
+        PILOTAGE_API_KEY: 'fbk_kit',
       },
     })
     expect(r).toEqual({
       baseUrl: 'http://localhost:3939',
-      apiKey: 'spk_kit',
+      apiKey: 'fbk_kit',
       fetch: undefined,
     })
   })
@@ -63,8 +63,8 @@ describe('submitRemoteFeedback', () => {
 
     const r = await submitRemoteFeedback(
       {
-        baseUrl: 'https://spark.example',
-        apiKey: 'spk_x',
+        baseUrl: 'https://pilotage.example',
+        apiKey: 'fbk_x',
         fetch: fetchMock as unknown as typeof fetch,
       },
       fields,
@@ -82,9 +82,9 @@ describe('submitRemoteFeedback', () => {
     const call = fetchMock.mock.calls[0]!
     const url = String(call[0])
     const init = (call[1] ?? {}) as RequestInit
-    expect(url).toBe('https://spark.example/api/v1/feedback')
+    expect(url).toBe('https://pilotage.example/api/v1/feedback')
     expect(init.method).toBe('POST')
-    expect((init.headers as Record<string, string>).Authorization).toBe('Bearer spk_x')
+    expect((init.headers as Record<string, string>).Authorization).toBe('Bearer fbk_x')
     const body = JSON.parse(String(init.body))
     expect(body).toMatchObject({
       title: 'Test',
@@ -110,8 +110,8 @@ describe('submitRemoteFeedback', () => {
 
     const r = await submitRemoteFeedback(
       {
-        baseUrl: 'https://spark.example',
-        apiKey: 'spk_x',
+        baseUrl: 'https://pilotage.example',
+        apiKey: 'fbk_x',
         fetch: fetchMock as unknown as typeof fetch,
       },
       { ...fields, files: [file] },
@@ -123,12 +123,12 @@ describe('submitRemoteFeedback', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 
-  it('maps Spark errors to 502', async () => {
+  it('maps Pilotage errors to 502', async () => {
     const fetchMock = vi.fn(async () => new Response('nope', { status: 500 }))
     const r = await submitRemoteFeedback(
       {
-        baseUrl: 'https://spark.example',
-        apiKey: 'spk_x',
+        baseUrl: 'https://pilotage.example',
+        apiKey: 'fbk_x',
         fetch: fetchMock as unknown as typeof fetch,
       },
       fields,
@@ -137,7 +137,7 @@ describe('submitRemoteFeedback', () => {
     expect(r.ok).toBe(false)
     if (!r.ok) {
       expect(r.status).toBe(502)
-      expect(r.error).toContain('Spark 500')
+      expect(r.error).toContain('Pilotage 500')
     }
   })
 })

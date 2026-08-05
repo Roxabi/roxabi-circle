@@ -1,19 +1,14 @@
 {
-  "version": 1,
-  "description": "Copy to docs/product/zero-edit-exceptions.json on the PRODUCT repo only (never commit exceptions into the kit). Each entry is a time-boxed justification to diverge from upstream on a kit-owned path when no design-override / product-path alternative works.",
   "exceptions": [
     {
       "path": "packages/ui/src/components/ui/button.tsx",
-      "reason": "Need native isLoading slot on Button for share upload CTA; blocking product launch.",
-      "owner": "@go-silex/frontend",
+      "reason": "Need isLoading prop before kit ships it",
+      "owner": "@team/frontend",
       "expires": "2026-09-01",
-      "ticket": "https://github.com/go-silex/silex-boilerplate/issues/0",
-      "alternatives_considered": [
-        "css-token-override — insufficient for loading DOM/ARIA",
-        "compose-wrap-components — wrapper cannot inject Base UI render props cleanly today"
-      ],
-      "why_not_alternative": "Wrapper would fork half of button.tsx CVA variants; temporary patch until kit PR lands isLoading on @gosilex/ui.",
-      "kit_pr": "https://github.com/go-silex/silex-boilerplate/pull/0"
+      "ticket": "https://example.com/issues/0",
+      "alternatives_considered": ["compose LoadingButton in apps/product-web", "wait for kit PR"],
+      "why_not_alternative": "Wrapper would fork half of button.tsx CVA variants; temporary patch until kit PR lands isLoading on @kit/ui.",
+      "kit_pr": "https://example.com/pull/0"
     }
   ]
 }

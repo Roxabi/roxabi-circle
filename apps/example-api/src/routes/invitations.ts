@@ -1,4 +1,4 @@
-import { AppError } from '@gosilex/core'
+import { AppError } from '@kit/core'
 import { Hono } from 'hono'
 import { clientIp } from '../lib/rate-limit'
 import { requireBaAdapter } from '../lib/require-ba-adapter'

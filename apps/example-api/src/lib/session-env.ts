@@ -1,5 +1,5 @@
-import { sessionCookieName as cookieNameFromAuth } from '@gosilex/auth'
-import { AppError } from '@gosilex/core'
+import { sessionCookieName as cookieNameFromAuth } from '@kit/auth'
+import { AppError } from '@kit/core'
 import type { Env } from '../env'
 
 const DEFAULT_CORS = 'http://localhost:5173,http://127.0.0.1:5173'

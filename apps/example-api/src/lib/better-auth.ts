@@ -3,7 +3,7 @@
  * Session stack is BA-only (ADR-0002).
  * Organization plugin = tenant spine (ADR-0003).
  */
-import { buildMagicLinkEmailText, buildResetPasswordEmailText } from '@gosilex/email'
+import { buildMagicLinkEmailText, buildResetPasswordEmailText } from '@kit/email'
 import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { magicLink } from 'better-auth/plugins'
@@ -43,7 +43,7 @@ const readerAc = ac.newRole({
  * Hono context surface for BA instance (handler + session API).
  * Structural type — avoids TS2742 when plugins (magicLink) pull non-portable zod paths
  * into `ReturnType<typeof createBetterAuth>` under declaration emit.
- * Aligns with `@gosilex/auth` BetterAuthLike for SessionPort.
+ * Aligns with `@kit/auth` BetterAuthLike for SessionPort.
  */
 export type KitBetterAuth = {
   handler: (request: Request) => Response | Promise<Response>
@@ -76,7 +76,7 @@ export function createBetterAuth(env: Env, baseURL: string): KitBetterAuth {
         create: {
           after: async (session) => {
             try {
-              const { createDb } = await import('@gosilex/db')
+              const { createDb } = await import('@kit/db')
               const { schema: kitSchema } = await import('../db/schema')
               const { tryFirstLogin } = await import('../services/audit')
               const userId = session.userId

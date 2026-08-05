@@ -1,5 +1,5 @@
-import { AppError } from '@gosilex/core'
-import { createDb } from '@gosilex/db'
+import { AppError } from '@kit/core'
+import { createDb } from '@kit/db'
 import { describe, expect, it } from 'vitest'
 import { createApp } from './app'
 import { schema } from './db/schema'
@@ -30,8 +30,8 @@ async function saveFeedbackIntegration(
       method: 'PUT',
       headers: sessionMutation(cookie),
       body: JSON.stringify({
-        sparkUrl: 'http://localhost:3939',
-        sparkApiKey: 'spk_test_key_12',
+        pilotageUrl: 'http://localhost:3939',
+        pilotageApiKey: 'fbk_test_key_12',
       }),
     },
     env,
@@ -97,7 +97,7 @@ describe('createApp shipped entry — health & errors', () => {
     expect(body.ok).toBe(true)
     expect(body.environment).toBe('test')
     expect(body.demoLogin).toEqual({
-      email: 'staff@gosilex.local',
+      email: 'staff@kit.local',
       password: 'demo-password-change-me',
       role: 'staff',
     })
@@ -223,7 +223,7 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
   it('GET /api/me — staff has platformRole + membership orgs only', async () => {
     const app = createApp()
     const env = createMemoryEnv()
-    const cookie = await loginAs(app, env, 'staff@gosilex.local', 'demo-password-change-me')
+    const cookie = await loginAs(app, env, 'staff@kit.local', 'demo-password-change-me')
 
     const me = await app.request('/api/me', { headers: { cookie } }, env)
     expect(me.status).toBe(200)
@@ -234,7 +234,7 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
       orgs: { id: string; slug: string; role: string }[]
     }
     expect(body.subject).toBe('user_staff')
-    expect(body.email).toBe('staff@gosilex.local')
+    expect(body.email).toBe('staff@kit.local')
     expect(body.platformRole).toBe('staff')
     const slugs = body.orgs.map((o) => o.slug).sort()
     expect(slugs).toEqual(['acme', 'beta'])
@@ -245,7 +245,7 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
   it('GET /api/me — solo has null platformRole + org_solo only', async () => {
     const app = createApp()
     const env = createMemoryEnv()
-    const cookie = await loginAs(app, env, 'solo@gosilex.local', 'demo-password-change-me')
+    const cookie = await loginAs(app, env, 'solo@kit.local', 'demo-password-change-me')
 
     const me = await app.request('/api/me', { headers: { cookie } }, env)
     expect(me.status).toBe(200)
@@ -263,7 +263,7 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
   it('GET /api/me — super_admin platformRole; me.orgs memberships only (not catalogue)', async () => {
     const app = createApp()
     const env = createMemoryEnv()
-    const cookie = await loginAs(app, env, 'super@gosilex.local', 'demo-password-change-me')
+    const cookie = await loginAs(app, env, 'super@kit.local', 'demo-password-change-me')
 
     const me = await app.request('/api/me', { headers: { cookie } }, env)
     expect(me.status).toBe(200)
@@ -406,7 +406,7 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     const env = createMemoryEnv()
     // Seed demo users via login (session cookie unused — we mint expired key directly)
     await loginAs(app, env, DEMO_EMAIL, DEMO_PASSWORD)
-    const { createDb } = await import('@gosilex/db')
+    const { createDb } = await import('@kit/db')
     const { schema } = await import('./db/schema')
     const { mintApiKey } = await import('./services/auth')
     const db = createDb(env.DB, schema)
@@ -473,7 +473,7 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     expect(health.status).toBe(200)
     const h = (await health.json()) as { authAdapter?: string; demoLogin?: { email: string } }
     expect(h.authAdapter).toBe('better-auth')
-    expect(h.demoLogin?.email).toMatch(/@gosilex\.local/)
+    expect(h.demoLogin?.email).toMatch(/@kit\.local/)
   })
 
   it('better-auth sign-up disabled by default; dual-path works after signup when allowed', async () => {
@@ -489,7 +489,7 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
         method: 'POST',
         headers: { 'content-type': 'application/json', Origin: 'http://localhost:5173' },
         body: JSON.stringify({
-          email: 'ba-new@gosilex.local',
+          email: 'ba-new@kit.local',
           password: 'ba-password-change-me-1',
           name: 'BA User',
         }),
@@ -500,7 +500,7 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
 
     // Sign-up allowed — exercise BA handler + session cookie + dual-path sk_
     const env = createMemoryEnv({ ...baseEnv, ALLOW_PUBLIC_SIGNUP: 'true' })
-    const email = `ba-${crypto.randomUUID().slice(0, 8)}@gosilex.local`
+    const email = `ba-${crypto.randomUUID().slice(0, 8)}@kit.local`
     const password = 'ba-password-change-me-1'
     const signup = await app.request(
       '/api/auth/sign-up/email',
@@ -518,7 +518,7 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
       return
     }
     let cookie = signup.headers.get('set-cookie') ?? ''
-    if (!cookie.includes('gosilex_session') && !cookie.toLowerCase().includes('session')) {
+    if (!cookie.includes('kit_session') && !cookie.toLowerCase().includes('session')) {
       const signin = await app.request(
         '/api/auth/sign-in/email',
         {
@@ -696,7 +696,7 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
       ENVIRONMENT: 'staging',
       SESSION_SECRET: 'staging-session-secret-at-least-32ch!',
     })
-    const { createDb } = await import('@gosilex/db')
+    const { createDb } = await import('@kit/db')
     const { schema } = await import('./db/schema')
     const { seedDemoDatabase } = await import('./seed/seed-db')
     await seedDemoDatabase(createDb(env.DB, schema), { notes: false })
@@ -1002,8 +1002,8 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
         method: 'PUT',
         headers: sessionMutation(cookieB),
         body: JSON.stringify({
-          sparkUrl: 'http://localhost:3939',
-          sparkApiKey: 'spk_test_key_12',
+          pilotageUrl: 'http://localhost:3939',
+          pilotageApiKey: 'fbk_test_key_12',
         }),
       },
       env,

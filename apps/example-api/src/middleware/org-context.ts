@@ -1,5 +1,5 @@
-import { type OrgRoleKey, type PlatformRole, roleAtLeast, roleHasCapability } from '@gosilex/auth'
-import { AppError } from '@gosilex/core'
+import { type OrgRoleKey, type PlatformRole, roleAtLeast, roleHasCapability } from '@kit/auth'
+import { AppError } from '@kit/core'
 import type { MiddlewareHandler } from 'hono'
 import type { KitDb } from '../lib/db-type'
 import type { KitModuleId } from '../lib/kit-modules'

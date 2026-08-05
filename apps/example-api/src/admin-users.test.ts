@@ -1,4 +1,4 @@
-import { createDb } from '@gosilex/db'
+import { createDb } from '@kit/db'
 import { eq, like } from 'drizzle-orm'
 import { describe, expect, it } from 'vitest'
 import { createApp } from './app'
@@ -70,14 +70,14 @@ async function latestWelcomeToken(db: ReturnType<typeof createDb>): Promise<stri
 describe('admin users (B-users #58)', () => {
   it('SC1: super_admin creates user + memberships; no password in body', async () => {
     const { app, env, db } = await seedEnv()
-    const cookie = await signIn(app, env, 'super@gosilex.local')
+    const cookie = await signIn(app, env, 'super@kit.local')
     const res = await app.request(
       '/api/admin/users',
       {
         method: 'POST',
         headers: sessionMutation(cookie),
         body: JSON.stringify({
-          email: 'client-new@gosilex.local',
+          email: 'client-new@kit.local',
           name: 'New Client',
           memberships: [{ orgId: 'org_team', role: 'member' }],
         }),
@@ -90,7 +90,7 @@ describe('admin users (B-users #58)', () => {
       memberships: { organizationId: string; role: string }[]
       welcomeEmailSent: boolean
     }
-    expect(body.user.email).toBe('client-new@gosilex.local')
+    expect(body.user.email).toBe('client-new@kit.local')
     expect(body.user.platformRole).toBeNull()
     expect(body.memberships).toEqual([{ organizationId: 'org_team', role: 'member' }])
     expect(body.welcomeEmailSent).toBe(true)
@@ -104,14 +104,14 @@ describe('admin users (B-users #58)', () => {
 
   it('SC2: staff cannot assign platformRole super_admin → 403', async () => {
     const { app, env } = await seedEnv()
-    const cookie = await signIn(app, env, 'staff@gosilex.local')
+    const cookie = await signIn(app, env, 'staff@kit.local')
     const res = await app.request(
       '/api/admin/users',
       {
         method: 'POST',
         headers: sessionMutation(cookie),
         body: JSON.stringify({
-          email: 'evil@gosilex.local',
+          email: 'evil@kit.local',
           platformRole: 'super_admin',
         }),
       },
@@ -122,7 +122,7 @@ describe('admin users (B-users #58)', () => {
 
   it('SC3: staff cannot attach membership to foreign org → 404', async () => {
     const { app, env } = await seedEnv()
-    const cookie = await signIn(app, env, 'staff@gosilex.local')
+    const cookie = await signIn(app, env, 'staff@kit.local')
     // staff is on org_acme + org_beta, not org_team
     const res = await app.request(
       '/api/admin/users',
@@ -130,7 +130,7 @@ describe('admin users (B-users #58)', () => {
         method: 'POST',
         headers: sessionMutation(cookie),
         body: JSON.stringify({
-          email: 'foreign-attach@gosilex.local',
+          email: 'foreign-attach@kit.local',
           memberships: [{ orgId: 'org_team', role: 'member' }],
         }),
       },
@@ -146,7 +146,7 @@ describe('admin users (B-users #58)', () => {
       createAdminUser(db, {
         actorUserId: 'user_super',
         actorPlatformRole: 'super_admin',
-        email: 'rollback@gosilex.local',
+        email: 'rollback@kit.local',
         memberships: [{ orgId: 'org_solo', role: 'member' }],
         webBaseUrl: ORIGIN,
         emailPort: {
@@ -156,21 +156,21 @@ describe('admin users (B-users #58)', () => {
         },
       }),
     ).rejects.toThrow(/Failed to send welcome|Internal/i)
-    const users = await db.select().from(baUser).where(eq(baUser.email, 'rollback@gosilex.local'))
+    const users = await db.select().from(baUser).where(eq(baUser.email, 'rollback@kit.local'))
     expect(users.length).toBe(0)
     const mems = await db.select().from(baMember).where(eq(baMember.organizationId, 'org_solo'))
-    expect(mems.every((m) => m.userId !== 'rollback@gosilex.local')).toBe(true)
+    expect(mems.every((m) => m.userId !== 'rollback@kit.local')).toBe(true)
   })
 
   it('SC5/SC6: welcome token sets password once; second use fails; login works', async () => {
     const { app, env, db } = await seedEnv()
-    const cookie = await signIn(app, env, 'super@gosilex.local')
+    const cookie = await signIn(app, env, 'super@kit.local')
     const create = await app.request(
       '/api/admin/users',
       {
         method: 'POST',
         headers: sessionMutation(cookie),
-        body: JSON.stringify({ email: 'firstlogin@gosilex.local', name: 'First' }),
+        body: JSON.stringify({ email: 'firstlogin@kit.local', name: 'First' }),
       },
       env,
     )
@@ -206,7 +206,7 @@ describe('admin users (B-users #58)', () => {
       {
         method: 'POST',
         headers: { 'content-type': 'application/json', Origin: ORIGIN },
-        body: JSON.stringify({ email: 'firstlogin@gosilex.local', password: newPassword }),
+        body: JSON.stringify({ email: 'firstlogin@kit.local', password: newPassword }),
       },
       env,
     )
@@ -215,13 +215,13 @@ describe('admin users (B-users #58)', () => {
 
   it('SC7: existing email → 409', async () => {
     const { app, env } = await seedEnv()
-    const cookie = await signIn(app, env, 'super@gosilex.local')
+    const cookie = await signIn(app, env, 'super@kit.local')
     const res = await app.request(
       '/api/admin/users',
       {
         method: 'POST',
         headers: sessionMutation(cookie),
-        body: JSON.stringify({ email: 'solo@gosilex.local' }),
+        body: JSON.stringify({ email: 'solo@kit.local' }),
       },
       env,
     )
@@ -231,7 +231,7 @@ describe('admin users (B-users #58)', () => {
   it('SC9: sk_ cannot create admin users → 403', async () => {
     const { app, env } = await seedEnv()
     // mint key as super via session then use sk_
-    const cookie = await signIn(app, env, 'super@gosilex.local')
+    const cookie = await signIn(app, env, 'super@kit.local')
     const keyRes = await app.request(
       '/api/keys',
       {
@@ -253,7 +253,7 @@ describe('admin users (B-users #58)', () => {
             'content-type': 'application/json',
             Origin: ORIGIN,
           },
-          body: JSON.stringify({ email: 'via-key@gosilex.local' }),
+          body: JSON.stringify({ email: 'via-key@kit.local' }),
         },
         env,
       )
@@ -272,7 +272,7 @@ describe('admin users (B-users #58)', () => {
           'content-type': 'application/json',
           Origin: ORIGIN,
         },
-        body: JSON.stringify({ email: 'via-key@gosilex.local' }),
+        body: JSON.stringify({ email: 'via-key@kit.local' }),
       },
       env,
     )
@@ -281,13 +281,13 @@ describe('admin users (B-users #58)', () => {
 
   it('CP-IDOR: client-only session create → 403', async () => {
     const { app, env } = await seedEnv()
-    const cookie = await signIn(app, env, 'solo@gosilex.local')
+    const cookie = await signIn(app, env, 'solo@kit.local')
     const res = await app.request(
       '/api/admin/users',
       {
         method: 'POST',
         headers: sessionMutation(cookie),
-        body: JSON.stringify({ email: 'nope@gosilex.local' }),
+        body: JSON.stringify({ email: 'nope@kit.local' }),
       },
       env,
     )
@@ -301,7 +301,7 @@ describe('admin users (B-users #58)', () => {
       {
         method: 'POST',
         headers: { 'content-type': 'application/json', Origin: ORIGIN },
-        body: JSON.stringify({ email: 'anon@gosilex.local' }),
+        body: JSON.stringify({ email: 'anon@kit.local' }),
       },
       env,
     )
@@ -310,14 +310,14 @@ describe('admin users (B-users #58)', () => {
 
   it('super_admin can assign staff platformRole', async () => {
     const { app, env, db } = await seedEnv()
-    const cookie = await signIn(app, env, 'super@gosilex.local')
+    const cookie = await signIn(app, env, 'super@kit.local')
     const res = await app.request(
       '/api/admin/users',
       {
         method: 'POST',
         headers: sessionMutation(cookie),
         body: JSON.stringify({
-          email: 'new-staff@gosilex.local',
+          email: 'new-staff@kit.local',
           platformRole: 'staff',
           memberships: [
             { orgId: 'org_acme', role: 'admin' },
@@ -339,14 +339,14 @@ describe('admin users (B-users #58)', () => {
 
   it('staff can create client on membership org', async () => {
     const { app, env } = await seedEnv()
-    const cookie = await signIn(app, env, 'staff@gosilex.local')
+    const cookie = await signIn(app, env, 'staff@kit.local')
     const res = await app.request(
       '/api/admin/users',
       {
         method: 'POST',
         headers: sessionMutation(cookie),
         body: JSON.stringify({
-          email: 'staff-created@gosilex.local',
+          email: 'staff-created@kit.local',
           memberships: [{ orgId: 'org_acme', role: 'member' }],
         }),
       },
@@ -357,11 +357,11 @@ describe('admin users (B-users #58)', () => {
 
   it('GET /api/admin/users lists users for platform actor', async () => {
     const { app, env } = await seedEnv()
-    const cookie = await signIn(app, env, 'super@gosilex.local')
+    const cookie = await signIn(app, env, 'super@kit.local')
     const res = await app.request('/api/admin/users', { headers: sessionMutation(cookie) }, env)
     expect(res.status).toBe(200)
     const body = (await res.json()) as { users: { email: string }[] }
     expect(body.users.length).toBeGreaterThan(0)
-    expect(body.users.some((u) => u.email === 'super@gosilex.local')).toBe(true)
+    expect(body.users.some((u) => u.email === 'super@kit.local')).toBe(true)
   })
 })

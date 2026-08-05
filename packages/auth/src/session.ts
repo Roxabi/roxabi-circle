@@ -10,7 +10,7 @@ export type SessionPayload = {
   exp: number
 }
 
-export const SESSION_COOKIE = 'gosilex_session'
+export const SESSION_COOKIE = 'kit_session'
 
 export function sessionCookieHeader(
   token: string,

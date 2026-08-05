@@ -1,8 +1,8 @@
 # Release GIFs engine (local tooling)
 
-Generic Playwright + ffmpeg pipeline extracted from the Metalyde pattern.
+Generic Playwright + ffmpeg pipeline extracted from the product pattern.
 
-**Not** a workspace package `@gosilex/*`. **Not** in CI / `validate:full`.
+**Not** a workspace package `@kit/*`. **Not** in CI / `validate:full`.
 
 ## Modules
 

@@ -68,7 +68,7 @@ Machine gates here only care: product does not dual-edit kit paths; `upstream` i
 
 ---
 
-## Foreign org — first product outside `go-silex`
+## Foreign org — first product outside kit-hosting org
 
 Kit workflows read fixed credential names. The **App** is org-local; the **names** are not.
 
@@ -79,31 +79,31 @@ Kit workflows read fixed credential names. The **App** is org-local; the **names
 
 | Do | Do not |
 |---|---|
-| Create/install a GitHub App on **your** org | Expect `go-silex` org secrets to appear on a foreign org |
-| Map App ID/PEM to **`CI_APP_ID` / `CI_APP_PRIVATE_KEY`** | Rename to `GOSILEX_CI_*` or `MYORG_CI_*` without forking workflows |
+| Create/install a GitHub App on **your** org | Expect `kit-host` org secrets to appear on a foreign org |
+| Map App ID/PEM to **`CI_APP_ID` / `CI_APP_PRIVATE_KEY`** | Rename to `Kit_CI_*` or `MYORG_CI_*` without forking workflows |
 | Leave unset until ready — job stays **evaluate-only** (manual merge) | Edit `merge-on-green.yml` to soft-fail differently |
 
-Setup detail: [`docs/gosilex-ci-app-setup.md`](./gosilex-ci-app-setup.md). Bootstrap narrative: [`docs/playbooks/start-product.md`](./playbooks/start-product.md).
+Setup detail: [`docs/kit-ci-app-setup.md`](./kit-ci-app-setup.md). Bootstrap narrative: [`docs/playbooks/start-product.md`](./playbooks/start-product.md).
 
-> Historical note: kit briefly used `GOSILEX_CI_APP_*`; canonical names are **`CI_APP_*`** only.
+> Historical note: kit briefly used `Kit_CI_APP_*`; canonical names are **`CI_APP_*`** only.
 
 ---
 
 ## Design overrides (accepted — no exception needed)
 
-Customize look & feel **without** forking `@gosilex/ui`. Machine-readable list: `config/zero-edit-zones.json` → `design_overrides`.
+Customize look & feel **without** forking `@kit/ui`. Machine-readable list: `config/zero-edit-zones.json` → `design_overrides`.
 
 | Pattern | Where | How |
 |---------|--------|-----|
-| **CSS token override** | `apps/<product>-web/src/**/*.css` | Keep `@import "@gosilex/ui/styles.css"`, then redeclare tokens on `:root` / `.dark` (`--primary`, `--radius`, fonts, sidebar, charts) |
-| **Compose / wrap** | `apps/<product>-web/src/components/**` | Import primitives from `@gosilex/ui`; build product shells (`LoadingButton`, `BrandHeader`) |
+| **CSS token override** | `apps/<product>-web/src/**/*.css` | Keep `@import "@kit/ui/styles.css"`, then redeclare tokens on `:root` / `.dark` (`--primary`, `--radius`, fonts, sidebar, charts) |
+| **Compose / wrap** | `apps/<product>-web/src/components/**` | Import primitives from `@kit/ui`; build product shells (`LoadingButton`, `BrandHeader`) |
 | **App Tailwind `@source`** | product CSS | `@source` kit UI + product app only |
 | **Assets** | `apps/<product>-web/public/**` | Favicon, OG, logo — not in `packages/ui` |
 
 Example product entry CSS:
 
 ```css
-@import "@gosilex/ui/styles.css";
+@import "@kit/ui/styles.css";
 @import "./theme/product-tokens.css"; /* overrides only */
 
 @source "../../../packages/ui/src/**/*.{ts,tsx}";
@@ -121,7 +121,7 @@ Example product entry CSS:
 }
 ```
 
-**Still need a kit change?** Open a PR on **silex-boilerplate** (promote reusable primitives). Do not brand `packages/ui` in the product repo.
+**Still need a kit change?** Open a PR on **kit** (promote reusable primitives). Do not brand `packages/ui` in the product repo.
 
 ---
 
@@ -158,7 +158,7 @@ Env:
 
 | Var | Default | Role |
 |-----|---------|------|
-| `ZERO_EDIT_MODE` | auto (`kit` if origin URL contains `silex-boilerplate`) | Force `kit` \| `product` |
+| `ZERO_EDIT_MODE` | auto (`kit` if origin URL contains `kit`) | Force `kit` \| `product` |
 | `ZERO_EDIT_BASE_REF` | `upstream/main` | Git ref the product must match on protected paths |
 
 ---
@@ -264,11 +264,11 @@ Do **not** hardcode product chassis names into kit defaults. Prefer full chassis
 
 ## Day-1 product bootstrap (no kit file edits)
 
-1. Create private repo `go-silex/<product>` (empty or from kit history).
+1. Create private repo `org/<product>` (empty or from kit history).
 2. Point `origin` at product; add `upstream` fetch-only (above).
 3. `bun install` (prepare wires lefthook only if `core.hooksPath` is unset).
 4. Copy env examples → gitignored local files only.
-5. Ensure **gosilex-ci** (org var/secret) or accept manual merge — see [`gosilex-ci-app-setup.md`](./gosilex-ci-app-setup.md).
+5. Ensure **kit-ci** (org var/secret) or accept manual merge — see [`kit-ci-app-setup.md`](./kit-ci-app-setup.md).
 6. Add product apps under `apps/<product>-*` only.
 7. Keep `bun run validate:full` green (kit bar). When `apps/<product>-*` exist, also wire product-validate / product-ci (see Product CI DoD below).
 
@@ -318,11 +318,11 @@ ROOT="$(cd "$(dirname "$0")/../.." && pwd)"   # adjust if app-local path
 cd "$ROOT"
 
 bun run zero-edit
-bun run --filter @gosilex/<product>-api typecheck
-bun run --filter @gosilex/<product>-api test
-bun run --filter @gosilex/<product>-web typecheck
-bun run --filter @gosilex/<product>-web test
-bun run --filter @gosilex/<product>-api build   # e.g. wrangler dry-run
+bun run --filter @kit/<product>-api typecheck
+bun run --filter @kit/<product>-api test
+bun run --filter @kit/<product>-web typecheck
+bun run --filter @kit/<product>-web test
+bun run --filter @kit/<product>-api build   # e.g. wrangler dry-run
 ```
 
 Workflow job: checkout → setup-bun → `bun install --frozen-lockfile` → `bash scripts/product/validate.sh`  
@@ -343,7 +343,7 @@ bun run zero-edit          # must stay green (or refresh exceptions intentionall
 
 If conflict in a **kit zone** → product probably edited a forbidden path: restore kit version and move product change to a product path / design override.
 
-If product build breaks after pull → fix product code or contribute a kit fix **in silex-boilerplate first**.
+If product build breaks after pull → fix product code or contribute a kit fix **in kit first**.
 
 ---
 
@@ -389,12 +389,11 @@ If product build breaks after pull → fix product code or contribute a kit fix 
 | Doc | Role |
 |-----|------|
 | [`AGENTS.md`](../AGENTS.md) | Kit dual-mission + consumer DENY push |
-| [`gosilex-ci-app-setup.md`](./gosilex-ci-app-setup.md) | CI App; new product repo CI checklist |
+| [`kit-ci-app-setup.md`](./kit-ci-app-setup.md) | CI App; new product repo CI checklist |
 | [`config/zero-edit-zones.json`](../config/zero-edit-zones.json) | Protected paths + design_overrides SSoT |
 | [`config/zero-edit-exceptions.example.json`](../config/zero-edit-exceptions.example.json) | Exception schema template |
 | [`scripts/check-zero-edit-zones.sh`](../scripts/check-zero-edit-zones.sh) | Gate implementation |
 | ADR-0001 | packages compose apps |
 | [`playbooks/start-product.md`](./playbooks/start-product.md) | Day-1 greenfield product setup + dogfood |
-| [`playbooks/fork-to-first-issue.md`](./playbooks/fork-to-first-issue.md) | Full runbook: brief → Spark → GH issue → `/dev` first ship |
-| [`product-consumer-dogfood-evidence.md`](./product-consumer-dogfood-evidence.md) | B5 live evidence (`silex-kit-dogfood`) |
-| silex-share | **historical** split only — archived / deprecated, not a live dogfood target |
+| [`playbooks/fork-to-first-issue.md`](./playbooks/fork-to-first-issue.md) | Full runbook: brief → tracker → GH issue → `/dev` first ship |
+| [`product-consumer-dogfood-evidence.md`](./product-consumer-dogfood-evidence.md) | B5 live evidence (`kit-dogfood`) |

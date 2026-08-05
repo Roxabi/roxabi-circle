@@ -1,35 +1,35 @@
-# `@gosilex/feedback`
+# `@kit/feedback`
 
-Kit SSoT — bouton **Signaler** + proxy Hono → Spark Pilotage (`POST /api/v1/feedback`).
+Kit SSoT — bouton **Signaler** + proxy Hono → Pilotage (`POST /api/v1/feedback`).
 
 | Surface | Import | Rôle |
 |---------|--------|------|
-| Core | `@gosilex/feedback` | types, parse FormData, client M2M |
-| Hono | `@gosilex/feedback/hono` | `handleFeedbackReport` pour Workers |
-| UI | `@gosilex/feedback/react` | bouton flottant + modal |
-| Styles | `@gosilex/feedback/styles.css` | CSS autonome (thèmes) |
+| Core | `@kit/feedback` | types, parse FormData, client M2M |
+| Hono | `@kit/feedback/hono` | `handleFeedbackReport` pour Workers |
+| UI | `@kit/feedback/react` | bouton flottant + modal |
+| Styles | `@kit/feedback/styles.css` | CSS autonome (thèmes) |
 
 ## Architecture
 
 ```
 Browser  →  POST /api/report (session cookie, example-api)
-                 ↓ handleFeedbackReport (sparkUrl/apiKey from D1)
-            Spark  POST /api/v1/feedback  (Bearer spk_…)
+                 ↓ handleFeedbackReport (pilotageUrl/apiKey from D1)
+            Pilotage  POST /api/v1/feedback  (Bearer fbk_…)
 ```
 
-La clé `spk_…` **ne sort jamais** du Worker. Le client Spark est **déduit de la clé**.
+La clé `fbk_…` **ne sort jamais** du Worker. Le client Pilotage est **déduit de la clé**.
 
 ## Activation (kit — tout en D1)
 
 | Couche | Mécanisme |
 |--------|-----------|
 | Toggle module | `kit_modules.enabled` — admin **Paramètres → Modules** |
-| Config Spark | `kit_modules.config_json` — admin **`/settings/integrations/feedback`** |
+| Config Pilotage | `kit_modules.config_json` — admin **`/settings/integrations/feedback`** |
 | UI FAB | `GET /api/modules` → `feedback.enabled` + `configured` |
 
 Défaut : **désactivé** et **non configuré**. Impossible d’activer sans URL + clé enregistrées (`INTEGRATION_NOT_CONFIGURED`).
 
-`SPARK_URL` / `SPARK_API_KEY` en `.env` : **non utilisés** par example-api.  
+`PILOTAGE_URL` / `PILOTAGE_API_KEY` en `.env` : **non utilisés** par example-api.  
 `isFeedbackEnabled(env)` reste exporté pour produits legacy.
 
 ## example-api
@@ -38,6 +38,6 @@ Défaut : **désactivé** et **non configuré**. Impossible d’activer sans URL
 - `routes/integrations.ts` — `PUT /api/integrations/feedback` (admin)
 - `routes/modules.ts` — `GET/PATCH /api/modules`
 
-## Spark legacy
+## Pilotage legacy
 
-`@gosilex/spark-feedback` dans le repo Spark sera remplacé par ce package quand Spark pullera le kit en upstream.
+`@kit/feedback` dans le repo Pilotage sera remplacé par ce package quand Pilotage pullera le kit en upstream.

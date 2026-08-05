@@ -1,8 +1,8 @@
 /**
  * ADR-0003 Phase B — custom roles + grants + IDOR matrix (CP-IDOR ≥ 8).
- * Spark #127 · GH #22
+ * Pilotage #127 · GH #22
  */
-import { createDb } from '@gosilex/db'
+import { createDb } from '@kit/db'
 import { describe, expect, it } from 'vitest'
 import { createApp } from './app'
 import { schema } from './db/schema'
@@ -55,7 +55,7 @@ describe('org roles Phase B — IDOR + grants', () => {
 
   it('2 owner lists seeded system roles', async () => {
     const { app, env } = await seedEnv()
-    const cookie = await signIn(app, env, 'team-owner@gosilex.local')
+    const cookie = await signIn(app, env, 'team-owner@kit.local')
     const res = await app.request(
       '/api/orgs/org_team/roles',
       { headers: { cookie, Origin: ORIGIN } },
@@ -73,7 +73,7 @@ describe('org roles Phase B — IDOR + grants', () => {
 
   it('3 cross-org IDOR: acme staff cannot list team roles', async () => {
     const { app, env } = await seedEnv()
-    const cookie = await signIn(app, env, 'staff@gosilex.local')
+    const cookie = await signIn(app, env, 'staff@kit.local')
     const res = await app.request(
       '/api/orgs/org_team/roles',
       { headers: { cookie, Origin: ORIGIN } },
@@ -84,7 +84,7 @@ describe('org roles Phase B — IDOR + grants', () => {
 
   it('4 reader cannot create custom role (403)', async () => {
     const { app, env } = await seedEnv()
-    const cookie = await signIn(app, env, 'team-reader@gosilex.local')
+    const cookie = await signIn(app, env, 'team-reader@kit.local')
     const res = await app.request(
       '/api/orgs/org_team/roles',
       {
@@ -99,7 +99,7 @@ describe('org roles Phase B — IDOR + grants', () => {
 
   it('5 owner creates custom role with read grant', async () => {
     const { app, env } = await seedEnv()
-    const cookie = await signIn(app, env, 'team-owner@gosilex.local')
+    const cookie = await signIn(app, env, 'team-owner@kit.local')
     const res = await app.request(
       '/api/orgs/org_team/roles',
       {
@@ -121,7 +121,7 @@ describe('org roles Phase B — IDOR + grants', () => {
 
   it('6 system role grants are immutable', async () => {
     const { app, env } = await seedEnv()
-    const cookie = await signIn(app, env, 'team-owner@gosilex.local')
+    const cookie = await signIn(app, env, 'team-owner@kit.local')
     const list = await app.request(
       '/api/orgs/org_team/roles',
       { headers: { cookie, Origin: ORIGIN } },
@@ -143,7 +143,7 @@ describe('org roles Phase B — IDOR + grants', () => {
 
   it('7 cannot patch grants on other org role id', async () => {
     const { app, env } = await seedEnv()
-    const ownerTeam = await signIn(app, env, 'team-owner@gosilex.local')
+    const ownerTeam = await signIn(app, env, 'team-owner@kit.local')
     const create = await app.request(
       '/api/orgs/org_team/roles',
       {
@@ -164,7 +164,7 @@ describe('org roles Phase B — IDOR + grants', () => {
     expect(create.status).toBe(201)
     const roleId = ((await create.json()) as { role: { id: string } }).role.id
 
-    const solo = await signIn(app, env, 'solo@gosilex.local')
+    const solo = await signIn(app, env, 'solo@kit.local')
     const res = await app.request(
       `/api/orgs/org_solo/roles/${roleId}/grants/feedback`,
       {
@@ -179,7 +179,7 @@ describe('org roles Phase B — IDOR + grants', () => {
 
   it('8 cannot delete system role', async () => {
     const { app, env } = await seedEnv()
-    const cookie = await signIn(app, env, 'team-owner@gosilex.local')
+    const cookie = await signIn(app, env, 'team-owner@kit.local')
     const list = await app.request(
       '/api/orgs/org_team/roles',
       { headers: { cookie, Origin: ORIGIN } },
@@ -201,7 +201,7 @@ describe('org roles Phase B — IDOR + grants', () => {
 
   it('9 super_admin write on roles routes is denied without membership', async () => {
     const { app, env } = await seedEnv()
-    const cookie = await signIn(app, env, 'super@gosilex.local')
+    const cookie = await signIn(app, env, 'super@kit.local')
     const res = await app.request(
       '/api/orgs/org_team/roles',
       {
@@ -217,7 +217,7 @@ describe('org roles Phase B — IDOR + grants', () => {
 
   it('10 create role rejects system key reuse', async () => {
     const { app, env } = await seedEnv()
-    const cookie = await signIn(app, env, 'team-owner@gosilex.local')
+    const cookie = await signIn(app, env, 'team-owner@kit.local')
     const res = await app.request(
       '/api/orgs/org_team/roles',
       {
@@ -232,7 +232,7 @@ describe('org roles Phase B — IDOR + grants', () => {
 
   it('11 delete custom role still assigned → 409', async () => {
     const { app, env, db } = await seedEnv()
-    const cookie = await signIn(app, env, 'team-owner@gosilex.local')
+    const cookie = await signIn(app, env, 'team-owner@kit.local')
     const create = await app.request(
       '/api/orgs/org_team/roles',
       {
@@ -272,7 +272,10 @@ describe('org roles Phase B — IDOR + grants', () => {
     await platformModulesRepo.upsertPlatformModule(db, {
       moduleId: 'feedback',
       available: true,
-      configJson: JSON.stringify({ sparkUrl: 'https://spark.example', sparkApiKey: 'spu_test' }),
+      configJson: JSON.stringify({
+        pilotageUrl: 'https://pilotage.example',
+        pilotageApiKey: 'fbk_test',
+      }),
       updatedAt: Date.now(),
     })
     await platformModulesRepo.upsertOrgModule(db, {
@@ -300,7 +303,7 @@ describe('org roles Phase B — IDOR + grants', () => {
 
   it('13 custom role with write cannot be used to assign system admin', async () => {
     const { app, env, db } = await seedEnv()
-    const cookie = await signIn(app, env, 'team-owner@gosilex.local')
+    const cookie = await signIn(app, env, 'team-owner@kit.local')
     const create = await app.request(
       '/api/orgs/org_team/roles',
       {
@@ -324,7 +327,7 @@ describe('org roles Phase B — IDOR + grants', () => {
 
   it('14 grant ceiling: cannot create role stronger than demoted actor', async () => {
     const { app, env, db } = await seedEnv()
-    const cookie = await signIn(app, env, 'team-owner@gosilex.local')
+    const cookie = await signIn(app, env, 'team-owner@kit.local')
     // Demote owner system grant to read so ceiling can fire
     const { ensureSystemRoles } = await import('./services/org-roles')
     const orgRolesRepo = await import('./repos/org-roles')

@@ -8,10 +8,10 @@
 
 | Item | Status |
 |---|---|
-| GitHub App `gosilex-ci` | See [`gosilex-ci-app-setup.md`](./gosilex-ci-app-setup.md) — org-level live |
+| GitHub App `kit-ci` | See [`kit-ci-app-setup.md`](./kit-ci-app-setup.md) — org-level live |
 | Org var `CI_APP_ID` | Required for auto-merge |
 | Org secret `CI_APP_PRIVATE_KEY` | Required for auto-merge |
-| CF account Gosilex | Workers + D1 + R2 for examples |
+| CF account Kit | Workers + D1 + R2 for examples |
 | Wrangler staging env | **Not defined in kit** — add `[env.staging]` + named D1/R2 before deploy |
 
 **Smoke (merge path):** PRs with label `reviewed` + green CI merge via merge-on-green (bot). If the job prints *Manual merge required*, the App is not wired.
@@ -37,7 +37,7 @@
 | `SESSION_COOKIE_NAME` | Optional override |
 | `CORS_ORIGINS` | Explicit SPA origin(s) |
 | `EMAIL_TRANSPORT` | `cf` or `smtp` (**not** `log`) |
-| `EMAIL_FROM` | Staging From `@gosilex.com` |
+| `EMAIL_FROM` | Staging From `@example.com` |
 | `EMAIL_ALLOW_DOMAINS` | Required for staging + cf/resend (ADR-0004) |
 | Bindings | `DB`, `BUCKET`, `EMAIL` (if cf) |
 
@@ -47,7 +47,7 @@ Set via `wrangler secret put` on the **staging** worker, not committed wrangler 
 
 ```bash
 # CF credentials: hub helper (outside this repo), e.g.
-#   source ~/projects/gosilex/scripts/load-cf-env.sh
+#   source ~/projects/your-org/scripts/load-cf-env.sh
 # Not scripts/load-cf-env.sh in the kit tree.
 
 # 1) Add [env.staging] + D1/R2 names to apps/example-api/wrangler.toml (or product wrangler)
@@ -74,7 +74,7 @@ Until `[env.staging]` exists, **do not** run `wrangler deploy --env staging` —
 
 ```text
 PR → Secret scan green → CI validate-full green → label `reviewed`
-  → merge-on-green (gosilex-ci) → merge commit on main
+  → merge-on-green (kit-ci) → merge commit on main
 ```
 
 Free private: no branch protection API — discipline + workflow is the gate.

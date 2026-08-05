@@ -4,12 +4,12 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="light dark" />
-    <title>GOSILEX Kit — example-web</title>
+    <title>Kit Kit — example-web</title>
     <script>
       // Prevent theme flash: apply .dark before paint (class strategy, not media-only).
       ;(() => {
         try {
-          const t = localStorage.getItem('gosilex.theme') || 'system'
+          const t = localStorage.getItem('kit.theme') || 'system'
           const dark =
             t === 'dark' ||
             (t === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)

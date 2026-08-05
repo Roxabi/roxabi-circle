@@ -30,7 +30,7 @@ import {
   TableHeader,
   TableRow,
   Textarea,
-} from '@gosilex/ui'
+} from '@kit/ui'
 import { useForm } from '@tanstack/react-form'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Pencil, Plus, Trash2 } from 'lucide-react'

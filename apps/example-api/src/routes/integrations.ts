@@ -1,4 +1,4 @@
-import { AppError } from '@gosilex/core'
+import { AppError } from '@kit/core'
 import { Hono } from 'hono'
 import { isKitModuleId } from '../lib/kit-modules'
 import { requirePlatformRole } from '../middleware/org-context'

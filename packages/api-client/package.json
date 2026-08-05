@@ -1,5 +1,5 @@
 {
-  "name": "@gosilex/api-client",
+  "name": "@kit/api-client",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -17,7 +17,7 @@
     "build": "echo ok"
   },
   "dependencies": {
-    "@gosilex/types": "workspace:*"
+    "@kit/types": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.9.0",

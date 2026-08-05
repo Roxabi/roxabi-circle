@@ -1,7 +1,7 @@
 # Dependabot — npm (bun.lock) + GitHub Actions.
 # Cooldown 3d on patch/minor (fleet convention). github-actions: default-days only
 # (semver-*-days rejected by GitHub for that ecosystem).
-# Ref: roxabi-marketplace dependabot + checkup dependabot-cooldown tests.
+# Ref: kit-marketplace dependabot + checkup dependabot-cooldown tests.
 #
 # IMPORTANT: cooldown applies to VERSION updates only — NOT security/CVE updates.
 # Security alerts open immediately; Slack: .github/workflows/dependabot-alert-slack.yml

@@ -67,7 +67,7 @@ describe('email server transport', () => {
       {
         host: '127.0.0.1',
         port: 1025,
-        from: 'kit@gosilex.local',
+        from: 'kit@kit.local',
         to: 'a@b.c',
         subject: 't',
         text: 'x',
@@ -92,8 +92,8 @@ describe('email server transport', () => {
       {
         host: '127.0.0.1',
         port: 1025,
-        from: 'kit@gosilex.local',
-        to: 'demo@gosilex.local',
+        from: 'kit@kit.local',
+        to: 'demo@kit.local',
         subject: 'hi',
         text: 'body',
       },
@@ -108,7 +108,7 @@ describe('email server transport', () => {
       {
         host: '127.0.0.1',
         port: 1025,
-        from: 'kit@gosilex.local',
+        from: 'kit@kit.local',
         to: 'bad@evil',
         subject: 'hi',
         text: 'body',

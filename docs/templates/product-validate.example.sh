@@ -32,11 +32,11 @@ echo "→ product-validate (ROOT=$ROOT)"
 bun run zero-edit
 
 # --- replace <product> with your app package names ---
-bun run --filter "@gosilex/<product>-api" typecheck
-bun run --filter "@gosilex/<product>-api" test
-bun run --filter "@gosilex/<product>-web" typecheck
-bun run --filter "@gosilex/<product>-web" test
+bun run --filter "@kit/<product>-api" typecheck
+bun run --filter "@kit/<product>-api" test
+bun run --filter "@kit/<product>-web" typecheck
+bun run --filter "@kit/<product>-web" test
 # Optional: wrangler dry-run / turbo build for the product API
-# bun run --filter "@gosilex/<product>-api" build
+# bun run --filter "@kit/<product>-api" build
 
 echo "✓ product-validate OK"

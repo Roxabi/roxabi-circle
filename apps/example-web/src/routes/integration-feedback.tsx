@@ -1,4 +1,4 @@
-import { DEFAULT_SPARK_URL } from '@gosilex/feedback'
+import { DEFAULT_PILOTAGE_URL } from '@kit/feedback'
 import {
   Button,
   Card,
@@ -11,7 +11,7 @@ import {
   FieldGroup,
   FieldLabel,
   Input,
-} from '@gosilex/ui'
+} from '@kit/ui'
 import { useForm } from '@tanstack/react-form'
 import { Link } from '@tanstack/react-router'
 import { useEffect } from 'react'
@@ -28,17 +28,17 @@ export function IntegrationFeedbackPage() {
 
   const form = useForm({
     defaultValues: {
-      sparkUrl: DEFAULT_SPARK_URL,
-      sparkApiKey: '',
+      pilotageUrl: DEFAULT_PILOTAGE_URL,
+      pilotageApiKey: '',
     },
     onSubmit: async ({ value }) => {
       try {
         await save.mutateAsync({
-          sparkUrl: value.sparkUrl.trim(),
-          sparkApiKey: value.sparkApiKey.trim() || undefined,
+          pilotageUrl: value.pilotageUrl.trim(),
+          pilotageApiKey: value.pilotageApiKey.trim() || undefined,
         })
         toast.success(m.integrationSaved)
-        form.setFieldValue('sparkApiKey', '')
+        form.setFieldValue('pilotageApiKey', '')
       } catch (e) {
         toast.error(m.error, { description: apiErrorToMessage(e, m) })
       }
@@ -48,7 +48,7 @@ export function IntegrationFeedbackPage() {
   useEffect(() => {
     const data = integration.data?.integration
     if (!data) return
-    if (data.sparkUrl) form.setFieldValue('sparkUrl', data.sparkUrl)
+    if (data.pilotageUrl) form.setFieldValue('pilotageUrl', data.pilotageUrl)
   }, [integration.data?.integration, form])
 
   const preview = integration.data?.integration.apiKeyPreview
@@ -80,43 +80,43 @@ export function IntegrationFeedbackPage() {
             }}
           >
             <FieldGroup>
-              <form.Field name="sparkUrl">
+              <form.Field name="pilotageUrl">
                 {(field) => (
                   <Field>
-                    <FieldLabel htmlFor={field.name}>{m.integrationSparkUrl}</FieldLabel>
+                    <FieldLabel htmlFor={field.name}>{m.integrationPilotageUrl}</FieldLabel>
                     <Input
                       id={field.name}
                       type="url"
-                      placeholder={DEFAULT_SPARK_URL}
+                      placeholder={DEFAULT_PILOTAGE_URL}
                       value={field.state.value}
                       onBlur={field.handleBlur}
                       onChange={(e) => field.handleChange(e.target.value)}
                     />
-                    <FieldDescription>{m.integrationSparkUrlHint}</FieldDescription>
+                    <FieldDescription>{m.integrationPilotageUrlHint}</FieldDescription>
                   </Field>
                 )}
               </form.Field>
 
-              <form.Field name="sparkApiKey">
+              <form.Field name="pilotageApiKey">
                 {(field) => (
                   <Field>
-                    <FieldLabel htmlFor={field.name}>{m.integrationSparkApiKey}</FieldLabel>
+                    <FieldLabel htmlFor={field.name}>{m.integrationPilotageApiKey}</FieldLabel>
                     <Input
                       id={field.name}
                       type="password"
                       autoComplete="off"
-                      placeholder={preview ? m.integrationSparkApiKeyKeep : 'spk_…'}
+                      placeholder={preview ? m.integrationPilotageApiKeyKeep : 'fbk_…'}
                       value={field.state.value}
                       onBlur={field.handleBlur}
                       onChange={(e) => field.handleChange(e.target.value)}
                     />
                     {preview ? (
                       <FieldDescription>
-                        {m.integrationSparkApiKeyCurrent}:{' '}
+                        {m.integrationPilotageApiKeyCurrent}:{' '}
                         <code className="font-mono text-xs">{preview}</code>
                       </FieldDescription>
                     ) : (
-                      <FieldDescription>{m.integrationSparkApiKeyHint}</FieldDescription>
+                      <FieldDescription>{m.integrationPilotageApiKeyHint}</FieldDescription>
                     )}
                   </Field>
                 )}

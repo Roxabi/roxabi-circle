@@ -1,4 +1,4 @@
-import { createDb } from '@gosilex/db'
+import { createDb } from '@kit/db'
 import { describe, expect, it, vi } from 'vitest'
 import { createApp } from './app'
 import { schema } from './db/schema'

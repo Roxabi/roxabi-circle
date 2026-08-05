@@ -1,11 +1,11 @@
-import type { KitR2Bucket } from '@gosilex/storage'
+import type { KitR2Bucket } from '@kit/storage'
 import {
   createMockPresignSigner,
   createPresignedUrl,
   type PresignResult,
   type PresignSigner,
   StorageClient,
-} from '@gosilex/storage'
+} from '@kit/storage'
 
 export type PresignMode = 'mock' | 's3'
 

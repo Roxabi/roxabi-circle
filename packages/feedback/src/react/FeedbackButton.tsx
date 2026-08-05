@@ -49,7 +49,7 @@ const DEFAULT_LABELS: Required<FeedbackButtonLabels> = {
   trigger: 'Signaler',
   title: 'Signaler un bug ou une idée',
   success: 'Merci ! Signalement envoyé.',
-  successSub: "L'équipe le retrouve dans le Pilotage Spark.",
+  successSub: "L'équipe le retrouve dans le Pilotage.",
   hint: 'Envoyé avec la page en cours.',
   typeBug: 'Bug',
   typeFeature: 'Amélioration',

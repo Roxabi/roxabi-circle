@@ -9,7 +9,7 @@ import {
   Input,
   Label,
   Skeleton,
-} from '@gosilex/ui'
+} from '@kit/ui'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { toast } from 'sonner'

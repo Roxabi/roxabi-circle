@@ -73,40 +73,40 @@ echo "== extract-dry-run: banlist (packages + example apps only) =="
 bash scripts/check-banned-strings.sh
 
 echo "== extract-dry-run: every package imported by an example =="
-search_q '@gosilex/core' apps/example-api || {
-  echo "example-api must import @gosilex/core" >&2
+search_q '@kit/core' apps/example-api || {
+  echo "example-api must import @kit/core" >&2
   exit 1
 }
-search_q '@gosilex/auth' apps/example-api || {
-  echo "example-api must import @gosilex/auth" >&2
+search_q '@kit/auth' apps/example-api || {
+  echo "example-api must import @kit/auth" >&2
   exit 1
 }
-search_q '@gosilex/db' apps/example-api || {
-  echo "example-api must import @gosilex/db" >&2
+search_q '@kit/db' apps/example-api || {
+  echo "example-api must import @kit/db" >&2
   exit 1
 }
-search_q '@gosilex/storage' apps/example-api || {
-  echo "example-api must import @gosilex/storage" >&2
+search_q '@kit/storage' apps/example-api || {
+  echo "example-api must import @kit/storage" >&2
   exit 1
 }
-search_q '@gosilex/email' apps/example-api || {
-  echo "example-api must import @gosilex/email" >&2
+search_q '@kit/email' apps/example-api || {
+  echo "example-api must import @kit/email" >&2
   exit 1
 }
-search_q '@gosilex/mcp' apps/mcp-example || {
-  echo "mcp-example must import @gosilex/mcp" >&2
+search_q '@kit/mcp' apps/mcp-example || {
+  echo "mcp-example must import @kit/mcp" >&2
   exit 1
 }
-search_q '@gosilex/ui' apps/example-web || {
-  echo "example-web must import @gosilex/ui" >&2
+search_q '@kit/ui' apps/example-web || {
+  echo "example-web must import @kit/ui" >&2
   exit 1
 }
-search_q '@gosilex/types' apps/example-web || {
-  echo "example-web must import @gosilex/types" >&2
+search_q '@kit/types' apps/example-web || {
+  echo "example-web must import @kit/types" >&2
   exit 1
 }
-search_q '@gosilex/i18n' apps/example-web || {
-  echo "example-web must import @gosilex/i18n" >&2
+search_q '@kit/i18n' apps/example-web || {
+  echo "example-web must import @kit/i18n" >&2
   exit 1
 }
 

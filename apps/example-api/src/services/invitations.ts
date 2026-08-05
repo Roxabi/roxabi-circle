@@ -1,11 +1,11 @@
-import { normalizeEmail } from '@gosilex/auth'
-import { AppError } from '@gosilex/core'
+import { normalizeEmail } from '@kit/auth'
+import { AppError } from '@kit/core'
 import {
   buildInviteEmailText,
   buildWelcomeSetPasswordEmailText,
   createLogEmailPort,
   type EmailPort,
-} from '@gosilex/email'
+} from '@kit/email'
 import type { DrizzleD1Database } from 'drizzle-orm/d1'
 import type { schema } from '../db/schema'
 import { assertRateLimit } from '../lib/rate-limit'

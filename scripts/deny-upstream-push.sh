@@ -2,12 +2,11 @@
 # Block product repos from pushing to kit / intermediate parents.
 #
 # Shipped **in the kit** so product forks need NOT edit lefthook.yml.
-# Safe on kit clones themselves (HEAD or mirror): when origin matches a kit
-# repo slug, all pushes allowed (incl. kit mirror → HEAD via `upstream`).
 #
-# Defaults (kit):
-#   - remote name `upstream`
-#   - URL substrings: `roxabi-cf-template` (HEAD) · `silex-boilerplate` (mirror)
+# Kit clone heuristic (brand-agnostic):
+#   no docs/product/kit-baseline → treat as kit → allow all remotes
+# Product clone:
+#   has docs/product/kit-baseline → deny remote name `upstream` + optional URL substrings
 #
 # Product multi-hop extend (zero-edit free — do not patch this file):
 #   - env DENY_UPSTREAM_URL_SUBSTRINGS=comma,separated,slugs
@@ -29,28 +28,11 @@ if [[ -z "${REPO_ROOT}" ]]; then
   REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 fi
 
-# Kit identity slugs (origin URL match → maintainer no-op; product URL match → deny).
-KIT_ORIGIN_SLUGS=(
-  "roxabi-cf-template"
-  "silex-boilerplate"
-)
-
-is_kit_slug() {
-  local url="${1:-}"
-  local s
-  for s in "${KIT_ORIGIN_SLUGS[@]}"; do
-    if [[ -n "${s}" && "${url}" == *"${s}"* ]]; then
-      return 0
-    fi
-  done
-  return 1
-}
-
 deny() {
   echo "deny-upstream-push: blocked push to denied parent/kit remote" >&2
   echo "  remote=${remote_name:-?} url=${remote_url:-?}" >&2
-  echo "  Shared kit → land on HEAD (Roxabi/roxabi-cf-template) or kit mirror origin." >&2
-  echo "  Kit mirror may: git push upstream (HEAD). Product → only: git push origin …" >&2
+  echo "  Shared kit changes → land on a kit clone (push origin / contribute flow)." >&2
+  echo "  Product repo → only: git push origin …" >&2
   echo "  Multi-hop: DENY_UPSTREAM_URL_SUBSTRINGS or docs/product/deny-upstream.json" >&2
   exit 1
 }
@@ -85,36 +67,29 @@ read_json_substrings() {
       }
     }
   ' "${file}" 2>/dev/null; then
-    # bun failed after warn path already printed to stderr in script; swallow
     return 0
   fi
 }
 
-# --- kit origin: no-op (HEAD or mirror maintainers may push any remote) ---
-origin_url="$(git -C "${REPO_ROOT}" remote get-url origin 2>/dev/null || true)"
-if is_kit_slug "${origin_url}"; then
+# --- kit tree: no product kit-baseline → maintainer no-op ---
+if [[ ! -f "${REPO_ROOT}/docs/product/kit-baseline" ]]; then
   exit 0
 fi
 
-# --- build substring denylist (union) ---
-# Builtin kit identity (HEAD + historical/mirror slug)
-declare -a SUBSTRINGS=("${KIT_ORIGIN_SLUGS[@]}")
+# --- build substring denylist (union) — no brand builtins ---
+declare -a SUBSTRINGS=()
 
-# Optional kit config (generic only — do not put product chassis names here)
 while IFS= read -r line; do
   [[ -n "${line}" ]] && SUBSTRINGS+=("${line}")
 done < <(read_json_substrings "${REPO_ROOT}/config/deny-upstream-remotes.json")
 
-# Product-owned extend (zero-edit free path)
 while IFS= read -r line; do
   [[ -n "${line}" ]] && SUBSTRINGS+=("${line}")
 done < <(read_json_substrings "${REPO_ROOT}/docs/product/deny-upstream.json")
 
-# Env: DENY_UPSTREAM_URL_SUBSTRINGS=comma,separated (trim, drop empty)
 if [[ -n "${DENY_UPSTREAM_URL_SUBSTRINGS:-}" ]]; then
   IFS=',' read -ra ENV_PARTS <<< "${DENY_UPSTREAM_URL_SUBSTRINGS}"
   for part in "${ENV_PARTS[@]}"; do
-    # trim whitespace
     trimmed="$(echo "${part}" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
     [[ -n "${trimmed}" ]] && SUBSTRINGS+=("${trimmed}")
   done

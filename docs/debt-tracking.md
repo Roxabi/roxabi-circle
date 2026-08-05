@@ -1,7 +1,7 @@
 # Debt tracking (kit)
 
 > **SSoT** for suppression markers in Chemin A.  
-> Inspiration: roxabi-factory debt-tracking — **simpler**: no full registry, no Python audit JSON.  
+> Inspiration: kit-factory debt-tracking — **simpler**: no full registry, no Python audit JSON.  
 > Gate: `bun run debt:check` · self-test: `bun run test:debt` · CP-DEBT in [`testing.md`](./testing.md).
 
 ---
@@ -135,4 +135,4 @@ Included in `quality-gates:check` next to file length.
 | [`plans/010-quality-hygiene-debt.md`](../plans/010-quality-hygiene-debt.md) | plan SSoT |
 | `scripts/check-debt.ts` | untagged + expiry scanner |
 | `tools/check_folder_size.sh` | folder density |
-| roxabi-factory `docs/debt-tracking.md` | upstream inspiration |
+| kit-factory `docs/debt-tracking.md` | upstream inspiration |

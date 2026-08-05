@@ -21,16 +21,16 @@ export function InviteEmail(props: {
   const safeUrl = escapeHtml(props.acceptUrl)
   const exp = props.expiresAt.toISOString()
   const inviter = props.inviterLabel ? props.inviterLabel.replace(/[\r\n]/g, '') : undefined
-  const subject = `Invitation — ${org} (GOSILEX kit)`
+  const subject = `Invitation — ${org} (Kit kit)`
   const text = [
-    `You have been invited to join "${org}" on GOSILEX Kit.`,
+    `You have been invited to join "${org}" on Kit Kit.`,
     inviter ? `Invited by: ${inviter}` : null,
     `Accept: ${props.acceptUrl}`,
     `Expires: ${exp}`,
   ]
     .filter(Boolean)
     .join('\n')
-  const html = `<p>You have been invited to join <strong>${safeOrg}</strong> on GOSILEX Kit.</p>${
+  const html = `<p>You have been invited to join <strong>${safeOrg}</strong> on Kit Kit.</p>${
     inviter ? `<p>Invited by: ${escapeHtml(inviter)}</p>` : ''
   }<p><a href="${safeUrl}">Accept invitation</a></p><p>Expires: ${escapeHtml(exp)}</p>`
   return { to: props.to, subject, text, html }

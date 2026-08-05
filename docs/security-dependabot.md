@@ -25,7 +25,7 @@ GitHub docs: `cooldown` applies **only** to version updates, not security update
   - Bot: **Flint** (BW `slack/flint`) — secret `SLACK_FLINT_BOT_TOKEN`
   - Smoke: Actions → *Dependabot alert → Slack* → Run workflow
 
-> **Note:** `#int-bugs-alert` is wired to **Flint** (ops/bugs), same as health-check / silex-workers. There is no Rocky Slack bot token in the agent BW inventory for this channel.
+> **Note:** `#int-bugs-alert` is wired to **Flint** (ops/bugs), same as health-check / worker-fleet. There is no Rocky Slack bot token in the agent BW inventory for this channel.
 
 Severity for Slack: prefer `security_advisory.severity` / `security_vulnerability.severity` (top-level `alert.severity` is often `null` on private repos).
 
@@ -33,21 +33,21 @@ Severity for Slack: prefer `security_advisory.severity` / `security_vulnerabilit
 
 | Kind | Name | Source |
 |---|---|---|
-| Secret | `SLACK_FLINT_BOT_TOKEN` | BW `slack/flint` → `SLACK_BOT_TOKEN` / `SPARK_SLACK_BOT_TOKEN` |
-| Secret | `CI_APP_PRIVATE_KEY` (+ var `CI_APP_ID`) | **gosilex-ci** App — lists Dependabot alerts |
+| Secret | `SLACK_FLINT_BOT_TOKEN` | BW `slack/flint` → `SLACK_BOT_TOKEN` / `SLACK_BOT_TOKEN_ALT` |
+| Secret | `CI_APP_PRIVATE_KEY` (+ var `CI_APP_ID`) | **kit-ci** App — lists Dependabot alerts |
 | Variable | `SLACK_CHANNEL_BUGS_ALERT` | `C0BDAPS2MG8` |
 
-**gosilex-ci must grant** repository permission **Dependabot alerts → Read** (GitHub App settings → Permissions → save → re-approve install on `go-silex`). Without it: `403 Resource not accessible by integration`. `GITHUB_TOKEN` alone is insufficient on this private repo.
+**kit-ci must grant** repository permission **Dependabot alerts → Read** (GitHub App settings → Permissions → save → re-approve install on `your-org`). Without it: `403 Resource not accessible by integration`. `GITHUB_TOKEN` alone is insufficient on this private repo.
 
-Rotate Slack: update BW + `gh secret set SLACK_FLINT_BOT_TOKEN --repo go-silex/silex-boilerplate`.
+Rotate Slack: update BW + `gh secret set SLACK_FLINT_BOT_TOKEN --repo kit-parent`.
 
 ## Manual checks
 
 ```bash
 # Alerts API
-gh api repos/go-silex/silex-boilerplate/dependabot/alerts --jq 'length'
+gh api repos/kit-parent/dependabot/alerts --jq 'length'
 
 # Enable (admin) if ever off
-gh api -X PUT repos/go-silex/silex-boilerplate/vulnerability-alerts
-gh api -X PUT repos/go-silex/silex-boilerplate/automated-security-fixes
+gh api -X PUT repos/kit-parent/vulnerability-alerts
+gh api -X PUT repos/kit-parent/automated-security-fixes
 ```

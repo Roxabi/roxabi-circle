@@ -1,4 +1,4 @@
-import { AppError, createLogger, toApiErrorBody } from '@gosilex/core'
+import { AppError, createLogger, toApiErrorBody } from '@kit/core'
 import type { Context } from 'hono'
 import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import type { Env } from '../env'

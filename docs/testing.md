@@ -102,9 +102,9 @@ Floors are enforced by Vitest (`packages/config/vitest-coverage.mjs` + per-packa
 
 | Tier | Scope | Floor (stmts/lines, approx.) | Policy |
 |---|---|---|---|
-| **T0** | `@gosilex/auth`, `@gosilex/example-api` (guards, dual auth, paths), FE **auth client** contracts | **80%** api/auth · pin named web contract files | **Never lower without ADR** |
+| **T0** | `@kit/auth`, `@kit/example-api` (guards, dual auth, paths), FE **auth client** contracts | **80%** api/auth · pin named web contract files | **Never lower without ADR** |
 | **T1** | `core`, `storage`, `db`, `types`, `mcp` | **70–75%** | Raise when surface grows |
-| **T2** | `@gosilex/ui`, `example-web` (page chrome) | **20% / 10%** global | Low % OK **iff** contract suites green; do not chase Button coverage |
+| **T2** | `@kit/ui`, `example-web` (page chrome) | **20% / 10%** global | Low % OK **iff** contract suites green; do not chase Button coverage |
 | **T3** | `email` thin, mcp-example smoke | soft / special (e.g. funcs 0% mcp-example) | Document, don’t pretend product security |
 
 **% is a ratchet, not the story.** The story is **critical paths** below.
@@ -117,12 +117,12 @@ Floors are enforced by Vitest (`packages/config/vitest-coverage.mjs` + per-packa
 |---|---|---|
 | **`packages/*`** | Public API of the capability (crypto, AppError, `joinObjectKey`, UI primitive contracts, MCP allowlist) | Share product scenarios (artefact, slug 409, private_key product mode) |
 | **`apps/example-*`** | Composition: Hono + D1/R2, dual auth wire, demo IDOR, CORS, cookies, design-system smoke | Re-implement package crypto N times |
-| **`apps/share-*` (P1 later)** | Product risks (upload modes, zip-slip, org membership, serve) | Forks of `@gosilex/*` stacks |
+| **`apps/share-*` (P1 later)** | Product risks (upload modes, zip-slip, org membership, serve) | Forks of `@kit/*` stacks |
 | **`scripts/*` / `tools/*`** | Architecture gates: banlist, extract, zero-edit, env:check, license:check, coverage | Domain behaviour |
 
 ### Design-system e2e (local only)
 
-- **Kit composition proof** (`@gosilex/ui` + admin shell in `example-web`).
+- **Kit composition proof** (`@kit/ui` + admin shell in `example-web`).
 - **Not** product e2e. Do not grow it into artefact/upload flows.
 - **Local (API + web already up):** `bun run test:e2e:design-system` — fast when stack is warm.
 - **Local one-shot (cold start):** `bun run test:e2e:ci` (`scripts/e2e-ci.sh` — migrate, seed, start API+web, Chromium smoke, teardown).
@@ -226,13 +226,13 @@ Automated suite: `apps/example-api/src/invitations.test.ts` (≥ 8 cases: create
 
 Manual dogfood (after `bun run db:seed` + API + web):
 
-1. Login `team-owner@gosilex.local` / `demo-password-change-me` → `/app`.
-2. Select org **Team Client** → **Members** → invite `solo@gosilex.local` as `member`.
+1. Login `team-owner@kit.local` / `demo-password-change-me` → `/app`.
+2. Select org **Team Client** → **Members** → invite `solo@kit.local` as `member`.
 3. Inspect Worker log line `transport: "log"` for accept URL (`/invite/accept?invitationId=…`).
-4. Logout → login `solo@gosilex.local` → open accept URL → join → membership on `/api/me` orgs.
+4. Logout → login `solo@kit.local` → open accept URL → join → membership on `/api/me` orgs.
 5. Confirm `team-reader@` cannot open invite create (403).
 
-Email is **log transport** only on Workers (Mailpit/SMTP is Node `@gosilex/email/server` — optional later).
+Email is **log transport** only on Workers (Mailpit/SMTP is Node `@kit/email/server` — optional later).
 
 ### Password reset local E2E (B3 S3)
 
@@ -242,13 +242,13 @@ BA 1.6 paths: `POST /api/auth/request-password-reset` · `POST /api/auth/reset-p
 
 Manual dogfood:
 
-1. Open `/forgot-password` → submit `demo@gosilex.local` (or seed persona).
+1. Open `/forgot-password` → submit `demo@kit.local` (or seed persona).
 2. Worker log: `transport: "log"` subject “Reset your password” with BA URL containing token.
 3. Prefer SPA: open `/reset-password?token=<token>` (or follow BA callback with `redirectTo=http://localhost:5173/reset-password`).
 4. Set new password (≥ 8 chars) → redirect login → sign in with **new** password; old fails.
 5. Reuse token → error.
 
-Mailpit: optional via Node `@gosilex/email/server` only — **not** the Worker path. Prod CF Email is epic **#21**.
+Mailpit: optional via Node `@kit/email/server` only — **not** the Worker path. Prod CF Email is epic **#21**.
 
 ---
 
@@ -329,7 +329,7 @@ Use [`.github/PULL_REQUEST_TEMPLATE.md`](../.github/PULL_REQUEST_TEMPLATE.md).
 ```bash
 bun run validate:full
 # and/or focused:
-bun run --filter @gosilex/example-api test
+bun run --filter @kit/example-api test
 ```
 
 ---
@@ -368,4 +368,3 @@ bun run --filter @gosilex/example-api test
 | [README.md](../README.md) | Dev quickstart, credentials, coverage table |
 | [ADR-0001](architecture/adr/0001-primary-axis-packages-compose-apps.md) | Primary axis packages → apps |
 | [ADR-0002](architecture/adr/0002-session-hmac-interim-vs-better-auth.md) | BA-only session + Bearer `sk_` dual-path (HMAC retired) |
-| [Frame](../artifacts/frames/001-share-platform-frame.md) | Product rules (P1 tests later) |

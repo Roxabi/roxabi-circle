@@ -1,8 +1,8 @@
-# Merge-on-green — Free private org (go-silex) cannot use native
+# Merge-on-green — Free private org cannot use native
 # `gh pr merge --auto` + branch protection (Team/Pro only).
 #
-# Pattern: Roxabi `roxabi-ci` App (bouly-site / forge) — **no PAT**.
-# Align Metalyde/Spark (narrow triggers — avoid Actions minute spam).
+# Pattern: operator `kit-ci` App (bouly-site / forge) — **no PAT**.
+# Align product consumers (narrow triggers — avoid Actions minute spam).
 #
 # Triggers (volontairement étroits) :
 #   - label `reviewed` sur une PR vers staging|main
@@ -20,10 +20,10 @@
 #
 # SPLIT-TOKEN:
 #   - Gate: GITHUB_TOKEN (checks:read)
-#   - Merge: GitHub App **gosilex-ci** → ephemeral token
+#   - Merge: GitHub App **kit-ci** → ephemeral token
 #       vars.CI_APP_ID
 #       secrets.CI_APP_PRIVATE_KEY
-#     Setup: docs/gosilex-ci-app-setup.md
+#     Setup: docs/kit-ci-app-setup.md
 #
 # Gating workflows: Secret scan + CI (job name validate-full).
 name: Merge on Green
@@ -61,22 +61,22 @@ jobs:
       # Gate auto-merge on **non-secret var only**.
       # Do NOT put secrets in `if:` — GitHub treats them unreliably there.
       # Flag: vars.CI_APP_ID set → try mint + merge.
-      # Setup: docs/gosilex-ci-app-setup.md
-      - name: Resolve gosilex-ci availability
+      # Setup: docs/kit-ci-app-setup.md
+      - name: Resolve kit-ci availability
         id: cfg
         env:
           APP_ID: ${{ vars.CI_APP_ID }}
         run: |
           if [ -n "$APP_ID" ]; then
             echo "enabled=true" >> "$GITHUB_OUTPUT"
-            echo "gosilex-ci: App ID present → auto-merge enabled"
+            echo "kit-ci: App ID present → auto-merge enabled"
           else
             echo "enabled=false" >> "$GITHUB_OUTPUT"
-            echo "::notice title=gosilex-ci not configured::Auto-merge OFF (evaluate-only). Human merge + quality CI still work. Install App + set org var CI_APP_ID and secret CI_APP_PRIVATE_KEY — docs/gosilex-ci-app-setup.md"
-            echo "::warning title=Manual merge required::Label reviewed will NOT auto-merge until gosilex-ci is set up."
+            echo "::notice title=kit-ci not configured::Auto-merge OFF (evaluate-only). Human merge + quality CI still work. Install App + set org var CI_APP_ID and secret CI_APP_PRIVATE_KEY — docs/kit-ci-app-setup.md"
+            echo "::warning title=Manual merge required::Label reviewed will NOT auto-merge until kit-ci is set up."
           fi
 
-      - name: Mint app token (gosilex-ci)
+      - name: Mint app token (kit-ci)
         id: app
         if: steps.cfg.outputs.enabled == 'true'
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
@@ -205,7 +205,7 @@ jobs:
                   owner: context.repo.owner, repo: context.repo.repo, pull_number: number,
                   merge_method: 'merge',
                 });
-                core.notice(`${tag}: merged (merge commit) — reviewed + checks green (gosilex-ci).`);
+                core.notice(`${tag}: merged (merge commit) — reviewed + checks green (kit-ci).`);
               } catch (e) {
                 core.warning(`${tag}: merge failed: ${e.message}`);
               }
@@ -221,10 +221,10 @@ jobs:
             echo "## Merge on Green"
             echo ""
             if [ "$ENABLED" = "true" ]; then
-              echo "- **gosilex-ci:** configured (auto-merge ON)"
+              echo "- **kit-ci:** configured (auto-merge ON)"
             else
-              echo "- **gosilex-ci:** **not configured** (auto-merge OFF — manual merge)"
-              echo "- Setup: \`docs/gosilex-ci-app-setup.md\`"
+              echo "- **kit-ci:** **not configured** (auto-merge OFF — manual merge)"
+              echo "- Setup: \`docs/kit-ci-app-setup.md\`"
             fi
             echo "- Candidates: \`${TO_MERGE:-[]}\`"
           } >> "$GITHUB_STEP_SUMMARY"

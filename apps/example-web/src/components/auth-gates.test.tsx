@@ -58,7 +58,7 @@ function wrap(ui: ReactNode) {
 
 const okMe: MeResponse = {
   subject: 'user_solo',
-  email: 'solo@gosilex.local',
+  email: 'solo@kit.local',
   authMethod: 'session',
   role: 'user',
   platformRole: null,

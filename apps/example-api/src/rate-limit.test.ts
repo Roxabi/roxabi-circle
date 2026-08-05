@@ -1,5 +1,5 @@
-import { AppError } from '@gosilex/core'
-import { createDb } from '@gosilex/db'
+import { AppError } from '@kit/core'
+import { createDb } from '@kit/db'
 import { describe, expect, it, vi } from 'vitest'
 import { schema } from './db/schema'
 import { assertRateLimit, resetRateLimits } from './lib/rate-limit'

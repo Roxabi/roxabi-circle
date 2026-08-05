@@ -1,7 +1,7 @@
 # Product-only file path (do not commit this example as kit-baseline in the kit repo):
 #   docs/product/kit-baseline
 #
-# One line: full SHA of the last-merged silex-boilerplate tip (upstream/main after merge).
+# One line: full SHA of the last-merged kit tip (upstream/main after merge).
 # Used by kit .github/workflows/ci.yml on product Actions to set ZERO_EDIT_BASE_REF
 # (no upstream remote on checkout). See docs/product-consumer-contract.md § CI zero-edit base.
 #

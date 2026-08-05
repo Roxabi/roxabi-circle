@@ -1,4 +1,4 @@
-import type { PlatformRole } from '@gosilex/auth'
+import type { PlatformRole } from '@kit/auth'
 import { eq } from 'drizzle-orm'
 import type { DrizzleD1Database } from 'drizzle-orm/d1'
 import type { schema } from '../db/schema'

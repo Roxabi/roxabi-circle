@@ -22,7 +22,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   useSidebar,
-} from '@gosilex/ui'
+} from '@kit/ui'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Building2, ChevronsUpDown, Plus } from 'lucide-react'
 import { type FormEvent, useState } from 'react'

@@ -1,6 +1,6 @@
 # Auth abuse response (kit)
 
-**Issue:** B-auth-harden #61 · Spark #131  
+**Issue:** B-auth-harden
 **Audience:** platform super_admin / on-call kit operators
 
 ## What protects auth endpoints
@@ -78,5 +78,5 @@ Alert on elevated `audit_append_failed` rate. Full outbox / SIEM is out of scope
 ## Related
 
 - ADR-0002 Better Auth only  
-- Frame/spec: `artifacts/*61-b-auth-harden*`  
+- Frame/spec: product tracker  
 - Staging: `docs/staging-examples.md`

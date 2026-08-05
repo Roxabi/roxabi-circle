@@ -7,7 +7,7 @@ import {
   FieldGroup,
   FieldLabel,
   Input,
-} from '@gosilex/ui'
+} from '@kit/ui'
 import { useForm } from '@tanstack/react-form'
 import { Link } from '@tanstack/react-router'
 import { GalleryVerticalEnd } from 'lucide-react'

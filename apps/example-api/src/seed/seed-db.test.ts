@@ -1,4 +1,4 @@
-import { createDb } from '@gosilex/db'
+import { createDb } from '@kit/db'
 import { describe, expect, it } from 'vitest'
 import { demoUsers, schema } from '../db/schema'
 import { createMemoryEnv } from '../test/memory-env'

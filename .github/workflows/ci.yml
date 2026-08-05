@@ -51,14 +51,8 @@ jobs:
       - name: Validate full
         run: |
           set -euo pipefail
-          # Kit HEAD or kit mirror: zero-edit kit mode (no kit-baseline).
-          # Product clones: require docs/product/kit-baseline (last-merged kit tip).
-          REPO="${{ github.repository }}"
-          if [[ "${REPO}" != "Roxabi/roxabi-cf-template" && "${REPO}" != "go-silex/silex-boilerplate" ]]; then
-            if [[ ! -f docs/product/kit-baseline ]]; then
-              echo "::error::missing docs/product/kit-baseline (kit tip SHA after last upstream merge)"
-              exit 1
-            fi
+          # Brand-agnostic: product trees ship docs/product/kit-baseline; kit trees do not.
+          if [[ -f docs/product/kit-baseline ]]; then
             export ZERO_EDIT_BASE_REF
             ZERO_EDIT_BASE_REF="$(tr -d '[:space:]' < docs/product/kit-baseline)"
             if ! git rev-parse --verify "${ZERO_EDIT_BASE_REF}^{commit}" >/dev/null 2>&1; then

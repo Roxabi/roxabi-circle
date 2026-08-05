@@ -1,4 +1,4 @@
-import { AppError } from '@gosilex/core'
+import { AppError } from '@kit/core'
 import type { DrizzleD1Database } from 'drizzle-orm/d1'
 import type { schema } from '../db/schema'
 import {

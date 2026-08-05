@@ -1,5 +1,5 @@
 {
-  "name": "@gosilex/auth",
+  "name": "@kit/auth",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -18,7 +18,7 @@
     "build": "echo ok"
   },
   "dependencies": {
-    "@gosilex/core": "workspace:*"
+    "@kit/core": "workspace:*"
   },
   "peerDependencies": {
     "better-auth": ">=1.2.0"

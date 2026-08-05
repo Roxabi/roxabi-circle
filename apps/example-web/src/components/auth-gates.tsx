@@ -1,4 +1,4 @@
-import { Button, Skeleton } from '@gosilex/ui'
+import { Button, Skeleton } from '@kit/ui'
 import { useNavigate } from '@tanstack/react-router'
 import { type ReactNode, useEffect } from 'react'
 import { toast } from 'sonner'

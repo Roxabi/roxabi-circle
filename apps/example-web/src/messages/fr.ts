@@ -248,12 +248,12 @@ export type Messages = {
   integrationFeedbackDesc: string
   integrationFeedbackFormTitle: string
   integrationFeedbackFormDesc: string
-  integrationSparkUrl: string
-  integrationSparkUrlHint: string
-  integrationSparkApiKey: string
-  integrationSparkApiKeyHint: string
-  integrationSparkApiKeyKeep: string
-  integrationSparkApiKeyCurrent: string
+  integrationPilotageUrl: string
+  integrationPilotageUrlHint: string
+  integrationPilotageApiKey: string
+  integrationPilotageApiKeyHint: string
+  integrationPilotageApiKeyKeep: string
+  integrationPilotageApiKeyCurrent: string
   integrationSaved: string
   backToSettings: string
   errIntegrationNotConfigured: string
@@ -296,12 +296,12 @@ export type Messages = {
 }
 
 export const fr: Messages = {
-  appTitle: 'GOSILEX Kit',
+  appTitle: 'Kit Kit',
   appSubtitle: 'example-web · starter SaaS',
   login: 'Connexion',
   loginTitle: 'Connexion',
   loginDesc: 'Session cookie HttpOnly · credentials include',
-  welcomeTitle: 'Bienvenue sur GOSILEX Kit',
+  welcomeTitle: 'Bienvenue sur Kit Kit',
   forgotPassword: 'Mot de passe oublié ?',
   forgotTitle: 'Réinitialiser le mot de passe',
   forgotDesc: 'Entrez votre e-mail — nous enverrons un lien si un compte existe.',
@@ -480,7 +480,7 @@ export const fr: Messages = {
   designSystem: 'Design system',
   designSystemDesc:
     'Catalogue shadcn Base (base-nova) · réservé plateforme · templates de page de référence',
-  designSystemFooter: '100 % composants @gosilex/ui (registry shadcn + @base-ui/react)',
+  designSystemFooter: '100 % composants @kit/ui (registry shadcn + @base-ui/react)',
   dsFoundations: 'Fondations',
   dsFoundationsDesc: 'Tokens couleur, typo, radius (CSS variables shadcn)',
   dsForms: 'Formulaires',
@@ -512,7 +512,7 @@ export const fr: Messages = {
   feedbackTrigger: 'Signaler',
   feedbackTitle: 'Signaler un bug ou une idée',
   feedbackSuccess: 'Merci ! Signalement envoyé.',
-  feedbackSuccessSub: "L'équipe le retrouve dans le Pilotage Spark.",
+  feedbackSuccessSub: "L'équipe le retrouve dans le Pilotage.",
   feedbackHint: 'Envoyé avec la page en cours.',
   feedbackTypeBug: 'Bug',
   feedbackTypeFeature: 'Amélioration',
@@ -535,25 +535,25 @@ export const fr: Messages = {
   modulesTitle: 'Modules',
   modulesDesc: 'Activation des fonctionnalités optionnelles (D1 kit_modules)',
   moduleFeedback: 'Signaler (feedback)',
-  moduleFeedbackDesc: 'Bouton flottant → Spark Pilotage via POST /api/report',
+  moduleFeedbackDesc: 'Bouton flottant → Pilotage via POST /api/report',
   moduleOn: 'Activé',
   moduleOff: 'Désactivé',
   moduleNotConfigured: 'Non configuré',
   moduleFeedbackEnabled: 'Module feedback activé',
   moduleFeedbackDisabled: 'Module feedback désactivé',
   moduleConfigureFirst: 'Configure l’intégration avant activation —',
-  moduleConfigureLink: 'Paramètres Spark',
-  integrationFeedbackTitle: 'Intégration Spark (feedback)',
+  moduleConfigureLink: 'Paramètres Pilotage',
+  integrationFeedbackTitle: 'Intégration Pilotage (feedback)',
   integrationFeedbackDesc: 'URL et clé API M2M — stockées en D1, jamais dans .env',
-  integrationFeedbackFormTitle: 'Connexion Spark',
+  integrationFeedbackFormTitle: 'Connexion Pilotage',
   integrationFeedbackFormDesc:
-    'Local : ../spark sur http://localhost:3939 · clé spk_… (tickets:write)',
-  integrationSparkUrl: 'URL Spark',
-  integrationSparkUrlHint: 'Base du service Pilotage (sans slash final).',
-  integrationSparkApiKey: 'Clé API Spark',
-  integrationSparkApiKeyHint: 'spk_… — requise au premier enregistrement.',
-  integrationSparkApiKeyKeep: 'Laisser vide pour conserver la clé actuelle',
-  integrationSparkApiKeyCurrent: 'Clé enregistrée',
+    'Local : ../pilotage sur http://localhost:3939 · clé fbk_… (tickets:write)',
+  integrationPilotageUrl: 'URL Pilotage',
+  integrationPilotageUrlHint: 'Base du service Pilotage (sans slash final).',
+  integrationPilotageApiKey: 'Clé API Pilotage',
+  integrationPilotageApiKeyHint: 'fbk_… — requise au premier enregistrement.',
+  integrationPilotageApiKeyKeep: 'Laisser vide pour conserver la clé actuelle',
+  integrationPilotageApiKeyCurrent: 'Clé enregistrée',
   integrationSaved: 'Intégration enregistrée',
   backToSettings: 'Retour paramètres',
   errIntegrationNotConfigured: 'Configure l’intégration avant d’activer ce module',

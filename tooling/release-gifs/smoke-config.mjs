@@ -12,21 +12,21 @@ function ok(cond, msg) {
 
 assertNotForbiddenHost('http://127.0.0.1:5173')
 assertNotForbiddenHost('http://localhost:3000')
-assertNotForbiddenHost('https://app.staging.gosilex.com')
+assertNotForbiddenHost('https://app.staging.example.com')
 
 let threw = false
 try {
-  assertNotForbiddenHost('https://metalyde.gosilex.com')
+  assertNotForbiddenHost('https://app.example.com')
 } catch {
   threw = true
 }
-ok(threw, 'expected refuse production gosilex host')
+ok(threw, 'expected refuse production kit host')
 
 const cfg = normalizeConfig({
   baseURL: 'http://127.0.0.1:5173',
   outDir: '/tmp/gifs',
   statePath: '/tmp/gifs/state.json',
-  email: 'demo@gosilex.local',
+  email: 'demo@kit.local',
   password: 'x',
 })
 ok(cfg.viewport?.width === 1280, 'viewport default')

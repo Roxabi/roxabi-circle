@@ -1,4 +1,4 @@
-import { AppError } from '@gosilex/core'
+import { AppError } from '@kit/core'
 import { sql } from 'drizzle-orm'
 import { rateLimitBuckets } from '../db/schema'
 import type { KitDb } from './db-type'

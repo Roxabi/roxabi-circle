@@ -1,4 +1,4 @@
--- B-auth-harden #61 — durable rate-limit buckets + audit_events (Spark #131).
+-- B-auth-harden #61 — durable rate-limit buckets + audit_events (Pilotage #131).
 
 CREATE TABLE IF NOT EXISTS "rate_limit_buckets" (
   "bucket_key" text NOT NULL,

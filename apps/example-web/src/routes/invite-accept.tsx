@@ -1,4 +1,4 @@
-import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle } from '@gosilex/ui'
+import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle } from '@kit/ui'
 import { useMutation } from '@tanstack/react-query'
 import { Link, useNavigate, useSearch } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'

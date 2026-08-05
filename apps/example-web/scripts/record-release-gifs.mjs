@@ -21,7 +21,7 @@ import { kitScenarios } from './release-gifs-scenarios.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '../../..')
 const BASE = process.env.PLAYWRIGHT_BASE_URL ?? process.env.E2E_BASE_URL ?? 'http://127.0.0.1:5173'
-const EMAIL = process.env.E2E_DEMO_EMAIL ?? 'demo@gosilex.local'
+const EMAIL = process.env.E2E_DEMO_EMAIL ?? 'demo@kit.local'
 const PASSWORD = process.env.E2E_DEMO_PASSWORD ?? 'demo-password-change-me'
 const OUT_DIR = join(ROOT, 'artifacts/release-gifs')
 const STATE_PATH = join(OUT_DIR, '.auth-demo.json')

@@ -1,31 +1,33 @@
-import { DEFAULT_SPARK_URL, SPARK_FEEDBACK_PATH, SPARK_UPLOAD_PATH } from './constants'
+import { DEFAULT_PILOTAGE_URL, PILOTAGE_FEEDBACK_PATH, PILOTAGE_UPLOAD_PATH } from './constants'
 import type { FeedbackEnvSlice } from './env'
-import { readNodeProcessEnv, readSparkEnv } from './env'
-import type { FeedbackFormFields, FeedbackSubmitResult, SparkRemoteConfig } from './types'
+import { readNodeProcessEnv, readPilotageEnv } from './env'
+import type { FeedbackFormFields, FeedbackSubmitResult, PilotageRemoteConfig } from './types'
 
 function normalizeBaseUrl(url: string): string {
   return url.replace(/\/+$/, '')
 }
 
-export type ResolveSparkConfigInput = Partial<SparkRemoteConfig> & {
+export type ResolvePilotageConfigInput = Partial<PilotageRemoteConfig> & {
   /** Worker `c.env` or Node `process.env` in tests. */
   env?: FeedbackEnvSlice
 }
 
-/** Lit SPARK_URL / SPARK_FEEDBACK_API_URL + clé (spk_…). */
-export function resolveSparkRemoteConfig(
-  overrides?: ResolveSparkConfigInput,
-): SparkRemoteConfig | { error: string } {
-  const fromRecord = readSparkEnv(overrides?.env ?? readNodeProcessEnv())
+/** Lit PILOTAGE_URL / PILOTAGE_FEEDBACK_API_URL + clé (fbk_…). */
+export function resolvePilotageRemoteConfig(
+  overrides?: ResolvePilotageConfigInput,
+): PilotageRemoteConfig | { error: string } {
+  const fromRecord = readPilotageEnv(overrides?.env ?? readNodeProcessEnv())
 
-  const baseUrl = normalizeBaseUrl(overrides?.baseUrl || fromRecord.baseUrl || DEFAULT_SPARK_URL)
+  const baseUrl = normalizeBaseUrl(overrides?.baseUrl || fromRecord.baseUrl || DEFAULT_PILOTAGE_URL)
   const apiKey = (overrides?.apiKey || fromRecord.apiKey || '').trim()
 
   if (!apiKey) {
-    return { error: 'Signalement non configuré (SPARK_API_KEY / SPARK_FEEDBACK_API_KEY absente).' }
+    return {
+      error: 'Signalement non configuré (PILOTAGE_API_KEY / PILOTAGE_FEEDBACK_API_KEY absente).',
+    }
   }
   if (!baseUrl) {
-    return { error: 'Signalement non configuré (SPARK_URL absente).' }
+    return { error: 'Signalement non configuré (PILOTAGE_URL absente).' }
   }
 
   return {
@@ -35,14 +37,14 @@ export function resolveSparkRemoteConfig(
   }
 }
 
-async function uploadImages(cfg: SparkRemoteConfig, files: File[]): Promise<string[]> {
+async function uploadImages(cfg: PilotageRemoteConfig, files: File[]): Promise<string[]> {
   const fetchFn = cfg.fetch ?? fetch
   const images: string[] = []
   for (const f of files) {
     if (!f.type.startsWith('image/')) continue
     const up = new FormData()
     up.append('file', f, f.name || 'capture.png')
-    const ur = await fetchFn(`${cfg.baseUrl}${SPARK_UPLOAD_PATH}`, {
+    const ur = await fetchFn(`${cfg.baseUrl}${PILOTAGE_UPLOAD_PATH}`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${cfg.apiKey}` },
       body: up,
@@ -55,11 +57,11 @@ async function uploadImages(cfg: SparkRemoteConfig, files: File[]): Promise<stri
 }
 
 /**
- * Envoie un signalement vers Spark M2M (`POST /api/v1/feedback`).
+ * Envoie un signalement vers Pilotage M2M (`POST /api/v1/feedback`).
  * Client cible = déduit de la clé (pas de clientSlug).
  */
 export async function submitRemoteFeedback(
-  cfg: SparkRemoteConfig,
+  cfg: PilotageRemoteConfig,
   fields: FeedbackFormFields,
   opts?: { author: string },
 ): Promise<FeedbackSubmitResult> {
@@ -80,7 +82,7 @@ export async function submitRemoteFeedback(
     }
     if (images.length) payload.images = images
 
-    const r = await fetchFn(`${cfg.baseUrl}${SPARK_FEEDBACK_PATH}`, {
+    const r = await fetchFn(`${cfg.baseUrl}${PILOTAGE_FEEDBACK_PATH}`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${cfg.apiKey}`,
@@ -93,7 +95,7 @@ export async function submitRemoteFeedback(
       const errBody = await r.text().catch(() => '')
       return {
         ok: false,
-        error: `Spark ${r.status}${errBody ? `: ${errBody.slice(0, 200)}` : ''}`,
+        error: `Pilotage ${r.status}${errBody ? `: ${errBody.slice(0, 200)}` : ''}`,
         status: 502,
       }
     }

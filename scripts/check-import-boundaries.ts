@@ -117,7 +117,7 @@ function loadWorkspaceMap(root: string): WorkspaceEntry[] {
     }
   }
 
-  // Longest name first for subpath prefix match (@gosilex/feedback/react).
+  // Longest name first for subpath prefix match (@kit/feedback/react).
   entries.sort((a, b) => b.name.length - a.name.length)
   return entries
 }
@@ -191,7 +191,7 @@ function stripComments(source: string): string {
   return out
 }
 
-/** Drop Vite-style query/hash so `@gosilex/example-api?raw` still maps to workspace. */
+/** Drop Vite-style query/hash so `@kit/example-api?raw` still maps to workspace. */
 function stripSpecifierSuffix(specifier: string): string {
   const q = specifier.indexOf('?')
   const h = specifier.indexOf('#')
@@ -225,7 +225,7 @@ function isInsideQuotes(line: string, index: number): boolean {
 /** Extract static import/export/require string literals (line best-effort). */
 function extractImports(content: string, file: string): ImportHit[] {
   const hits: ImportHit[] = []
-  // Comment-stripped so "// import from '@gosilex/…'" is not an edge; newlines preserved for line nos.
+  // Comment-stripped so "// import from '@kit/…'" is not an edge; newlines preserved for line nos.
   const scan = stripComments(content)
   // from '…' / from "…" (import and export … from)
   const fromRe = /\bfrom\s+['"]([^'"]+)['"]/g

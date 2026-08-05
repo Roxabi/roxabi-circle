@@ -35,8 +35,8 @@ jobs:
     timeout-minutes: 5
     steps:
       # GITHUB_TOKEN often 403s on Dependabot Alerts API for private repos.
-      # Reuse gosilex-ci (same as merge-on-green) when configured.
-      - name: Resolve gosilex-ci availability
+      # Reuse kit-ci (same as merge-on-green) when configured.
+      - name: Resolve kit-ci availability
         id: cfg
         env:
           APP_ID: ${{ vars.CI_APP_ID }}
@@ -48,7 +48,7 @@ jobs:
             echo "::notice::CI_APP_ID unset — falling back to GITHUB_TOKEN (may 403 on alerts)"
           fi
 
-      - name: Mint app token (gosilex-ci)
+      - name: Mint app token (kit-ci)
         id: app
         if: steps.cfg.outputs.app == 'true'
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
@@ -91,7 +91,7 @@ jobs:
                       "Authorization": f"Bearer {gh}",
                       "Accept": "application/vnd.github+json",
                       "X-GitHub-Api-Version": "2022-11-28",
-                      "User-Agent": "gosilex-dependabot-slack",
+                      "User-Agent": "kit-dependabot-slack",
                   },
               )
               try:
@@ -100,11 +100,11 @@ jobs:
               except urllib.error.HTTPError as e:
                   body = e.read().decode("utf-8", errors="replace")[:800]
                   if e.code == 403 and "not accessible by integration" in body:
-                      # gosilex-ci lacks Dependabot alerts permission — do not red-spam cron.
+                      # kit-ci lacks Dependabot alerts permission — do not red-spam cron.
                       print(
                           "::warning::Dependabot Alerts API 403 (Resource not accessible by integration). "
-                          "Add GitHub App permission **Dependabot alerts: Read** on gosilex-ci "
-                          "(+ re-approve install), see docs/gosilex-ci-app-setup.md. "
+                          "Add GitHub App permission **Dependabot alerts: Read** on kit-ci "
+                          "(+ re-approve install), see docs/kit-ci-app-setup.md. "
                           "Security Dependabot *PR* notifications still work without this."
                       )
                       raise SystemExit(0)

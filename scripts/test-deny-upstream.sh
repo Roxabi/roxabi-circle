@@ -1,14 +1,12 @@
 #!/usr/bin/env bash
 # CP-DENY — table-driven harness for scripts/deny-upstream-push.sh
 #
-# Fixtures use temp git repos. Product origin must NOT contain kit slugs
-# (roxabi-cf-template | silex-boilerplate) or the script stays in kit no-op mode.
+# Kit heuristic: absence of docs/product/kit-baseline → kit no-op.
+# Product fixtures must create kit-baseline or the script stays in kit mode.
 #
 # Exit 0 only if all matrix rows + weaken probe pass.
 set -euo pipefail
 
-# When run under lefthook pre-push / nested git, ambient GIT_DIR / GIT_WORK_TREE
-# would make fixture `git -C /tmp/...` mutate the host worktree (bad).
 unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR 2>/dev/null || true
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -46,7 +44,6 @@ assert_exit() {
 make_repo() {
   local dir="$1"
   mkdir -p "${dir}"
-  # Explicit git-dir/work-tree — never inherit ambient GIT_*
   git --git-dir="${dir}/.git" --work-tree="${dir}" init -q
   git --git-dir="${dir}/.git" --work-tree="${dir}" config user.email "deny-test@example.com"
   git --git-dir="${dir}/.git" --work-tree="${dir}" config user.name "deny-test"
@@ -65,63 +62,52 @@ set_origin() {
   fi
 }
 
+mark_product() {
+  local dir="$1"
+  mkdir -p "${dir}/docs/product"
+  # any non-empty baseline marks product mode for deny-upstream
+  echo "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef" >"${dir}/docs/product/kit-baseline"
+}
+
 echo "== CP-DENY matrix =="
 TMP="$(mktemp -d -t cp-deny-XXXXXX)"
 trap 'rm -rf "$TMP"' EXIT
 
-# --- row 1a: kit HEAD origin → allow name upstream ---
-KIT_HEAD="${TMP}/kit-head"
-make_repo "${KIT_HEAD}"
-set_origin "${KIT_HEAD}" "https://github.com/Roxabi/roxabi-cf-template.git"
-assert_exit "1a kit HEAD origin + name upstream → 0" 0 \
-  env -u GIT_DIR -u GIT_WORK_TREE -u GIT_COMMON_DIR -C "${KIT_HEAD}" \
-    bash "${SCRIPT}" "upstream" "https://github.com/Roxabi/roxabi-cf-template.git"
+# --- row 1: kit tree (no kit-baseline) → allow name upstream ---
+KIT="${TMP}/kit"
+make_repo "${KIT}"
+set_origin "${KIT}" "https://github.com/example/kit-clone.git"
+assert_exit "1 kit tree + name upstream → 0" 0 \
+  env -u GIT_DIR -u GIT_WORK_TREE -u GIT_COMMON_DIR -C "${KIT}" \
+    bash "${SCRIPT}" "upstream" "https://github.com/example/kit-parent.git"
 
-# --- row 1b: kit mirror origin → allow push upstream (contribute to HEAD) ---
-KIT_MIRROR="${TMP}/kit-mirror"
-make_repo "${KIT_MIRROR}"
-set_origin "${KIT_MIRROR}" "https://github.com/go-silex/silex-boilerplate.git"
-assert_exit "1b kit mirror origin + push upstream HEAD → 0" 0 \
-  env -u GIT_DIR -u GIT_WORK_TREE -u GIT_COMMON_DIR -C "${KIT_MIRROR}" \
-    bash "${SCRIPT}" "upstream" "https://github.com/Roxabi/roxabi-cf-template.git"
-
-# --- product base: origin must NOT match kit slugs ---
+# --- product base ---
 PRODUCT="${TMP}/product"
 make_repo "${PRODUCT}"
 set_origin "${PRODUCT}" "file://${PRODUCT}"
+mark_product "${PRODUCT}"
 
 # --- row 2: product + name upstream → deny ---
 assert_exit "2 product + name upstream → 1" 1 \
   env -u GIT_DIR -u GIT_WORK_TREE -u GIT_COMMON_DIR -C "${PRODUCT}" \
     bash "${SCRIPT}" "upstream" "https://example.com/innocent-parent.git"
 
-# --- row 3a: product + HEAD kit URL (any remote name) → deny ---
-assert_exit "3a product + HEAD kit URL → 1" 1 \
-  env -u GIT_DIR -u GIT_WORK_TREE -u GIT_COMMON_DIR -C "${PRODUCT}" \
-    bash "${SCRIPT}" "chassis" "git@github.com:Roxabi/roxabi-cf-template.git"
-
-# --- row 3b: product + mirror kit URL → deny ---
-assert_exit "3b product + mirror kit URL → 1" 1 \
-  env -u GIT_DIR -u GIT_WORK_TREE -u GIT_COMMON_DIR -C "${PRODUCT}" \
-    bash "${SCRIPT}" "chassis" "git@github.com:go-silex/silex-boilerplate.git"
-
-# --- row 4: product + env chassis only → deny ---
-assert_exit "4 product + env chassis → 1" 1 \
+# --- row 3: product + env chassis → deny ---
+assert_exit "3 product + env chassis → 1" 1 \
   env -u GIT_DIR -u GIT_WORK_TREE -u GIT_COMMON_DIR -C "${PRODUCT}" \
     DENY_UPSTREAM_URL_SUBSTRINGS="${FIXTURE_CHASSIS}" \
     bash "${SCRIPT}" "bounce" "https://github.com/acme/${FIXTURE_CHASSIS}.git"
 
-# --- row 5: product + docs/product/deny-upstream.json only → deny ---
-mkdir -p "${PRODUCT}/docs/product"
+# --- row 4: product + docs/product/deny-upstream.json → deny ---
 printf '%s\n' "{\"urlSubstrings\":[\"${FIXTURE_CHASSIS}\"]}" >"${PRODUCT}/docs/product/deny-upstream.json"
-assert_exit "5 product + product JSON chassis → 1" 1 \
+assert_exit "4 product + product JSON chassis → 1" 1 \
   env -u GIT_DIR -u GIT_WORK_TREE -u GIT_COMMON_DIR -u DENY_UPSTREAM_URL_SUBSTRINGS \
     -C "${PRODUCT}" \
     bash "${SCRIPT}" "bounce" "https://github.com/acme/${FIXTURE_CHASSIS}.git"
 rm -f "${PRODUCT}/docs/product/deny-upstream.json"
 
-# --- row 6: product innocent → allow ---
-assert_exit "6 product + innocent remote → 0" 0 \
+# --- row 5: product innocent → allow ---
+assert_exit "5 product + innocent remote → 0" 0 \
   env -u GIT_DIR -u GIT_WORK_TREE -u GIT_COMMON_DIR -u DENY_UPSTREAM_URL_SUBSTRINGS \
     -C "${PRODUCT}" \
     bash "${SCRIPT}" "origin" "file://${PRODUCT}"
@@ -131,17 +117,12 @@ echo "== weaken probe (name=upstream) =="
 STRIPPED="${TMP}/deny-stripped.sh"
 cat >"${STRIPPED}" <<'STRIP'
 #!/usr/bin/env bash
-# intentionally weakened: no name=upstream deny
 set -euo pipefail
 remote_name="${1:-}"
 remote_url="${2:-}"
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
-origin_url="$(git -C "${REPO_ROOT}" remote get-url origin 2>/dev/null || true)"
-if [[ "${origin_url}" == *silex-boilerplate* || "${origin_url}" == *roxabi-cf-template* ]]; then exit 0; fi
-if [[ "${remote_url}" == *silex-boilerplate* || "${remote_url}" == *roxabi-cf-template* ]]; then
-  echo "deny (url only)" >&2
-  exit 1
-fi
+if [[ ! -f "${REPO_ROOT}/docs/product/kit-baseline" ]]; then exit 0; fi
+# intentionally weakened: no name=upstream deny
 exit 0
 STRIP
 chmod +x "${STRIPPED}"

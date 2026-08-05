@@ -1,4 +1,4 @@
-import { AppError } from '@gosilex/core'
+import { AppError } from '@kit/core'
 import { Hono } from 'hono'
 import { z } from 'zod'
 import { assertRateLimit } from '../lib/rate-limit'

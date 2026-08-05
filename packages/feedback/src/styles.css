@@ -1,4 +1,4 @@
-/* @gosilex/feedback — styles autonomes (pas de Tailwind requis) */
+/* @kit/feedback — styles autonomes (pas de Tailwind requis) */
 
 .sf-root {
   --sf-bg: #ffffff;
@@ -17,7 +17,7 @@
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 
-/* Thème Warm Corporate (Spark) */
+/* Thème Warm Corporate (Pilotage) */
 .sf-root[data-sf-theme="warm"] {
   --sf-bg: #faf8f5;
   --sf-fg: #1c1917;
@@ -31,7 +31,7 @@
   --sf-danger: #b91c1c;
 }
 
-/* Thème zinc (Metalyde / apps clients) */
+/* Thème zinc (client apps) */
 .sf-root[data-sf-theme="zinc"] {
   --sf-bg: #ffffff;
   --sf-fg: #18181b;

@@ -1,4 +1,4 @@
-import { createDb } from '@gosilex/db'
+import { createDb } from '@kit/db'
 import { eq } from 'drizzle-orm'
 import { describe, expect, it } from 'vitest'
 import { createApp } from './app'
@@ -65,7 +65,7 @@ describe('magic link (B-magic #59)', () => {
 
   it('request for unknown email does not create a user when signup disabled', async () => {
     const { app, env, db } = await seedEnv()
-    const unknown = 'nobody-magic@gosilex.local'
+    const unknown = 'nobody-magic@kit.local'
     expect(await userCountByEmail(db, unknown)).toBe(0)
 
     const res = await app.request(

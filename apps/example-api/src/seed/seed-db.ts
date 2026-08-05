@@ -1,4 +1,4 @@
-import { hashPassword } from '@gosilex/auth'
+import { hashPassword } from '@kit/auth'
 import { hashPassword as baHashPassword } from 'better-auth/crypto'
 import { eq } from 'drizzle-orm'
 import type { DrizzleD1Database } from 'drizzle-orm/d1'

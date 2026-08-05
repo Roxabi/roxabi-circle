@@ -1,11 +1,11 @@
-# `@gosilex/ui` — kit surface
+# `@kit/ui` — kit surface
 
 Shared **shadcn Base UI** primitives for Chemin A apps. Product branding does **not** live here.
 
 ## What it is
 
-- Package: `packages/ui` → import `@gosilex/ui`
-- Styles: `@import "@gosilex/ui/styles.css"` (see `apps/example-web/src/index.css`)
+- Package: `packages/ui` → import `@kit/ui`
+- Styles: `@import "@kit/ui/styles.css"` (see `apps/example-web/src/index.css`)
 - Living catalog: local route **`/admin/design-system`** (platform session required)
 
 ## Zero-edit / product brand
@@ -14,7 +14,7 @@ Do **not** patch `packages/ui` for product colors or copy.
 
 1. Import kit styles in the app.
 2. Override CSS variables in an **app-owned** file (tokens).
-3. Compose shells/pages in `apps/<product>-web` wrapping `@gosilex/ui`.
+3. Compose shells/pages in `apps/<product>-web` wrapping `@kit/ui`.
 
 SSoT: [`docs/product-consumer-contract.md`](product-consumer-contract.md) (design_overrides).
 
@@ -23,8 +23,8 @@ SSoT: [`docs/product-consumer-contract.md`](product-consumer-contract.md) (desig
 | Concern | Pattern |
 |---------|---------|
 | Destructive confirm | `AlertDialog` (not `window.confirm`) |
-| Lists empty | `@gosilex/ui` `Empty` + `EmptyHeader` / `EmptyMedia` / `EmptyTitle` |
-| Selects | `@gosilex/ui` `Select` (Base UI) + `items` prop — not native `<select>` |
+| Lists empty | `@kit/ui` `Empty` + `EmptyHeader` / `EmptyMedia` / `EmptyTitle` |
+| Selects | `@kit/ui` `Select` (Base UI) + `items` prop — not native `<select>` |
 | Forms | TanStack Form + Zod (`lib/schemas.ts`) + Field from ui |
 | i18n chrome | App message catalogs (`src/messages/*`) — not hardcoded in ui |
 | Local D1 seed | `bun run db:seed` after `db:migrate` — re-applies SQL only if `d1_migrations` missing |

@@ -1,8 +1,8 @@
 /**
  * BA user shell helpers shared by admin provision and invite S3.
  */
-import { normalizeEmail } from '@gosilex/auth'
-import { AppError } from '@gosilex/core'
+import { normalizeEmail } from '@kit/auth'
+import { AppError } from '@kit/core'
 import { hashPassword } from 'better-auth/crypto'
 import type { DrizzleD1Database } from 'drizzle-orm/d1'
 import type { schema } from '../db/schema'

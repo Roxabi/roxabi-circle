@@ -1,4 +1,4 @@
-import { AppError } from '@gosilex/core'
+import { AppError } from '@kit/core'
 import { Hono } from 'hono'
 import { requireAuth } from '../middleware/require-auth'
 import type { AppEnv } from '../types'

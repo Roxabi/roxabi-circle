@@ -3,8 +3,8 @@ import {
   createApiClient,
   apiErrorToMessage as kitApiErrorToMessage,
   apiFetch as kitApiFetch,
-} from '@gosilex/api-client'
-import type { ErrorCodeName } from '@gosilex/types'
+} from '@kit/api-client'
+import type { ErrorCodeName } from '@kit/types'
 import type { Messages } from '../messages/fr'
 
 export { ApiError, createApiClient }
@@ -25,7 +25,7 @@ const CODE_TO_MSG: Record<ErrorCodeName, keyof Messages> = {
 /**
  * Map API / unknown errors to a user-facing string.
  * Prefer ErrorCode → app catalog (`m`); fall back to wire message then code.
- * App-owned i18n bridge over `@gosilex/api-client`.
+ * App-owned i18n bridge over `@kit/api-client`.
  */
 export function apiErrorToMessage(err: unknown, fallback: string | Messages = 'Error'): string {
   if (typeof fallback === 'string') {

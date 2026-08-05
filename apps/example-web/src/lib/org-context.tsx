@@ -9,7 +9,7 @@ import {
 } from 'react'
 import type { MeOrg, MeResponse } from './auth'
 
-const STORAGE_KEY = 'gosilex.activeOrgId'
+const STORAGE_KEY = 'kit.activeOrgId'
 
 type OrgContextValue = {
   orgs: MeOrg[]

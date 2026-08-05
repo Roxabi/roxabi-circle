@@ -1,4 +1,4 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@gosilex/ui'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@kit/ui'
 import { PageHeader } from '../components/app-shell'
 import { useLocale } from '../lib/locale'
 import { getReleases, pickBullets, pickLocalized } from '../lib/releases'

@@ -1,8 +1,8 @@
 {
-  "name": "@gosilex/feedback",
+  "name": "@kit/feedback",
   "version": "0.1.0",
   "private": true,
-  "description": "Signaler → Spark Pilotage (core + Hono proxy + React UI)",
+  "description": "Signaler → Pilotage (core + Hono proxy + React UI)",
   "type": "module",
   "sideEffects": [
     "**/*.css"

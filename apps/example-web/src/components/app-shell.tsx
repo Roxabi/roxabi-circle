@@ -17,7 +17,7 @@ import {
   SidebarProvider,
   SidebarRail,
   SidebarTrigger,
-} from '@gosilex/ui'
+} from '@kit/ui'
 import { useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useRouterState } from '@tanstack/react-router'
 import {

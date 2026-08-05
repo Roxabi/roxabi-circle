@@ -1,11 +1,11 @@
-# `@gosilex/mcp`
+# `@kit/mcp`
 
 Kit MCP conventions around FastMCP: **ToolCatalogue**, public Zod shapes, agent wire SSOT, and fail-closed execute wrap (input budget + public tool errors).
 
 ## Add a tool (product pattern)
 
 ```ts
-import { createToolCatalogue, type ToolDef } from '@gosilex/mcp'
+import { createToolCatalogue, type ToolDef } from '@kit/mcp'
 import { FastMCP } from 'fastmcp'
 import { z } from 'zod'
 
@@ -39,7 +39,7 @@ catalogue.registerAll(server) // sole registration path
 
 ## Wire SSOT
 
-Import budgets, env key names, whoami status enum, and public error codes from `@gosilex/mcp` (`agentWire` / barrel). Do not re-declare stringly constants in apps.
+Import budgets, env key names, whoami status enum, and public error codes from `@kit/mcp` (`agentWire` / barrel). Do not re-declare stringly constants in apps.
 
 ## Probes
 

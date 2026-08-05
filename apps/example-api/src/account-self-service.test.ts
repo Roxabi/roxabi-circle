@@ -1,7 +1,7 @@
 /**
  * B-account #60 — change-password smoke + secret hygiene + me.name
  */
-import { createDb } from '@gosilex/db'
+import { createDb } from '@kit/db'
 import { describe, expect, it } from 'vitest'
 import { createApp } from './app'
 import { schema } from './db/schema'
@@ -72,17 +72,17 @@ async function signIn(
 describe('account self-service (B-account #60)', () => {
   it('SC5: GET /api/me includes name from BA user', async () => {
     const { app, env } = await seedEnv()
-    const cookie = await signIn(app, env, 'staff@gosilex.local')
+    const cookie = await signIn(app, env, 'staff@kit.local')
     const res = await app.request('/api/me', { headers: { cookie } }, env)
     expect(res.status).toBe(200)
     const body = (await res.json()) as { name?: string; email?: string; subject: string }
-    expect(body.email).toBe('staff@gosilex.local')
+    expect(body.email).toBe('staff@kit.local')
     expect(body.name).toBe('Staff Agent')
   })
 
   it('SC1/SC9: change-password happy path; old dies; no password fields in response', async () => {
     const { app, env } = await seedEnv()
-    const email = 'solo@gosilex.local'
+    const email = 'solo@kit.local'
     const cookie = await signIn(app, env, email, TENANCY_PASSWORD)
     const newPassword = 'new-solo-password-60'
 
@@ -130,7 +130,7 @@ describe('account self-service (B-account #60)', () => {
 
   it('SC3/SC9: wrong current password fails; credential unchanged; no secret leak', async () => {
     const { app, env } = await seedEnv()
-    const email = 'staff@gosilex.local'
+    const email = 'staff@kit.local'
     const cookie = await signIn(app, env, email)
     const wrongCurrent = 'definitely-not-the-password'
     const attemptedNew = 'another-new-password-xx'
@@ -179,7 +179,7 @@ describe('account self-service (B-account #60)', () => {
 
   it('SC4/SC5: update-user name then me reflects it', async () => {
     const { app, env } = await seedEnv()
-    const cookie = await signIn(app, env, 'solo@gosilex.local')
+    const cookie = await signIn(app, env, 'solo@kit.local')
     const newName = 'Solo Renamed 60'
 
     const upd = await app.request(

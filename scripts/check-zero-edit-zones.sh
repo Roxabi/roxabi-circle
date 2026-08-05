@@ -3,9 +3,8 @@
 # without a valid, non-expired exception entry.
 #
 # Modes (ZERO_EDIT_MODE or auto):
-#   kit     — origin is kit HEAD (roxabi-cf-template) or mirror (silex-boilerplate):
-#             validate config only (always OK to evolve kit)
-#   product — compare working tree + HEAD to ZERO_EDIT_BASE_REF (default upstream/main)
+#   kit     — no docs/product/kit-baseline (brand-agnostic kit tree)
+#   product — kit-baseline present; compare to ZERO_EDIT_BASE_REF (default upstream/main)
 #
 # Design overrides (CSS tokens, compose wrappers) live under apps/<product>-* and
 # never need exceptions. See config/zero-edit-zones.json → design_overrides.
@@ -25,11 +24,10 @@ if [[ ! -f "$ZONES_FILE" ]]; then
   exit 1
 fi
 
-# --- detect mode ---
-origin_url="$(git remote get-url origin 2>/dev/null || true)"
+# --- detect mode (brand-agnostic) ---
 if [[ -n "${ZERO_EDIT_MODE:-}" ]]; then
   MODE="$ZERO_EDIT_MODE"
-elif [[ "${origin_url}" == *roxabi-cf-template* || "${origin_url}" == *silex-boilerplate* ]]; then
+elif [[ ! -f "${ROOT}/docs/product/kit-baseline" ]]; then
   MODE="kit"
 else
   MODE="product"
@@ -204,7 +202,7 @@ if (!refExists(baseRef)) {
   die(
     `base ref "${baseRef}" not found.\n` +
       `  Product clones must provide a reachable kit base via one of:\n` +
-      `    git remote add upstream git@github.com:go-silex/silex-boilerplate.git\n` +
+      `    git remote add upstream <kit-parent-url>\n` +
       `    git fetch upstream\n` +
       `    docs/product/kit-baseline  # CI: full SHA of last-merged kit tip\n` +
       `    ZERO_EDIT_BASE_REF env\n` +
@@ -286,11 +284,11 @@ if (violations.length) {
   console.error('')
   console.error('Fix options (prefer top):')
   console.error(
-    '  1. Design override — CSS tokens / wrap @gosilex/ui in apps/<product>-web (see config/zero-edit-zones.json design_overrides)',
+    '  1. Design override — CSS tokens / wrap @kit/ui in apps/<product>-web (see config/zero-edit-zones.json design_overrides)',
   )
   console.error('  2. Move logic to apps/<product>-* or docs/product/ (new paths)')
   console.error(
-    '  3. Contribute fix upstream in silex-boilerplate, then merge upstream/main',
+    '  3. Contribute fix on kit parent, then merge upstream/main',
   )
   console.error(
     '  4. Last resort: docs/product/zero-edit-exceptions.json (from config/zero-edit-exceptions.example.json)',

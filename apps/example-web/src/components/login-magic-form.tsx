@@ -1,12 +1,4 @@
-import {
-  Button,
-  Field,
-  FieldDescription,
-  FieldError,
-  FieldGroup,
-  FieldLabel,
-  Input,
-} from '@gosilex/ui'
+import { Button, Field, FieldDescription, FieldError, FieldGroup, FieldLabel, Input } from '@kit/ui'
 import { useForm } from '@tanstack/react-form'
 import { toast } from 'sonner'
 import { apiErrorToMessage, apiFetch } from '../lib/api'
@@ -15,7 +7,7 @@ import { safeInviteReturnPath, safePostAuthPath } from '../lib/safe-return-path'
 import { magicLinkSchema } from '../lib/schemas'
 
 /** Dev-only email prefill — BA tenancy staff (see seed tenancy-data). */
-const DEV_DEMO_EMAIL = import.meta.env.DEV ? 'staff@gosilex.local' : ''
+const DEV_DEMO_EMAIL = import.meta.env.DEV ? 'staff@kit.local' : ''
 
 function magicCallbackURL(next: string | undefined): string {
   const origin = window.location.origin

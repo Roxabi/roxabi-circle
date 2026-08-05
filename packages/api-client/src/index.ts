@@ -1,4 +1,4 @@
-import type { ApiErrorBody, ErrorCodeName } from '@gosilex/types'
+import type { ApiErrorBody, ErrorCodeName } from '@kit/types'
 
 export class ApiError extends Error {
   readonly code: string

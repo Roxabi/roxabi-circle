@@ -1,5 +1,5 @@
 schema_version: "1.0"
-name: silex-boilerplate
+name: cf-chemin-a
 runtime: bun
 package_manager: bun
 bun_version: "1.3.14"

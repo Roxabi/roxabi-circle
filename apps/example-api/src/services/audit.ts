@@ -200,13 +200,13 @@ export async function listRecentAuditEvents(
   if (opts.cursor) {
     const parts = opts.cursor.split(':')
     if (parts.length !== 2) {
-      const { AppError } = await import('@gosilex/core')
+      const { AppError } = await import('@kit/core')
       throw AppError.validation('Invalid cursor')
     }
     const ts = Number(parts[0])
     const id = parts[1]
     if (!Number.isFinite(ts) || !id) {
-      const { AppError } = await import('@gosilex/core')
+      const { AppError } = await import('@kit/core')
       throw AppError.validation('Invalid cursor')
     }
     cursorCreatedAt = ts

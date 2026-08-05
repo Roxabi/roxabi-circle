@@ -1,11 +1,6 @@
-import {
-  isInvitableOrgRole,
-  isPlatformRole,
-  normalizeEmail,
-  type PlatformRole,
-} from '@gosilex/auth'
-import { AppError } from '@gosilex/core'
-import { buildWelcomeSetPasswordEmailText, type EmailPort } from '@gosilex/email'
+import { isInvitableOrgRole, isPlatformRole, normalizeEmail, type PlatformRole } from '@kit/auth'
+import { AppError } from '@kit/core'
+import { buildWelcomeSetPasswordEmailText, type EmailPort } from '@kit/email'
 import { hashPassword } from 'better-auth/crypto'
 import type { DrizzleD1Database } from 'drizzle-orm/d1'
 import type { schema } from '../db/schema'

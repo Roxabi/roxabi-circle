@@ -60,7 +60,7 @@ import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from '@gosilex/ui'
+} from '@kit/ui'
 import { Markdown } from '@tanstack/markdown/react'
 import { useForm } from '@tanstack/react-form'
 import {
@@ -376,7 +376,7 @@ Body notes use the same renderer on **\`/app/notes\`**.
               <FieldGroup className="max-w-md">
                 <Field>
                   <FieldLabel htmlFor="ds-email">Email</FieldLabel>
-                  <Input id="ds-email" type="email" placeholder="you@gosilex.local" />
+                  <Input id="ds-email" type="email" placeholder="you@kit.local" />
                   <FieldDescription>Used for session demo login.</FieldDescription>
                 </Field>
                 <Field>
@@ -785,7 +785,7 @@ Body notes use the same renderer on **\`/app/notes\`**.
                     <CardContent className="space-y-3">
                       <Field>
                         <FieldLabel htmlFor="tpl-email">{m.email}</FieldLabel>
-                        <Input id="tpl-email" type="email" defaultValue="demo@gosilex.local" />
+                        <Input id="tpl-email" type="email" defaultValue="demo@kit.local" />
                       </Field>
                       <Field>
                         <FieldLabel htmlFor="tpl-pass">{m.password}</FieldLabel>

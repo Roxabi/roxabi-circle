@@ -1,4 +1,4 @@
-import { cn } from '@gosilex/ui'
+import { cn } from '@kit/ui'
 import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '../lib/api'
 import {

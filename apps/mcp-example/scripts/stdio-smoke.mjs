@@ -6,7 +6,7 @@
 import { spawn } from 'node:child_process'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { whoamiResultSchema } from '@gosilex/mcp'
+import { whoamiResultSchema } from '@kit/mcp'
 import { REGISTERED_TOOL_NAMES } from '../src/index.ts'
 
 const root = dirname(fileURLToPath(import.meta.url))

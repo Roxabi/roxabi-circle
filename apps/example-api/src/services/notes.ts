@@ -1,5 +1,5 @@
-import { AppError } from '@gosilex/core'
-import { type KitR2Bucket, StorageClient } from '@gosilex/storage'
+import { AppError } from '@kit/core'
+import { type KitR2Bucket, StorageClient } from '@kit/storage'
 import type { DrizzleD1Database } from 'drizzle-orm/d1'
 import type { schema } from '../db/schema'
 import * as notesRepo from '../repos/notes'

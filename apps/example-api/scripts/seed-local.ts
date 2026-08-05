@@ -9,12 +9,12 @@ import { Database } from 'bun:sqlite'
  *   bun run db:reset     # migrate + seed --reset
  *
  * Uses bun:sqlite against the local Miniflare D1 file so data is visible to
- * `wrangler dev`. PBKDF2 hashes via @gosilex/auth (Web Crypto).
+ * `wrangler dev`. PBKDF2 hashes via @kit/auth (Web Crypto).
  */
 import { mkdirSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { createDb } from '@gosilex/db'
+import { createDb } from '@kit/db'
 import { schema } from '../src/db/schema'
 import { SEED_NOTES, SEED_USERS } from '../src/seed/demo-data'
 import { seedDemoDatabase } from '../src/seed/seed-db'

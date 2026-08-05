@@ -24,33 +24,33 @@ export const TENANCY_PASSWORD = 'demo-password-change-me'
 export const TENANCY_PERSONAS: readonly TenancyPersona[] = [
   {
     id: 'user_super',
-    email: 'super@gosilex.local',
+    email: 'super@kit.local',
     password: TENANCY_PASSWORD,
     name: 'Super Admin',
     platformRole: 'super_admin',
   },
   {
     id: 'user_staff',
-    email: 'staff@gosilex.local',
+    email: 'staff@kit.local',
     password: TENANCY_PASSWORD,
     name: 'Staff Agent',
     platformRole: 'staff',
   },
   {
     id: 'user_solo',
-    email: 'solo@gosilex.local',
+    email: 'solo@kit.local',
     password: TENANCY_PASSWORD,
     name: 'Solo Client',
   },
   {
     id: 'user_team_owner',
-    email: 'team-owner@gosilex.local',
+    email: 'team-owner@kit.local',
     password: TENANCY_PASSWORD,
     name: 'Team Owner',
   },
   {
     id: 'user_team_reader',
-    email: 'team-reader@gosilex.local',
+    email: 'team-reader@kit.local',
     password: TENANCY_PASSWORD,
     name: 'Team Reader',
   },

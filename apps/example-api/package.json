@@ -1,5 +1,5 @@
 {
-  "name": "@gosilex/example-api",
+  "name": "@kit/example-api",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -15,13 +15,13 @@
     "build": "wrangler deploy --dry-run --outdir=dist"
   },
   "dependencies": {
-    "@gosilex/auth": "workspace:*",
-    "@gosilex/core": "workspace:*",
-    "@gosilex/db": "workspace:*",
-    "@gosilex/email": "workspace:*",
-    "@gosilex/feedback": "workspace:*",
-    "@gosilex/storage": "workspace:*",
-    "@gosilex/types": "workspace:*",
+    "@kit/auth": "workspace:*",
+    "@kit/core": "workspace:*",
+    "@kit/db": "workspace:*",
+    "@kit/email": "workspace:*",
+    "@kit/feedback": "workspace:*",
+    "@kit/storage": "workspace:*",
+    "@kit/types": "workspace:*",
     "better-auth": "^1.6.23",
     "drizzle-orm": "^0.44.0",
     "hono": "^4.7.0",

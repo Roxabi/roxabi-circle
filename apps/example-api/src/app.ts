@@ -1,4 +1,4 @@
-import { AppError, toApiErrorBody } from '@gosilex/core'
+import { AppError, toApiErrorBody } from '@kit/core'
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import type { ContentfulStatusCode } from 'hono/utils/http-status'

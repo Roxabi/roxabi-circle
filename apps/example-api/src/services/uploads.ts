@@ -1,6 +1,6 @@
-import { AppError } from '@gosilex/core'
-import type { KitR2Bucket, PresignSigner } from '@gosilex/storage'
-import { StorageClient } from '@gosilex/storage'
+import { AppError } from '@kit/core'
+import type { KitR2Bucket, PresignSigner } from '@kit/storage'
+import { StorageClient } from '@kit/storage'
 import { presignDemoUpload } from '../lib/presign'
 
 const MAX_BYTES = 5_000_000

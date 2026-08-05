@@ -1,4 +1,4 @@
-import { assertToolsMatchAllowlist } from '@gosilex/mcp'
+import { assertToolsMatchAllowlist } from '@kit/mcp'
 import { afterEach, describe, expect, it } from 'vitest'
 import { catalogue, REGISTERED_TOOL_NAMES } from './index'
 

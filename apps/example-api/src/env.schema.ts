@@ -28,7 +28,7 @@ export const workerStringEnvSchema = z.object({
   DEMO_USER_EMAIL: z.string().optional(),
   SMTP_HOST: z.string().optional(),
   SMTP_PORT: z.string().optional(),
-  /** Override session cookie name (default gosilex_session). */
+  /** Override session cookie name (default kit_session). */
   SESSION_COOKIE_NAME: z.string().optional(),
   /** Better Auth secret (min 32) — required outside development|test. */
   BETTER_AUTH_SECRET: z.string().optional(),
@@ -46,7 +46,7 @@ export const workerStringEnvSchema = z.object({
   EMAIL_TRANSPORT: z.string().optional(),
   /**
    * From address for cf/resend.
-   * Staging: must be @gosilex.com (or EMAIL_FROM_DOMAIN). Prod: onboarded product domain.
+   * Staging: must be @example.com (or EMAIL_FROM_DOMAIN). Prod: onboarded product domain.
    */
   EMAIL_FROM: z.string().optional(),
   /** Optional display name for From. */
@@ -54,11 +54,11 @@ export const workerStringEnvSchema = z.object({
   /**
    * Comma-separated recipient domains allowed to receive mail (exact match).
    * Required on staging when EMAIL_TRANSPORT=cf|resend. Optional pin on production.
-   * Example: `gosilex.com,client-acme.test`
+   * Example: `example.com,client-acme.test`
    */
   EMAIL_ALLOW_DOMAINS: z.string().optional(),
   /**
-   * Domain required for EMAIL_FROM. Staging defaults to `gosilex.com` when unset.
+   * Domain required for EMAIL_FROM. Staging defaults to `example.com` when unset.
    * Production: only enforced when set.
    */
   EMAIL_FROM_DOMAIN: z.string().optional(),
