@@ -17,8 +17,9 @@ describe('seedDemoDatabase', () => {
     expect(first.notes.every((n) => n.created)).toBe(true)
     expect(first.notes).toHaveLength(SEED_NOTES.length)
 
-    expect(first.modules.find((m) => m.id === 'feedback')?.enabled).toBe(false)
-    expect(first.modules.find((m) => m.id === 'feedback')?.configured).toBe(false)
+    expect(first.modules.find((m) => m.id === 'demo')?.enabled).toBe(false)
+    // demo module needs no remote credentials
+    expect(first.modules.find((m) => m.id === 'demo')?.configured).toBe(true)
 
     const second = await seedDemoDatabase(db, { now: 2_000, environment: 'test' })
     expect(second.users.every((u) => !u.created)).toBe(true)

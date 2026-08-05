@@ -141,7 +141,7 @@ export async function isModuleEffective(
   return Boolean(org?.enabled)
 }
 
-/** Platform config read/write for feedback (masks secrets at route layer). */
+/** Platform config read/write for modules (masks secrets at route layer). */
 export async function getPlatformModuleConfigJson(db: Db, moduleId: KitModuleId) {
   await ensurePlatformModules(db)
   const row = await platformModulesRepo.getPlatformModule(db, moduleId)

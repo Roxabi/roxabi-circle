@@ -211,11 +211,9 @@ function ShellChrome({ mode, children }: { mode: ShellMode; children: ReactNode 
                 </DropdownMenuItem>
               </>
             ) : (
-              <DropdownMenuItem
-                onClick={() => void navigate({ to: '/admin/settings/integrations/feedback' })}
-              >
+              <DropdownMenuItem onClick={() => void navigate({ to: '/admin/modules' })}>
                 <Settings />
-                {m.integrationFeedbackTitle}
+                {m.navModules}
               </DropdownMenuItem>
             )}
             {platform && mode === 'admin' ? (

@@ -50,12 +50,12 @@ describe('AppError', () => {
 
   it('maps integrationNotConfigured to 400 with details', () => {
     const err = AppError.integrationNotConfigured('Configure first', {
-      configPath: '/settings/integrations/feedback',
+      configPath: '/admin/modules',
     })
     const { body, status } = toApiErrorBody(err, 'req_int')
     expect(status).toBe(400)
     expect(body.error.code).toBe('INTEGRATION_NOT_CONFIGURED')
-    expect(body.error.details).toEqual({ configPath: '/settings/integrations/feedback' })
+    expect(body.error.details).toEqual({ configPath: '/admin/modules' })
   })
 
   it('maps rateLimited to 429', () => {

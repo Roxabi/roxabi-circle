@@ -7,7 +7,7 @@
 | **What** | Extractible monorepo kit: packages + `apps/example-*` + CI + auth/UI/MCP |
 | **Product consumers** | Greenfield products via git `upstream` → kit · [`start-product.md`](docs/playbooks/start-product.md) · [`fork-to-first-issue.md`](docs/playbooks/fork-to-first-issue.md) |
 | **Status** | Kit live **2026-07-13** · products pull via `git fetch upstream` |
-| **Stack SSoT** | section ci-dessous (figée **2026-07-12**, amendée BA-only / multi-tenant A / CF Email / feedback / i18n) |
+| **Stack SSoT** | section ci-dessous (figée **2026-07-12**, amendée BA-only / multi-tenant A / CF Email / i18n) |
 | **Org remotes / HEAD vs mirror** | **Not in this repo** — operator SSoT `~/projects/ssot/chemin-a-kit-lineage.ssot.md` |
 
 ---
@@ -303,7 +303,6 @@ Ref pattern : `kit-boilerplate` (`errorCodes`, `errorUtils`, `ApiError`).
 | `@kit/ui` | shadcn Base UI shell | **P0** |
 | `@kit/email` | Templates + transports `log` \| `smtp` \| **`cf`** (prod default) \| `resend` (escape) — [ADR-0004](docs/architecture/adr/0004-email-transport-cf-default.md) | **P0** |
 | `@kit/i18n` | Locale engine only; catalogs app-owned (FR/EN live) | **P0** |
-| `@kit/feedback` | Signaler → feedback pilotage (core + Hono + React FAB) | **P0** kit optional module |
 | `@kit/mcp` | FastMCP/SDK conventions (ping/whoami) | **P0** example |
 | `@kit/rate-limit` | D1/KV / CF binding | P1 |
 | `@kit/audit` | append-only events | P1 |
@@ -431,7 +430,7 @@ Ne pas activer PostHog **et** Plausible **et** Sentry Session Replay sans raison
 
 ```text
 kit/
-├── packages/   core config db storage auth types ui i18n email feedback mcp …
+├── packages/   core config db storage auth types ui i18n email mcp …
 ├── apps/
 │   ├── example-api/ example-web/ mcp-example/   # kit extractible
 │   └── <product>-*                             # product repos only (not in this kit)
@@ -447,7 +446,7 @@ kit/
 
 | Zone | Upgrade |
 |---|---|
-| `packages/*` | kit only (incl. `feedback`) |
+| `packages/*` | kit only (optional modules) |
 | `apps/example-*` | prouve kit seul |
 | `apps/<product>-*` | product repos (fork `upstream`); never dual-edit kit paths |
 
@@ -546,7 +545,6 @@ Quand la CI app existera : l’ajouter dans `workflow_run.workflows` de `merge-o
 - [x] **Better Auth + cookies (session)** — BA-only ([ADR-0002](docs/architecture/adr/0002-session-hmac-interim-vs-better-auth.md), HMAC retired) · dual credential cookie \| Bearer `sk_` · GitHub OAuth product still later  
 - [x] packages/ui Base UI + example-web (kit shell live · `/admin` + `/app` shells)  
 - [x] i18n FR/EN catalogs (`@kit/i18n` engine + app catalogs ; Paraglide monorepo **park** B8)  
-- [x] **Feedback kit** (`@kit/feedback` + example wire · GH #8)  
 - [x] **Multi-tenant Phase A** — orgs, platform RBAC, dual-level modules ([ADR-0003](docs/architecture/adr/0003-multi-tenant-rbac-modules.md) · GH #11)  
 - [x] **Multi-tenant UX A4** — shells + kit invites + password reset (GH #15)  
 - [x] **Email CF prod transport** — `@kit/email` `log`\|`smtp`\|`cf`\|`resend` + staging allowlist ([ADR-0004](docs/architecture/adr/0004-email-transport-cf-default.md) · GH #21)  

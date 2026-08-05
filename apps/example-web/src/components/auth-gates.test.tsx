@@ -33,10 +33,6 @@ vi.mock('../lib/auth', async () => {
   }
 })
 
-vi.mock('./feedback-fab', () => ({
-  FeedbackFab: () => null,
-}))
-
 afterEach(() => {
   cleanup()
   navigate.mockReset()

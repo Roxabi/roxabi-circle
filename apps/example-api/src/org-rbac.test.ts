@@ -98,7 +98,7 @@ describe('org RBAC (ADR-0003 Phase A) — IDOR matrix', () => {
     const { app, env } = await seedEnv()
     const cookie = await signIn(app, env, 'team-reader@kit.local')
     const res = await app.request(
-      '/api/orgs/org_team/modules/feedback',
+      '/api/orgs/org_team/modules/demo',
       {
         method: 'PATCH',
         headers: {
@@ -117,7 +117,7 @@ describe('org RBAC (ADR-0003 Phase A) — IDOR matrix', () => {
     const { app, env } = await seedEnv()
     const cookie = await signIn(app, env, 'staff@kit.local')
     const res = await app.request(
-      '/api/platform/modules/feedback',
+      '/api/platform/modules/demo',
       {
         method: 'PATCH',
         headers: {
@@ -253,7 +253,7 @@ describe('org RBAC (ADR-0003 Phase A) — IDOR matrix', () => {
     const cookie = await signIn(app, env, 'super@kit.local')
     // super is not a member of org_solo; write default off → 404 (no membership leak path)
     const res = await app.request(
-      '/api/orgs/org_solo/modules/feedback',
+      '/api/orgs/org_solo/modules/demo',
       {
         method: 'PATCH',
         headers: {
@@ -319,10 +319,10 @@ describe('org RBAC (ADR-0003 Phase A) — IDOR matrix', () => {
     )
     expect(res.status).toBe(200)
     const body = (await res.json()) as {
-      modules: { feedback: { available: boolean; effective: boolean } }
+      modules: { demo: { available: boolean; effective: boolean } }
     }
-    expect(body.modules.feedback).toHaveProperty('available')
-    expect(body.modules.feedback).toHaveProperty('effective')
+    expect(body.modules.demo).toHaveProperty('available')
+    expect(body.modules.demo).toHaveProperty('effective')
   })
 
   it('key list includes organizationId; org list scoped for bound key', async () => {

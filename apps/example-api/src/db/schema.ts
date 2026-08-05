@@ -34,7 +34,7 @@ export const demoUsers = sqliteTable('demo_users', {
 export const kitModules = sqliteTable('kit_modules', {
   id: text('id').primaryKey(),
   enabled: integer('enabled', { mode: 'boolean' }).notNull().default(false),
-  /** JSON integration settings (e.g. Pilotage URL + API key for feedback). */
+  /** JSON integration settings (e.g. optional module config JSON). */
   configJson: text('config_json'),
   updatedAt: integer('updated_at', { mode: 'number' }).notNull(),
 })

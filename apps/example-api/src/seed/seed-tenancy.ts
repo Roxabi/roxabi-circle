@@ -108,10 +108,10 @@ export async function seedTenancyDemo(
       }
     }
 
-    // org modules: feedback enabled only on acme
+    // org modules: demo enabled only on acme
     const platform = await platformModulesRepo.listPlatformModules(db)
     for (const mod of platform) {
-      const enabled = o.id === 'org_acme' && mod.moduleId === 'feedback' && Boolean(mod.available)
+      const enabled = o.id === 'org_acme' && mod.moduleId === 'demo' && Boolean(mod.available)
       await platformModulesRepo.upsertOrgModule(db, {
         organizationId: o.id,
         moduleId: mod.moduleId,
@@ -125,11 +125,7 @@ export async function seedTenancyDemo(
     await orgRolesService.ensureSystemRoles(db, o.id)
   }
 
-  // Make feedback available on platform for demos (config may still be empty)
-  const feedback = await platformModulesRepo.getPlatformModule(db, 'feedback')
-  if (feedback && !feedback.available) {
-    // leave available=false until configured — seed does not invent Pilotage secrets
-  }
+  // Platform modules stay available=false until an admin enables them.
 
   const platformRoles = TENANCY_PERSONAS.filter((p) => p.platformRole).map((p) => ({
     userId: p.id,

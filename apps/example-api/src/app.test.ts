@@ -19,44 +19,6 @@ function sessionMutation(cookie: string): Record<string, string> {
   }
 }
 
-async function saveFeedbackIntegration(
-  app: ReturnType<typeof createApp>,
-  env: ReturnType<typeof createMemoryEnv>,
-  cookie: string,
-) {
-  const res = await app.request(
-    '/api/integrations/feedback',
-    {
-      method: 'PUT',
-      headers: sessionMutation(cookie),
-      body: JSON.stringify({
-        pilotageUrl: 'http://localhost:3939',
-        pilotageApiKey: 'fbk_test_key_12',
-      }),
-    },
-    env,
-  )
-  expect(res.status).toBe(200)
-}
-
-async function enableFeedbackModule(
-  app: ReturnType<typeof createApp>,
-  env: ReturnType<typeof createMemoryEnv>,
-  cookie: string,
-) {
-  await saveFeedbackIntegration(app, env, cookie)
-  const res = await app.request(
-    '/api/modules/feedback',
-    {
-      method: 'PATCH',
-      headers: sessionMutation(cookie),
-      body: JSON.stringify({ enabled: true }),
-    },
-    env,
-  )
-  expect(res.status).toBe(200)
-}
-
 async function loginAs(
   app: ReturnType<typeof createApp>,
   env: ReturnType<typeof createMemoryEnv>,
@@ -943,28 +905,28 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     expect(ok.headers.get('access-control-allow-origin')).toBe('http://localhost:5173')
   })
 
-  it('GET /api/modules returns feedback disabled until configured', async () => {
+  it('GET /api/modules returns demo disabled by default (configured without remote)', async () => {
     const app = createApp()
     const env = createMemoryEnv()
     const cookie = await loginAs(app, env, DEMO_EMAIL, DEMO_PASSWORD)
     const res = await app.request('/api/modules', { headers: { cookie } }, env)
     expect(res.status).toBe(200)
     const body = (await res.json()) as {
-      modules: { feedback: { enabled: boolean; configured: boolean; configPath: string } }
+      modules: { demo: { enabled: boolean; configured: boolean; configPath: string } }
     }
-    expect(body.modules.feedback).toMatchObject({
+    expect(body.modules.demo).toMatchObject({
       enabled: false,
-      configured: false,
-      configPath: '/settings/integrations/feedback',
+      configured: true,
+      configPath: '/admin/modules',
     })
   })
 
-  it('PATCH /api/modules/feedback rejects enable when integration missing', async () => {
+  it('PATCH /api/modules/demo enables without remote integration', async () => {
     const app = createApp()
     const env = createMemoryEnv()
     const cookie = await loginAs(app, env, DEMO_EMAIL, DEMO_PASSWORD)
     const res = await app.request(
-      '/api/modules/feedback',
+      '/api/modules/demo',
       {
         method: 'PATCH',
         headers: sessionMutation(cookie),
@@ -972,43 +934,7 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
       },
       env,
     )
-    expect(res.status).toBe(400)
-    const body = (await res.json()) as {
-      error: { code: string; details?: { configPath?: string } }
-    }
-    expect(body.error.code).toBe('INTEGRATION_NOT_CONFIGURED')
-    expect(body.error.details?.configPath).toBe('/settings/integrations/feedback')
-  })
-
-  it('GET /api/integrations/feedback requires admin', async () => {
-    const app = createApp()
-    const env = createMemoryEnv()
-    const cookieB = await loginAs(app, env, DEMO_EMAIL_B, DEMO_PASSWORD_B)
-    const res = await app.request(
-      '/api/integrations/feedback',
-      { headers: { cookie: cookieB } },
-      env,
-    )
-    expect(res.status).toBe(403)
-  })
-
-  it('PUT /api/integrations/feedback requires admin', async () => {
-    const app = createApp()
-    const env = createMemoryEnv()
-    const cookieB = await loginAs(app, env, DEMO_EMAIL_B, DEMO_PASSWORD_B)
-    const res = await app.request(
-      '/api/integrations/feedback',
-      {
-        method: 'PUT',
-        headers: sessionMutation(cookieB),
-        body: JSON.stringify({
-          pilotageUrl: 'http://localhost:3939',
-          pilotageApiKey: 'fbk_test_key_12',
-        }),
-      },
-      env,
-    )
-    expect(res.status).toBe(403)
+    expect(res.status).toBe(200)
   })
 
   it('PATCH /api/modules/:id requires admin', async () => {
@@ -1016,81 +942,11 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     const env = createMemoryEnv()
     const cookieB = await loginAs(app, env, DEMO_EMAIL_B, DEMO_PASSWORD_B)
     const res = await app.request(
-      '/api/modules/feedback',
+      '/api/modules/demo',
       {
         method: 'PATCH',
         headers: sessionMutation(cookieB),
         body: JSON.stringify({ enabled: false }),
-      },
-      env,
-    )
-    expect(res.status).toBe(403)
-  })
-
-  it('POST /api/report returns 401 without auth', async () => {
-    const app = createApp()
-    const env = createMemoryEnv()
-    const fd = new FormData()
-    fd.append('title', 'Bug')
-    const res = await app.request('/api/report', { method: 'POST', body: fd }, env)
-    expect(res.status).toBe(401)
-  })
-
-  it('POST /api/report returns 503 when feedback module is off', async () => {
-    const app = createApp()
-    const env = createMemoryEnv()
-    const cookie = await loginAs(app, env, DEMO_EMAIL, DEMO_PASSWORD)
-    await saveFeedbackIntegration(app, env, cookie)
-    const fd = new FormData()
-    fd.append('title', 'Bug')
-    const res = await app.request(
-      '/api/report',
-      { method: 'POST', headers: { cookie, Origin: ORIGIN }, body: fd },
-      env,
-    )
-    expect(res.status).toBe(503)
-    const body = (await res.json()) as { error: string }
-    expect(body.error).toContain('désactivé')
-  })
-
-  it('POST /api/report rejects Bearer sk_ (session-only)', async () => {
-    const app = createApp()
-    const env = createMemoryEnv()
-    const cookie = await loginAs(app, env, DEMO_EMAIL, DEMO_PASSWORD)
-    await enableFeedbackModule(app, env, cookie)
-    const orgRes = await app.request(
-      '/api/orgs',
-      {
-        method: 'POST',
-        headers: sessionMutation(cookie),
-        body: JSON.stringify({
-          name: 'Report Org',
-          slug: `rep-org-${crypto.randomUUID().slice(0, 8)}`,
-        }),
-      },
-      env,
-    )
-    expect(orgRes.status).toBe(201)
-    const { org } = (await orgRes.json()) as { org: { id: string } }
-    const mint = await app.request(
-      '/api/keys',
-      {
-        method: 'POST',
-        headers: sessionMutation(cookie),
-        body: JSON.stringify({ organizationId: org.id }),
-      },
-      env,
-    )
-    expect(mint.status).toBe(200)
-    const { key } = (await mint.json()) as { key: string }
-    const fd = new FormData()
-    fd.append('title', 'Bug')
-    const res = await app.request(
-      '/api/report',
-      {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${key}` },
-        body: fd,
       },
       env,
     )

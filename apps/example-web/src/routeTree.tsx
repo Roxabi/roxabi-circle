@@ -19,7 +19,6 @@ import { ChangelogPage } from './routes/changelog'
 import { DashboardPage } from './routes/dashboard'
 import { DesignSystemPage } from './routes/design-system'
 import { ForgotPasswordPage } from './routes/forgot-password'
-import { IntegrationFeedbackPage } from './routes/integration-feedback'
 import { InviteAcceptPage } from './routes/invite-accept'
 import { ItemsPage } from './routes/items'
 import { KeysPage } from './routes/keys'
@@ -241,12 +240,6 @@ const adminDesignSystemRoute = createRoute({
   component: DesignSystemPage,
 })
 
-const adminFeedbackRoute = createRoute({
-  getParentRoute: () => adminLayoutRoute,
-  path: 'settings/integrations/feedback',
-  component: IntegrationFeedbackPage,
-})
-
 // ── Legacy redirects ───────────────────────────────────────────────
 function legacyRedirect(from: string, to: string) {
   return createRoute({
@@ -263,10 +256,6 @@ const legacyNotes = legacyRedirect('/notes', '/app/notes')
 const legacyKeys = legacyRedirect('/keys', '/app/keys')
 const legacySettings = legacyRedirect('/settings', '/app/settings')
 const legacyDesignSystem = legacyRedirect('/design-system', '/admin/design-system')
-const legacyFeedback = legacyRedirect(
-  '/settings/integrations/feedback',
-  '/admin/settings/integrations/feedback',
-)
 
 export const routeTree = rootRoute.addChildren([
   loginRoute,
@@ -289,11 +278,9 @@ export const routeTree = rootRoute.addChildren([
     adminUsersRoute,
     adminModulesRoute,
     adminDesignSystemRoute,
-    adminFeedbackRoute,
   ]),
   legacyNotes,
   legacyKeys,
   legacySettings,
   legacyDesignSystem,
-  legacyFeedback,
 ])

@@ -1,22 +1,9 @@
-import { z } from 'zod'
 import type { KitModuleId } from './kit-modules'
 
+/** SPA path for module settings (demo has no remote integration). */
 export const INTEGRATION_CONFIG_PATHS: Record<KitModuleId, string> = {
-  feedback: '/settings/integrations/feedback',
+  demo: '/admin/modules',
 }
-
-export const feedbackIntegrationSchema = z.object({
-  pilotageUrl: z.string().url(),
-  pilotageApiKey: z.string().min(8),
-})
-
-export type FeedbackIntegrationConfig = z.infer<typeof feedbackIntegrationSchema>
-
-export const feedbackIntegrationSaveSchema = z.object({
-  pilotageUrl: z.string().url(),
-  /** Omit or empty to keep the stored key. */
-  pilotageApiKey: z.string().optional(),
-})
 
 export type ModulePublicState = {
   enabled: boolean
@@ -24,24 +11,12 @@ export type ModulePublicState = {
   configPath: string
 }
 
-export function parseFeedbackConfig(
-  raw: string | null | undefined,
-): FeedbackIntegrationConfig | null {
-  if (!raw?.trim()) return null
-  try {
-    const parsed = feedbackIntegrationSchema.safeParse(JSON.parse(raw))
-    return parsed.success ? parsed.data : null
-  } catch {
-    return null
-  }
-}
-
+/** Demo module needs no external credentials. */
 export function isModuleConfigured(
   id: KitModuleId,
-  configJson: string | null | undefined,
+  _configJson: string | null | undefined,
 ): boolean {
-  if (id === 'feedback') return parseFeedbackConfig(configJson) !== null
-  return false
+  return id === 'demo'
 }
 
 export function maskApiKey(key: string): string {

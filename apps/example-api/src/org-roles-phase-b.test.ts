@@ -108,7 +108,7 @@ describe('org roles Phase B — IDOR + grants', () => {
         body: JSON.stringify({
           key: 'analyst',
           name: 'Analyst',
-          grants: [{ moduleId: 'feedback', access: 'read' }],
+          grants: [{ moduleId: 'demo', access: 'read' }],
         }),
       },
       env,
@@ -130,7 +130,7 @@ describe('org roles Phase B — IDOR + grants', () => {
     const roles = ((await list.json()) as { roles: Array<{ id: string; key: string }> }).roles
     const reader = roles.find((r) => r.key === 'reader')!
     const res = await app.request(
-      `/api/orgs/org_team/roles/${reader.id}/grants/feedback`,
+      `/api/orgs/org_team/roles/${reader.id}/grants/demo`,
       {
         method: 'PATCH',
         headers: { cookie, Origin: ORIGIN, 'content-type': 'application/json' },
@@ -156,7 +156,7 @@ describe('org roles Phase B — IDOR + grants', () => {
         body: JSON.stringify({
           key: 'temp_role',
           name: 'Temp',
-          grants: [{ moduleId: 'feedback', access: 'read' }],
+          grants: [{ moduleId: 'demo', access: 'read' }],
         }),
       },
       env,
@@ -166,7 +166,7 @@ describe('org roles Phase B — IDOR + grants', () => {
 
     const solo = await signIn(app, env, 'solo@kit.local')
     const res = await app.request(
-      `/api/orgs/org_solo/roles/${roleId}/grants/feedback`,
+      `/api/orgs/org_solo/roles/${roleId}/grants/demo`,
       {
         method: 'PATCH',
         headers: { cookie: solo, Origin: ORIGIN, 'content-type': 'application/json' },
@@ -241,7 +241,7 @@ describe('org roles Phase B — IDOR + grants', () => {
         body: JSON.stringify({
           key: 'assigned_role',
           name: 'Assigned',
-          grants: [{ moduleId: 'feedback', access: 'read' }],
+          grants: [{ moduleId: 'demo', access: 'read' }],
         }),
       },
       env,
@@ -270,17 +270,14 @@ describe('org roles Phase B — IDOR + grants', () => {
     const platformModulesRepo = await import('./repos/platform-modules')
     await ensureSystemRoles(db, 'org_team')
     await platformModulesRepo.upsertPlatformModule(db, {
-      moduleId: 'feedback',
+      moduleId: 'demo',
       available: true,
-      configJson: JSON.stringify({
-        pilotageUrl: 'https://pilotage.example',
-        pilotageApiKey: 'fbk_test',
-      }),
+      configJson: null,
       updatedAt: Date.now(),
     })
     await platformModulesRepo.upsertOrgModule(db, {
       organizationId: 'org_team',
-      moduleId: 'feedback',
+      moduleId: 'demo',
       enabled: true,
       locked: false,
       updatedAt: Date.now(),
@@ -288,13 +285,13 @@ describe('org roles Phase B — IDOR + grants', () => {
     const readOk = await resolveModuleAccess(db, {
       organizationId: 'org_team',
       roleKey: 'reader',
-      moduleId: 'feedback',
+      moduleId: 'demo',
       op: 'read',
     })
     const writeOk = await resolveModuleAccess(db, {
       organizationId: 'org_team',
       roleKey: 'reader',
-      moduleId: 'feedback',
+      moduleId: 'demo',
       op: 'write',
     })
     expect(readOk).toBe(true)
@@ -312,7 +309,7 @@ describe('org roles Phase B — IDOR + grants', () => {
         body: JSON.stringify({
           key: 'power_custom',
           name: 'Power',
-          grants: [{ moduleId: 'feedback', access: 'write' }],
+          grants: [{ moduleId: 'demo', access: 'write' }],
         }),
       },
       env,
@@ -336,7 +333,7 @@ describe('org roles Phase B — IDOR + grants', () => {
     expect(ownerRole).toBeTruthy()
     await orgRolesRepo.upsertGrant(db, {
       roleId: ownerRole!.id,
-      moduleId: 'feedback',
+      moduleId: 'demo',
       access: 'read',
     })
     const res = await app.request(
@@ -347,7 +344,7 @@ describe('org roles Phase B — IDOR + grants', () => {
         body: JSON.stringify({
           key: 'too_strong',
           name: 'Too Strong',
-          grants: [{ moduleId: 'feedback', access: 'write' }],
+          grants: [{ moduleId: 'demo', access: 'write' }],
         }),
       },
       env,

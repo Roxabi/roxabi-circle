@@ -78,7 +78,6 @@ bun run test:e2e:design-system
 | `@kit/ui` | shadcn Base UI shell |
 | `@kit/email` | Templates + transports `log` / `smtp` / `cf` / `resend` |
 | `@kit/i18n` | Locale engine (catalogs in apps) |
-| `@kit/feedback` | Report → feedback backend (optional) |
 | `@kit/mcp` | MCP helpers + contracts |
 
 ## Quality gates

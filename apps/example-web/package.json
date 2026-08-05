@@ -17,7 +17,6 @@
   "dependencies": {
     "@kit/api-client": "workspace:*",
     "@kit/auth": "workspace:*",
-    "@kit/feedback": "workspace:*",
     "@kit/i18n": "workspace:*",
     "@kit/types": "workspace:*",
     "@kit/ui": "workspace:*",
