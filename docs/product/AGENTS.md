@@ -4,37 +4,60 @@
 
 Discord gated community (AI + open source DNA). Entry = GitHub OAuth + **PR d’entrée (D11)** + **heuristic scorer** (no LLM on code). Monorepo public **AGPL**.
 
-## Bounce
+## Upstream (direct)
 
-- `upstream` = `Roxabi/roxabi-cf-template` (chassis ; rebrand Roxabi progressif)
-- Template `upstream` = `go-silex/silex-boilerplate`
-- Never push to either upstream
+- `origin` = `Roxabi/roxabi-circle` (this product)
+- `upstream` = `Roxabi/roxabi-cf-template` (Chemin A kit HEAD) — **fetch / merge only**, never push
+- Pull kit: `git fetch upstream && git merge upstream/main`
+- `docs/product/kit-baseline` = last merged `upstream/main` SHA
 
 ## Read first
 
 - `docs/product/decisions.md` (D1–D14)
 - `docs/product/vision.md`
 - `docs/product/architecture/scoring.md`
+- `docs/product/runbooks/discord-setup.md`
 
-## Stack (MVP)
+## Stack (live MVP)
 
-- `apps/circle-api` — Hono + `@gosilex/*` (→ `@roxabi/*` post-rebrand) : Discord, OAuth, scorer, D1 config
-- `apps/circle-web` — admin ops (`/admin`)
-- `apps/circle-mcp` — tools ops (`sk_`)
-- D1 config live (threshold/weights) ; override staff auditable
+| Piece | Status |
+|---|---|
+| `apps/circle-api` | **Live** CF Worker on **https://circle.roxabi.dev** |
+| Discord | Ed25519 `/interactions` · `/apply` scaffold · appeal tickets · Gateway `#github-to-watch` |
+| Scoring | **Pure lib** `src/scoring/*` + tests — **not** wired to HTTP yet |
+| OAuth GitHub | Path stub **501** — not implemented |
+| D1 / KV | Not provisioned |
+| Kit apps | `apps/example-*`, `packages/@kit/*` — zero-edit kit surface (not product deploy) |
+
+**Not in MVP (do not invent as live):** `apps/circle-web`, `apps/circle-mcp`, admin SPA, D1 live config UI.
+
+### CF deploy (ops)
+
+| | |
+|---|---|
+| Account | Mickael (`b5e90be9…`) — zone `roxabi.dev` |
+| Host | `circle.roxabi.dev` · `workers_dev = false` |
+| Secrets | `wrangler secret` + local `apps/circle-api/.dev.vars` |
+| Gateway wake | cron `*/2` · manual `POST /internal/discord-gateway/ensure` + `X-Ops-Secret` |
+
+## D11 entry rail
+
+- GitHub: https://github.com/Roxabi/circle-applications  
+- Local sibling (not nested in monorepo): `~/projects/circle-applications`  
+- Doc: `docs/product/circle-applications.md`
 
 ## Invariants
 
-1. Scoring **pure** (`apps/circle-api/src/scoring/*`) — no network, deterministic
-2. **No score** until D11 PR unlock on circle-applications
-3. No clone of repos; no LLM code review
-4. Never log OAuth / bot tokens
-5. Discord ACK < 3s ; heavy work in `waitUntil`
-6. DM/ephemeral : **total only** (`toCandidateView`) — axes = ops only (algo still open in git)
-7. Re-apply 48h then 15d
-8. FR copy (`messages-fr.ts`)
-9. Zero-edit kit zones vs `upstream` / `kit-baseline`
-10. CI product + optional `BANNED_REPO_TERMS` list (env/secret)
+1. Scoring **pure** (`apps/circle-api/src/scoring/*`) — no network, deterministic  
+2. **No score** until D11 PR unlock on circle-applications  
+3. No clone of user repos; no LLM code review  
+4. Never log OAuth / bot tokens  
+5. Discord ACK < 3s ; heavy work in `waitUntil`  
+6. DM/ephemeral : **total only** — axes = ops only (algo still open in git)  
+7. Re-apply 48h then 15d  
+8. FR copy (`messages-fr.ts`)  
+9. Zero-edit kit zones vs `upstream` / `kit-baseline`  
+10. Secrets never in git  
 
 ## Commands
 
@@ -42,5 +65,5 @@ Discord gated community (AI + open source DNA). Entry = GitHub OAuth + **PR d’
 bun install
 bun run --filter @roxabi/circle-api test
 bun run --filter @roxabi/circle-api typecheck
-bun run zero-edit
+cd apps/circle-api && bun run deploy   # needs CF Mickael credentials
 ```

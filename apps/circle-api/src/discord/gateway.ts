@@ -8,12 +8,8 @@
  */
 
 import { DurableObject } from 'cloudflare:workers'
-import {
-  enforceGithubWatch,
-  planGithubWatchMessage,
-  type GatewayMessage,
-} from './github-watch'
 import type { Env } from '../types'
+import { enforceGithubWatch, type GatewayMessage, planGithubWatchMessage } from './github-watch'
 
 const GATEWAY_API = 'https://discord.com/api/v10'
 const ENCODING = 'json'

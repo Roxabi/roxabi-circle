@@ -127,13 +127,9 @@ describe('scoreProfile specialty model', () => {
   })
 })
 
-
 describe('keywordAffinity', () => {
   it('scores AI-heavy text high', () => {
-    const a = keywordAffinity(
-      ['mcp agent harness for llm chatbots', 'rag pipeline'],
-      ['ai', 'mcp'],
-    )
+    const a = keywordAffinity(['mcp agent harness for llm chatbots', 'rag pipeline'], ['ai', 'mcp'])
     expect(a).toBeGreaterThan(0.5)
   })
 

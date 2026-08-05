@@ -13,9 +13,7 @@ describe('decideGithubWatchTopLevel', () => {
   })
 
   it('accepts PR URL with short caption', () => {
-    const v = decideGithubWatchTopLevel(
-      'worth a look https://github.com/foo/bar/pull/12',
-    )
+    const v = decideGithubWatchTopLevel('worth a look https://github.com/foo/bar/pull/12')
     expect(v.ok).toBe(true)
     if (v.ok) expect(v.caption).toBe('worth a look')
   })
@@ -38,17 +36,13 @@ describe('decideGithubWatchTopLevel', () => {
   })
 
   it('rejects multiple github urls', () => {
-    const v = decideGithubWatchTopLevel(
-      'https://github.com/a/b and https://github.com/c/d',
-    )
+    const v = decideGithubWatchTopLevel('https://github.com/a/b and https://github.com/c/d')
     expect(v.ok).toBe(false)
     if (!v.ok) expect(v.code).toBe('multiple_urls')
   })
 
   it('rejects long caption', () => {
-    const v = decideGithubWatchTopLevel(
-      `${'x'.repeat(130)} https://github.com/a/b`,
-    )
+    const v = decideGithubWatchTopLevel(`${'x'.repeat(130)} https://github.com/a/b`)
     expect(v.ok).toBe(false)
     if (!v.ok) expect(v.code).toBe('caption_too_long')
   })
@@ -59,9 +53,7 @@ describe('threadNameFromGithubUrl', () => {
     expect(threadNameFromGithubUrl('https://github.com/acme/kit')).toBe('acme/kit')
   })
   it('formats PR', () => {
-    expect(threadNameFromGithubUrl('https://github.com/acme/kit/pull/9')).toBe(
-      'acme/kit PR9',
-    )
+    expect(threadNameFromGithubUrl('https://github.com/acme/kit/pull/9')).toBe('acme/kit PR9')
   })
 })
 
@@ -80,10 +72,7 @@ describe('planGithubWatchMessage', () => {
   })
 
   it('ignores bots', () => {
-    const a = planGithubWatchMessage(
-      { ...base, author: { id: 'b', bot: true } },
-      ch,
-    )
+    const a = planGithubWatchMessage({ ...base, author: { id: 'b', bot: true } }, ch)
     expect(a.type).toBe('ignore')
   })
 

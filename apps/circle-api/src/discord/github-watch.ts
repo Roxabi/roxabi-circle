@@ -6,8 +6,7 @@
 const API = 'https://discord.com/api/v10'
 
 /** github.com and gist.github.com (http/https, optional www). */
-export const GITHUB_URL_RE =
-  /https?:\/\/(?:www\.)?(?:gist\.)?github\.com\/[^\s<>()]+/gi
+export const GITHUB_URL_RE = /https?:\/\/(?:www\.)?(?:gist\.)?github\.com\/[^\s<>()]+/gi
 
 export type GithubWatchVerdict =
   | { ok: true; url: string; caption: string }
@@ -218,11 +217,7 @@ export async function postNotice(
   return null
 }
 
-export async function dmUser(
-  token: string,
-  userId: string,
-  content: string,
-): Promise<boolean> {
+export async function dmUser(token: string, userId: string, content: string): Promise<boolean> {
   const ch = await discord(token, 'POST', '/users/@me/channels', {
     recipient_id: userId,
   })
@@ -261,11 +256,7 @@ export async function enforceGithubWatch(input: {
   const noticeId = await postNotice(token, msg.channel_id, noticeBody)
 
   if (msg.author?.id) {
-    void dmUser(
-      token,
-      msg.author.id,
-      `**#github-to-watch** — message retiré.\n\n${action.message}`,
-    )
+    void dmUser(token, msg.author.id, `**#github-to-watch** — message retiré.\n\n${action.message}`)
   }
 
   if (noticeId && input.noticeTtlMs && input.sleep) {

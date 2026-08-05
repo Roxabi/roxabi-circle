@@ -1,6 +1,12 @@
 # `Roxabi/circle-applications`
 
-https://github.com/Roxabi/circle-applications · local scaffold `circle-applications/`
+https://github.com/Roxabi/circle-applications
+
+**Local:** sibling clone (not inside the monorepo):
+
+```bash
+git clone git@github.com:Roxabi/circle-applications.git ~/projects/circle-applications
+```
 
 ## Experience
 

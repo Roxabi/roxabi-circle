@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import { execFileSync } from 'node:child_process'
 /**
  * Collect GitHub ProfileSignals (incl. org + external contribs), score, save JSON.
  *
@@ -9,103 +10,102 @@
  *
  * Usage: bun scripts/collect-github-profiles.mjs [login...]
  */
-import { writeFileSync, mkdirSync } from "node:fs"
-import { execFileSync } from "node:child_process"
-import { resolve } from "node:path"
-import { scoreProfile } from "../apps/circle-api/src/scoring/score.ts"
+import { mkdirSync, writeFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+import { scoreProfile } from '../apps/circle-api/src/scoring/score.ts'
 
-const ROOT = resolve(import.meta.dir, "..")
-const OUT = resolve(ROOT, "docs/product/profiles")
+const ROOT = resolve(import.meta.dir, '..')
+const OUT = resolve(ROOT, 'docs/product/profiles')
 const USERS = process.argv.slice(2).length
   ? process.argv.slice(2)
-  : ["hoklims", "MonsieurBarti", "MickaelV0"]
+  : ['hoklims', 'MonsieurBarti', 'MickaelV0']
 
 /** Min public PushEvents on Org/* to count an event-discovered org */
 const MIN_ORG_PUSHES = 3
 /** Cap crude size→additions fallback (anti-inflation) */
 const VOLUME_FALLBACK_CAP = 50_000
-const COLLECTOR_VERSION = "0.4.0-specialty"
+const COLLECTOR_VERSION = '0.4.0-specialty'
 
 /** Profile / meta repos that are not technical craft */
 function isDocOrProfileRepo(r, login) {
-  const name = (r.name || "").toLowerCase()
-  const full = (r.full_name || "").toLowerCase()
-  const desc = (r.description || "").toLowerCase()
+  const name = (r.name || '').toLowerCase()
+  const full = (r.full_name || '').toLowerCase()
+  const desc = (r.description || '').toLowerCase()
   if (name === login.toLowerCase()) return true
-  if (name === ".github") return true
-  if (name.endsWith(".github.io") && (r.size || 0) < 500) return true
+  if (name === '.github') return true
+  if (name.endsWith('.github.io') && (r.size || 0) < 500) return true
   if (/profile|readme|portfolio|cv-resume|awesome-list/.test(name)) return true
-  if (/^profile (readme|repository)/i.test(r.description || "")) return true
-  if (desc.includes("profile readme") || desc.includes("github profile")) return true
+  if (/^profile (readme|repository)/i.test(r.description || '')) return true
+  if (desc.includes('profile readme') || desc.includes('github profile')) return true
   // empty-ish
-  if ((r.size || 0) < 5 && !(r.language)) return true
+  if ((r.size || 0) < 5 && !r.language) return true
   return false
 }
 
 const AI_KEYWORDS = [
-  "ai",
-  "llm",
-  "llms",
-  "gpt",
-  "openai",
-  "anthropic",
-  "claude",
-  "gemini",
-  "ollama",
-  "vllm",
-  "langchain",
-  "llamaindex",
-  "rag",
-  "embedding",
-  "embeddings",
-  "vector",
-  "vectorstore",
-  "transformer",
-  "transformers",
-  "machine-learning",
-  "machinelearning",
-  "deep-learning",
-  "deeplearning",
-  "neural",
-  "agent",
-  "agents",
-  "agentic",
-  "mcp",
-  "model-context-protocol",
-  "prompt",
-  "prompts",
-  "chatbot",
-  "copilot",
-  "inference",
-  "fine-tune",
-  "finetune",
-  "finetuning",
-  "huggingface",
-  "hugging-face",
-  "pytorch",
-  "tensorflow",
-  "diffusion",
-  "stable-diffusion",
-  "whisper",
-  "tts",
-  "stt",
-  "nlp",
-  "computer-vision",
-  "harness",
-  "workers",
-  "cloudflare",
+  'ai',
+  'llm',
+  'llms',
+  'gpt',
+  'openai',
+  'anthropic',
+  'claude',
+  'gemini',
+  'ollama',
+  'vllm',
+  'langchain',
+  'llamaindex',
+  'rag',
+  'embedding',
+  'embeddings',
+  'vector',
+  'vectorstore',
+  'transformer',
+  'transformers',
+  'machine-learning',
+  'machinelearning',
+  'deep-learning',
+  'deeplearning',
+  'neural',
+  'agent',
+  'agents',
+  'agentic',
+  'mcp',
+  'model-context-protocol',
+  'prompt',
+  'prompts',
+  'chatbot',
+  'copilot',
+  'inference',
+  'fine-tune',
+  'finetune',
+  'finetuning',
+  'huggingface',
+  'hugging-face',
+  'pytorch',
+  'tensorflow',
+  'diffusion',
+  'stable-diffusion',
+  'whisper',
+  'tts',
+  'stt',
+  'nlp',
+  'computer-vision',
+  'harness',
+  'workers',
+  'cloudflare',
 ]
 
 function keywordAffinity(texts, topics = []) {
   const haystack = [...texts, ...topics]
-    .join(" ")
+    .join(' ')
     .toLowerCase()
-    .replace(/[_\-/]+/g, " ")
+    .replace(/[_\-/]+/g, ' ')
   let hits = 0
   for (const kw of AI_KEYWORDS) {
     const re = new RegExp(
-      `(?:^|[^a-z0-9])${kw.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?:[^a-z0-9]|$)`,
-      "i",
+      `(?:^|[^a-z0-9])${kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:[^a-z0-9]|$)`,
+      'i',
     )
     if (re.test(haystack)) hits += 1
   }
@@ -126,14 +126,14 @@ function sleep(ms) {
 
 function gh(path, { allowFail = false } = {}) {
   try {
-    const out = execFileSync("gh", ["api", path, "--paginate"], {
-      encoding: "utf8",
+    const out = execFileSync('gh', ['api', path, '--paginate'], {
+      encoding: 'utf8',
       maxBuffer: 80 * 1024 * 1024,
-      stdio: ["ignore", "pipe", "pipe"],
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
     const t = out.trim()
     if (!t) return null
-    if (t.startsWith("[")) {
+    if (t.startsWith('[')) {
       try {
         return JSON.parse(t)
       } catch {
@@ -141,10 +141,10 @@ function gh(path, { allowFail = false } = {}) {
         let depth = 0
         let start = -1
         for (let i = 0; i < t.length; i++) {
-          if (t[i] === "[") {
+          if (t[i] === '[') {
             if (depth === 0) start = i
             depth++
-          } else if (t[i] === "]") {
+          } else if (t[i] === ']') {
             depth--
             if (depth === 0 && start >= 0) {
               chunks.push(JSON.parse(t.slice(start, i + 1)))
@@ -183,14 +183,14 @@ function structureFromTree(paths) {
   check(has(/^readme\.md$/) || has(/^docs\//) || has(/\/adr\//))
   const n = paths.length
   check(n >= 10 && n <= 5000)
-  const rootFiles = paths.filter((p) => !p.includes("/")).length
+  const rootFiles = paths.filter((p) => !p.includes('/')).length
   check(rootFiles / Math.max(n, 1) < 0.5)
   const vendor = lower.filter(
     (p) =>
-      p.includes("node_modules/") ||
-      p.includes("/vendor/") ||
-      p.startsWith("dist/") ||
-      p.includes("/dist/"),
+      p.includes('node_modules/') ||
+      p.includes('/vendor/') ||
+      p.startsWith('dist/') ||
+      p.includes('/dist/'),
   ).length
   check(vendor / Math.max(n, 1) < 0.2)
   return score / checks
@@ -211,9 +211,7 @@ function extractAtHandles(...texts) {
 function collect(login) {
   console.error(`\n=== collecting ${login} (${COLLECTOR_VERSION}) ===`)
   const user = gh(`users/${login}`)
-  const accountAgeDays = Math.floor(
-    (Date.now() - new Date(user.created_at).getTime()) / 86400000,
-  )
+  const accountAgeDays = Math.floor((Date.now() - new Date(user.created_at).getTime()) / 86400000)
 
   // --- owned personal repos ---
   let ownedRepos = gh(`users/${login}/repos?type=owner&per_page=100&sort=pushed`) || []
@@ -242,8 +240,8 @@ function collect(login) {
 
   for (const e of events) {
     const full = e.repo?.name // owner/repo
-    if (!full || !full.includes("/")) continue
-    const [owner] = full.split("/")
+    if (!full || !full.includes('/')) continue
+    const [owner] = full.split('/')
     if (owner.toLowerCase() !== login.toLowerCase()) {
       eventOrgs.add(owner)
     }
@@ -253,8 +251,8 @@ function collect(login) {
       prs: 0,
       lastAt: e.created_at,
     }
-    if (e.type === "PushEvent") cur.pushes++
-    if (e.type === "PullRequestEvent") cur.prs++
+    if (e.type === 'PushEvent') cur.pushes++
+    if (e.type === 'PullRequestEvent') cur.prs++
     if (new Date(e.created_at) > new Date(cur.lastAt)) cur.lastAt = e.created_at
     eventRepos.set(full, cur)
   }
@@ -263,7 +261,7 @@ function collect(login) {
   /** @type {Map<string, number>} owner -> push count from events */
   const pushesByOwner = new Map()
   for (const [full, meta] of eventRepos) {
-    const [owner] = full.split("/")
+    const [owner] = full.split('/')
     if (owner.toLowerCase() === login.toLowerCase()) continue
     pushesByOwner.set(owner, (pushesByOwner.get(owner) || 0) + meta.pushes)
   }
@@ -281,14 +279,14 @@ function collect(login) {
   for (const h of extractAtHandles(user.company, user.bio, user.blog)) {
     if (h.toLowerCase() === login.toLowerCase()) continue
     const org = gh(`orgs/${h}`, { allowFail: true })
-    if (org?.login && org.type !== "User") verifiedOrgs.add(org.login)
+    if (org?.login && org.type !== 'User') verifiedOrgs.add(org.login)
   }
 
   // 3) event owners — must be Organization + enough pushes (anti noise: openai, random users)
   for (const [owner, pushes] of pushesByOwner) {
     if (pushes < MIN_ORG_PUSHES) continue
     const org = gh(`orgs/${owner}`, { allowFail: true })
-    if (org?.login && org.type !== "User") verifiedOrgs.add(org.login)
+    if (org?.login && org.type !== 'User') verifiedOrgs.add(org.login)
   }
 
   const verifiedOrgList = [...verifiedOrgs]
@@ -297,11 +295,11 @@ function collect(login) {
   // org maintainer intensity: total PushEvents on verified org repos
   let orgPushEvents = 0
   for (const [full, meta] of eventRepos) {
-    const [owner] = full.split("/")
+    const [owner] = full.split('/')
     if (verifiedOrgs.has(owner)) orgPushEvents += meta.pushes
   }
   console.error(
-    `  orgs=[${verifiedOrgList.join(",")}] orgPushEvents=${orgPushEvents} eventOwners=${[...eventOrgs].join(",")}`,
+    `  orgs=[${verifiedOrgList.join(',')}] orgPushEvents=${orgPushEvents} eventOwners=${[...eventOrgs].join(',')}`,
   )
 
   // --- external merged PRs (author, repo not owned by user) ---
@@ -314,7 +312,7 @@ function collect(login) {
     externalPrSample = items
     // repository_url like https://api.github.com/repos/Owner/repo
     for (const it of items) {
-      const m = String(it.repository_url || "").match(/repos\/([^/]+)\//)
+      const m = String(it.repository_url || '').match(/repos\/([^/]+)\//)
       const owner = m?.[1]
       if (owner && owner.toLowerCase() !== login.toLowerCase()) {
         externalMergedPrs++
@@ -324,10 +322,14 @@ function collect(login) {
     const total = search?.total_count || 0
     if (total > items.length && items.length > 0) {
       const ratio =
-        externalMergedPrs / Math.max(1, items.filter((it) => {
-          const m = String(it.repository_url || "").match(/repos\/([^/]+)\//)
-          return m
-        }).length)
+        externalMergedPrs /
+        Math.max(
+          1,
+          items.filter((it) => {
+            const m = String(it.repository_url || '').match(/repos\/([^/]+)\//)
+            return m
+          }).length,
+        )
       // recount all as external if sample all external
       const sampleExt = externalMergedPrs
       const sampleN = items.length
@@ -345,7 +347,7 @@ function collect(login) {
     }
   }
   for (const [full, meta] of eventRepos) {
-    const [owner] = full.split("/")
+    const [owner] = full.split('/')
     if (owner.toLowerCase() !== login.toLowerCase() && meta.pushes + meta.prs > 0) {
       collabNames.add(full)
     }
@@ -355,7 +357,7 @@ function collect(login) {
   // --- sample repos for deep scan: owned + top event repos on *verified* orgs only ---
   const orgEventRepos = [...eventRepos.values()]
     .filter((r) => {
-      const [owner] = r.full_name.split("/")
+      const [owner] = r.full_name.split('/')
       return verifiedOrgs.has(owner) && r.pushes >= 1
     })
     .sort((a, b) => b.pushes + b.prs - (a.pushes + a.prs))
@@ -367,9 +369,7 @@ function collect(login) {
     .slice(0, 8)
   // if few technical, pad with remaining owned (still non-fork)
   if (ownedSample.length < 4) {
-    for (const r of [...owned].sort(
-      (a, b) => new Date(b.pushed_at) - new Date(a.pushed_at),
-    )) {
+    for (const r of [...owned].sort((a, b) => new Date(b.pushed_at) - new Date(a.pushed_at))) {
       if (ownedSample.some((x) => x.full_name === r.full_name)) continue
       ownedSample.push(r)
       if (ownedSample.length >= 8) break
@@ -385,7 +385,7 @@ function collect(login) {
       pushed_at: r.pushed_at,
       topics: r.topics,
       description: r.description,
-      source: "owned",
+      source: 'owned',
       default_branch: r.default_branch,
       size: r.size,
     })
@@ -400,7 +400,7 @@ function collect(login) {
       pushed_at: repo.pushed_at,
       topics: repo.topics,
       description: repo.description,
-      source: "org_event",
+      source: 'org_event',
       default_branch: repo.default_branch,
       size: repo.size,
       eventPushes: er.pushes,
@@ -418,7 +418,7 @@ function collect(login) {
   const topicsAll = []
 
   for (const r of sampleMeta.slice(0, 12)) {
-    texts.push(r.full_name, r.description || "")
+    texts.push(r.full_name, r.description || '')
     topicsAll.push(...(r.topics || []))
 
     for (let attempt = 0; attempt < 4; attempt++) {
@@ -427,9 +427,7 @@ function collect(login) {
           allowFail: true,
         })
         if (Array.isArray(stats) && stats.length > 0) {
-          const me = stats.find(
-            (c) => c.author?.id === user.id || c.author?.login === login,
-          )
+          const me = stats.find((c) => c.author?.id === user.id || c.author?.login === login)
           if (me?.weeks) {
             for (const w of me.weeks) {
               totalAdditions += w.a || 0
@@ -445,18 +443,17 @@ function collect(login) {
     }
 
     try {
-      const branch = r.default_branch || "main"
-      const ref = gh(
-        `repos/${r.full_name}/git/ref/heads/${encodeURIComponent(branch)}`,
-        { allowFail: true },
-      )
+      const branch = r.default_branch || 'main'
+      const ref = gh(`repos/${r.full_name}/git/ref/heads/${encodeURIComponent(branch)}`, {
+        allowFail: true,
+      })
       const sha = ref?.object?.sha
       if (sha) {
         const tree = gh(`repos/${r.full_name}/git/trees/${sha}?recursive=1`, {
           allowFail: true,
         })
         const paths = (tree?.tree || [])
-          .filter((t) => t.type === "blob")
+          .filter((t) => t.type === 'blob')
           .map((t) => t.path)
           .slice(0, 3000)
         structureScores.push(structureFromTree(paths))
@@ -472,7 +469,7 @@ function collect(login) {
 
     try {
       const langs = gh(`repos/${r.full_name}/languages`, { allowFail: true })
-      if (langs && typeof langs === "object") texts.push(...Object.keys(langs))
+      if (langs && typeof langs === 'object') texts.push(...Object.keys(langs))
     } catch {
       /* ignore */
     }
@@ -489,9 +486,7 @@ function collect(login) {
   }
 
   const cutoff90 = Date.now() - 90 * 86400000
-  const publicEvents90d = events.filter(
-    (e) => new Date(e.created_at).getTime() >= cutoff90,
-  ).length
+  const publicEvents90d = events.filter((e) => new Date(e.created_at).getTime() >= cutoff90).length
 
   const months = new Set()
   const cutoff12 = Date.now() - 365 * 86400000
@@ -578,7 +573,7 @@ function collect(login) {
 
   const profile = {
     collectedAt: new Date().toISOString(),
-    source: "github-api+gh-cli",
+    source: 'github-api+gh-cli',
     collectorVersion: COLLECTOR_VERSION,
     url: `https://github.com/${login}`,
     user: {
@@ -618,10 +613,10 @@ for (const u of USERS) {
 const summary = {
   collectedAt: new Date().toISOString(),
   threshold: 65,
-  scorerVersion: "0.1.0",
+
   collectorVersion: COLLECTOR_VERSION,
-  scorerVersion: results[0]?.score?.version ?? "0.2.0-specialty",
-  note: "v0.4 specialty: total=0.7*max(craft,ecosystem)+0.2*activity+0.1*ai; floor specialty≥0.45; craft=public technical repos; ecosystem=extPR/orgPush/collab. SSoT scoreProfile. D11 not applied.",
+  scorerVersion: results[0]?.score?.version ?? '0.2.0-specialty',
+  note: 'v0.4 specialty: total=0.7*max(craft,ecosystem)+0.2*activity+0.1*ai; floor specialty≥0.45; craft=public technical repos; ecosystem=extPR/orgPush/collab. SSoT scoreProfile. D11 not applied.',
   profiles: results.map((p) => ({
     login: p.signals.login,
     url: p.url,

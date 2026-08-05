@@ -21,8 +21,6 @@ const MESSAGE_COMPONENT = 3
 
 const PONG = 1
 const CHANNEL_MESSAGE = 4
-const DEFERRED_UPDATE = 6
-const UPDATE_MESSAGE = 7
 
 const EPHEMERAL = 1 << 6
 
@@ -66,10 +64,7 @@ function ephemeral(content: string) {
   })
 }
 
-export async function handleDiscordInteractions(
-  request: Request,
-  env: Env,
-): Promise<Response> {
+export async function handleDiscordInteractions(request: Request, env: Env): Promise<Response> {
   const verified = await verifyDiscordRequest(request, env.DISCORD_PUBLIC_KEY)
   if (!verified.ok) {
     return new Response('invalid request signature', { status: verified.status })
@@ -135,11 +130,7 @@ async function openTicketFromInteraction(
   if (!id) return ephemeral('Utilisateur introuvable.')
 
   const isMember = roles.includes(env.DISCORD_MEMBER_ROLE_ID)
-  const existing = await findOpenTicketChannel(
-    env.DISCORD_BOT_TOKEN,
-    env.DISCORD_GUILD_ID,
-    id,
-  )
+  const existing = await findOpenTicketChannel(env.DISCORD_BOT_TOKEN, env.DISCORD_GUILD_ID, id)
   const decision = decideTicketOpen({
     isMember,
     existingTicketChannelId: existing?.id ?? null,
@@ -148,9 +139,7 @@ async function openTicketFromInteraction(
 
   const categoryId = env.DISCORD_APPEAL_CATEGORY_ID
   if (!categoryId) {
-    return ephemeral(
-      'Config manquante : `DISCORD_APPEAL_CATEGORY_ID` (catégorie des tickets).',
-    )
+    return ephemeral('Config manquante : `DISCORD_APPEAL_CATEGORY_ID` (catégorie des tickets).')
   }
 
   const created = await createAppealTicket({

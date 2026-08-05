@@ -30,15 +30,15 @@ Un Worker Cloudflare qui :
                    config thresholds
 ```
 
-## Pourquoi Worker (pas gateway bot)
+## HTTP vs Gateway (live)
 
-| Interactions HTTP | Gateway (discord.js long-lived) |
+| Interactions HTTP | Gateway (Durable Object) |
 |---|---|
-| scale-to-zero, CF natif | process toujours up (Quadlet/factory) |
-| suffit pour apply + DM | utile pour presence / voice / react-all |
-| 3s ACK + deferred follow-up | temps réel |
+| scale-to-zero, CF natif | WS sortant Discord (always-on DO + cron) |
+| `/apply`, appeal tickets | `#github-to-watch` MESSAGE_CREATE |
+| 3s ACK + deferred follow-up | modération liens GH + threads |
 
-MVP = **Interactions only**. Si plus tard on veut un bot « vivant » (réactions, jobs), on pourra brancher un second process ou factory-discord — hors scope Circle MVP.
+Live = **Interactions + Gateway DO** (pas un process Node long-lived). Host: `https://circle.roxabi.dev`.
 
 ## Flux détaillé
 
@@ -143,9 +143,9 @@ config (
 | Faux positifs (templates massifs) | pénalité forks, ignore vendor/node_modules paths dans tree |
 | Faux négatifs (fort mais privé) | hard reject + canal `#appeal` manuel |
 
-## Domaine proposé
+## Domaine
 
-`circle.roxabi.dev` (Worker custom domain).
+`https://circle.roxabi.dev` (Worker custom domain, compte CF Mickael / zone `roxabi.dev`).
 
 ## Hors scope MVP
 

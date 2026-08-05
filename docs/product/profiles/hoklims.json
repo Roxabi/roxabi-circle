@@ -16,11 +16,7 @@
   "evidence": {
     "collectorVersion": "0.4.0-specialty",
     "verifiedOrgs": [],
-    "eventOrgs": [
-      "MickaelV0",
-      "openai",
-      "citrolabs"
-    ],
+    "eventOrgs": ["MickaelV0", "openai", "citrolabs"],
     "pushesByOwner": {
       "MickaelV0": 3,
       "openai": 0,
@@ -42,9 +38,7 @@
       "hoklims/quantifying-the-difficulty-of-a-musical-score",
       "hoklims/Lost-Ark---simulation-and-strategy-forge"
     ],
-    "docProfileRepos": [
-      "hoklims/professional-wallet-scraper"
-    ],
+    "docProfileRepos": ["hoklims/professional-wallet-scraper"],
     "collabRepos": [
       "Alexandre8192/AGTI_Documentation",
       "Lukasdev64/mutisport-app",
@@ -145,30 +139,19 @@
         "raw": 0.20956664863761432,
         "weight": 0.7,
         "weighted": 0.14669665404633,
-        "notes": [
-          "externalMergedPrs=0",
-          "orgPushEvents=0",
-          "collabRepos=5",
-          "publicOrgs=0"
-        ]
+        "notes": ["externalMergedPrs=0", "orgPushEvents=0", "collabRepos=5", "publicOrgs=0"]
       },
       "activity": {
         "raw": 0.825,
         "weight": 0.2,
         "weighted": 0.165,
-        "notes": [
-          "daysSinceLastPush=2",
-          "activeMonths12=6",
-          "events90d=300"
-        ]
+        "notes": ["daysSinceLastPush=2", "activeMonths12=6", "events90d=300"]
       },
       "ai": {
         "raw": 1,
         "weight": 0.1,
         "weighted": 0.1,
-        "notes": [
-          "aiAffinity=1.000"
-        ]
+        "notes": ["aiAffinity=1.000"]
       }
     },
     "decision": "accept",

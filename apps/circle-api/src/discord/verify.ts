@@ -34,12 +34,7 @@ export async function verifyDiscordRequest(
       false,
       ['verify'],
     )
-    const valid = await crypto.subtle.verify(
-      'Ed25519',
-      key,
-      hexToBytes(signature),
-      message,
-    )
+    const valid = await crypto.subtle.verify('Ed25519', key, hexToBytes(signature), message)
     if (!valid) return { ok: false, status: 401 }
     return { ok: true, body }
   } catch {

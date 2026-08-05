@@ -141,11 +141,7 @@ export function scoreProfile(signals: ProfileSignals, opts: ScoreOptions = {}): 
 
   // specialty weight applied once via max(craft, ecosystem)
   let rawTotal =
-    clamp01(
-      weights.specialty * specialty +
-        weights.activity * a.raw +
-        weights.ai * ai.raw,
-    ) * 100
+    clamp01(weights.specialty * specialty + weights.activity * a.raw + weights.ai * ai.raw) * 100
 
   // Hidden +10: monorepo-only one-line ASCII in apply PR body
   // (docs/product/.hidden/entry-bonus.md · entry-bonus.ts)

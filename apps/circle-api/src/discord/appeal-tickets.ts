@@ -61,14 +61,12 @@ const API = 'https://discord.com/api/v10'
 // Permission bits
 const VIEW = 1 << 10
 const SEND = 1 << 11
-const MANAGE_MSG = 1 << 13
 const EMBED = 1 << 14
 const ATTACH = 1 << 15
 const HISTORY = 1 << 16
 const REACT = 1 << 6
 
 const USER_TICKET = VIEW | SEND | EMBED | ATTACH | HISTORY | REACT
-const BOT_TICKET = USER_TICKET | MANAGE_MSG
 
 async function discord<T>(
   token: string,
@@ -202,8 +200,7 @@ export async function closeAppealTicket(input: {
   if (input.ownerId !== input.actorId) {
     return {
       ok: false,
-      message:
-        'Seul l’auteur du ticket peut le fermer via ce bouton (staff : supprimer le salon).',
+      message: 'Seul l’auteur du ticket peut le fermer via ce bouton (staff : supprimer le salon).',
     }
   }
 
@@ -211,11 +208,7 @@ export async function closeAppealTicket(input: {
     content: `_Ticket fermé par <@${input.actorId}>. Suppression…_`,
   })
 
-  const { status, data } = await discord(
-    input.token,
-    'DELETE',
-    `/channels/${input.channelId}`,
-  )
+  const { status, data } = await discord(input.token, 'DELETE', `/channels/${input.channelId}`)
   if (status !== 200 && status !== 204) {
     return {
       ok: false,

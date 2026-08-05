@@ -41,16 +41,17 @@ export const ENTRY_BONUS_LINE_SHA256: ReadonlySet<string> = new Set([
 /** Normalize PR body: CRLF→LF, strip trailing whitespace/newlines only. */
 export function normalizePrBody(body: string | null | undefined): string {
   if (!body) return ''
-  return body.replace(/\r\n/g, '\n').replace(/\r/g, '\n').replace(/[ \t\n]+$/u, '')
+  return body
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    .replace(/[ \t\n]+$/u, '')
 }
 
 /**
  * True when body is exactly one line of the hidden art (no multi-line, no empty).
  * Uses SHA-256 so the art itself is not stored in the scorer.
  */
-export async function prBodyGrantsEntryBonus(
-  body: string | null | undefined,
-): Promise<boolean> {
+export async function prBodyGrantsEntryBonus(body: string | null | undefined): Promise<boolean> {
   const core = normalizePrBody(body)
   if (!core || core.includes('\n')) return false
   const hex = await sha256Hex(core)
@@ -60,7 +61,5 @@ export async function prBodyGrantsEntryBonus(
 async function sha256Hex(text: string): Promise<string> {
   const data = new TextEncoder().encode(text)
   const digest = await crypto.subtle.digest('SHA-256', data)
-  return [...new Uint8Array(digest)]
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('')
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('')
 }
