@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # CP-DENY — table-driven harness for scripts/deny-upstream-push.sh
 #
-# Fixtures use temp git repos. Product origin must NOT contain silex-boilerplate
-# or the script stays in kit no-op mode (same pitfall as dogfood self-sim).
+# Fixtures use temp git repos. Product origin must NOT contain kit slugs
+# (roxabi-cf-template | silex-boilerplate) or the script stays in kit no-op mode.
 #
 # Exit 0 only if all matrix rows + weaken probe pass.
 set -euo pipefail
@@ -69,15 +69,23 @@ echo "== CP-DENY matrix =="
 TMP="$(mktemp -d -t cp-deny-XXXXXX)"
 trap 'rm -rf "$TMP"' EXIT
 
-# --- row 1: kit origin → allow name upstream ---
-KIT="${TMP}/kit"
-make_repo "${KIT}"
-set_origin "${KIT}" "https://github.com/go-silex/silex-boilerplate.git"
-assert_exit "1 kit origin + name upstream → 0" 0 \
-  env -u GIT_DIR -u GIT_WORK_TREE -u GIT_COMMON_DIR -C "${KIT}" \
-    bash "${SCRIPT}" "upstream" "https://github.com/go-silex/silex-boilerplate.git"
+# --- row 1a: kit HEAD origin → allow name upstream ---
+KIT_HEAD="${TMP}/kit-head"
+make_repo "${KIT_HEAD}"
+set_origin "${KIT_HEAD}" "https://github.com/Roxabi/roxabi-cf-template.git"
+assert_exit "1a kit HEAD origin + name upstream → 0" 0 \
+  env -u GIT_DIR -u GIT_WORK_TREE -u GIT_COMMON_DIR -C "${KIT_HEAD}" \
+    bash "${SCRIPT}" "upstream" "https://github.com/Roxabi/roxabi-cf-template.git"
 
-# --- product base: origin must NOT match *silex-boilerplate* ---
+# --- row 1b: kit mirror origin → allow push upstream (contribute to HEAD) ---
+KIT_MIRROR="${TMP}/kit-mirror"
+make_repo "${KIT_MIRROR}"
+set_origin "${KIT_MIRROR}" "https://github.com/go-silex/silex-boilerplate.git"
+assert_exit "1b kit mirror origin + push upstream HEAD → 0" 0 \
+  env -u GIT_DIR -u GIT_WORK_TREE -u GIT_COMMON_DIR -C "${KIT_MIRROR}" \
+    bash "${SCRIPT}" "upstream" "https://github.com/Roxabi/roxabi-cf-template.git"
+
+# --- product base: origin must NOT match kit slugs ---
 PRODUCT="${TMP}/product"
 make_repo "${PRODUCT}"
 set_origin "${PRODUCT}" "file://${PRODUCT}"
@@ -87,8 +95,13 @@ assert_exit "2 product + name upstream → 1" 1 \
   env -u GIT_DIR -u GIT_WORK_TREE -u GIT_COMMON_DIR -C "${PRODUCT}" \
     bash "${SCRIPT}" "upstream" "https://example.com/innocent-parent.git"
 
-# --- row 3: product + kit URL (any remote name) → deny ---
-assert_exit "3 product + kit URL → 1" 1 \
+# --- row 3a: product + HEAD kit URL (any remote name) → deny ---
+assert_exit "3a product + HEAD kit URL → 1" 1 \
+  env -u GIT_DIR -u GIT_WORK_TREE -u GIT_COMMON_DIR -C "${PRODUCT}" \
+    bash "${SCRIPT}" "chassis" "git@github.com:Roxabi/roxabi-cf-template.git"
+
+# --- row 3b: product + mirror kit URL → deny ---
+assert_exit "3b product + mirror kit URL → 1" 1 \
   env -u GIT_DIR -u GIT_WORK_TREE -u GIT_COMMON_DIR -C "${PRODUCT}" \
     bash "${SCRIPT}" "chassis" "git@github.com:go-silex/silex-boilerplate.git"
 
@@ -124,8 +137,8 @@ remote_name="${1:-}"
 remote_url="${2:-}"
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
 origin_url="$(git -C "${REPO_ROOT}" remote get-url origin 2>/dev/null || true)"
-if [[ "${origin_url}" == *silex-boilerplate* ]]; then exit 0; fi
-if [[ "${remote_url}" == *silex-boilerplate* ]]; then
+if [[ "${origin_url}" == *silex-boilerplate* || "${origin_url}" == *roxabi-cf-template* ]]; then exit 0; fi
+if [[ "${remote_url}" == *silex-boilerplate* || "${remote_url}" == *roxabi-cf-template* ]]; then
   echo "deny (url only)" >&2
   exit 1
 fi

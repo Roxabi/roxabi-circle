@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
-# Block product repos from pushing to kit / intermediate bounce parents.
+# Block product repos from pushing to kit / intermediate parents.
 #
 # Shipped **in the kit** so product forks need NOT edit lefthook.yml.
-# Safe on the kit itself: when origin is silex-boilerplate, all pushes allowed.
+# Safe on kit clones themselves (HEAD or mirror): when origin matches a kit
+# repo slug, all pushes allowed (incl. kit mirror → HEAD via `upstream`).
 #
 # Defaults (kit):
 #   - remote name `upstream`
-#   - URL substring `silex-boilerplate`
+#   - URL substrings: `roxabi-cf-template` (HEAD) · `silex-boilerplate` (mirror)
 #
 # Product multi-hop extend (zero-edit free — do not patch this file):
 #   - env DENY_UPSTREAM_URL_SUBSTRINGS=comma,separated,slugs
@@ -28,12 +29,29 @@ if [[ -z "${REPO_ROOT}" ]]; then
   REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 fi
 
+# Kit identity slugs (origin URL match → maintainer no-op; product URL match → deny).
+KIT_ORIGIN_SLUGS=(
+  "roxabi-cf-template"
+  "silex-boilerplate"
+)
+
+is_kit_slug() {
+  local url="${1:-}"
+  local s
+  for s in "${KIT_ORIGIN_SLUGS[@]}"; do
+    if [[ -n "${s}" && "${url}" == *"${s}"* ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
 deny() {
   echo "deny-upstream-push: blocked push to denied parent/kit remote" >&2
   echo "  remote=${remote_name:-?} url=${remote_url:-?}" >&2
-  echo "  Kit changes → push from go-silex/silex-boilerplate (origin there)." >&2
-  echo "  Product repo → only: git push origin …" >&2
-  echo "  Multi-hop chassis: set DENY_UPSTREAM_URL_SUBSTRINGS or docs/product/deny-upstream.json" >&2
+  echo "  Shared kit → land on HEAD (Roxabi/roxabi-cf-template) or kit mirror origin." >&2
+  echo "  Kit mirror may: git push upstream (HEAD). Product → only: git push origin …" >&2
+  echo "  Multi-hop: DENY_UPSTREAM_URL_SUBSTRINGS or docs/product/deny-upstream.json" >&2
   exit 1
 }
 
@@ -72,15 +90,15 @@ read_json_substrings() {
   fi
 }
 
-# --- kit origin: no-op (maintainers may push any remote) ---
+# --- kit origin: no-op (HEAD or mirror maintainers may push any remote) ---
 origin_url="$(git -C "${REPO_ROOT}" remote get-url origin 2>/dev/null || true)"
-if [[ "${origin_url}" == *silex-boilerplate* ]]; then
+if is_kit_slug "${origin_url}"; then
   exit 0
 fi
 
 # --- build substring denylist (union) ---
-# Builtin kit identity
-declare -a SUBSTRINGS=("silex-boilerplate")
+# Builtin kit identity (HEAD + historical/mirror slug)
+declare -a SUBSTRINGS=("${KIT_ORIGIN_SLUGS[@]}")
 
 # Optional kit config (generic only — do not put product chassis names here)
 while IFS= read -r line; do

@@ -1,21 +1,22 @@
-# silex-boilerplate — agent context
+# Chemin A CF kit — agent context
 
-**GOSILEX Chemin A** kit SSoT · org [`go-silex`](https://github.com/go-silex) · Full Cloudflare (Workers · D1 · R2 · Hono · TanStack)
+**Cloudflare Chemin A** monorepo kit (Workers · D1 · R2 · Hono · TanStack).
 
 | | |
 |---|---|
-| **Repo** | `go-silex/silex-boilerplate` (private) · local `~/projects/gosilex/silex-boilerplate/` |
-| **Product consumers** | Greenfield `go-silex/<product>` via git `upstream` → this kit · [`start-product.md`](docs/playbooks/start-product.md) · [`fork-to-first-issue.md`](docs/playbooks/fork-to-first-issue.md) |
-| **Status** | Kit live **2026-07-13** (historically split from silex-share — **archived / deprecated**, not a live dogfood target) · product apps pull via `git fetch upstream` |
+| **HEAD (kit SSoT)** | [`Roxabi/roxabi-cf-template`](https://github.com/Roxabi/roxabi-cf-template) · local `~/projects/roxabi-cf-template/` · lineage [`docs/roxabi/bounce.md`](docs/roxabi/bounce.md) |
+| **Kit mirror** | `go-silex/silex-boilerplate` · `upstream` = HEAD · inherit `fetch`/`merge` · contribute shared kit: `git push upstream` |
+| **Product consumers** | `Roxabi/<product>` → HEAD · `go-silex/<product>` → mirror (or HEAD) · playbooks [`start-product.md`](docs/playbooks/start-product.md) · [`fork-to-first-issue.md`](docs/playbooks/fork-to-first-issue.md) |
+| **Status** | Kit live **2026-07-13** · product apps pull via `git fetch upstream` |
 | **Live goal** | [**Goal 002**](artifacts/goals/002-product-ready-multi-tenant-goal.md) product-ready multi-tenant (Goal 001 scaffold **superseded**) |
-| **CF account** | Gosilex (`Tool@gosilex.com` / hub `scripts/load-cf-env.sh`) when deploying examples |
 | **Stack SSoT** | section ci-dessous (figée **2026-07-12**, amendée BA-only / multi-tenant A / CF Email / feedback / i18n) |
 
 ---
 
 ## Mission — kit only (2026-07-13)
 
-Ce repo est le **boilerplate Chemin A** : monorepo extractible, conventions + CI + auth + UI kit + MCP kit + libs SaaS classiques — **template GOSILEX**.
+**HEAD** = monorepo extractible Chemin A : conventions + CI + auth + UI kit + MCP kit + libs SaaS classiques.  
+**Mirror** `silex-boilerplate` hérite de HEAD et peut re-pousser le kit partagé via `git push upstream`.
 
 | Priorité | Livrable | Intention |
 |---|---|---|
@@ -23,34 +24,40 @@ Ce repo est le **boilerplate Chemin A** : monorepo extractible, conventions + CI
 | **Hors scope** | Apps métier (`apps/share-*`, etc.) | Vivent dans les repos product (fork logique) |
 
 **JTBD :**  
-> *En partant de ce monorepo, un dev GOSILEX clone le kit CF, a `example-api` + `example-web` + `mcp-example` verts (lint/typecheck/test), auth demo, UI shadcn, erreurs centralisées, i18n FR/EN, email catcher local — sans aucune string métier « artefact/share ».*
+> *En partant de ce monorepo, un dev clone le kit CF, a `example-api` + `example-web` + `mcp-example` verts (lint/typecheck/test), auth demo, UI shadcn, erreurs centralisées, i18n FR/EN, email catcher local — sans aucune string métier produit.*
 
-### Downstream product apps
+### Downstream
 
-| App | Repo | Sync |
+| Role | Repo | Sync |
 |---|---|---|
-| **Greenfield products** | `go-silex/<product>` | `upstream` → ce repo · `fetch` + `merge upstream/main` · `no_push` |
+| **HEAD** | `Roxabi/roxabi-cf-template` | `git push origin` |
+| **Kit mirror** | `go-silex/silex-boilerplate` | inherit HEAD · contribute: `git push upstream` |
+| **Roxabi products** | `Roxabi/<product>` | `upstream` → HEAD · `fetch`/`merge` · `no_push` |
+| **go-silex products** | `go-silex/<product>` | `upstream` → mirror (ou HEAD) · `no_push` |
 | silex-share (legacy) | archived / deprecated | **Not** a live consumer dogfood target |
 
-**Règle :** changements kit → **ici** d’abord · les products pullent. Ne pas inventer de features métier dans ce repo.
+**Règle :** changements kit partagés → **HEAD d’abord** (`roxabi-cf-template`) · mirrors inherit · products pullent. Ne pas inventer de features métier dans le kit.
 
 #### Contrat consumer (obligatoire) — zero-edit upstream + push DENY
 
-**SSoT détaillé :** [`docs/product-consumer-contract.md`](docs/product-consumer-contract.md)
+**SSoT détaillé :** [`docs/product-consumer-contract.md`](docs/product-consumer-contract.md) · lineage [`docs/roxabi/bounce.md`](docs/roxabi/bounce.md)
 
-Tout repo produit qui prend **ce kit** comme `upstream` **doit** :
+Tout repo **produit** qui prend ce kit (HEAD ou mirror) comme `upstream` **doit** :
 
 1. **Fetch-only** sur `upstream` :
    ```bash
-   git remote add upstream git@github.com:go-silex/silex-boilerplate.git   # si absent
+   # Roxabi product → HEAD
+   git remote add upstream git@github.com:Roxabi/roxabi-cf-template.git
+   # go-silex product → org mirror (typical)
+   # git remote add upstream git@github.com:go-silex/silex-boilerplate.git
    git remote set-url --push upstream no_push
    ```
 2. **Ne pas modifier les fichiers kit** pour configurer le produit (CI, lefthook, package.json racine, `packages/*`, `apps/example-*`).  
    Config = **vars/secrets GH**, **`.dev.vars`**, apps **`apps/<product>-*`** (fichiers **nouveaux**).
-3. **Deny push kit** : livré **dans le kit** (`scripts/deny-upstream-push.sh` + lefthook pre-push) — no-op si `origin` = boilerplate ; bloque product → kit.  
+3. **Deny push kit** : livré **dans le kit** (`scripts/deny-upstream-push.sh` + lefthook pre-push) — no-op si `origin` = HEAD ou mirror ; bloque product → kit.  
    **Ne pas forker** une copie divergente dans le product.
-4. **Jamais** `git push upstream` / `LEFTHOOK=0 git push upstream` depuis un clone produit.
-5. Kit only : coder les changements partagés et `git push origin` dans **`~/projects/gosilex/silex-boilerplate`**.
+4. **Jamais** `git push upstream` depuis un clone **produit** (kit mirror **peut** `push upstream` vers HEAD).
+5. Kit shared : coder sur **HEAD** (`~/projects/roxabi-cf-template`) ou sur le mirror puis `git push upstream`.
 
 | Produit peut | Produit ne doit pas |
 |---|---|

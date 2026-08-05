@@ -12,20 +12,29 @@ Pulling `upstream/main` should only conflict when the **product** deliberately t
 
 ```text
 ┌─────────────────────────────────────────────────────────┐
-│  go-silex/silex-boilerplate  (kit SSoT)                 │
+│  Roxabi/roxabi-cf-template  (kit HEAD / SSoT)           │
 │  packages/* · apps/example-* · .github/workflows/*      │
 │  scripts/* · lefthook · biome · turbo · AGENTS.md       │
-└──────────────────────▲──────────────────────────────────┘
-                       │ git fetch/merge upstream only
-                       │ (never push)
-┌──────────────────────┴──────────────────────────────────┐
+└──────────▲──────────────────────────────▲───────────────┘
+           │ inherit                      │ git push upstream
+           │ fetch/merge                  │ (kit mirror only)
+┌──────────┴──────────────┐    ┌──────────┴──────────────────┐
+│ go-silex/silex-boilerplate │    │ Roxabi/<product>           │
+│ (kit mirror)               │    │ origin=product             │
+│ origin = mirror            │    │ upstream=HEAD · no_push    │
+│ upstream = HEAD            │    └────────────────────────────┘
+└──────────▲─────────────────┘
+           │ fetch/merge · never push
+┌──────────┴──────────────────────────────────────────────┐
 │  go-silex/<product>  (greenfield product repo)          │
-│  origin = product                                       │
+│  origin = product · upstream = mirror (or HEAD)         │
 │  ADD only: apps/<product>-* · product docs · optional   │
 │            product-only workflows (new files)           │
 │  DO NOT edit kit-owned paths below                      │
 └─────────────────────────────────────────────────────────┘
 ```
+
+Lineage detail: [`docs/roxabi/bounce.md`](./roxabi/bounce.md).
 
 **Axis:** kit = shared capability; product = new apps + config **outside** kit paths.
 
@@ -220,21 +229,27 @@ Do **not** rely on org secrets to fetch private `upstream` solely for zero-edit 
 ## Git remotes (every product clone)
 
 ```bash
-git remote add upstream git@github.com:go-silex/silex-boilerplate.git   # if missing
+# Roxabi product → kit HEAD
+git remote add upstream git@github.com:Roxabi/roxabi-cf-template.git   # if missing
+# go-silex product → org kit mirror (typical)
+# git remote add upstream git@github.com:go-silex/silex-boilerplate.git
+
 git remote set-url --push upstream no_push
 
-# Never:
+# Never from a product clone:
 # git push upstream
 # LEFTHOOK=0 git push upstream
+#
+# Kit mirror only may: git push upstream  (contribute shared kit to HEAD)
 ```
 
-### Bounce topology
+### Topology
 
 | Remote | Role |
 |--------|------|
-| **`origin`** | **Product** repo only (where you push) |
-| **`upstream`** | **Immediate parent only** (kit, or private chassis in a multi-hop bounce) — **fetch-only** |
-| **`pushUrl`** | Must be `no_push` on the parent remote |
+| **`origin`** | **This** repo only (product or kit mirror) |
+| **`upstream`** | **Immediate parent** (HEAD for Roxabi products / mirror; mirror for go-silex products) |
+| **`pushUrl`** | Products: `no_push` · Kit mirror: may point at HEAD for contribute |
 
 Kit pre-push runs `scripts/deny-upstream-push.sh` (lefthook; **do not dual-edit** the script in the product):
 

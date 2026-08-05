@@ -51,7 +51,10 @@ jobs:
       - name: Validate full
         run: |
           set -euo pipefail
-          if [[ "${{ github.repository }}" != "go-silex/silex-boilerplate" ]]; then
+          # Kit HEAD or kit mirror: zero-edit kit mode (no kit-baseline).
+          # Product clones: require docs/product/kit-baseline (last-merged kit tip).
+          REPO="${{ github.repository }}"
+          if [[ "${REPO}" != "Roxabi/roxabi-cf-template" && "${REPO}" != "go-silex/silex-boilerplate" ]]; then
             if [[ ! -f docs/product/kit-baseline ]]; then
               echo "::error::missing docs/product/kit-baseline (kit tip SHA after last upstream merge)"
               exit 1

@@ -3,7 +3,8 @@
 # without a valid, non-expired exception entry.
 #
 # Modes (ZERO_EDIT_MODE or auto):
-#   kit     — origin is silex-boilerplate: validate config only (always OK to evolve kit)
+#   kit     — origin is kit HEAD (roxabi-cf-template) or mirror (silex-boilerplate):
+#             validate config only (always OK to evolve kit)
 #   product — compare working tree + HEAD to ZERO_EDIT_BASE_REF (default upstream/main)
 #
 # Design overrides (CSS tokens, compose wrappers) live under apps/<product>-* and
@@ -28,7 +29,7 @@ fi
 origin_url="$(git remote get-url origin 2>/dev/null || true)"
 if [[ -n "${ZERO_EDIT_MODE:-}" ]]; then
   MODE="$ZERO_EDIT_MODE"
-elif [[ "${origin_url}" == *silex-boilerplate* ]]; then
+elif [[ "${origin_url}" == *roxabi-cf-template* || "${origin_url}" == *silex-boilerplate* ]]; then
   MODE="kit"
 else
   MODE="product"
