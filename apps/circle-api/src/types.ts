@@ -9,6 +9,10 @@ export type Env = {
   DISCORD_MEMBER_ROLE_ID: string
   /** Category parent for private appeal ticket channels */
   DISCORD_APPEAL_CATEGORY_ID: string
+  /** #github-to-watch channel id — Gateway MESSAGE_CREATE enforcement */
+  DISCORD_GITHUB_WATCH_CHANNEL_ID: string
+  /** Durable Object: Discord Gateway client (Lyra) */
+  DISCORD_GATEWAY: DurableObjectNamespace
   GITHUB_CLIENT_ID: string
   GITHUB_CLIENT_SECRET: string
   SESSION_SECRET: string

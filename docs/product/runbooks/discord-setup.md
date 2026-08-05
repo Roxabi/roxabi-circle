@@ -20,12 +20,19 @@
 
 | Category | Channels |
 |---|---|
-| **ENTRÉE** | `#accueil`, `#github-to-watch`, `#apply-help` |
-| **CERCLE** (member-only view) | `#règles`, `#intros`, `#général`, `#showcase` |
-| **SUPPORT** | `#appeal` |
-| Legacy (pre-setup) | `#general`, `#présentation`, `#ai-agentic`, `#dev-with-ai`, `#idées-améliorations` under *Text Channels* |
+| **ENTRÉE** | `#accueil`, `#apply-help` (+ `#règles` / `#intros` si présents) |
+| **CERCLE** (member-only, SSoT perms) | see table below |
+| **SUPPORT** | `#appeal`, `#idées-améliorations` |
 
-Clean up / merge legacy salons when ready (manual product call).
+#### CERCLE permission model
+
+| Channel | Mode | Members |
+|---|---|---|
+| `#general`, `#ai-agentic-workflow`, `#dev-with-ai`, `#showcase`, `#opportunités` | **inherit** | Full text (view/send/attach/react/threads) from category |
+| `#daily-digest` | **threadOnly** | No top-level `SEND` · react · create public threads · send **in** threads · Lyra posts digests |
+| `#github-to-watch` | **linksTopLevel** | Can post top-level · **Lyra Gateway** enforces **exactly 1 GitHub URL** (+ caption ≤120) · else delete + notice · on OK opens discussion thread |
+
+Category **CERCLE** deny `@everyone` VIEW; allow `member` + **Lyra**. Special channels override only the bits they need (e.g. deny `SEND` on digest).
 
 ### Secrets (BW)
 
@@ -34,7 +41,7 @@ source ~/projects/security/vaultwarden/scripts/agent-bw-login.sh
 bw get notes "roxabi-circle/discord"
 ```
 
-Keys: `DISCORD_APPLICATION_ID`, `DISCORD_PUBLIC_KEY`, `DISCORD_BOT_TOKEN`, `DISCORD_GUILD_ID`, `DISCORD_MEMBER_ROLE_ID`.
+Keys: `DISCORD_APPLICATION_ID`, `DISCORD_PUBLIC_KEY`, `DISCORD_BOT_TOKEN`, `DISCORD_GUILD_ID`, `DISCORD_MEMBER_ROLE_ID`, `DISCORD_APPEAL_CATEGORY_ID`, `DISCORD_GITHUB_WATCH_CHANNEL_ID`.
 
 **Rotate** bot token if it was ever pasted in chat (Portal → Bot → Reset Token), then update BW + `.dev.vars`.
 
@@ -43,9 +50,7 @@ Keys: `DISCORD_APPLICATION_ID`, `DISCORD_PUBLIC_KEY`, `DISCORD_BOT_TOKEN`, `DISC
 Scopes: `bot`, `applications.commands`  
 Bits (target least-privilege): Manage Roles, Manage Channels, Send Messages, Embed Links, Send Messages in Threads, Use Application Commands (`71135414288`).
 
-Member-only channels (`#règles`, `#intros`, `#général`, `#showcase`) deny `@everyone` VIEW and allow:
-- role `member`
-- role bot **Lyra** (explicit — otherwise bot locks itself out)
+Member-only **category CERCLE** is the SSoT: deny `@everyone` VIEW; allow `member` (view + send + attach + history + reactions + public threads + send-in-threads + app commands) and bot **Lyra** (+ manage messages/channels/threads). Open children **inherit** (empty channel overwrites). Exceptions: `#daily-digest` (threadOnly), `#github-to-watch` (linksTopLevel + Gateway bot).
 
 **Administrator (2026-08-04):** bot role **Lyra** = `permissions=8` (full Admin).  
 Re-invite if needed:
@@ -54,11 +59,24 @@ Re-invite if needed:
 https://discord.com/api/oauth2/authorize?client_id=1534228521420067046&permissions=8&scope=bot%20applications.commands&guild_id=1534225455144636526&disable_guild_select=true
 ```
 
-**Developer Portal intents** (not the same as Admin — required for `GET /guilds/.../members`):
+**Developer Portal intents** (not the same as Admin):
 
 1. https://discord.com/developers/applications/1534228521420067046/bot  
-2. Enable **Server Members Intent** (and Message Content later if gateway).  
-3. Save. Without this, list-all-members returns 50001; member search / per-id still work.
+2. Enable **Message Content Intent** — **required** for `#github-to-watch` Gateway handler (without it, content is empty → false rejects).  
+3. Enable **Server Members Intent** if you list all members (50001 otherwise; per-id search still works).  
+4. Save.
+
+### Gateway bot (`#github-to-watch`)
+
+| Item | Detail |
+|---|---|
+| Runtime | Durable Object `DiscordGateway` (outgoing WS to Discord Gateway) |
+| Wake | Cron `*/2 * * * *` + `/health` best-effort + `POST /internal/discord-gateway/ensure` |
+| Env | `DISCORD_GITHUB_WATCH_CHANNEL_ID` |
+| Accept | Exactly **one** `github.com` / `gist.github.com` URL; optional caption ≤120 chars |
+| On accept | Create public thread under the message (name from owner/repo) |
+| On reject | Delete message · short channel notice (auto-delete ~12s) · DM best-effort |
+| Ignore | bots, webhooks, other channels, thread messages (different channel id) |
 
 Re-invite (least privilege):
 
@@ -71,6 +89,8 @@ https://discord.com/api/oauth2/authorize?client_id=1534228521420067046&permissio
 | Endpoint | Status |
 |---|---|
 | `POST /interactions` | Ed25519 verify + PING + `/apply` scaffold |
+| Gateway DO | MESSAGE_CREATE → github-watch enforce |
+| `POST /internal/discord-gateway/ensure` | wake / status Gateway DO |
 | `GET /oauth/github/*` | not implemented |
 | Interactions URL in Portal | set **after** deploy: `https://circle.roxabi.dev/interactions` |
 

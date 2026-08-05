@@ -178,7 +178,95 @@ async function main() {
   }
 
   // Channels layout
-  /** @type {{name: string, type: number, children?: {name: string, topic?: string, memberOnly?: boolean, staffOnly?: boolean}[]}[]} */
+  // memberOnly on a category = SSoT overwrites (children inherit by default)
+  // Channel modes under a memberOnly category:
+  //   inherit (default) — empty channel overwrites
+  //   threadOnly        — no top-level SEND; react + create/public threads + send in threads
+  //   linksTopLevel     — SEND ok; Gateway bot enforces 1 GH URL top-level (see github-watch.ts)
+  // memberOnly on a channel only = overwrites on that channel (parent stays public)
+  //
+  // Use bigint for thread bits (CREATE_PUBLIC_THREADS = 1<<35, etc.)
+  const bit = (n) => 1n << BigInt(n)
+  const sumBits = (...ns) => String(ns.reduce((a, n) => a + bit(n), 0n))
+
+  // VIEW=10 SEND=11 REACT=6 EMBED=14 ATTACH=15 HISTORY=16 EXT_EMOJI=18
+  // MANAGE_MSG=13 MANAGE_CH=4 APP_CMD=31 MANAGE_THREADS=34
+  // CREATE_PUB_THREAD=35 SEND_IN_THREAD=38 EXT_STICKER=37
+  const MEMBER_TEXT_ALLOW = sumBits(10, 11, 6, 14, 15, 16, 18, 37, 31, 35, 38)
+  const BOT_TEXT_ALLOW = sumBits(10, 11, 6, 14, 15, 16, 18, 37, 31, 35, 38, 13, 4, 34)
+  const THREAD_ONLY_MEMBER_ALLOW = sumBits(10, 6, 14, 15, 16, 18, 37, 31, 35, 38)
+  const THREAD_ONLY_MEMBER_DENY = sumBits(11) // SEND_MESSAGES
+  const LINKS_TOP_MEMBER_ALLOW = MEMBER_TEXT_ALLOW
+
+  /**
+   * @param {{ memberRoleId: string, botRoleId?: string }} ids
+   */
+  function memberOnlyOverwrites({ memberRoleId, botRoleId }) {
+    /** @type {any[]} */
+    const overwrites = [
+      {
+        id: guildId, // @everyone === guild id
+        type: 0,
+        deny: sumBits(10),
+        allow: "0",
+      },
+      {
+        id: memberRoleId,
+        type: 0,
+        allow: MEMBER_TEXT_ALLOW,
+        deny: "0",
+      },
+    ]
+    if (botRoleId) {
+      overwrites.push({
+        id: botRoleId,
+        type: 0,
+        allow: BOT_TEXT_ALLOW,
+        deny: "0",
+      })
+    }
+    return overwrites
+  }
+
+  /**
+   * Channel-level overwrites that override category inheritance for special modes.
+   * @param {"threadOnly" | "linksTopLevel"} mode
+   * @param {{ memberRoleId: string, botRoleId?: string }} ids
+   */
+  function channelModeOverwrites(mode, { memberRoleId, botRoleId }) {
+    /** @type {any[]} */
+    const overwrites = []
+    if (mode === "threadOnly") {
+      overwrites.push({
+        id: memberRoleId,
+        type: 0,
+        allow: THREAD_ONLY_MEMBER_ALLOW,
+        deny: THREAD_ONLY_MEMBER_DENY,
+      })
+    } else if (mode === "linksTopLevel") {
+      overwrites.push({
+        id: memberRoleId,
+        type: 0,
+        allow: LINKS_TOP_MEMBER_ALLOW,
+        deny: "0",
+      })
+    }
+    if (botRoleId) {
+      overwrites.push({
+        id: botRoleId,
+        type: 0,
+        allow: BOT_TEXT_ALLOW,
+        deny: "0",
+      })
+    }
+    return overwrites
+  }
+
+  /**
+   * @typedef {{ name: string, topic?: string, memberOnly?: boolean, mode?: "inherit" | "threadOnly" | "linksTopLevel" }} ChildCh
+   * @typedef {{ name: string, type: number, memberOnly?: boolean, children?: ChildCh[] }} CatLayout
+   * @type {CatLayout[]}
+   */
   const layout = [
     {
       name: "ENTRÉE",
@@ -191,11 +279,6 @@ async function main() {
           memberOnly: false,
         },
         {
-          name: "github-to-watch",
-          topic: "Signaux / repos à surveiller — pré-cercle.",
-          memberOnly: false,
-        },
-        {
           name: "apply-help",
           topic: "Questions sur le process d’entrée (pas de spoiler scoring).",
           memberOnly: false,
@@ -205,26 +288,45 @@ async function main() {
     {
       name: "CERCLE",
       type: GUILD_CATEGORY,
+      // Gate once at category — open children inherit full text + threads
+      memberOnly: true,
       children: [
         {
-          name: "règles",
-          topic: "Règles du cercle — à lire après acceptation.",
-          memberOnly: true,
-        },
-        {
-          name: "intros",
-          topic: "Présente-toi : stack, focus IA/OSS, ce que tu partages.",
-          memberOnly: true,
-        },
-        {
-          name: "général",
+          name: "general",
           topic: "Discussion technique — harness, MCP, agents, stack.",
-          memberOnly: true,
+          mode: "inherit",
+        },
+        {
+          name: "daily-digest",
+          topic:
+            "Digest Lyra — pas de post top-level. Réagis ou ouvre un thread sous le digest pour discuter.",
+          mode: "threadOnly",
+        },
+        {
+          name: "ai-agentic-workflow",
+          topic: "Workflows agentiques, harness, orchestration.",
+          mode: "inherit",
+        },
+        {
+          name: "dev-with-ai",
+          topic: "Dev assisté IA — patterns, outils, retours terrain.",
+          mode: "inherit",
+        },
+        {
+          name: "github-to-watch",
+          topic:
+            "Un lien GitHub (repo/PR/issue) par message top-level. Tout le reste → thread sous le lien.",
+          mode: "linksTopLevel",
         },
         {
           name: "showcase",
           topic: "Ship, repos, demos, write-ups.",
-          memberOnly: true,
+          mode: "inherit",
+        },
+        {
+          name: "opportunités",
+          topic: "Jobs, collabs, appels à projet — cercle only.",
+          mode: "inherit",
         },
       ],
     },
@@ -246,10 +348,17 @@ async function main() {
   /** @type {Map<string, any>} */
   const byName = new Map(channels.map((c) => [c.name, c]))
 
-  const everyoneId = guildId // @everyone role id === guild id
-
   for (const cat of layout) {
     let parent = byName.get(cat.name)
+    /** @type {any[] | undefined} */
+    const catOverwrites =
+      cat.memberOnly && memberRole?.id
+        ? memberOnlyOverwrites({
+            memberRoleId: memberRole.id,
+            botRoleId: managedBotRole?.id,
+          })
+        : undefined
+
     if (!parent) {
       if (dryRun) {
         console.log(`[dry-run] create category ${cat.name}`)
@@ -258,6 +367,7 @@ async function main() {
         parent = await discord(token, "POST", `/guilds/${guildId}/channels`, {
           name: cat.name,
           type: GUILD_CATEGORY,
+          permission_overwrites: catOverwrites,
           reason: "Roxabi Circle setup",
         })
         byName.set(cat.name, parent)
@@ -265,6 +375,20 @@ async function main() {
       }
     } else {
       console.log(`category exists ${cat.name}`)
+      if (!dryRun && catOverwrites && memberRole?.id) {
+        try {
+          await discord(token, "PATCH", `/channels/${parent.id}`, {
+            permission_overwrites: catOverwrites,
+          })
+          console.log(`  updated category overwrites ${cat.name} (children inherit)`)
+        } catch (e) {
+          console.warn(
+            `  skip category patch ${cat.name}:`,
+            // @ts-expect-error
+            e.body ?? e.message,
+          )
+        }
+      }
     }
 
     for (const ch of cat.children ?? []) {
@@ -276,36 +400,28 @@ async function main() {
         )
       }
 
+      const mode = ch.mode ?? (ch.memberOnly && !cat.memberOnly ? "memberOnly" : "inherit")
+
       /** @type {any[]} */
-      const overwrites = []
-      if (ch.memberOnly && memberRole?.id) {
-        // VIEW_CHANNEL=1024, SEND_MESSAGES=2048, EMBED_LINKS=16384, READ_MESSAGE_HISTORY=65536
-        // MANAGE_MESSAGES=8192 — bot needs explicit allow when @everyone is denied VIEW
-        overwrites.push({
-          id: everyoneId,
-          type: 0,
-          deny: String(1024),
-          allow: "0",
-        })
-        overwrites.push({
-          id: memberRole.id,
-          type: 0,
-          allow: String(1024 + 2048 + 65536 + 16384),
-          deny: "0",
-        })
-        if (managedBotRole?.id) {
-          overwrites.push({
-            id: managedBotRole.id,
-            type: 0,
-            allow: String(1024 + 2048 + 65536 + 16384 + 8192),
-            deny: "0",
+      let overwrites = []
+      if (mode === "threadOnly" || mode === "linksTopLevel") {
+        if (memberRole?.id) {
+          overwrites = channelModeOverwrites(mode, {
+            memberRoleId: memberRole.id,
+            botRoleId: managedBotRole?.id,
           })
         }
+      } else if (ch.memberOnly && !cat.memberOnly && memberRole?.id) {
+        overwrites = memberOnlyOverwrites({
+          memberRoleId: memberRole.id,
+          botRoleId: managedBotRole?.id,
+        })
       }
+      // inherit under memberOnly category → empty overwrites (clear on patch)
 
       if (!existing) {
         if (dryRun) {
-          console.log(`[dry-run] create #${ch.name} under ${cat.name}`)
+          console.log(`[dry-run] create #${ch.name} under ${cat.name} mode=${mode}`)
         } else {
           const created = await discord(
             token,
@@ -321,18 +437,24 @@ async function main() {
             },
           )
           byName.set(ch.name, created)
-          console.log(`created #${ch.name}`)
+          console.log(`created #${ch.name} mode=${mode}`)
         }
       } else {
         console.log(`channel exists #${ch.name}`)
-        if (!dryRun && overwrites.length && memberRole?.id) {
+        if (!dryRun && memberRole?.id) {
           try {
-            await discord(token, "PATCH", `/channels/${existing.id}`, {
+            /** @type {Record<string, unknown>} */
+            const patch = {
               parent_id: parent.id === "dry" ? existing.parent_id : parent.id,
               topic: ch.topic ?? existing.topic,
-              permission_overwrites: overwrites,
-            })
-            console.log(`  updated overwrites/topic #${ch.name}`)
+            }
+            if (cat.memberOnly && mode === "inherit") {
+              patch.permission_overwrites = []
+            } else if (overwrites.length) {
+              patch.permission_overwrites = overwrites
+            }
+            await discord(token, "PATCH", `/channels/${existing.id}`, patch)
+            console.log(`  mode=${mode} + topic #${ch.name}`)
           } catch (e) {
             console.warn(
               `  skip patch #${ch.name}:`,

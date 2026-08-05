@@ -21,6 +21,19 @@ ACCEPT_THRESHOLD = "65"
 
 # Public non-secret Discord IDs (safe as vars). Tokens via `wrangler secret`.
 # DISCORD_APPLICATION_ID / GUILD_ID / MEMBER_ROLE_ID / APPEAL_CATEGORY_ID set as secrets bulk for simplicity.
+# DISCORD_GITHUB_WATCH_CHANNEL_ID — set via secret or .dev.vars (channel #github-to-watch)
+
+[[durable_objects.bindings]]
+name = "DISCORD_GATEWAY"
+class_name = "DiscordGateway"
+
+[[migrations]]
+tag = "v1-discord-gateway"
+new_sqlite_classes = ["DiscordGateway"]
+
+# Keep Gateway DO warm / reconnect if socket dropped
+[triggers]
+crons = ["*/2 * * * *"]
 
 [observability]
 enabled = true
