@@ -4,30 +4,29 @@
 
 Un Worker Cloudflare qui :
 
-1. reçoit les interactions Discord (`/apply`, composants)
-2. orchestre OAuth GitHub
-3. collecte des **signaux quantitatifs** via l’API GitHub
-4. calcule un **score déterministe**
-5. accepte (rôle) ou refuse (DM)
+1. reçoit les interactions Discord (`/apply`, composants, appeal) — **live**
+2. Gateway : enforce `#github-to-watch` — **live**
+3. orchestre OAuth GitHub — **stub 501**
+4. collecte des **signaux quantitatifs** via l’API GitHub — **not wired**
+5. calcule un **score déterministe** — **lib pure + tests**
+6. accepte (rôle) ou refuse (DM) — **not wired**
 
-## Composants
+## Composants (live vs next)
 
 ```
-┌─────────────┐     interactions      ┌──────────────────────┐
-│   Discord   │ ◄──────────────────► │  CF Worker           │
-│   Guild     │     REST bot API     │  - /interactions     │
-└─────────────┘                      │  - /oauth/github/*   │
-                                     │  - /health           │
-                                     │                      │
-                                     │  scoring/* (pure)    │
-                                     └──────────┬───────────┘
-                                                │
-                         ┌──────────────────────┼──────────────────────┐
-                         ▼                      ▼                      ▼
-                      D1 (apps)              KV (state)          GitHub API
-                   applications            oauth state           REST/GraphQL
-                   scores, decisions       rate limits           (user token)
-                   config thresholds
+┌─────────────┐  interactions + REST   ┌──────────────────────────┐
+│   Discord   │ ◄────────────────────► │  CF Worker circle-api    │
+│   Guild     │         ▲              │  circle.roxabi.dev       │
+└─────────────┘         │              │  - /interactions  LIVE   │
+                        │ Gateway WS   │  - /health        LIVE   │
+                        └──────────────│  - Gateway DO     LIVE   │
+                                       │  - /oauth/*       501    │
+                                       │  scoring/*        pure   │
+                                       └────────────┬─────────────┘
+                                                    │ next
+                              ┌─────────────────────┼─────────────────────┐
+                              ▼                     ▼                     ▼
+                           D1 (apps)             KV (state)          GitHub API
 ```
 
 ## HTTP vs Gateway (live)
