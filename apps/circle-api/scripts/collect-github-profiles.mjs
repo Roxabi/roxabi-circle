@@ -8,7 +8,7 @@ import { execFileSync } from 'node:child_process'
  * - orgs strict (v0.3 rules)
  * - scores via scoreProfile() SSoT (no dual formula)
  *
- * Usage: bun scripts/collect-github-profiles.mjs [login...]
+ * Usage: bun apps/circle-api/scripts/collect-github-profiles.mjs [login...]
  */
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'

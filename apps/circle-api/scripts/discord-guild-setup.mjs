@@ -11,8 +11,8 @@
  *  - updates .dev.vars DISCORD_MEMBER_ROLE_ID
  *
  * Usage:
- *   bun scripts/discord-guild-setup.mjs
- *   bun scripts/discord-guild-setup.mjs --dry-run
+ *   bun apps/circle-api/scripts/discord-guild-setup.mjs
+ *   bun apps/circle-api/scripts/discord-guild-setup.mjs --dry-run
  */
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'

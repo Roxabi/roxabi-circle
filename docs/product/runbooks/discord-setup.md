@@ -16,7 +16,7 @@
 | Local secrets | `apps/circle-api/.dev.vars` (gitignored) |
 | CF account | **Mickael** `b5e90be9…` (zone `roxabi.dev`) — **not** Tool@gosilex |
 | Public host | `https://circle.roxabi.dev` (`workers_dev = false`) |
-| Setup script | `bun scripts/discord-guild-setup.mjs` (idempotent) |
+| Setup script | `bun apps/circle-api/scripts/discord-guild-setup.mjs` (idempotent) |
 
 ### Channels
 
@@ -110,8 +110,8 @@ Discord saves the Interactions URL only if PING → PONG (signature OK).
 ## Re-run setup
 
 ```bash
-bun scripts/discord-guild-setup.mjs
-# bun scripts/discord-guild-setup.mjs --dry-run
+bun apps/circle-api/scripts/discord-guild-setup.mjs
+# bun apps/circle-api/scripts/discord-guild-setup.mjs --dry-run
 ```
 
 Creates missing role/channels/command; updates `DISCORD_MEMBER_ROLE_ID` in `.dev.vars`.

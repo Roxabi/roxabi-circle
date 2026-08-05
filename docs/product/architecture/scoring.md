@@ -81,7 +81,7 @@ Inchangés dans l’esprit (récence ; keywords AI) mais **AI ne pèse que 10 %*
 | Couche | Rôle |
 |---|---|
 | `apps/circle-api/src/scoring/score.ts` | **unique** formule |
-| `scripts/collect-github-profiles.mjs` | GitHub → signals → `scoreProfile()` |
+| `apps/circle-api/scripts/collect-github-profiles.mjs` | GitHub → signals → `scoreProfile()` |
 | D1 config (futur) | threshold / floor / weights live |
 
 ## Surface candidat
