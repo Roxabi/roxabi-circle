@@ -26,7 +26,7 @@ Discord gated community (AI + open source DNA). Entry = GitHub OAuth + **PR d’
 ## Invariants
 
 1. Scoring **pure** (`apps/circle-api/src/scoring/*`) — no network, deterministic
-2. **No score** until D11 PR unlock on entry repo
+2. **No score** until D11 PR unlock on circle-applications
 3. No clone of repos; no LLM code review
 4. Never log OAuth / bot tokens
 5. Discord ACK < 3s ; heavy work in `waitUntil`

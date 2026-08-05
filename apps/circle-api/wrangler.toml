@@ -15,6 +15,12 @@ compatibility_flags = ["nodejs_compat"]
 # id = "REPLACE_ME"
 
 [vars]
-ENVIRONMENT = "development"
+ENVIRONMENT = "production"
 SCORER_VERSION = "0.1.0"
 ACCEPT_THRESHOLD = "65"
+
+# Public non-secret Discord IDs (safe as vars). Tokens via `wrangler secret`.
+# DISCORD_APPLICATION_ID / GUILD_ID / MEMBER_ROLE_ID / APPEAL_CATEGORY_ID set as secrets bulk for simplicity.
+
+[observability]
+enabled = true

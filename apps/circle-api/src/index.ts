@@ -1,8 +1,9 @@
+import { handleDiscordInteractions } from './discord/interactions'
 import type { Env } from './types'
 
 /**
  * Roxabi Circle Worker — Discord interactions + GitHub OAuth + scoring.
- * Scaffold: routes are stubs until Discord/GitHub apps are wired.
+ * Discord: Ed25519 verify + PING + /apply scaffold (OAuth/D11 next).
  */
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -19,13 +20,7 @@ export default {
     }
 
     if (url.pathname === '/interactions' && request.method === 'POST') {
-      return Response.json(
-        {
-          error: 'not_implemented',
-          message: 'Discord interactions handler — wire DISCORD_PUBLIC_KEY first',
-        },
-        { status: 501 },
-      )
+      return handleDiscordInteractions(request, env)
     }
 
     if (url.pathname.startsWith('/oauth/github')) {

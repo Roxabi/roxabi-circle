@@ -1,0 +1,205 @@
+{
+  "collectedAt": "2026-08-04T19:51:58.540Z",
+  "source": "github-api+gh-cli",
+  "collectorVersion": "0.4.0-specialty",
+  "url": "https://github.com/MonsieurBarti",
+  "user": {
+    "id": 32358850,
+    "login": "MonsieurBarti",
+    "name": "Monsieur Barti",
+    "bio": null,
+    "company": null,
+    "created_at": "2017-09-28T10:14:55Z",
+    "public_repos": 43,
+    "followers": 9
+  },
+  "evidence": {
+    "collectorVersion": "0.4.0-specialty",
+    "verifiedOrgs": [],
+    "eventOrgs": [
+      "firecrawl"
+    ],
+    "pushesByOwner": {
+      "firecrawl": 0
+    },
+    "company": null,
+    "volumeFallbackUsed": false,
+    "technicalRepos": [
+      "MonsieurBarti/tff-mono",
+      "MonsieurBarti/ultra-compress-pi",
+      "MonsieurBarti/tff-pi",
+      "MonsieurBarti/pi-verifier",
+      "MonsieurBarti/security-harness-pi",
+      "MonsieurBarti/The-Forge-Flow-CC",
+      "MonsieurBarti/lumen",
+      "MonsieurBarti/pi-rules",
+      "MonsieurBarti/tff-sandbox",
+      "MonsieurBarti/memory-graph",
+      "MonsieurBarti/test",
+      "MonsieurBarti/pi-token-saver",
+      "MonsieurBarti/GH-PI",
+      "MonsieurBarti/sub-agents-pi",
+      "MonsieurBarti/gitnexus-pi",
+      "MonsieurBarti/fff-pi",
+      "MonsieurBarti/visual-explainer-pi",
+      "MonsieurBarti/hippo-memory-pi",
+      "MonsieurBarti/Lightpanda-PI",
+      "MonsieurBarti/camoufox-pi",
+      "MonsieurBarti/The-Forge-Flow-PI",
+      "MonsieurBarti/PI-Buddies",
+      "MonsieurBarti/The-Forge-Flow-CC-Test",
+      "MonsieurBarti/The-Code-Graph",
+      "MonsieurBarti/code-graph-ai",
+      "MonsieurBarti/homebrew-forgeflow",
+      "MonsieurBarti/bartis-coding-agent",
+      "MonsieurBarti/claude-nestjs-hexagonal",
+      "MonsieurBarti/backend_test_naboo",
+      "MonsieurBarti/Opal-Technical-Test",
+      "MonsieurBarti/nestjs_template_hive_pattern",
+      "MonsieurBarti/quizz-webapp",
+      "MonsieurBarti/backend_architecture",
+      "MonsieurBarti/event-crisis",
+      "MonsieurBarti/CodingChallenges",
+      "MonsieurBarti/eight_queens",
+      "MonsieurBarti/ProjectEuler",
+      "MonsieurBarti/ProjetSysteme",
+      "MonsieurBarti/FlappyBirdIA"
+    ],
+    "docProfileRepos": [
+      "MonsieurBarti/MonsieurBarti",
+      "MonsieurBarti/PI-Buddy"
+    ],
+    "collabRepos": [],
+    "sampleRepos": [
+      {
+        "full_name": "MonsieurBarti/tff-mono",
+        "source": "owned",
+        "stars": 0,
+        "pushed_at": "2026-05-15T22:30:01Z"
+      },
+      {
+        "full_name": "MonsieurBarti/ultra-compress-pi",
+        "source": "owned",
+        "stars": 1,
+        "pushed_at": "2026-05-15T21:38:55Z"
+      },
+      {
+        "full_name": "MonsieurBarti/tff-pi",
+        "source": "owned",
+        "stars": 0,
+        "pushed_at": "2026-05-15T21:26:42Z"
+      },
+      {
+        "full_name": "MonsieurBarti/pi-verifier",
+        "source": "owned",
+        "stars": 0,
+        "pushed_at": "2026-05-14T22:01:24Z"
+      },
+      {
+        "full_name": "MonsieurBarti/security-harness-pi",
+        "source": "owned",
+        "stars": 2,
+        "pushed_at": "2026-05-14T21:44:28Z"
+      },
+      {
+        "full_name": "MonsieurBarti/The-Forge-Flow-CC",
+        "source": "owned",
+        "stars": 4,
+        "pushed_at": "2026-05-13T18:55:52Z"
+      },
+      {
+        "full_name": "MonsieurBarti/lumen",
+        "source": "owned",
+        "stars": 9,
+        "pushed_at": "2026-05-12T12:34:54Z"
+      },
+      {
+        "full_name": "MonsieurBarti/pi-rules",
+        "source": "owned",
+        "stars": 3,
+        "pushed_at": "2026-05-12T10:07:33Z"
+      }
+    ],
+    "externalPrSampleCount": 0
+  },
+  "signals": {
+    "githubId": 32358850,
+    "login": "MonsieurBarti",
+    "accountAgeDays": 3232,
+    "publicReposOwned": 41,
+    "technicalReposOwned": 39,
+    "totalAdditions": 551098,
+    "totalDeletions": 231045,
+    "totalStarsOnOwned": 51,
+    "daysSinceLastPush": 80,
+    "publicEvents90d": 1,
+    "activeMonths12": 6,
+    "structureMean": 1,
+    "aiAffinity": 1,
+    "externalMergedPrs": 0,
+    "publicOrgCount": 0,
+    "collabReposCount": 0,
+    "orgPushEvents": 0
+  },
+  "score": {
+    "total": 88,
+    "path": "craft",
+    "specialty": 0.978,
+    "axes": {
+      "craft": {
+        "raw": 0.9784227693782671,
+        "weight": 0.7,
+        "weighted": 0.6848959385647869,
+        "notes": [
+          "technicalRepos=39",
+          "publicReposOwned=41",
+          "techRatio=0.95",
+          "additions=551098",
+          "starsOwned=51",
+          "structureMean=1.000"
+        ]
+      },
+      "ecosystem": {
+        "raw": 0,
+        "weight": 0.7,
+        "weighted": 0,
+        "notes": [
+          "externalMergedPrs=0",
+          "orgPushEvents=0",
+          "collabRepos=0",
+          "publicOrgs=0"
+        ]
+      },
+      "activity": {
+        "raw": 0.4765464876785729,
+        "weight": 0.2,
+        "weighted": 0.09530929753571458,
+        "notes": [
+          "daysSinceLastPush=80",
+          "activeMonths12=6",
+          "events90d=1"
+        ]
+      },
+      "ai": {
+        "raw": 1,
+        "weight": 0.1,
+        "weighted": 0.1,
+        "notes": [
+          "aiAffinity=1.000"
+        ]
+      }
+    },
+    "decision": "accept",
+    "evidence": {
+      "login": "MonsieurBarti",
+      "githubId": 32358850,
+      "threshold": 65,
+      "specialtyFloor": 0.45,
+      "craft": 0.9784227693782671,
+      "ecosystem": 0,
+      "technicalReposOwned": 39,
+      "publicReposOwned": 41
+    },
+    "version": "0.2.0-specialty"
+  }
+}

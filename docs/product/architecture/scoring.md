@@ -1,184 +1,100 @@
-# Scoring — design
+# Scoring — design (v0.2 specialty)
+
+## Intent produit
+
+Récompenser **autant** :
+
+1. **Artisans** — bons craft techniques avec **repos publics de code** (pas juste de la doc / profile README)
+2. **Contributeurs écosystème** — PR / org / collab hors pure ownership perso
+
+**Pas** uniquement les profils « moyens partout ».
 
 ## Principes
 
-1. **Déterministe** — même `ProfileSignals` → même score
-2. **Pas de LLM** — pas d’interprétation sémantique du code
-3. **Pas de clone** — uniquement API GitHub
-4. **Explicable en interne** — axes + evidence pour audit opérateur / logs
-5. **Opaque pour le candidat** — seul le score total 0–100 est montré (curiosité volontaire, D2)
-6. **Anti-gaming basique** — ignore forks bruts, vendor paths, comptes neufs
+1. **Déterministe** — même `ProfileSignals` → même score  
+2. **Pas de LLM** — pas d’interprétation sémantique du code  
+3. **Pas de clone** — API GitHub only  
+4. **Excellence** — `specialty = max(craft, ecosystem)` porte le bulk du score  
+5. **Opaque candidat** — total + décision ; axes en ops  
+6. **Algo open** dans le repo  
 
 ## Formule
 
 ```
-score = 100 * (
-  w_volume    * n(volume) +
-  w_structure * n(structure) +
-  w_activity  * n(activity) +
-  w_ai        * n(ai) +
-  w_oss       * n(oss)
+craft      ∈ [0,1]   # publish technique public
+ecosystem  ∈ [0,1]   # commons / collab
+activity   ∈ [0,1]
+ai         ∈ [0,1]   # secondaire
+
+specialty  = max(craft, ecosystem)
+
+total = 100 × (
+  0.70 × specialty +
+  0.20 × activity +
+  0.10 × ai
 )
+
+accept ⇔ total ≥ 65  AND  specialty ≥ 0.45
 ```
 
-`n(x)` = normalisation 0..1 (souvent log-scale pour les compteurs).
+`path` ∈ `craft` | `ecosystem` | `tie` selon lequel gagne.
 
-### Poids MVP (proposés)
+### Pourquoi pas une moyenne de 5 axes
 
-| Axe | Poids | Rationale |
-|---|---|---|
-| volume | 0.25 | prouve qu’il produit |
-| structure | 0.15 | signal craft sans juger le style |
-| activity | 0.20 | pas un musée de 2019 |
-| ai | 0.20 | alignement cercle |
-| oss | 0.20 | ADN partage / contrib |
+Une somme équilibrée force le polyvalent et **ignore** le spécialiste fort.  
+Avec `max(craft, ecosystem)`, un expert **ou** publisher **ou** collab lourd peut passer sans être moyen partout.  
+Le **floor specialty** empêche un tourist AI+activity sans craft ni écosystème.
 
-Configurables via D1 `config`.
-
-## Axes
-
-### 1. Volume (`volume`)
-
-**Inputs**
-
-- `public_repos_owned` (non-fork)
-- `total_additions` / `total_deletions` (sum stats/contributors où `author.id == github_id`, top N repos)
-- `total_stars_on_owned`
-
-**Norme (sketch)**
-
-| signal | raw → 0..1 |
-|---|---|
-| repos owned | `log1p(repos) / log1p(30)` clamp 1 |
-| additions | `log1p(additions) / log1p(50_000)` clamp 1 |
-| stars | `log1p(stars) / log1p(200)` clamp 1 |
-
-`volume = 0.5 * additions_n + 0.3 * repos_n + 0.2 * stars_n`
-
-### 2. Structure (`structure`)
-
-Sur échantillon de repos (max 10 non-fork, triés par pushed_at) :
-
-Heuristiques booléennes / ratios :
-
-| signal | poids local |
-|---|---|
-| a un dossier `src/` ou `lib/` ou `app/` ou `packages/` | + |
-| a des tests (`test/`, `tests/`, `*_test.*`, `*.test.*`, `*.spec.*`) | + |
-| a CI (`.github/workflows/`, `.gitlab-ci.yml`) | + |
-| a docs (`README.md` + `docs/` ou ADR) | + |
-| tree size raisonnable (fichiers 10..5000 hors vendor) | + |
-| pas 90 %+ fichiers dans un seul dossier plat dump | + |
-| ratio paths vendor (`node_modules`, `vendor`, `dist`) faible | + |
-
-`structure = mean(repo_structure_scores)`  
-
-Repos ne clone pas le contenu — **noms de paths** via git trees API.
-
-### 3. Activity (`activity`)
-
-| signal | |
-|---|---|
-| `days_since_last_push` (max over owned) | plus bas = mieux |
-| `public_events_90d` | count events public |
-| `active_months_12` | mois avec ≥1 event/push |
-| `account_age_days` | gate hard si < 30 |
-
-Norme :
-
-- last push < 14j → 1.0 ; < 90j → 0.6 ; < 365 → 0.3 ; sinon 0.1
-- active_months / 12
-- events_90d log-scale
-
-~~Hard fail âge compte~~ : **retiré** (D8). L’unlock scoring est **D11** (PR d’entrée), pas l’âge GitHub.
-
-### 4. AI affinity (`ai`)
-
-Signaux **keyword / topic / language** — pas de lecture de code.
-
-| source | match |
-|---|---|
-| repo `topics[]` | `ai`, `llm`, `machine-learning`, `openai`, `langchain`, `agents`, `mcp`, `rag`, `transformer`, … |
-| repo name / description | mêmes stems + `claude`, `gpt`, `ollama`, `vllm`, `embeddings`, … |
-| languages | Python, TypeScript, Jupyter Notebook (bonus léger si co-occur topics AI) |
-| path hints (trees) | `prompts/`, `agents/`, `mcp/`, `*.ipynb` |
-
-`ai = clamp( keyword_hits_weighted / target , 1 )`  
-Un seul repo « ml-course » de 2018 ne doit pas suffire : combiner avec activity/volume.
-
-Liste de keywords versionnée dans `worker/src/scoring/ai-keywords.ts`.
-
-### 5. OSS (`oss`)
-
-| signal | |
-|---|---|
-| merged PRs vers repos **non-owned** (search API sample) | fort |
-| membership orgs publiques | moyen |
-| contribs collaborator sur org repos | moyen |
-| stars reçues cumulées | faible (déjà volume) |
-| forks d’autres avec commits upstream (hard) | skip MVP |
-
-`oss = f(external_merged_prs, org_count, collab_repos)`
-
-## Décision
+## Craft (artisan / publish)
 
 ```
-if hard_fail: REJECT
-elif score >= accept_threshold: ACCEPT
-else: REJECT
+craft = 0.35×logNorm(additions, 50k)
+      + 0.25×logNorm(technicalRepos, 12)
+      + 0.25×structureMean
+      + 0.15×logNorm(starsOwned, 100)
 ```
 
-`accept_threshold` default **65** (**D1** — figé MVP).
+Pénalités :
 
-## Surface candidat vs interne
+- `technicalRepos = 0` → craft × 0.12 (profile/docs only)
+- ratio tech/owned bas → craft atténué
 
-| Surface | Contenu |
-|---|---|
-| DM / ephemeral user | `total`, décision, cooldown re-apply, mention `#appeal` si pertinent |
-| D1 / logs opérateur | `ScoreReport` complet (axes, evidence, version) |
+**technicalRepos** = owner non-fork **hors** profile README, `.github`, portfolio pure doc (heuristique collector).
 
-## Sortie `ScoreReport`
+## Ecosystem (commons)
 
-```ts
-type ScoreReport = {
-  total: number; // 0..100
-  axes: {
-    volume: AxisScore;
-    structure: AxisScore;
-    activity: AxisScore;
-    ai: AxisScore;
-    oss: AxisScore;
-  };
-  hardFail?: { reason: string };
-  evidence: Record<string, unknown>; // raw counts for audit
-  version: string; // scorer semver "0.1.0"
-};
-
-type AxisScore = {
-  raw: number;   // 0..1
-  weight: number;
-  weighted: number;
-  notes: string[];
-};
+```
+ecosystem = 0.40×logNorm(orgPushEvents, 25)
+          + 0.30×logNorm(collabRepos, 12)
+          + 0.20×logNorm(extMergedPrs, 15)
+          + 0.10×logNorm(publicOrgs, 4)
 ```
 
-## Ce qu’on ne fait PAS
+Orgs : membership public, `@Org` company/bio si vraie org, ou events avec ≥3 pushes + type Organization.
 
-- juger la « beauté » du code
-- détecter la triche LLM dans le code
-- scorer les repos privés
-- télécharger les blobs
+## Activity / AI
 
-## Tests
+Inchangés dans l’esprit (récence ; keywords AI) mais **AI ne pèse que 10 %** et ne peut plus porter un accept seul (floor specialty).
 
-Fixtures JSON de profils (synthétiques) :
+## SSoT
 
-| fixture | expected |
+| Couche | Rôle |
 |---|---|
-| `strong-oss-ai` | ACCEPT |
-| `tutorial-forks-only` | REJECT |
-| `old-inactive` | REJECT |
-| `strong-private-no-public` | REJECT (appeal) |
-| `borderline` | autour du seuil |
+| `apps/circle-api/src/scoring/score.ts` | **unique** formule |
+| `scripts/collect-github-profiles.mjs` | GitHub → signals → `scoreProfile()` |
+| D1 config (futur) | threshold / floor / weights live |
 
-`npm test` = pure functions, zéro réseau.
+## Surface candidat
+
+DM : `total`, décision, cooldown, `#appeal` si besoin.  
+Jamais le détail des axes (D2).
+
+## Fixtures cibles
+
+| Profil | Attendu |
+|---|---|
+| Artisan solo public technique | accept path=craft |
+| Founder org / collab lourd | accept path=ecosystem |
+| Keyword AI + scaffolds, 0 craft/eco | reject specialty_floor |
+| Inactive museum | reject |
+| Private-only | reject + appeal |

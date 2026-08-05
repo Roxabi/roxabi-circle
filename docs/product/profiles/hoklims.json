@@ -1,0 +1,187 @@
+{
+  "collectedAt": "2026-08-04T19:51:26.044Z",
+  "source": "github-api+gh-cli",
+  "collectorVersion": "0.4.0-specialty",
+  "url": "https://github.com/hoklims",
+  "user": {
+    "id": 73912382,
+    "login": "hoklims",
+    "name": null,
+    "bio": null,
+    "company": null,
+    "created_at": "2020-11-03T21:03:42Z",
+    "public_repos": 42,
+    "followers": 11
+  },
+  "evidence": {
+    "collectorVersion": "0.4.0-specialty",
+    "verifiedOrgs": [],
+    "eventOrgs": [
+      "MickaelV0",
+      "openai",
+      "citrolabs"
+    ],
+    "pushesByOwner": {
+      "MickaelV0": 3,
+      "openai": 0,
+      "citrolabs": 0
+    },
+    "company": null,
+    "volumeFallbackUsed": false,
+    "technicalRepos": [
+      "hoklims/semctx",
+      "hoklims/codex-wayfinder",
+      "hoklims/cargo-quad-apk",
+      "hoklims/material-workbench",
+      "hoklims/oco",
+      "hoklims/unreal-cpp-zed",
+      "hoklims/oco-marketplace",
+      "hoklims/stacksfinder-mcp",
+      "hoklims/secure-pdf",
+      "hoklims/roulette-bot",
+      "hoklims/quantifying-the-difficulty-of-a-musical-score",
+      "hoklims/Lost-Ark---simulation-and-strategy-forge"
+    ],
+    "docProfileRepos": [
+      "hoklims/professional-wallet-scraper"
+    ],
+    "collabRepos": [
+      "Alexandre8192/AGTI_Documentation",
+      "Lukasdev64/mutisport-app",
+      "Zalgo-Dev/WeaRisk",
+      "MickaelV0/semctx",
+      "citrolabs/ego-lite"
+    ],
+    "sampleRepos": [
+      {
+        "full_name": "hoklims/semctx",
+        "source": "owned",
+        "stars": 1,
+        "pushed_at": "2026-08-02T19:43:01Z"
+      },
+      {
+        "full_name": "hoklims/codex-wayfinder",
+        "source": "owned",
+        "stars": 2,
+        "pushed_at": "2026-07-30T22:07:06Z"
+      },
+      {
+        "full_name": "hoklims/cargo-quad-apk",
+        "source": "owned",
+        "stars": 1,
+        "pushed_at": "2026-07-14T14:21:43Z"
+      },
+      {
+        "full_name": "hoklims/material-workbench",
+        "source": "owned",
+        "stars": 1,
+        "pushed_at": "2026-06-27T16:28:20Z"
+      },
+      {
+        "full_name": "hoklims/oco",
+        "source": "owned",
+        "stars": 0,
+        "pushed_at": "2026-04-08T23:07:59Z"
+      },
+      {
+        "full_name": "hoklims/unreal-cpp-zed",
+        "source": "owned",
+        "stars": 0,
+        "pushed_at": "2026-03-31T21:35:19Z"
+      },
+      {
+        "full_name": "hoklims/oco-marketplace",
+        "source": "owned",
+        "stars": 0,
+        "pushed_at": "2026-03-31T20:28:06Z"
+      },
+      {
+        "full_name": "hoklims/stacksfinder-mcp",
+        "source": "owned",
+        "stars": 9,
+        "pushed_at": "2026-01-29T05:14:01Z"
+      }
+    ],
+    "externalPrSampleCount": 0
+  },
+  "signals": {
+    "githubId": 73912382,
+    "login": "hoklims",
+    "accountAgeDays": 2099,
+    "publicReposOwned": 13,
+    "technicalReposOwned": 12,
+    "totalAdditions": 414905,
+    "totalDeletions": 33431,
+    "totalStarsOnOwned": 15,
+    "daysSinceLastPush": 2,
+    "publicEvents90d": 300,
+    "activeMonths12": 6,
+    "structureMean": 0.8393,
+    "aiAffinity": 1,
+    "externalMergedPrs": 0,
+    "publicOrgCount": 0,
+    "collabReposCount": 5,
+    "orgPushEvents": 0
+  },
+  "score": {
+    "total": 89.5,
+    "path": "craft",
+    "specialty": 0.9,
+    "axes": {
+      "craft": {
+        "raw": 0.8999392899342128,
+        "weight": 0.7,
+        "weighted": 0.6299575029539489,
+        "notes": [
+          "technicalRepos=12",
+          "publicReposOwned=13",
+          "techRatio=0.92",
+          "additions=414905",
+          "starsOwned=15",
+          "structureMean=0.839"
+        ]
+      },
+      "ecosystem": {
+        "raw": 0.20956664863761432,
+        "weight": 0.7,
+        "weighted": 0.14669665404633,
+        "notes": [
+          "externalMergedPrs=0",
+          "orgPushEvents=0",
+          "collabRepos=5",
+          "publicOrgs=0"
+        ]
+      },
+      "activity": {
+        "raw": 0.825,
+        "weight": 0.2,
+        "weighted": 0.165,
+        "notes": [
+          "daysSinceLastPush=2",
+          "activeMonths12=6",
+          "events90d=300"
+        ]
+      },
+      "ai": {
+        "raw": 1,
+        "weight": 0.1,
+        "weighted": 0.1,
+        "notes": [
+          "aiAffinity=1.000"
+        ]
+      }
+    },
+    "decision": "accept",
+    "evidence": {
+      "login": "hoklims",
+      "githubId": 73912382,
+      "threshold": 65,
+      "specialtyFloor": 0.45,
+      "craft": 0.8999392899342128,
+      "ecosystem": 0.20956664863761432,
+      "technicalReposOwned": 12,
+      "publicReposOwned": 13
+    },
+    "version": "0.2.0-specialty"
+  }
+}

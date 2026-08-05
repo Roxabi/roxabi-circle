@@ -1,0 +1,47 @@
+{
+  "collectedAt": "2026-08-04T19:53:38.871Z",
+  "scorerVersion": "0.2.0-specialty",
+  "collectorVersion": "0.4.0-specialty",
+  "note": "specialty max(craft,ecosystem); craft=technical public repos; ecosystem=org/collab/PR",
+  "profiles": [
+    {
+      "login": "hoklims",
+      "total": 89.5,
+      "decision": "accept",
+      "path": "craft",
+      "specialty": 0.9,
+      "craft": 90,
+      "eco": 21,
+      "act": 83,
+      "ai": 100,
+      "tech": 12,
+      "owned": 13
+    },
+    {
+      "login": "MonsieurBarti",
+      "total": 88,
+      "decision": "accept",
+      "path": "craft",
+      "specialty": 0.978,
+      "craft": 98,
+      "eco": 0,
+      "act": 48,
+      "ai": 100,
+      "tech": 39,
+      "owned": 41
+    },
+    {
+      "login": "MickaelV0",
+      "total": 76.8,
+      "decision": "accept",
+      "path": "ecosystem",
+      "specialty": 0.743,
+      "craft": 44,
+      "eco": 74,
+      "act": 74,
+      "ai": 100,
+      "tech": 1,
+      "owned": 3
+    }
+  ]
+}

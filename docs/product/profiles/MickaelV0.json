@@ -1,0 +1,219 @@
+{
+  "collectedAt": "2026-08-04T19:53:02.767Z",
+  "source": "github-api+gh-cli",
+  "collectorVersion": "0.4.0-specialty",
+  "url": "https://github.com/MickaelV0",
+  "user": {
+    "id": 206215211,
+    "login": "MickaelV0",
+    "name": "Mickael B.",
+    "bio": "🦊 Founder @Roxabi · One person. Team-scale output. · open-source primitives that compound · pre-wired, forkable, yours · roxabi.dev",
+    "company": "@Roxabi",
+    "created_at": "2025-04-04T12:16:04Z",
+    "public_repos": 8,
+    "followers": 7
+  },
+  "evidence": {
+    "collectorVersion": "0.4.0-specialty",
+    "verifiedOrgs": [
+      "Roxabi"
+    ],
+    "eventOrgs": [
+      "Roxabi",
+      "supernovae-st",
+      "hoklims"
+    ],
+    "pushesByOwner": {
+      "Roxabi": 33,
+      "supernovae-st": 0,
+      "hoklims": 0
+    },
+    "company": "@Roxabi",
+    "volumeFallbackUsed": false,
+    "technicalRepos": [
+      "MickaelV0/demo-mcp"
+    ],
+    "docProfileRepos": [
+      "MickaelV0/MickaelV0",
+      "MickaelV0/.github"
+    ],
+    "collabRepos": [
+      "Roxabi/roxabi-boilerplate",
+      "Roxabi/roxabi-simulation",
+      "Roxabi/roxabi-plugins",
+      "Roxabi/roxabi-factory",
+      "Roxabi/roxabi-sense",
+      "Roxabi/roxabi-live",
+      "Roxabi/voiceCLI",
+      "Roxabi/llmCLI",
+      "Roxabi/roxabi-circle",
+      "hoklims/semctx",
+      "Roxabi/roxabi-cortex",
+      "Roxabi/roxabi-forge",
+      "Roxabi/roxabi-talks",
+      "Roxabi/roxabi-site",
+      "Roxabi/roxabi-production",
+      "Roxabi/roxabi-intel",
+      "Roxabi/roxabi-idna",
+      "Roxabi/factory-site",
+      "Roxabi/imageCLI"
+    ],
+    "sampleRepos": [
+      {
+        "full_name": "MickaelV0/demo-mcp",
+        "source": "owned",
+        "stars": 0,
+        "pushed_at": "2026-08-01T22:54:51Z"
+      },
+      {
+        "full_name": "MickaelV0/MickaelV0",
+        "source": "owned",
+        "stars": 0,
+        "pushed_at": "2026-08-04T19:24:54Z"
+      },
+      {
+        "full_name": "MickaelV0/.github",
+        "source": "owned",
+        "stars": 0,
+        "pushed_at": "2026-03-12T12:22:40Z"
+      },
+      {
+        "full_name": "Roxabi/roxabi-plugins",
+        "source": "org_event",
+        "stars": 9,
+        "pushed_at": "2026-08-04T12:19:13Z",
+        "eventPushes": 23
+      },
+      {
+        "full_name": "Roxabi/roxabi-sense",
+        "source": "org_event",
+        "stars": 0,
+        "pushed_at": "2026-08-03T22:56:34Z",
+        "eventPushes": 2
+      },
+      {
+        "full_name": "Roxabi/roxabi-factory",
+        "source": "org_event",
+        "stars": 5,
+        "pushed_at": "2026-08-04T12:04:24Z",
+        "eventPushes": 1
+      },
+      {
+        "full_name": "Roxabi/voiceCLI",
+        "source": "org_event",
+        "stars": 2,
+        "pushed_at": "2026-08-02T22:51:19Z",
+        "eventPushes": 2
+      },
+      {
+        "full_name": "Roxabi/roxabi-live",
+        "source": "org_event",
+        "stars": 0,
+        "pushed_at": "2026-08-02T22:51:49Z",
+        "eventPushes": 1
+      },
+      {
+        "full_name": "Roxabi/llmCLI",
+        "source": "org_event",
+        "stars": 1,
+        "pushed_at": "2026-08-02T22:51:08Z",
+        "eventPushes": 1
+      },
+      {
+        "full_name": "Roxabi/roxabi-cortex",
+        "source": "org_event",
+        "stars": 0,
+        "pushed_at": "2026-08-02T14:15:15Z",
+        "eventPushes": 1
+      },
+      {
+        "full_name": "Roxabi/roxabi-forge",
+        "source": "org_event",
+        "stars": 3,
+        "pushed_at": "2026-08-02T14:13:19Z",
+        "eventPushes": 1
+      }
+    ],
+    "externalPrSampleCount": 0
+  },
+  "signals": {
+    "githubId": 206215211,
+    "login": "MickaelV0",
+    "accountAgeDays": 487,
+    "publicReposOwned": 3,
+    "technicalReposOwned": 1,
+    "totalAdditions": 2046225,
+    "totalDeletions": 1245772,
+    "totalStarsOnOwned": 0,
+    "daysSinceLastPush": 0,
+    "publicEvents90d": 300,
+    "activeMonths12": 3,
+    "structureMean": 0.8312,
+    "aiAffinity": 1,
+    "externalMergedPrs": 0,
+    "publicOrgCount": 1,
+    "collabReposCount": 19,
+    "orgPushEvents": 33
+  },
+  "score": {
+    "total": 76.8,
+    "path": "ecosystem",
+    "specialty": 0.743,
+    "axes": {
+      "craft": {
+        "raw": 0.43775167702478096,
+        "weight": 0.7,
+        "weighted": 0.30642617391734667,
+        "notes": [
+          "technicalRepos=1",
+          "publicReposOwned=3",
+          "techRatio=0.33",
+          "additions=2046225",
+          "starsOwned=0",
+          "structureMean=0.831"
+        ]
+      },
+      "ecosystem": {
+        "raw": 0.7430676558073392,
+        "weight": 0.7,
+        "weighted": 0.5201473590651374,
+        "notes": [
+          "externalMergedPrs=0",
+          "orgPushEvents=33",
+          "collabRepos=19",
+          "publicOrgs=1"
+        ]
+      },
+      "activity": {
+        "raw": 0.7375,
+        "weight": 0.2,
+        "weighted": 0.14750000000000002,
+        "notes": [
+          "daysSinceLastPush=0",
+          "activeMonths12=3",
+          "events90d=300"
+        ]
+      },
+      "ai": {
+        "raw": 1,
+        "weight": 0.1,
+        "weighted": 0.1,
+        "notes": [
+          "aiAffinity=1.000"
+        ]
+      }
+    },
+    "decision": "accept",
+    "evidence": {
+      "login": "MickaelV0",
+      "githubId": 206215211,
+      "threshold": 65,
+      "specialtyFloor": 0.45,
+      "craft": 0.43775167702478096,
+      "ecosystem": 0.7430676558073392,
+      "technicalReposOwned": 1,
+      "publicReposOwned": 3
+    },
+    "version": "0.2.0-specialty"
+  }
+}
