@@ -22,7 +22,7 @@
     "@kit/storage": "workspace:*",
     "@kit/types": "workspace:*",
     "better-auth": "^1.6.23",
-    "drizzle-orm": "^0.44.0",
+    "drizzle-orm": "^0.45.2",
     "hono": "^4.7.0",
     "zod": "^3.25.0"
   },
