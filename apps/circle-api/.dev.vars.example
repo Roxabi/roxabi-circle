@@ -9,3 +9,5 @@ SESSION_SECRET=change-me-to-a-long-random-string
 DISCORD_APPEAL_CATEGORY_ID=
 # #github-to-watch channel id (Gateway enforces 1 GitHub link top-level)
 DISCORD_GITHUB_WATCH_CHANNEL_ID=
+# Ops: POST /internal/discord-gateway/ensure header X-Ops-Secret
+GATEWAY_OPS_SECRET=

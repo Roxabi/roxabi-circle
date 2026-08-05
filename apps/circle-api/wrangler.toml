@@ -3,6 +3,14 @@ main = "src/index.ts"
 compatibility_date = "2025-06-01"
 compatibility_flags = ["nodejs_compat"]
 
+# Account: Mickael (b5e90be9…) — zone roxabi.dev. Not Tool@gosilex.
+workers_dev = false
+preview_urls = false
+
+routes = [
+  { pattern = "circle.roxabi.dev", custom_domain = true },
+]
+
 # Uncomment when D1 is provisioned:
 # [[d1_databases]]
 # binding = "DB"
@@ -19,9 +27,7 @@ ENVIRONMENT = "production"
 SCORER_VERSION = "0.1.0"
 ACCEPT_THRESHOLD = "65"
 
-# Public non-secret Discord IDs (safe as vars). Tokens via `wrangler secret`.
-# DISCORD_APPLICATION_ID / GUILD_ID / MEMBER_ROLE_ID / APPEAL_CATEGORY_ID set as secrets bulk for simplicity.
-# DISCORD_GITHUB_WATCH_CHANNEL_ID — set via secret or .dev.vars (channel #github-to-watch)
+# Secrets via `wrangler secret` (see .dev.vars.example)
 
 [[durable_objects.bindings]]
 name = "DISCORD_GATEWAY"
@@ -31,7 +37,6 @@ class_name = "DiscordGateway"
 tag = "v1-discord-gateway"
 new_sqlite_classes = ["DiscordGateway"]
 
-# Keep Gateway DO warm / reconnect if socket dropped
 [triggers]
 crons = ["*/2 * * * *"]
 

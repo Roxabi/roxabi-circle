@@ -13,6 +13,8 @@ export type Env = {
   DISCORD_GITHUB_WATCH_CHANNEL_ID: string
   /** Durable Object: Discord Gateway client (Lyra) */
   DISCORD_GATEWAY: DurableObjectNamespace
+  /** Shared secret for POST /internal/discord-gateway/ensure (header X-Ops-Secret) */
+  GATEWAY_OPS_SECRET: string
   GITHUB_CLIENT_ID: string
   GITHUB_CLIENT_SECRET: string
   SESSION_SECRET: string

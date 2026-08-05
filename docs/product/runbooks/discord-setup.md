@@ -14,6 +14,8 @@
 | Slash | `/apply` (guild command) |
 | BW item | `roxabi-circle/discord` |
 | Local secrets | `apps/circle-api/.dev.vars` (gitignored) |
+| CF account | **Mickael** `b5e90be9…` (zone `roxabi.dev`) — **not** Tool@gosilex |
+| Public host | `https://circle.roxabi.dev` (`workers_dev = false`) |
 | Setup script | `bun scripts/discord-guild-setup.mjs` (idempotent) |
 
 ### Channels
@@ -41,7 +43,7 @@ source ~/projects/security/vaultwarden/scripts/agent-bw-login.sh
 bw get notes "roxabi-circle/discord"
 ```
 
-Keys: `DISCORD_APPLICATION_ID`, `DISCORD_PUBLIC_KEY`, `DISCORD_BOT_TOKEN`, `DISCORD_GUILD_ID`, `DISCORD_MEMBER_ROLE_ID`, `DISCORD_APPEAL_CATEGORY_ID`, `DISCORD_GITHUB_WATCH_CHANNEL_ID`.
+Keys: `DISCORD_APPLICATION_ID`, `DISCORD_PUBLIC_KEY`, `DISCORD_BOT_TOKEN`, `DISCORD_GUILD_ID`, `DISCORD_MEMBER_ROLE_ID`, `DISCORD_APPEAL_CATEGORY_ID`, `DISCORD_GITHUB_WATCH_CHANNEL_ID`, `GATEWAY_OPS_SECRET`.
 
 **Rotate** bot token if it was ever pasted in chat (Portal → Bot → Reset Token), then update BW + `.dev.vars`.
 
@@ -88,11 +90,14 @@ https://discord.com/api/oauth2/authorize?client_id=1534228521420067046&permissio
 
 | Endpoint | Status |
 |---|---|
+| **Host** | `https://circle.roxabi.dev` (`workers_dev = false`) |
 | `POST /interactions` | Ed25519 verify + PING + `/apply` scaffold |
-| Gateway DO | MESSAGE_CREATE → github-watch enforce |
-| `POST /internal/discord-gateway/ensure` | wake / status Gateway DO |
-| `GET /oauth/github/*` | not implemented |
-| Interactions URL in Portal | set **after** deploy: `https://circle.roxabi.dev/interactions` |
+| `GET /health` | public · wakes Gateway best-effort |
+| Gateway DO | MESSAGE_CREATE → github-watch enforce · cron `*/2` |
+| `POST /internal/discord-gateway/ensure` | **auth** header `X-Ops-Secret: $GATEWAY_OPS_SECRET` |
+| `GET /oauth/github/*` | 501 not implemented |
+| Catch-all | **404** |
+| Interactions URL in Portal | **`https://circle.roxabi.dev/interactions`** |
 
 ```bash
 # local

@@ -4,9 +4,12 @@
 
 | Endpoint | Auth | Notes |
 |---|---|---|
+| Host | `https://circle.roxabi.dev` | custom domain only (`workers_dev = false`) |
 | `GET /health` | public | infos non sensibles (seuil score volontairement open) |
 | `POST /interactions` | **Ed25519 Discord** | seule porte d’écriture bot |
-| `GET /oauth/github/*` | HMAC state (à venir) | pas encore live |
+| `POST /internal/discord-gateway/ensure` | **`X-Ops-Secret`** (`GATEWAY_OPS_SECRET`) | wake/status DO only |
+| `GET /oauth/github/*` | HMAC state (à venir) | 501 stub |
+| `*` | — | **404** (pas d’inventaire endpoints) |
 
 ## Contrôles en place
 
@@ -31,7 +34,7 @@
 | Priorité | Mesure |
 |---|---|
 | P0 | **Rotate** bot token s’il a fuité en chat (encore recommandé) |
-| P1 | Domaine custom `circle.roxabi.dev` + route Worker (pas workers.dev en prod long terme) |
+| P1 | ~~Domaine custom~~ **done** — `circle.roxabi.dev` · CF account Mickael · `workers_dev=false` |
 | P1 | Rate limit KV sur `/apply` et open ticket (frame: 3/h/user) |
 | P1 | Logs structurés sans PII / sans tokens |
 | P2 | Rôle `staff` pour tickets (au lieu d’Admin bot) |
