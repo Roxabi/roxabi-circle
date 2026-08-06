@@ -1,6 +1,9 @@
 /**
  * Shared Vitest coverage options for the monorepo.
  * Reports land in <repo>/coverage/<name>/ (html + json-summary + text).
+ *
+ * Vitest 4: restore ignoreEmptyLines (Vitest 3 default). Threshold floors may be
+ * recalibrated when v8 remapping shifts metrics — see issue #21 inventory note.
  */
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -22,6 +25,7 @@ export function makeCoverage(name, thresholds) {
     reportsDirectory: path.join(REPO_ROOT, 'coverage', name),
     reporter: ['text', 'html', 'json-summary'],
     reportOnFailure: true,
+    ignoreEmptyLines: true,
     include: ['src/**/*.{ts,tsx}'],
     exclude: ['src/**/*.test.{ts,tsx}', 'src/test/**', 'src/**/*.d.ts', '**/node_modules/**'],
     clean: true,
