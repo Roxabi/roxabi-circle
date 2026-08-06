@@ -3,13 +3,15 @@ import {
   type EffectiveAuthority,
   resolveEffectiveAuthority,
 } from './authority'
-import { staticTokenBudget } from './budget'
+import { hardMaxTokens, staticTokenBudget } from './budget'
 import { MAX_PLAN_TASKS, MAX_PLAN_TOTAL_TOKENS } from './constants'
+import { parseCapabilityGrant } from './grant'
 import type { ToolRegistry } from './registry'
 import { type PlanDocument, safeParsePlanDocument } from './schema'
 
 export type CheckIssueCode =
   | 'SCHEMA_INVALID'
+  | 'GRANT_INVALID'
   | 'EMPTY_PERMITS'
   | 'UNKNOWN_TOOL'
   | 'TOOL_NOT_GRANTED'
@@ -29,7 +31,7 @@ export type CheckIssue = {
 }
 
 export type CheckResult =
-  | { ok: true; effective: EffectiveAuthority; plan: PlanDocument }
+  | { ok: true; effective: EffectiveAuthority; plan: PlanDocument; grant: CapabilityGrant }
   | { ok: false; issues: CheckIssue[] }
 
 function invokedTools(plan: PlanDocument): Array<{ taskId: string; tool: string }> {
@@ -74,24 +76,40 @@ function findCycle(plan: PlanDocument): string | null {
 }
 
 /**
- * Pure plan check — re-validates schema then authority = grants ∩ permits ∩ registry.
- * Accepts `unknown` so freeze/API cannot bypass Zod via a typed cast.
+ * Pure plan check — re-validates plan + grant schemas, then
+ * authority = grants ∩ permits ∩ registry.
  */
 export function checkPlan(
   planInput: unknown,
-  grant: CapabilityGrant,
+  grantInput: unknown,
   registry: ToolRegistry,
 ): CheckResult {
+  const issues: CheckIssue[] = []
+
   const parsed = safeParsePlanDocument(planInput)
   if (!parsed.success) {
-    const msg = parsed.error.issues.map((i) => i.message).join('; ') || 'plan schema invalid'
-    return {
-      ok: false,
-      issues: [{ code: 'SCHEMA_INVALID', message: msg, path: 'plan' }],
+    for (const zi of parsed.error.issues) {
+      issues.push({
+        code: 'SCHEMA_INVALID',
+        message: zi.message,
+        path: zi.path.length ? zi.path.join('.') : 'plan',
+      })
     }
+    if (issues.length === 0) {
+      issues.push({ code: 'SCHEMA_INVALID', message: 'plan schema invalid', path: 'plan' })
+    }
+    return { ok: false, issues }
   }
   const plan = parsed.data
-  const issues: CheckIssue[] = []
+
+  const grantParsed = parseCapabilityGrant(grantInput)
+  if (!grantParsed.ok) {
+    return {
+      ok: false,
+      issues: [{ code: 'GRANT_INVALID', message: grantParsed.message, path: 'grant' }],
+    }
+  }
+  const grant = grantParsed.grant
 
   if (!grant.orgId || grant.orgId.trim() === '') {
     issues.push({ code: 'ORG_ID_REQUIRED', message: 'grant.orgId is required' })
@@ -196,14 +214,17 @@ export function checkPlan(
       message: `static infer token budget ${tokenBudget} exceeds ${MAX_PLAN_TOTAL_TOKENS}`,
     })
   }
+  const hard = hardMaxTokens(plan)
   if (plan.plan.max_tokens !== undefined && tokenBudget > plan.plan.max_tokens) {
     issues.push({
       code: 'TOKEN_CEILING',
-      message: `static infer token budget ${tokenBudget} exceeds plan.max_tokens ${plan.plan.max_tokens}`,
+      message: `static infer token budget ${tokenBudget} exceeds plan.max_tokens total ceiling ${plan.plan.max_tokens}`,
       path: 'plan.max_tokens',
     })
   }
+  // hard is min(static, plan) — if static already failed above, hard is covered
+  void hard
 
   if (issues.length > 0) return { ok: false, issues }
-  return { ok: true, effective, plan }
+  return { ok: true, effective, plan, grant }
 }

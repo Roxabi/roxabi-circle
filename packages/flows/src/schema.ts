@@ -7,12 +7,90 @@ const nonEmptyId = z
   .max(128)
   .regex(/^[a-zA-Z][a-zA-Z0-9_-]*$/, 'id must be alphanumeric/underscore/hyphen')
 
+/** Tool names share task-id charset (no path/injection-shaped names). */
+const toolNameSchema = nonEmptyId
+
+const MAX_ARGS_KEYS = 32
+const MAX_ARG_STRING = 8_192
+const MAX_ARG_DEPTH = 4
+
+function assertArgsShape(value: unknown, depth: number, path: string, ctx: z.RefinementCtx): void {
+  if (depth > MAX_ARG_DEPTH) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: `invoke.args nesting exceeds max depth ${MAX_ARG_DEPTH}`,
+      path: path ? path.split('.') : ['args'],
+    })
+    return
+  }
+  if (value === null || typeof value === 'boolean' || typeof value === 'number') return
+  if (typeof value === 'string') {
+    if (value.length > MAX_ARG_STRING) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `invoke.args string exceeds ${MAX_ARG_STRING} chars`,
+        path: path ? path.split('.') : ['args'],
+      })
+    }
+    return
+  }
+  if (Array.isArray(value)) {
+    if (value.length > MAX_ARGS_KEYS) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `invoke.args array length exceeds ${MAX_ARGS_KEYS}`,
+        path: path ? path.split('.') : ['args'],
+      })
+    }
+    for (let i = 0; i < value.length; i++) {
+      assertArgsShape(value[i], depth + 1, path ? `${path}.${i}` : String(i), ctx)
+    }
+    return
+  }
+  if (typeof value === 'object') {
+    const keys = Object.keys(value as object)
+    if (keys.length > MAX_ARGS_KEYS) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `invoke.args object has more than ${MAX_ARGS_KEYS} keys`,
+        path: path ? path.split('.') : ['args'],
+      })
+    }
+    for (const k of keys) {
+      if (/^__|constructor|prototype$/i.test(k) || k === '__proto__') {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `invoke.args key forbidden: ${k}`,
+          path: path ? path.split('.') : ['args'],
+        })
+      }
+      assertArgsShape(
+        (value as Record<string, unknown>)[k],
+        depth + 1,
+        path ? `${path}.${k}` : k,
+        ctx,
+      )
+    }
+    return
+  }
+  ctx.addIssue({
+    code: z.ZodIssueCode.custom,
+    message: 'invoke.args values must be JSON primitives/objects/arrays',
+    path: path ? path.split('.') : ['args'],
+  })
+}
+
 const invokeBodySchema = z
   .object({
-    tool: z.string().min(1).max(128),
+    tool: toolNameSchema,
     args: z.record(z.unknown()).optional(),
   })
   .strict()
+  .superRefine((val, ctx) => {
+    if (val.args !== undefined) {
+      assertArgsShape(val.args, 0, 'args', ctx)
+    }
+  })
 
 const inferBodySchema = z
   .object({
@@ -45,7 +123,7 @@ export type PlanTask = z.infer<typeof planTaskSchema>
 
 export const planPermitsSchema = z
   .object({
-    tools: z.array(z.string().min(1).max(128)).max(MAX_PERMIT_TOOLS),
+    tools: z.array(toolNameSchema).max(MAX_PERMIT_TOOLS),
   })
   .strict()
 
@@ -59,6 +137,7 @@ export const planDocumentSchema = z
         id: nonEmptyId,
         description: z.string().max(2000).optional(),
         model: z.string().min(1).max(256).optional(),
+        /** Total static ceiling across all infer tasks (required when any infer). */
         max_tokens: z.number().int().positive().max(MAX_PLAN_TOTAL_TOKENS).optional(),
       })
       .strict(),
@@ -79,7 +158,7 @@ export const planDocumentSchema = z
     if (hasInfer && doc.plan.max_tokens === undefined) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: 'plan.max_tokens is required when any task uses infer',
+        message: 'plan.max_tokens is required when any task uses infer (total ceiling)',
         path: ['plan', 'max_tokens'],
       })
     }

@@ -71,9 +71,11 @@ Without a kit axis, products invent Cron + Queue + ad-hoc agent loops → N×M d
 
 Apps compose packages:
 
-- `apps/example-api` — routes + Workflows binding + dogfood tools + module seed  
-- `apps/example-web` — `/admin/flows` dogfood (P2)  
+- `apps/example-api` — **today:** pure dogfood freeze (`flows-dogfood.ts`); **later (#29–#31):** routes + Workflows binding + module seed  
+- `apps/example-web` — `/admin/flows` dogfood (**P2 / #33**)  
 - Products — same packages + **product tools + product plans** under `apps/<product>-*` only  
+
+**Runner contract:** execute only `snapshot.executionTools` (not `grantAudit.allowedTools`). Snapshot is deep-frozen; persist JSON bytes promptly.
 
 **Axial test (ADR-0001):** second product adds tools/plans in its app — it does **not** fork the runner or copy D1 run tables into a local god module.
 

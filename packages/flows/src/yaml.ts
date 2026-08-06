@@ -5,6 +5,7 @@ import { type PlanDocument, parsePlanDocument } from './schema'
 export type YamlLoadErrorCode =
   | 'YAML_TOO_LARGE'
   | 'YAML_EMPTY'
+  | 'YAML_NOT_STRING'
   | 'YAML_PARSE_ERROR'
   | 'YAML_NOT_OBJECT'
   | 'PLAN_SCHEMA_ERROR'
@@ -23,11 +24,11 @@ export class PlanYamlError extends Error {
 
 /**
  * Load a flows plan from YAML (MVP authoring).
- * Canonical runtime form is Zod PlanDocument (JSON-serializable).
+ * Fail-closed parse options (YAML 1.2 core, no merge keys, no known tags).
  */
 export function loadPlanFromYaml(source: string): PlanDocument {
   if (typeof source !== 'string') {
-    throw new PlanYamlError('YAML_EMPTY', 'YAML source must be a string')
+    throw new PlanYamlError('YAML_NOT_STRING', 'YAML source must be a string')
   }
   const bytes = new TextEncoder().encode(source).byteLength
   if (bytes === 0) {
@@ -45,6 +46,11 @@ export function loadPlanFromYaml(source: string): PlanDocument {
     raw = parseYaml(source, {
       maxAliasCount: 50,
       uniqueKeys: true,
+      // Fail-closed: pin 1.2 core, no merge, no !!binary etc.
+      version: '1.2',
+      schema: 'core',
+      merge: false,
+      resolveKnownTags: false,
     })
   } catch (err) {
     throw new PlanYamlError(

@@ -3,19 +3,9 @@
  * Pure package: no Worker bindings. Apps wire Workflows + D1 + auth.
  */
 
-export { canAdminFlows, canCreateFlowRun, isFlowsAdminRole } from './access'
-export {
-  type CapabilityGrant,
-  type EffectiveAuthority,
-  resolveEffectiveAuthority,
-} from './authority'
-export { staticTokenBudget } from './budget'
-export {
-  type CheckIssue,
-  type CheckIssueCode,
-  type CheckResult,
-  checkPlan,
-} from './check'
+export type { CapabilityGrant, EffectiveAuthority } from './authority'
+
+export { hardMaxTokens, staticTokenBudget } from './budget'
 export {
   DEFAULT_INFER_MAX_TOKENS,
   FLOWS_ADMIN_ROLES,
@@ -45,12 +35,25 @@ export {
   type SafeParsePlanResult,
   safeParsePlanDocument,
 } from './schema'
+export { loadPlanFromYaml, PlanYamlError, type YamlLoadErrorCode } from './yaml'
 
+// resolveEffectiveAuthority is intentionally NOT exported (unsafe without pin).
+
+export { canAdminFlows, canCreateFlowRun, isFlowsAdminRole } from './access'
+
+export {
+  type CheckIssue,
+  type CheckIssueCode,
+  type CheckResult,
+  checkPlan,
+} from './check'
+export { DEMO_ECHO_PLAN_YAML } from './fixtures/demo-echo'
+export { capabilityGrantSchema, parseCapabilityGrant } from './grant'
 export {
   type CreateSnapshotInput,
   type CreateSnapshotResult,
   createRunSnapshot,
   digestPlan,
+  executionTools,
   type RunSnapshot,
 } from './snapshot'
-export { loadPlanFromYaml, PlanYamlError, type YamlLoadErrorCode } from './yaml'

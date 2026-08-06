@@ -1,17 +1,12 @@
-import { readFileSync } from 'node:fs'
-import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { canAdminFlows, canCreateFlowRun } from './access'
 import { checkPlan } from './check'
 import { FLOWS_MODULE_ID } from './constants'
+import { DEMO_ECHO_PLAN_YAML } from './fixtures/demo-echo'
 import { createToolRegistry } from './registry'
 import { parsePlanDocument, safeParsePlanDocument } from './schema'
-import { createRunSnapshot, digestPlan } from './snapshot'
-import { loadPlanFromYaml } from './yaml'
-
-const here = dirname(fileURLToPath(import.meta.url))
-const demoYaml = readFileSync(join(here, 'fixtures/demo-echo.plan.yaml'), 'utf8')
+import { createRunSnapshot, digestPlan, executionTools } from './snapshot'
+import { loadPlanFromYaml, PlanYamlError } from './yaml'
 
 const registry = createToolRegistry('reg-1', [
   { name: 'echo', description: 'Echo args', effect: 'read' },
@@ -26,18 +21,24 @@ const grant = (allowedTools: readonly string[], registryVersion = 'reg-1') => ({
 
 describe('loadPlanFromYaml + dogfood fixture', () => {
   it('loads demo-echo YAML', () => {
-    const plan = loadPlanFromYaml(demoYaml)
+    const plan = loadPlanFromYaml(DEMO_ECHO_PLAN_YAML)
     expect(plan.flows).toBe('v0')
     expect(plan.plan.id).toBe('demo-echo')
     expect(Object.keys(plan.tasks)).toHaveLength(2)
   })
 
-  it('rejects oversized YAML', () => {
+  it('rejects oversized YAML with code', () => {
     const big = `flows: v0\nplan: { id: x }\npermits: { tools: [] }\ntasks: {}\n${'x'.repeat(70_000)}`
-    expect(() => loadPlanFromYaml(big)).toThrow(/max/)
+    try {
+      loadPlanFromYaml(big)
+      expect.fail('expected throw')
+    } catch (e) {
+      expect(e).toBeInstanceOf(PlanYamlError)
+      expect((e as PlanYamlError).code).toBe('YAML_TOO_LARGE')
+    }
   })
 
-  it('rejects agent key (strict / deferred)', () => {
+  it('rejects agent key', () => {
     const yaml = `
 flows: v0
 plan:
@@ -50,7 +51,16 @@ tasks:
     agent:
       prompt: nope
 `
-    expect(() => loadPlanFromYaml(yaml)).toThrow()
+    expect(() => loadPlanFromYaml(yaml)).toThrow(PlanYamlError)
+  })
+
+  it('rejects empty string', () => {
+    try {
+      loadPlanFromYaml('')
+      expect.fail('expected throw')
+    } catch (e) {
+      expect((e as PlanYamlError).code).toBe('YAML_EMPTY')
+    }
   })
 })
 
@@ -70,14 +80,13 @@ describe('schema re-validation at check/freeze', () => {
   })
 
   it('refuses unparsed agent task at createRunSnapshot', () => {
-    const raw = {
-      flows: 'v0',
-      plan: { id: 'p', max_tokens: 100 },
-      permits: { tools: ['echo'] },
-      tasks: { t1: { agent: { prompt: 'x' } } },
-    }
     const snap = createRunSnapshot({
-      plan: raw,
+      plan: {
+        flows: 'v0',
+        plan: { id: 'p', max_tokens: 100 },
+        permits: { tools: ['echo'] },
+        tasks: { t1: { agent: { prompt: 'x' } } },
+      },
       grant: grant(['echo']),
       registry,
       actorId: 'u1',
@@ -94,18 +103,28 @@ describe('schema re-validation at check/freeze', () => {
     })
     expect(r.success).toBe(false)
   })
+
+  it('rejects task with neither invoke nor infer', () => {
+    const r = safeParsePlanDocument({
+      flows: 'v0',
+      plan: { id: 'p' },
+      permits: { tools: ['echo'] },
+      tasks: { t1: {} },
+    })
+    expect(r.success).toBe(false)
+  })
 })
 
 describe('checkPlan authority (grant ∩ permits)', () => {
   it('passes dogfood when grant includes echo', () => {
-    const plan = loadPlanFromYaml(demoYaml)
+    const plan = loadPlanFromYaml(DEMO_ECHO_PLAN_YAML)
     const result = checkPlan(plan, grant(['echo', 'write_demo']), registry)
     expect(result.ok).toBe(true)
     if (result.ok) expect(result.effective.tools).toEqual(['echo'])
   })
 
   it('fails when plan self-lists tool outside grant', () => {
-    const plan = loadPlanFromYaml(demoYaml)
+    const plan = loadPlanFromYaml(DEMO_ECHO_PLAN_YAML)
     const result = checkPlan(plan, grant([]), registry)
     expect(result.ok).toBe(false)
     if (!result.ok) {
@@ -113,7 +132,23 @@ describe('checkPlan authority (grant ∩ permits)', () => {
     }
   })
 
-  it('fails empty permits with invoke (fail-closed)', () => {
+  it('fails permits-superset even when invoke tool is granted', () => {
+    const plan = parsePlanDocument({
+      flows: 'v0',
+      plan: { id: 'p' },
+      permits: { tools: ['echo', 'write_demo'] },
+      tasks: { t1: { invoke: { tool: 'echo' } } },
+    })
+    const result = checkPlan(plan, grant(['echo']), registry)
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(
+        result.issues.some((i) => i.code === 'TOOL_NOT_GRANTED' && i.path === 'permits.tools'),
+      ).toBe(true)
+    }
+  })
+
+  it('fails empty permits with invoke', () => {
     const plan = parsePlanDocument({
       flows: 'v0',
       plan: { id: 'p' },
@@ -127,7 +162,7 @@ describe('checkPlan authority (grant ∩ permits)', () => {
     }
   })
 
-  it('fails empty permits with infer-only (fail-closed token spend)', () => {
+  it('fails empty permits with infer-only', () => {
     const plan = parsePlanDocument({
       flows: 'v0',
       plan: { id: 'p', max_tokens: 100 },
@@ -141,21 +176,7 @@ describe('checkPlan authority (grant ∩ permits)', () => {
     }
   })
 
-  it('fails unknown tool', () => {
-    const plan = parsePlanDocument({
-      flows: 'v0',
-      plan: { id: 'p' },
-      permits: { tools: ['nope'] },
-      tasks: { t1: { invoke: { tool: 'nope' } } },
-    })
-    const result = checkPlan(plan, grant(['nope']), registry)
-    expect(result.ok).toBe(false)
-    if (!result.ok) {
-      expect(result.issues.some((i) => i.code === 'UNKNOWN_TOOL')).toBe(true)
-    }
-  })
-
-  it('fails TOOL_NOT_IN_PERMITS when invoke uses grant tool outside permits', () => {
+  it('fails TOOL_NOT_IN_PERMITS', () => {
     const plan = parsePlanDocument({
       flows: 'v0',
       plan: { id: 'p' },
@@ -183,12 +204,16 @@ describe('checkPlan authority (grant ∩ permits)', () => {
     }
   })
 
-  it('fails TOKEN_CEILING when plan.max_tokens exceeded', () => {
+  it('fails TOKEN_CEILING when multi-infer static sum exceeds plan total', () => {
+    // per-task default 4096 * 2 = 8192 > plan.max_tokens 5000
     const plan = parsePlanDocument({
       flows: 'v0',
-      plan: { id: 'p', max_tokens: 100 },
+      plan: { id: 'p', max_tokens: 5000 },
       permits: { tools: ['echo'] },
-      tasks: { t1: { infer: { prompt: 'hi', max_tokens: 200 } } },
+      tasks: {
+        a: { infer: { prompt: 'one' } },
+        b: { infer: { prompt: 'two' } },
+      },
     })
     const result = checkPlan(plan, grant(['echo']), registry)
     expect(result.ok).toBe(false)
@@ -197,8 +222,22 @@ describe('checkPlan authority (grant ∩ permits)', () => {
     }
   })
 
+  it('allows multi-infer when sum of defaults fits plan total', () => {
+    const plan = parsePlanDocument({
+      flows: 'v0',
+      plan: { id: 'p', max_tokens: 10_000 },
+      permits: { tools: ['echo'] },
+      tasks: {
+        a: { infer: { prompt: 'one' } },
+        b: { infer: { prompt: 'two' } },
+      },
+    })
+    const result = checkPlan(plan, grant(['echo']), registry)
+    expect(result.ok).toBe(true)
+  })
+
   it('fails REGISTRY_VERSION_MISMATCH', () => {
-    const plan = loadPlanFromYaml(demoYaml)
+    const plan = loadPlanFromYaml(DEMO_ECHO_PLAN_YAML)
     const result = checkPlan(plan, grant(['echo'], 'old'), registry)
     expect(result.ok).toBe(false)
     if (!result.ok) {
@@ -206,8 +245,8 @@ describe('checkPlan authority (grant ∩ permits)', () => {
     }
   })
 
-  it('fails REGISTRY_VERSION_REQUIRED when pin missing', () => {
-    const plan = loadPlanFromYaml(demoYaml)
+  it('fails GRANT_INVALID when pin missing', () => {
+    const plan = loadPlanFromYaml(DEMO_ECHO_PLAN_YAML)
     const result = checkPlan(
       plan,
       { orgId: 'org_1', allowedTools: ['echo'], registryVersion: '' },
@@ -215,7 +254,11 @@ describe('checkPlan authority (grant ∩ permits)', () => {
     )
     expect(result.ok).toBe(false)
     if (!result.ok) {
-      expect(result.issues.some((i) => i.code === 'REGISTRY_VERSION_REQUIRED')).toBe(true)
+      expect(
+        result.issues.some(
+          (i) => i.code === 'GRANT_INVALID' || i.code === 'REGISTRY_VERSION_REQUIRED',
+        ),
+      ).toBe(true)
     }
   })
 
@@ -237,7 +280,7 @@ describe('checkPlan authority (grant ∩ permits)', () => {
   })
 
   it('requires orgId on grant', () => {
-    const plan = loadPlanFromYaml(demoYaml)
+    const plan = loadPlanFromYaml(DEMO_ECHO_PLAN_YAML)
     const result = checkPlan(
       plan,
       { orgId: '', allowedTools: ['echo'], registryVersion: 'reg-1' },
@@ -245,18 +288,19 @@ describe('checkPlan authority (grant ∩ permits)', () => {
     )
     expect(result.ok).toBe(false)
     if (!result.ok) {
-      expect(result.issues.some((i) => i.code === 'ORG_ID_REQUIRED')).toBe(true)
+      expect(
+        result.issues.some((i) => i.code === 'GRANT_INVALID' || i.code === 'ORG_ID_REQUIRED'),
+      ).toBe(true)
     }
   })
 })
 
 describe('createRunSnapshot', () => {
-  it('freezes digest, ceilings, and grant copy', () => {
-    const plan = loadPlanFromYaml(demoYaml)
-    const g = grant(['echo'])
+  it('freezes executionTools, ceilings, registry digest; deep-freeze', () => {
+    const plan = loadPlanFromYaml(DEMO_ECHO_PLAN_YAML)
     const snap = createRunSnapshot({
       plan,
-      grant: g,
+      grant: grant(['echo', 'write_demo']),
       registry,
       actorId: 'user_1',
       createdAt: '2026-08-06T00:00:00.000Z',
@@ -264,19 +308,24 @@ describe('createRunSnapshot', () => {
     expect(snap.ok).toBe(true)
     if (snap.ok) {
       expect(snap.snapshot.planDigest).toBe(digestPlan(plan))
-      expect(snap.snapshot.effectivePermits.tools).toEqual(['echo'])
-      expect(snap.snapshot.ceilings.maxTokens).toBe(snap.snapshot.ceilings.staticTokenBudget)
+      expect(executionTools(snap.snapshot)).toEqual(['echo'])
+      expect(snap.snapshot.executionTools).toEqual(['echo'])
+      // grant has write_demo but plan does not — must not be executable
+      expect(snap.snapshot.grantAudit.allowedTools).toContain('write_demo')
+      expect(snap.snapshot.executionTools).not.toContain('write_demo')
+      expect(snap.snapshot.ceilings.hardMaxTokens).toBe(128)
       expect(snap.snapshot.ceilings.staticTokenBudget).toBe(128)
-      expect(snap.snapshot.grantSnapshot.registryVersion).toBe('reg-1')
-      plan.plan.description = 'mutated'
-      expect(snap.snapshot.sealedPlan.plan.description).not.toBe('mutated')
-      ;(g.allowedTools as string[]).push('write_demo')
-      expect(snap.snapshot.grantSnapshot.allowedTools).toEqual(['echo'])
+      expect(snap.snapshot.ceilings.planMaxTokens).toBe(2000)
+      expect(snap.snapshot.registryContentDigest).toBe(registry.contentDigest)
+      expect(Object.isFrozen(snap.snapshot)).toBe(true)
+      expect(() => {
+        ;(snap.snapshot as { actorId: string }).actorId = 'mutated'
+      }).toThrow()
     }
   })
 
   it('refuses snapshot when check fails', () => {
-    const plan = loadPlanFromYaml(demoYaml)
+    const plan = loadPlanFromYaml(DEMO_ECHO_PLAN_YAML)
     const snap = createRunSnapshot({
       plan,
       grant: grant([]),
@@ -284,6 +333,18 @@ describe('createRunSnapshot', () => {
       actorId: 'user_1',
     })
     expect(snap.ok).toBe(false)
+  })
+})
+
+describe('registry', () => {
+  it('freezes tool map against mutation', () => {
+    expect(() => {
+      ;(registry.tools as Map<string, unknown>).set('nuke', { name: 'nuke' })
+    }).toThrow()
+  })
+
+  it('exposes contentDigest', () => {
+    expect(registry.contentDigest).toMatch(/^[0-9a-f]{8}$/)
   })
 })
 

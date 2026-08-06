@@ -5,12 +5,12 @@ import type { PlanDocument } from './schema'
  * Org/admin capability grant — sole source of power (ADR-0005 D4).
  * Plan permits may only narrow this set.
  *
- * **Caller trust:** pure `checkPlan` does not prove grant provenance.
- * Apps (#31) MUST build grants from server session / org module grants —
+ * **Caller trust:** pure `checkPlan` validates grant shape but not provenance.
+ * Apps (#31) MUST mint grants from server session / org module grants —
  * never from plan body or untrusted client JSON.
  *
- * **registryVersion** is required and must match the tool registry at check/seal
- * (no silent default-fill on snapshots).
+ * **registryVersion** is required and must match the tool registry.version label.
+ * Snapshot also seals registry.contentDigest for tool-set fingerprinting.
  */
 export type CapabilityGrant = {
   orgId: string
@@ -30,6 +30,10 @@ function uniqueSorted(names: readonly string[]): string[] {
   return [...new Set(names)].sort()
 }
 
+/**
+ * Set intersection only — **not** an authz gate (no registry pin / schema).
+ * Prefer `checkPlan` / `createRunSnapshot`. Kept package-internal.
+ */
 export function resolveEffectiveAuthority(
   plan: PlanDocument,
   grant: CapabilityGrant,

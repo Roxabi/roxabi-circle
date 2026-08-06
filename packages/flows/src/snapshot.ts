@@ -1,6 +1,7 @@
 import type { CapabilityGrant, EffectiveAuthority } from './authority'
-import { staticTokenBudget } from './budget'
+import { hardMaxTokens, staticTokenBudget } from './budget'
 import { type CheckIssue, checkPlan } from './check'
+import { deepFreeze } from './freeze'
 import type { ToolRegistry } from './registry'
 import type { PlanDocument } from './schema'
 
@@ -10,22 +11,38 @@ export type RunSnapshot = {
   planId: string
   planDigest: string
   sealedPlan: PlanDocument
+  /**
+   * **Only** tool names a runner may invoke (grant ∩ permits ∩ registry).
+   * Do not authorize from grantAudit.allowedTools.
+   */
+  executionTools: readonly string[]
+  /** @deprecated alias of executionTools — prefer executionTools */
   effectivePermits: { tools: readonly string[] }
+  /**
+   * Audit copy of the grant (full allowlist). **Not** the execution allowlist.
+   * Runners MUST NOT use this for tool dispatch.
+   */
+  grantAudit: CapabilityGrant
+  /** @deprecated use grantAudit */
   grantSnapshot: CapabilityGrant
-  /** Runtime registry.version at seal (not a forged grant pin). */
+  /** Runtime registry.version at seal. */
   registryVersion: string
+  /** Content digest of registry tool names at seal. */
+  registryContentDigest: string
   ceilings: {
-    /** Hard static ceiling (= staticTokenBudget). */
+    /** Hard abort ceiling for runtime meter. */
+    hardMaxTokens: number
+    /** Alias of hardMaxTokens for older callers. */
     maxTokens: number
     staticTokenBudget: number
+    planMaxTokens?: number
   }
   createdAt: string
 }
 
 export type CreateSnapshotInput = {
-  /** Raw plan — re-validated via Zod inside checkPlan. */
   plan: unknown
-  grant: CapabilityGrant
+  grant: unknown
   registry: ToolRegistry
   actorId: string
   createdAt?: string
@@ -61,35 +78,46 @@ export function digestPlan(plan: PlanDocument): string {
   return (h >>> 0).toString(16).padStart(8, '0')
 }
 
+/** Tools a runner may invoke from a sealed snapshot. */
+export function executionTools(snapshot: RunSnapshot): readonly string[] {
+  return snapshot.executionTools
+}
+
 export function createRunSnapshot(input: CreateSnapshotInput): CreateSnapshotResult {
   const checked = checkPlan(input.plan, input.grant, input.registry)
   if (!checked.ok) return { ok: false, issues: checked.issues }
 
   const effective: EffectiveAuthority = checked.effective
   const sealedPlan = structuredClone(checked.plan) as PlanDocument
-  const budget = staticTokenBudget(sealedPlan)
-  const grantSnapshot: CapabilityGrant = {
-    orgId: input.grant.orgId,
-    allowedTools: [...input.grant.allowedTools],
-    registryVersion: input.grant.registryVersion,
+  const staticBudget = staticTokenBudget(sealedPlan)
+  const hard = hardMaxTokens(sealedPlan)
+  const grantAudit: CapabilityGrant = {
+    orgId: checked.grant.orgId,
+    allowedTools: [...checked.grant.allowedTools],
+    registryVersion: checked.grant.registryVersion,
+  }
+  const tools = Object.freeze([...effective.tools]) as readonly string[]
+
+  const snapshot: RunSnapshot = {
+    orgId: checked.grant.orgId,
+    actorId: input.actorId,
+    planId: sealedPlan.plan.id,
+    planDigest: digestPlan(sealedPlan),
+    sealedPlan,
+    executionTools: tools,
+    effectivePermits: { tools },
+    grantAudit,
+    grantSnapshot: grantAudit,
+    registryVersion: input.registry.version,
+    registryContentDigest: input.registry.contentDigest,
+    ceilings: {
+      hardMaxTokens: hard,
+      maxTokens: hard,
+      staticTokenBudget: staticBudget,
+      planMaxTokens: sealedPlan.plan.max_tokens,
+    },
+    createdAt: input.createdAt ?? new Date().toISOString(),
   }
 
-  return {
-    ok: true,
-    snapshot: {
-      orgId: input.grant.orgId,
-      actorId: input.actorId,
-      planId: sealedPlan.plan.id,
-      planDigest: digestPlan(sealedPlan),
-      sealedPlan,
-      effectivePermits: { tools: [...effective.tools] },
-      grantSnapshot,
-      registryVersion: input.registry.version,
-      ceilings: {
-        maxTokens: budget,
-        staticTokenBudget: budget,
-      },
-      createdAt: input.createdAt ?? new Date().toISOString(),
-    },
-  }
+  return { ok: true, snapshot: deepFreeze(snapshot) }
 }
