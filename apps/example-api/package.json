@@ -19,6 +19,7 @@
     "@kit/core": "workspace:*",
     "@kit/db": "workspace:*",
     "@kit/email": "workspace:*",
+    "@kit/flows": "workspace:*",
     "@kit/storage": "workspace:*",
     "@kit/types": "workspace:*",
     "better-auth": "^1.6.23",

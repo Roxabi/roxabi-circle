@@ -22,6 +22,7 @@
         "@kit/core": "workspace:*",
         "@kit/db": "workspace:*",
         "@kit/email": "workspace:*",
+        "@kit/flows": "workspace:*",
         "@kit/storage": "workspace:*",
         "@kit/types": "workspace:*",
         "better-auth": "^1.6.23",
@@ -154,6 +155,18 @@
       "devDependencies": {
         "typescript": "^5.9.0",
         "vitest": "^4.1.10",
+      },
+    },
+    "packages/flows": {
+      "name": "@kit/flows",
+      "version": "0.0.1",
+      "dependencies": {
+        "yaml": "^2.8.0",
+        "zod": "^3.25.0",
+      },
+      "devDependencies": {
+        "typescript": "^5.9.0",
+        "vitest": "^3.2.0",
       },
     },
     "packages/i18n": {
@@ -538,6 +551,8 @@
     "@kit/example-api": ["@kit/example-api@workspace:apps/example-api"],
 
     "@kit/example-web": ["@kit/example-web@workspace:apps/example-web"],
+
+    "@kit/flows": ["@kit/flows@workspace:packages/flows"],
 
     "@kit/i18n": ["@kit/i18n@workspace:packages/i18n"],
 
@@ -1654,6 +1669,8 @@
     "y18n": ["y18n@5.0.8", "", {}, "sha512-0pfFzegeDWJHJIAmTLRP2DwHjdF5s7jo9tuztdQxAhINCdvS+3nGINqPd00AphqJR/0LhANUS6/+7SCb98YOfA=="],
 
     "yallist": ["yallist@3.1.1", "", {}, "sha512-a4UGQaWPH59mOXUYnAG2ewncQS4i4F43Tv3JoAM+s2VDAmS9NsK8GpDMLrCHPksFT7h3K6TOoUNn2pb7RoXx4g=="],
+
+    "yaml": ["yaml@2.9.0", "", { "bin": { "yaml": "bin.mjs" } }, "sha512-2AvhNX3mb8zd6Zy7INTtSpl1F15HW6Wnqj0srWlkKLcpYl/gMIMJiyuGq2KeI2YFxUPjdlB+3Lc10seMLtL4cA=="],
 
     "yargs": ["yargs@18.0.0", "", { "dependencies": { "cliui": "^9.0.1", "escalade": "^3.1.1", "get-caller-file": "^2.0.5", "string-width": "^7.2.0", "y18n": "^5.0.5", "yargs-parser": "^22.0.0" } }, "sha512-4UEqdc2RYGHZc7Doyqkrqiln3p9X2DZVxaGbwhn2pi7MrRagKaOcIKe8L3OxYcbhXLgLFUS3zAYuQjKBQgmuNg=="],
 

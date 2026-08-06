@@ -304,6 +304,7 @@ Ref pattern : `kit-boilerplate` (`errorCodes`, `errorUtils`, `ApiError`).
 | `@kit/email` | Templates + transports `log` \| `smtp` \| **`cf`** (prod default) \| `resend` (escape) — [ADR-0004](docs/architecture/adr/0004-email-transport-cf-default.md) | **P0** |
 | `@kit/i18n` | Locale engine only; catalogs app-owned (FR/EN live) | **P0** |
 | `@kit/mcp` | FastMCP/SDK conventions (ping/whoami) | **P0** example |
+| `@kit/flows` | Pure plan engine: YAML MVP · `check` · grant∩permits · snapshot helpers ([ADR-0005](docs/architecture/adr/0005-flows-platform-agentic-workflows.md) · #16 · #27–#28); Workflows/D1/API = children #29–#31 | **P0** incubating |
 | `@kit/rate-limit` | D1/KV / CF binding | P1 |
 | `@kit/audit` | append-only events | P1 |
 | `@kit/jobs` | Queues/cron helpers | P1 |
@@ -550,6 +551,7 @@ Quand la CI app existera : l’ajouter dans `workflow_run.workflows` de `merge-o
 - [x] **Email CF prod transport** — `@kit/email` `log`\|`smtp`\|`cf`\|`resend` + staging allowlist ([ADR-0004](docs/architecture/adr/0004-email-transport-cf-default.md) · GH #21)  
 - [x] **RBAC Phase B (API + tests + minimal UI)** — custom org roles + module grants (GH #22 · )  
 - [ ] FastMCP product tools + skill (hors kit strings)  
+- [ ] **Flows platform** — epic [#16](https://github.com/Roxabi/roxabi-boilerplate-cf/issues/16) · ADR-0005 · children #27–#36  
 - [x] **B8 park decisions** — Paraglide / Plausible / TanStack Start-as-default park · **patchlog L1 shipping** (GH #107 · [`docs/recipes/changelog-l1.md`](docs/recipes/changelog-l1.md)) · L2 package still park ([`docs/park-decisions-b8.md`](docs/park-decisions-b8.md) · GH #20)  
 - [ ] **Plausible** SPA recipe — hub `analytics.example.com` multi-sites (**park** DR-B8-05 — unpark when public SPA needs it)  
 - [ ] Sentry + Better Stack (prod) — B7 A3 **parked** (revisit later)  
