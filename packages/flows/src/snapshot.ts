@@ -43,7 +43,11 @@ function stableStringify(value: unknown): string {
   return `{${keys.map((k) => `${JSON.stringify(k)}:${stableStringify(obj[k])}`).join(',')}}`
 }
 
-/** FNV-1a 32-bit hex digest. */
+/**
+ * Content-address index of a plan (FNV-1a 32-bit hex).
+ * **Not** a cryptographic integrity control — sealedPlan body is authoritative;
+ * digests are for cache/index. Prefer SHA-256 before trusting digest-only compare in D1 (#29).
+ */
 export function digestPlan(plan: PlanDocument): string {
   const s = stableStringify(plan)
   let h = 0x811c9dc5

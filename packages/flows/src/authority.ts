@@ -4,6 +4,10 @@ import type { PlanDocument } from './schema'
 /**
  * Org/admin capability grant — sole source of power (ADR-0005 D4).
  * Plan permits may only narrow this set.
+ *
+ * **Caller trust:** pure `checkPlan` does not prove grant provenance.
+ * Apps (#31) MUST build grants from server session / org module grants —
+ * never from plan body or untrusted client JSON.
  */
 export type CapabilityGrant = {
   orgId: string

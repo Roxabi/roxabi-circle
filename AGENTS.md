@@ -304,7 +304,7 @@ Ref pattern : `kit-boilerplate` (`errorCodes`, `errorUtils`, `ApiError`).
 | `@kit/email` | Templates + transports `log` \| `smtp` \| **`cf`** (prod default) \| `resend` (escape) — [ADR-0004](docs/architecture/adr/0004-email-transport-cf-default.md) | **P0** |
 | `@kit/i18n` | Locale engine only; catalogs app-owned (FR/EN live) | **P0** |
 | `@kit/mcp` | FastMCP/SDK conventions (ping/whoami) | **P0** example |
-| `@kit/flows` | Governed plans (YAML MVP) · `check` · grant∩permits · run snapshot · CF Workflows ([ADR-0005](docs/architecture/adr/0005-flows-platform-agentic-workflows.md) · GH #16 · children #27–#36) | **P0** incubating |
+| `@kit/flows` | Pure plan engine: YAML MVP · `check` · grant∩permits · snapshot helpers ([ADR-0005](docs/architecture/adr/0005-flows-platform-agentic-workflows.md) · #16 · #27–#28); Workflows/D1/API = children #29–#31 | **P0** incubating |
 | `@kit/rate-limit` | D1/KV / CF binding | P1 |
 | `@kit/audit` | append-only events | P1 |
 | `@kit/jobs` | Queues/cron helpers | P1 |

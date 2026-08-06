@@ -82,6 +82,20 @@ describe('checkPlan authority (grant ∩ permits)', () => {
     }
   })
 
+  it('fails empty permits with infer-only (fail-closed token spend)', () => {
+    const plan = parsePlanDocument({
+      flows: 'v0',
+      plan: { id: 'p', max_tokens: 100 },
+      permits: { tools: [] },
+      tasks: { t1: { infer: { prompt: 'hi', max_tokens: 50 } } },
+    })
+    const result = checkPlan(plan, { orgId: 'org_1', allowedTools: [] }, registry)
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(result.issues.some((i) => i.code === 'EMPTY_PERMITS')).toBe(true)
+    }
+  })
+
   it('fails unknown tool', () => {
     const plan = parsePlanDocument({
       flows: 'v0',
@@ -163,8 +177,11 @@ describe('V0 admin access', () => {
     expect(canAdminFlows({ orgRole: 'member', platformRole: 'super_admin' })).toBe(true)
   })
 
-  it('api_key cannot create run in V0', () => {
+  it('create run: only explicit session + admin; omit/api_key deny', () => {
     expect(canCreateFlowRun({ orgRole: 'admin', authMethod: 'api_key' })).toBe(false)
+    expect(canCreateFlowRun({ orgRole: 'admin', authMethod: undefined })).toBe(false)
+    expect(canCreateFlowRun({ orgRole: 'admin', authMethod: null })).toBe(false)
+    expect(canCreateFlowRun({ orgRole: 'member', authMethod: 'session' })).toBe(false)
     expect(canCreateFlowRun({ orgRole: 'admin', authMethod: 'session' })).toBe(true)
   })
 })

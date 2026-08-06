@@ -66,7 +66,7 @@ Without a kit axis, products invent Cron + Queue + ad-hoc agent loops → N×M d
 
 | Package (target) | Role |
 |---|---|
-| **`@kit/flows`** | Plan schema (Zod), YAML load (MVP), `check()`, **grant∩permits**, tool registry interface, **run snapshot**, run lifecycle helpers, CF Workflows adapter, D1 models for `plans` / `runs` / receipts |
+| **`@kit/flows`** | **Shipped (pure):** plan schema (Zod), YAML load (MVP), `check()`, **grant∩permits**, tool registry interface, **run snapshot** types/helpers, access helpers. **Later (same package or app wire):** CF Workflows adapter (#30), D1 apply + models (#29), run lifecycle at API (#31) |
 | **`@kit/flows-ui`** | Console shell (P2+): list plans/runs, detail + step timeline, enable/disable, HITL approve (no product copy) |
 
 Apps compose packages:
@@ -149,10 +149,12 @@ plan.permits.tools           →  may only NARROW grants
 effective = grants ∩ plan.permits ∩ registry
 ```
 
-- **Absent or empty plan permits** with any effectful task → **fail-closed** at check (NEP-0003 spirit: no ambient authority)  
+- **Absent or empty plan permits** with any effectful task (`invoke` **or** `infer`) → **fail-closed** at check (NEP-0003 spirit: no ambient authority)  
 - Plan **cannot expand** beyond grants  
+- **Grant provenance (app):** `CapabilityGrant` is pure arithmetic — apps MUST mint grants from server session / org module policy, never from plan or client body  
 - Credentials never in plan body; tools use Worker bindings / secrets  
 - **V0 permits fields:** `tools` only. Do not advertise `net`/`r2` until kit wrappers enforce them  
+- **plan_digest:** content-address index only (not crypto integrity); sealed plan body is authoritative  
 
 #### Authn / authz
 

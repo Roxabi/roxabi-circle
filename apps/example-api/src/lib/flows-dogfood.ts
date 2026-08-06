@@ -1,10 +1,16 @@
 /**
- * Minimal dogfood call site for @kit/flows (extract-dry-run + ADR-0005).
- * Full API/Workflows wire = #30–#31. Zero product domain strings.
+ * Dogfood call site for @kit/flows (extract-dry-run + ADR-0005).
+ * Exercises check + createRunSnapshot (no HTTP route / Workflows yet — #30–#31).
+ * Zero product domain strings.
+ *
+ * **Grant provenance:** callers must pass server-derived grants only
+ * (org module tools / admin policy) — never plan body or client JSON.
  */
 import {
+  type CapabilityGrant,
+  type CreateSnapshotResult,
   canAdminFlows,
-  checkPlan,
+  createRunSnapshot,
   createToolRegistry,
   FLOWS_MODULE_ID,
   loadPlanFromYaml,
@@ -20,17 +26,27 @@ export const dogfoodToolRegistry = createToolRegistry('example-api-dogfood-v0', 
 ])
 
 /**
- * Validate a YAML plan against dogfood registry + org grant.
- * Used by future admin routes; pure helper for now.
+ * Load YAML → check → freeze run snapshot (pure composition path).
+ * `grant` must be server-built (see CapabilityGrant docs).
  */
-export function checkDogfoodPlanYaml(
+export function dogfoodPlanToSnapshot(
   yaml: string,
-  grant: { orgId: string; allowedTools: readonly string[] },
-): ReturnType<typeof checkPlan> {
+  grant: CapabilityGrant,
+  actorId: string,
+): CreateSnapshotResult {
   const plan: PlanDocument = loadPlanFromYaml(yaml)
-  return checkPlan(plan, grant, dogfoodToolRegistry)
+  return createRunSnapshot({
+    plan,
+    grant,
+    registry: dogfoodToolRegistry,
+    actorId,
+  })
 }
 
-export function assertFlowsAdmin(orgRole: string | null | undefined): boolean {
-  return canAdminFlows({ orgRole })
+/** V0 admin gate — pass through full access input (incl. platformRole). */
+export function isFlowsAdmin(input: {
+  orgRole: string | null | undefined
+  platformRole?: string | null
+}): boolean {
+  return canAdminFlows(input)
 }

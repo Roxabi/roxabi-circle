@@ -1,4 +1,5 @@
--- @kit/flows D1 sketch (ADR-0005) — product/example-api applies its own migration copy (#29).
+-- SKETCH ONLY (ADR-0005) — NOT applied by wrangler / not kit runtime migration.
+-- Apply from apps/example-api/migrations when shipping #29 (copy + adapt).
 -- org_id NOT NULL on every row.
 
 CREATE TABLE IF NOT EXISTS "flow_plans" (

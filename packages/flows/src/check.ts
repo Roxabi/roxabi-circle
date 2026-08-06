@@ -109,10 +109,13 @@ export function checkPlan(
   }
 
   const invokes = invokedTools(plan)
-  if (invokes.length > 0 && plan.permits.tools.length === 0) {
+  const hasInfer = Object.values(plan.tasks).some((t) => t.infer !== undefined)
+  // Fail-closed: empty permits + any effectful task (invoke or infer = token spend).
+  if (plan.permits.tools.length === 0 && (invokes.length > 0 || hasInfer)) {
     issues.push({
       code: 'EMPTY_PERMITS',
-      message: 'permits.tools is empty but plan invokes tools (fail-closed)',
+      message:
+        'permits.tools is empty but plan has effectful tasks (invoke and/or infer) — fail-closed',
       path: 'permits.tools',
     })
   }

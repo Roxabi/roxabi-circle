@@ -13,12 +13,17 @@ export function canAdminFlows(input: {
   return isFlowsAdminRole(input.orgRole)
 }
 
-/** V0: session + admin only; sk_ cannot create runs. */
+/**
+ * V0: only explicit session + admin (or super_admin) may create runs.
+ * Missing authMethod → deny (fail-closed; never treat omit as session).
+ * api_key → deny until scoped keys land.
+ */
 export function canCreateFlowRun(input: {
   orgRole: string | null | undefined
   platformRole?: string | null
-  authMethod?: 'session' | 'api_key'
+  /** Required. Omitted/unknown → deny. */
+  authMethod: 'session' | 'api_key' | null | undefined
 }): boolean {
-  if (input.authMethod === 'api_key') return false
+  if (input.authMethod !== 'session') return false
   return canAdminFlows(input)
 }
