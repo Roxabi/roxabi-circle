@@ -658,7 +658,7 @@ deploy CD             → pull après CI verte
 | Branch protection / merge-on-green | merge sans checks (Free = process + workflow) |
 | CODEOWNERS (option) | paths `auth/`, `mcp/`, `migrations/` → review requise |
 
-**Lefthook :** `bun install` suffit — `prepare` appelle `lefthook install` **seulement** si `core.hooksPath` est absent (clone frais). Si `hooksPath` est déjà posé (hooks partagés org/perso), ne **jamais** forcer `lefthook install` (écraserait un câblage existant). Lefthook reste en devDependency vendored. **Interdit** `git push --no-verify` / `LEFTHOOK=0` sans raison documentée. Ne pas « laisser la CI rattraper ».
+**Lefthook :** `bun install` → (1) `prepare` appelle `lefthook install` **seulement** si `core.hooksPath` est absent (clone frais) ; (2) le **postinstall** npm de lefthook exécute encore `lefthook install -f` hors CI (upstream [evilmartians/lefthook#1475](https://github.com/evilmartians/lefthook/issues/1475)) — la garde v2 hooksPath ne s’applique pas sous `-f`. Résiduel : un `hooksPath` partagé peut être écrasé au install local ; en CI (`CI=true`) le postinstall skip. Ne **pas** prétendre que prepare seul protège. Lefthook reste en devDependency vendored. **Interdit** `git push --no-verify` / `LEFTHOOK=0` sans raison documentée. Ne pas « laisser la CI rattraper ».
 
 ### 5. Review du code généré par IA
 
