@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>#21 vitest 4 + vite 8 — data flow</title>
+  <style>
+    :root { color-scheme: dark; --bg:#0b0f14; --card:#141a22; --line:#3d8bfd; --text:#e7ecf3; --muted:#8b98a8; --ok:#3ecf8e; }
+    * { box-sizing: border-box; }
+    body { margin:0; font:14px/1.45 system-ui,sans-serif; background:var(--bg); color:var(--text); padding:2rem; }
+    h1 { font-size:1.15rem; margin:0 0 1.5rem; }
+    .row { display:flex; flex-wrap:wrap; gap:1rem; align-items:stretch; justify-content:center; }
+    .node { background:var(--card); border:1px solid #243041; border-radius:12px; padding:1rem 1.25rem; min-width:140px; max-width:200px; box-shadow:0 0 24px rgba(61,139,253,.12); }
+    .node.hub { border-color:var(--line); box-shadow:0 0 28px rgba(61,139,253,.35); }
+    .node h2 { margin:0 0 .35rem; font-size:.85rem; color:var(--line); }
+    .node p { margin:0; font-size:.78rem; color:var(--muted); }
+    .arrow { display:flex; align-items:center; color:var(--line); font-size:1.4rem; opacity:.85; }
+    .legend { margin-top:2rem; color:var(--muted); font-size:.8rem; }
+    code { color:var(--ok); }
+  </style>
+</head>
+<body>
+  <h1>#21 — wave 3 dep bump data flow</h1>
+  <div class="row">
+    <div class="node"><h2>T1 · Inventory</h2><p>13 vitest + root coverage<br/>2 vite + plugin-react</p></div>
+    <div class="arrow">→</div>
+    <div class="node hub"><h2>Atomic lock</h2><p>all package.json edits<br/><code>one bun install</code></p></div>
+    <div class="arrow">→</div>
+    <div class="node"><h2>S0 · Dual-major</h2><p>no vitest@3<br/>no vite@6 for kit</p></div>
+  </div>
+  <div class="row" style="margin-top:1.5rem">
+    <div class="node"><h2>Vitest 4</h2><p>all workspaces<br/>coverage-v8 4.x</p></div>
+    <div class="arrow">→</div>
+    <div class="node hub"><h2>Vite 8</h2><p>example-web + ui<br/>plugin-react 6.x</p></div>
+    <div class="arrow">→</div>
+    <div class="node"><h2>Config?</h2><p>only if green fails<br/>13 vitest + 2 vite</p></div>
+  </div>
+  <div class="row" style="margin-top:1.5rem">
+    <div class="node"><h2>typecheck</h2><p>bun run typecheck</p></div>
+    <div class="arrow">→</div>
+    <div class="node"><h2>test:coverage</h2><p>floors frozen</p></div>
+    <div class="arrow">→</div>
+    <div class="node"><h2>build:kit</h2><p>api + web</p></div>
+    <div class="arrow">→</div>
+    <div class="node"><h2>Ship PR</h2><p>one unit · close #4</p></div>
+  </div>
+  <p class="legend">Pipeline: inventory → coordinated pins → one install → dual-major assert → optional config → gates → dedicated PR · close Dependabot #4 pre-merge.</p>
+</body>
+</html>
