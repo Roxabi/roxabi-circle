@@ -121,6 +121,7 @@ export async function handleTempVoiceUpdate(input: {
     hubChannelId,
     guildId,
     botUserId,
+    memberRoleId,
     store,
     previousChannelId,
   })
@@ -231,6 +232,8 @@ async function runSpawn(input: {
     store = { ...store, channels: restCh, occupancy: restOcc }
     return { store, done: `spawn_move_fail:${moved.error}` }
   }
+  const lastSpawnAt = { ...(store.lastSpawnAt ?? {}), [plan.userId]: Date.now() }
+  store = { ...store, lastSpawnAt }
   return { store, done: `spawn:${created.channelId}` }
 }
 

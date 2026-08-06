@@ -35,6 +35,21 @@ describe('canResume', () => {
   })
 })
 
+describe('applyReady botUserId', () => {
+  it('persists bot user for resume self-filter', () => {
+    const s = applyReady({
+      session: emptyGatewaySession(),
+      now: 1,
+      sessionId: 'sid',
+      resumeUrl: 'wss://x',
+      seq: 1,
+      botUserId: 'bot99',
+    })
+    expect(s.botUserId).toBe('bot99')
+    expect(hydrateGatewaySession(s).botUserId).toBe('bot99')
+  })
+})
+
 describe('planConnect', () => {
   const now = 1_000_000
 

@@ -9,6 +9,9 @@ import { enforceGithubWatch, type GatewayMessage, planGithubWatchMessage } from 
 import {
   emptyTempVoiceStore,
   hydrateOccupancyFromVoiceStates,
+  markOccupancyTrusted,
+  markOccupancyUntrusted,
+  shouldReconcileAfterResume,
   type TempVoiceStore,
   type VoiceStateUpdate,
 } from './temp-voice'
@@ -36,6 +39,9 @@ export async function loadTempVoiceStore(storage: DurableObjectStorage): Promise
     channels: raw.channels ?? {},
     occupancy: raw.occupancy ?? {},
     creating: raw.creating ?? {},
+    lastSpawnAt: raw.lastSpawnAt ?? {},
+    occupancyTrusted: raw.occupancyTrusted !== false,
+    resumeGraceUntil: typeof raw.resumeGraceUntil === 'number' ? raw.resumeGraceUntil : undefined,
   }
 }
 
@@ -57,7 +63,8 @@ export async function handleGatewayDispatch(
       session_id?: string
       resume_gateway_url?: string
     }
-    ctx.setBotUserId(d.user?.id ?? null)
+    const botId = d.user?.id ?? null
+    ctx.setBotUserId(botId)
     if (d.session_id) {
       const session = ctx.getSession()
       ctx.setSession(
@@ -67,6 +74,7 @@ export async function handleGatewayDispatch(
           sessionId: d.session_id,
           resumeUrl: d.resume_gateway_url ?? null,
           seq: session.seq,
+          botUserId: botId,
         }),
       )
       await ctx.saveSession()
@@ -85,12 +93,20 @@ export async function handleGatewayDispatch(
       }),
     )
     await ctx.saveSession()
-    console.log('gateway RESUMED')
+    // Prefer RESUME over IDENTIFY — do not re-run GUILD_CREATE hydrate.
+    // Distrust occupancy until grace reconcile (alarm) or next full IDENTIFY.
+    await ctx.enqueueVoice(async () => {
+      const store = await loadTempVoiceStore(ctx.storage)
+      await saveTempVoiceStore(ctx.storage, markOccupancyUntrusted(store))
+    })
+    // Grace cleanup runs on next heartbeat alarm (shouldReconcileAfterResume) — do not
+    // steal the heartbeat schedule with a dedicated 25s alarm.
+    console.log('gateway RESUMED occupancy_untrusted grace_ms=25000')
     return
   }
 
   if (t === 'GUILD_CREATE') {
-    await onGuildCreate(ctx, packet.d)
+    await ctx.enqueueVoice(() => onGuildCreate(ctx, packet.d))
     return
   }
 
@@ -113,6 +129,7 @@ async function onGuildCreate(ctx: GatewayDispatchCtx, d: unknown): Promise<void>
 
   let store = await loadTempVoiceStore(ctx.storage)
   store = hydrateOccupancyFromVoiceStates(store, guild.voice_states ?? [])
+  store = markOccupancyTrusted(store)
   const cleaned = await cleanupEmptyTempVoices({
     token: ctx.env.DISCORD_BOT_TOKEN,
     store,
@@ -120,6 +137,22 @@ async function onGuildCreate(ctx: GatewayDispatchCtx, d: unknown): Promise<void>
   await saveTempVoiceStore(ctx.storage, cleaned.store)
   if (cleaned.deleted.length) {
     console.log('temp-voice stale cleanup', cleaned.deleted)
+  }
+}
+
+/** After RESUME grace — trust occupancy again and delete empty tracked rooms. */
+export async function reconcileTempVoiceAfterResume(input: {
+  token: string
+  storage: DurableObjectStorage
+  now?: number
+}): Promise<void> {
+  let store = await loadTempVoiceStore(input.storage)
+  if (!shouldReconcileAfterResume(store, input.now ?? Date.now())) return
+  store = markOccupancyTrusted(store)
+  const cleaned = await cleanupEmptyTempVoices({ token: input.token, store })
+  await saveTempVoiceStore(input.storage, cleaned.store)
+  if (cleaned.deleted.length) {
+    console.log('temp-voice resume reconcile cleanup', cleaned.deleted)
   }
 }
 

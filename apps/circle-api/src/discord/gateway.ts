@@ -1,50 +1,39 @@
 /**
  * Discord Gateway DO — outgoing WS.
  * MESSAGE_CREATE → github-watch · VOICE_STATE → temp voice.
- * Session hygiene: persist + RESUME preferred, backoff, hard-stop (≈1000 IDENTIFY/day).
- * Outbound WS keeps DO ≤15m; alarms + storage recover after eviction.
- * Intents: Message Content (priv) + Guild Voice States + GUILDS.
+ * Session hygiene: persist + RESUME, backoff, hard-stop (≈1000 IDENTIFY/day).
  */
 
 import { DurableObject } from 'cloudflare:workers'
 import type { Env } from '../types'
+import { runEnsureConnected } from './gateway-connect'
 import {
   type GatewayDispatchCtx,
   handleGatewayDispatch,
   loadTempVoiceStore,
+  reconcileTempVoiceAfterResume,
 } from './gateway-handlers'
 import {
-  applyClose,
-  clearCircuit,
   emptyGatewaySession,
   GATEWAY_SESSION_KEY,
   type GatewaySessionState,
   hydrateGatewaySession,
-  planConnect,
 } from './gateway-session'
 import {
   GATEWAY_INTENTS,
   handleSocketClose,
   handleSocketMessage,
-  resolveGatewayUrl,
   sendIdentify,
   sendResume,
 } from './gateway-socket'
 
-const ENCODING = 'json'
-const API_VERSION = 10
-
-function socketBusy(ws: WebSocket | null): boolean {
-  if (!ws) return false
-  return ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING
-}
-
 export class DiscordGateway extends DurableObject<Env> {
   private ws: WebSocket | null = null
   private connecting = false
+  private connectingSince = 0
   private voiceChain: Promise<void> = Promise.resolve()
+  private gatewayChain: Promise<void> = Promise.resolve()
   private session: GatewaySessionState = emptyGatewaySession()
-  private botUserId: string | null = null
 
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url)
@@ -55,7 +44,7 @@ export class DiscordGateway extends DurableObject<Env> {
         connected: this.ws !== null && this.ws.readyState === WebSocket.OPEN,
         connecting: this.connecting || this.ws?.readyState === WebSocket.CONNECTING,
         seq: this.session.seq,
-        botUserId: this.botUserId,
+        botUserId: this.session.botUserId,
         sessionId: this.session.sessionId,
         hardStop: this.session.hardStop,
         failCount: this.session.failCount,
@@ -64,6 +53,7 @@ export class DiscordGateway extends DurableObject<Env> {
         lastError: this.session.lastError,
         lastReadyAt: this.session.lastReadyAt,
         tempVoiceRooms: Object.keys(store.channels).length,
+        occupancyTrusted: store.occupancyTrusted !== false,
         tempVoice: store.channels,
       })
     }
@@ -87,6 +77,14 @@ export class DiscordGateway extends DurableObject<Env> {
   async alarm(): Promise<void> {
     await this.loadSession()
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      try {
+        await reconcileTempVoiceAfterResume({
+          token: this.env.DISCORD_BOT_TOKEN,
+          storage: this.ctx.storage,
+        })
+      } catch (e) {
+        console.error('temp-voice resume reconcile', e)
+      }
       try {
         this.ws.send(JSON.stringify({ op: 1, d: this.session.seq }))
       } catch {
@@ -115,115 +113,53 @@ export class DiscordGateway extends DurableObject<Env> {
         this.session = s
       },
       saveSession: () => this.saveSession(),
-      loadSession: () => this.loadSession(),
+      loadSession: async () => {
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) return
+        await this.loadSession()
+      },
       storage: this.ctx.storage,
       setWs: (ws: WebSocket | null) => {
         this.ws = ws
       },
       setConnecting: (v: boolean) => {
         this.connecting = v
+        this.connectingSince = v ? Date.now() : 0
       },
     }
   }
 
+  private enqueueGateway(fn: () => Promise<void>): Promise<void> {
+    this.gatewayChain = this.gatewayChain.then(fn).catch((e) => console.error('gateway chain', e))
+    return this.gatewayChain
+  }
+
   private async ensureConnected(opts: { force?: boolean }): Promise<void> {
-    await this.loadSession()
-
-    if (opts.force) {
-      this.session = clearCircuit(this.session)
-      await this.saveSession()
-      if (this.ws) {
-        try {
-          this.ws.close(1000, 'force_reconnect')
-        } catch {
-          /* ignore */
-        }
-        this.ws = null
-      }
-      this.connecting = false
-    }
-
-    if (this.connecting) return
-
-    const gate = planConnect({
-      now: Date.now(),
-      session: this.session,
-      socketBusy: this.connecting || socketBusy(this.ws),
+    await runEnsureConnected({
+      envToken: this.env.DISCORD_BOT_TOKEN,
+      getSession: () => this.session,
+      setSession: (s) => {
+        this.session = s
+      },
+      saveSession: () => this.saveSession(),
+      loadSession: () => this.loadSession(),
+      storage: this.ctx.storage,
+      getWs: () => this.ws,
+      setWs: (ws) => {
+        this.ws = ws
+      },
+      getConnecting: () => ({ connecting: this.connecting, since: this.connectingSince }),
+      setConnecting: (v, since) => {
+        this.connecting = v
+        this.connectingSince = v ? (since ?? Date.now()) : 0
+      },
       force: opts.force,
+      onMessage: (raw) => {
+        void this.enqueueGateway(() => this.onSocketMessage(raw))
+      },
+      onClose: (code, reason) => {
+        void this.enqueueGateway(() => this.onSocketClose(code, reason))
+      },
     })
-    if (gate.action === 'skip') return
-    if (gate.action === 'hard_stop') {
-      console.error('gateway hard_stop — fix token/intents then POST ensure?force=1', gate.reason)
-      return
-    }
-    if (gate.action === 'wait') {
-      const existing = await this.ctx.storage.getAlarm()
-      if (existing == null || existing > gate.until) {
-        await this.ctx.storage.setAlarm(gate.until)
-      }
-      return
-    }
-    if (!this.env.DISCORD_BOT_TOKEN) {
-      console.error('gateway: missing DISCORD_BOT_TOKEN')
-      return
-    }
-
-    if (this.ws && this.ws.readyState !== WebSocket.OPEN) {
-      try {
-        this.ws.close(1000, 'replace')
-      } catch {
-        /* ignore */
-      }
-      this.ws = null
-    }
-
-    this.connecting = true
-    try {
-      const gatewayUrl = await resolveGatewayUrl({
-        token: this.env.DISCORD_BOT_TOKEN,
-        session: this.session,
-        setSession: (s) => {
-          this.session = s
-        },
-        saveSession: () => this.saveSession(),
-        storage: this.ctx.storage,
-      })
-      if (!gatewayUrl) {
-        this.connecting = false
-        return
-      }
-
-      const ws = new WebSocket(`${gatewayUrl}?v=${API_VERSION}&encoding=${ENCODING}`)
-      this.ws = ws
-      ws.addEventListener('message', (event) => {
-        void this.onSocketMessage(String(event.data))
-      })
-      ws.addEventListener('close', (event) => {
-        void this.onSocketClose(event.code, event.reason)
-      })
-      ws.addEventListener('error', () => {
-        console.error('gateway socket error')
-      })
-      const settle = () => {
-        this.connecting = false
-      }
-      ws.addEventListener('open', settle)
-      ws.addEventListener('close', settle)
-    } catch (e) {
-      this.connecting = false
-      this.ws = null
-      const msg = e instanceof Error ? e.message : String(e)
-      console.error('gateway ensure failed', msg)
-      const closed = applyClose({
-        session: this.session,
-        now: Date.now(),
-        code: 1006,
-        reason: msg.slice(0, 200),
-      })
-      this.session = closed.session
-      await this.saveSession()
-      if (closed.alarmAt != null) await this.ctx.storage.setAlarm(closed.alarmAt)
-    }
   }
 
   private async onSocketClose(code: number, reason: string): Promise<void> {
@@ -258,9 +194,9 @@ export class DiscordGateway extends DurableObject<Env> {
     return {
       env: this.env,
       storage: this.ctx.storage,
-      getBotUserId: () => this.botUserId,
+      getBotUserId: () => this.session.botUserId,
       setBotUserId: (id) => {
-        this.botUserId = id
+        this.session = { ...this.session, botUserId: id }
       },
       getSession: () => this.session,
       setSession: (s) => {

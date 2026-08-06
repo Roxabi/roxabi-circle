@@ -1,7 +1,12 @@
 /**
  * Temporary voice rooms — pure plan helpers + permission bits.
- * REST side effects live in temp-voice-rest.ts (unit-tested here).
+ * REST side effects live in temp-voice-rest.ts (tested separately).
  */
+
+/** Hard cap on concurrent bot-created temp rooms (hub spam guard). */
+export const MAX_TEMP_VOICE_ROOMS = 25
+/** Min ms between successful spawns per user. */
+export const TEMP_VOICE_SPAWN_COOLDOWN_MS = 30_000
 
 // Permission bits (voice + channel control)
 const CREATE_INVITE = 1 << 0
@@ -24,10 +29,7 @@ const MANAGE_ROLES = 1 << 28
 
 /** member: view + connect + speak + stream + voice activity */
 export const MEMBER_VOICE_ALLOW = STREAM | VIEW | CONNECT | SPEAK | USE_VAD
-/**
- * Creator “channel admin” on the temp room (member overwrite type=1).
- * Not guild Administrator — scoped to this channel only.
- */
+/** Creator channel-admin bits (type=1 overwrite; not guild Admin). */
 export const OWNER_VOICE_ALLOW =
   MEMBER_VOICE_ALLOW |
   CREATE_INVITE |
@@ -42,7 +44,6 @@ export const OWNER_VOICE_ALLOW =
   EMBED_LINKS |
   ATTACH_FILES |
   READ_HISTORY
-/** @everyone: hide + no connect */
 export const EVERYONE_VOICE_DENY = VIEW | CONNECT
 
 export type VoiceStateUpdate = {
@@ -52,6 +53,8 @@ export type VoiceStateUpdate = {
   member?: {
     user?: { id?: string; bot?: boolean; username?: string; global_name?: string | null }
     nick?: string | null
+    /** Guild role ids when Discord includes member on VSU */
+    roles?: string[]
   }
 }
 
@@ -68,10 +71,25 @@ export type TempVoiceStore = {
   occupancy: Record<string, string[]>
   /** userId → in-flight create guard (timestamp ms) */
   creating?: Record<string, number>
+  /** userId → last successful spawn ms (cooldown) */
+  lastSpawnAt?: Record<string, number>
+  /**
+   * When false (after RESUME), occupancy is untrusted — do not delete empty rooms
+   * until rehydrate/grace sets true again.
+   */
+  occupancyTrusted?: boolean
+  /** Epoch ms — only reconcile empties after this (RESUME grace). */
+  resumeGraceUntil?: number
 }
 
 export function emptyTempVoiceStore(): TempVoiceStore {
-  return { channels: {}, occupancy: {}, creating: {} }
+  return {
+    channels: {},
+    occupancy: {},
+    creating: {},
+    lastSpawnAt: {},
+    occupancyTrusted: true,
+  }
 }
 
 /** Discord channel name: strip junk, max 100. */
@@ -97,19 +115,20 @@ export type TempVoicePlan =
   | { type: 'reuse'; userId: string; channelId: string }
   | { type: 'cleanup'; channelIds: string[] }
 
-/**
- * Plan reaction to a single VOICE_STATE_UPDATE.
- * `previousChannelId` is the channel the user left (from our occupancy before update), or null.
- */
+/** Plan reaction to one VOICE_STATE_UPDATE. */
 export function planTempVoiceEvent(input: {
   vs: VoiceStateUpdate
   hubChannelId: string
   guildId: string
   botUserId?: string
+  /** When set, hub spawn/reuse requires this role on vs.member.roles */
+  memberRoleId?: string
   store: TempVoiceStore
   previousChannelId: string | null
+  now?: number
 }): TempVoicePlan {
-  const { vs, hubChannelId, guildId, botUserId, store } = input
+  const { vs, hubChannelId, guildId, botUserId, store, memberRoleId } = input
+  const now = input.now ?? Date.now()
   if (!hubChannelId) return { type: 'ignore', reason: 'no_hub_configured' }
   if (!guildId || (vs.guild_id && vs.guild_id !== guildId)) {
     return { type: 'ignore', reason: 'other_guild' }
@@ -122,13 +141,26 @@ export function planTempVoiceEvent(input: {
   const left = input.previousChannelId
 
   if (joined === hubChannelId) {
+    if (memberRoleId) {
+      const roles = vs.member?.roles
+      if (!roles || !roles.includes(memberRoleId)) {
+        return { type: 'ignore', reason: 'not_member' }
+      }
+    }
     const existing = Object.entries(store.channels).find(([, m]) => m.ownerId === vs.user_id)
     if (existing) {
       return { type: 'reuse', userId: vs.user_id, channelId: existing[0] }
     }
+    if (Object.keys(store.channels).length >= MAX_TEMP_VOICE_ROOMS) {
+      return { type: 'ignore', reason: 'room_cap' }
+    }
     const started = store.creating?.[vs.user_id]
-    if (started && Date.now() - started < 15_000) {
+    if (started && now - started < 15_000) {
       return { type: 'ignore', reason: 'create_in_flight' }
+    }
+    const lastSpawn = store.lastSpawnAt?.[vs.user_id]
+    if (lastSpawn && now - lastSpawn < TEMP_VOICE_SPAWN_COOLDOWN_MS) {
+      return { type: 'ignore', reason: 'spawn_cooldown' }
     }
     return {
       type: 'spawn',
@@ -137,23 +169,38 @@ export function planTempVoiceEvent(input: {
     }
   }
 
+  if (store.occupancyTrusted === false) {
+    return { type: 'ignore', reason: 'occupancy_untrusted' }
+  }
+
   const emptyTracked: string[] = []
   for (const channelId of Object.keys(store.channels)) {
     if (channelId === left || channelId === joined) {
-      const occ = store.occupancy[channelId] ?? []
-      if (occ.length === 0) emptyTracked.push(channelId)
+      if ((store.occupancy[channelId] ?? []).length === 0) emptyTracked.push(channelId)
     }
   }
-  if (left && store.channels[left]) {
-    const occ = store.occupancy[left] ?? []
-    if (occ.length === 0 && !emptyTracked.includes(left)) emptyTracked.push(left)
+  if (left && store.channels[left] && (store.occupancy[left] ?? []).length === 0) {
+    if (!emptyTracked.includes(left)) emptyTracked.push(left)
   }
-
-  if (emptyTracked.length) {
-    return { type: 'cleanup', channelIds: emptyTracked }
-  }
-
+  if (emptyTracked.length) return { type: 'cleanup', channelIds: emptyTracked }
   return { type: 'ignore', reason: 'no_op' }
+}
+
+export function markOccupancyUntrusted(
+  store: TempVoiceStore,
+  graceMs = 25_000,
+  now = Date.now(),
+): TempVoiceStore {
+  return { ...store, occupancyTrusted: false, resumeGraceUntil: now + graceMs }
+}
+
+export function markOccupancyTrusted(store: TempVoiceStore): TempVoiceStore {
+  const { resumeGraceUntil: _, ...rest } = store
+  return { ...rest, occupancyTrusted: true, resumeGraceUntil: undefined }
+}
+
+export function shouldReconcileAfterResume(store: TempVoiceStore, now = Date.now()): boolean {
+  return store.occupancyTrusted === false && now >= (store.resumeGraceUntil ?? 0)
 }
 
 /** Apply voice state to occupancy; returns previous channel id for this user (if any). */
@@ -203,8 +250,9 @@ export function hydrateOccupancyFromVoiceStates(
   return { ...store, occupancy }
 }
 
-/** Empty tracked rooms after hydrate (restart cleanup). */
+/** Empty tracked rooms after hydrate (restart cleanup). No-op while occupancy untrusted. */
 export function planStaleCleanup(store: TempVoiceStore): string[] {
+  if (store.occupancyTrusted === false) return []
   return Object.keys(store.channels).filter((id) => (store.occupancy[id] ?? []).length === 0)
 }
 

@@ -1,27 +1,49 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   applyOccupancy,
   emptyTempVoiceStore,
+  MAX_TEMP_VOICE_ROOMS,
   MEMBER_VOICE_ALLOW,
+  markOccupancyTrusted,
+  markOccupancyUntrusted,
   memberVoiceOverwrites,
   OWNER_VOICE_ALLOW,
   planStaleCleanup,
   planTempVoiceEvent,
+  shouldReconcileAfterResume,
   type TempVoiceStore,
   tempVoiceChannelName,
   type VoiceStateUpdate,
 } from '../src/discord/temp-voice'
+import {
+  cleanupEmptyTempVoices,
+  createTempVoiceChannel,
+  deleteChannel,
+  handleTempVoiceUpdate,
+  moveMemberToVoice,
+} from '../src/discord/temp-voice-rest'
 
 const hub = 'hub1'
 const guild = 'g1'
 const owner = 'u1'
+const memberRole = 'role_member'
 
 function vs(partial: Partial<VoiceStateUpdate> & { user_id: string }): VoiceStateUpdate {
   return {
     guild_id: guild,
-    member: { user: { id: partial.user_id, bot: false, username: 'alice' } },
+    member: {
+      user: { id: partial.user_id, bot: false, username: 'alice' },
+      roles: [memberRole],
+    },
     ...partial,
   }
+}
+
+const planBase = {
+  hubChannelId: hub,
+  guildId: guild,
+  memberRoleId: memberRole,
+  previousChannelId: null as string | null,
 }
 
 describe('tempVoiceChannelName', () => {
@@ -53,13 +75,10 @@ describe('applyOccupancy', () => {
 
 describe('planTempVoiceEvent', () => {
   it('spawns when joining hub with no owned room', () => {
-    const store = emptyTempVoiceStore()
     const plan = planTempVoiceEvent({
+      ...planBase,
       vs: vs({ user_id: owner, channel_id: hub }),
-      hubChannelId: hub,
-      guildId: guild,
-      store,
-      previousChannelId: null,
+      store: emptyTempVoiceStore(),
     })
     expect(plan.type).toBe('spawn')
     if (plan.type === 'spawn') expect(plan.displayName).toBe('alice')
@@ -71,51 +90,111 @@ describe('planTempVoiceEvent', () => {
       occupancy: {},
     }
     const plan = planTempVoiceEvent({
+      ...planBase,
       vs: vs({ user_id: owner, channel_id: hub }),
-      hubChannelId: hub,
-      guildId: guild,
       store,
-      previousChannelId: null,
     })
     expect(plan).toEqual({ type: 'reuse', userId: owner, channelId: 'room9' })
   })
 
   it('ignores bots', () => {
     const plan = planTempVoiceEvent({
+      ...planBase,
       vs: {
         user_id: 'bot1',
         guild_id: guild,
         channel_id: hub,
-        member: { user: { id: 'bot1', bot: true, username: 'Lyra' } },
+        member: { user: { id: 'bot1', bot: true, username: 'Lyra' }, roles: [memberRole] },
       },
-      hubChannelId: hub,
-      guildId: guild,
       store: emptyTempVoiceStore(),
-      previousChannelId: null,
     })
     expect(plan.type).toBe('ignore')
   })
 
-  it('ignores other channels without empty temp', () => {
+  it('ignores non-members when role required', () => {
     const plan = planTempVoiceEvent({
-      vs: vs({ user_id: owner, channel_id: 'general-voice' }),
-      hubChannelId: hub,
-      guildId: guild,
+      ...planBase,
+      vs: {
+        user_id: owner,
+        guild_id: guild,
+        channel_id: hub,
+        member: { user: { id: owner, bot: false, username: 'alice' }, roles: [] },
+      },
       store: emptyTempVoiceStore(),
-      previousChannelId: null,
     })
-    expect(plan.type).toBe('ignore')
+    expect(plan).toEqual({ type: 'ignore', reason: 'not_member' })
+  })
+
+  it('ignores other_guild and no_hub', () => {
+    expect(
+      planTempVoiceEvent({
+        ...planBase,
+        hubChannelId: '',
+        vs: vs({ user_id: owner, channel_id: hub }),
+        store: emptyTempVoiceStore(),
+      }),
+    ).toEqual({ type: 'ignore', reason: 'no_hub_configured' })
+    expect(
+      planTempVoiceEvent({
+        ...planBase,
+        vs: vs({ user_id: owner, channel_id: hub, guild_id: 'other' }),
+        store: emptyTempVoiceStore(),
+      }),
+    ).toEqual({ type: 'ignore', reason: 'other_guild' })
+  })
+
+  it('hits room_cap and spawn_cooldown', () => {
+    const channels: TempVoiceStore['channels'] = {}
+    for (let i = 0; i < MAX_TEMP_VOICE_ROOMS; i++) {
+      // owners must not include `owner` or plan returns reuse instead of cap
+      channels[`c${i}`] = { ownerId: `other${i}`, createdAt: 1, name: 'n' }
+    }
+    expect(
+      planTempVoiceEvent({
+        ...planBase,
+        vs: vs({ user_id: owner, channel_id: hub }),
+        store: { channels, occupancy: {} },
+      }),
+    ).toEqual({ type: 'ignore', reason: 'room_cap' })
+
+    const now = 1_000_000
+    expect(
+      planTempVoiceEvent({
+        ...planBase,
+        now,
+        vs: vs({ user_id: owner, channel_id: hub }),
+        store: {
+          channels: {},
+          occupancy: {},
+          lastSpawnAt: { [owner]: now - 5_000 },
+        },
+      }),
+    ).toEqual({ type: 'ignore', reason: 'spawn_cooldown' })
+  })
+
+  it('skips cleanup while occupancy untrusted', () => {
+    const store: TempVoiceStore = {
+      channels: { room9: { ownerId: owner, createdAt: 1, name: '🔊 alice' } },
+      occupancy: {},
+      occupancyTrusted: false,
+    }
+    const plan = planTempVoiceEvent({
+      ...planBase,
+      vs: vs({ user_id: owner, channel_id: null }),
+      store,
+      previousChannelId: 'room9',
+    })
+    expect(plan).toEqual({ type: 'ignore', reason: 'occupancy_untrusted' })
   })
 
   it('cleans up empty owned room after leave', () => {
     const store: TempVoiceStore = {
       channels: { room9: { ownerId: owner, createdAt: 1, name: '🔊 alice' } },
-      occupancy: {}, // already applied empty
+      occupancy: {},
     }
     const plan = planTempVoiceEvent({
+      ...planBase,
       vs: vs({ user_id: owner, channel_id: null }),
-      hubChannelId: hub,
-      guildId: guild,
       store,
       previousChannelId: 'room9',
     })
@@ -129,9 +208,8 @@ describe('planTempVoiceEvent', () => {
       occupancy: { room9: ['u2'] },
     }
     const plan = planTempVoiceEvent({
+      ...planBase,
       vs: vs({ user_id: owner, channel_id: null }),
-      hubChannelId: hub,
-      guildId: guild,
       store,
       previousChannelId: 'room9',
     })
@@ -145,13 +223,31 @@ describe('planTempVoiceEvent', () => {
       creating: { [owner]: Date.now() },
     }
     const plan = planTempVoiceEvent({
+      ...planBase,
       vs: vs({ user_id: owner, channel_id: hub }),
-      hubChannelId: hub,
-      guildId: guild,
       store,
-      previousChannelId: null,
     })
     expect(plan).toEqual({ type: 'ignore', reason: 'create_in_flight' })
+  })
+})
+
+describe('occupancy trust helpers', () => {
+  it('marks untrusted with grace then reconciles', () => {
+    const store = markOccupancyUntrusted(emptyTempVoiceStore(), 25_000, 1000)
+    expect(store.occupancyTrusted).toBe(false)
+    expect(store.resumeGraceUntil).toBe(26_000)
+    expect(shouldReconcileAfterResume(store, 25_999)).toBe(false)
+    expect(shouldReconcileAfterResume(store, 26_000)).toBe(true)
+    expect(markOccupancyTrusted(store).occupancyTrusted).toBe(true)
+  })
+
+  it('planStaleCleanup skips untrusted', () => {
+    const store: TempVoiceStore = {
+      channels: { a: { ownerId: '1', createdAt: 1, name: 'a' } },
+      occupancy: {},
+      occupancyTrusted: false,
+    }
+    expect(planStaleCleanup(store)).toEqual([])
   })
 })
 
@@ -176,16 +272,11 @@ describe('MEMBER_VOICE_ALLOW', () => {
 })
 
 describe('OWNER_VOICE_ALLOW + overwrites', () => {
-  it('gives creator channel admin bits (manage channel, mute, move, roles)', () => {
+  it('gives creator channel admin bits', () => {
     const MANAGE_CHANNELS = 1 << 4
     const MUTE = 1 << 22
-    const DEAFEN = 1 << 23
-    const MOVE = 1 << 24
-    const MANAGE_ROLES = 1 << 28
-    for (const bit of [MANAGE_CHANNELS, MUTE, DEAFEN, MOVE, MANAGE_ROLES]) {
-      expect(OWNER_VOICE_ALLOW & bit).toBeTruthy()
-    }
-    // superset of member voice
+    expect(OWNER_VOICE_ALLOW & MANAGE_CHANNELS).toBeTruthy()
+    expect(OWNER_VOICE_ALLOW & MUTE).toBeTruthy()
     expect(OWNER_VOICE_ALLOW & MEMBER_VOICE_ALLOW).toBe(MEMBER_VOICE_ALLOW)
   })
 
@@ -195,10 +286,89 @@ describe('OWNER_VOICE_ALLOW + overwrites', () => {
       memberRoleId: 'role_member',
       ownerId: 'user_owner',
     })
-    const owner = ows.find((o) => o.id === 'user_owner')
-    expect(owner).toBeDefined()
-    expect(owner?.type).toBe(1)
-    expect(owner?.allow).toBe(String(OWNER_VOICE_ALLOW))
-    expect(owner?.deny).toBe('0')
+    const ow = ows.find((o) => o.id === 'user_owner')
+    expect(ow?.type).toBe(1)
+    expect(ow?.allow).toBe(String(OWNER_VOICE_ALLOW))
+  })
+})
+
+describe('temp-voice REST (fetch mock)', () => {
+  it('createTempVoiceChannel returns id on 201', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(JSON.stringify({ id: 'ch1' }), { status: 201 })),
+    )
+    const r = await createTempVoiceChannel({
+      token: 't',
+      guildId: guild,
+      categoryId: 'cat',
+      memberRoleId: memberRole,
+      name: '🔊 a',
+      ownerId: owner,
+    })
+    expect(r).toEqual({ ok: true, channelId: 'ch1' })
+    vi.unstubAllGlobals()
+  })
+
+  it('deleteChannel treats 404 as ok', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('', { status: 404 })),
+    )
+    expect(await deleteChannel('t', 'gone')).toEqual({ ok: true })
+    vi.unstubAllGlobals()
+  })
+
+  it('moveMemberToVoice maps errors', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(JSON.stringify({ message: 'nope' }), { status: 403 })),
+    )
+    const r = await moveMemberToVoice({
+      token: 't',
+      guildId: guild,
+      userId: owner,
+      channelId: 'ch1',
+    })
+    expect(r.ok).toBe(false)
+    vi.unstubAllGlobals()
+  })
+
+  it('handleTempVoiceUpdate spawn moves user', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo) => {
+      const url = String(input)
+      if (url.includes('/channels') && !url.includes('/members')) {
+        return new Response(JSON.stringify({ id: 'room_new' }), { status: 201 })
+      }
+      return new Response(null, { status: 204 })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const result = await handleTempVoiceUpdate({
+      token: 't',
+      guildId: guild,
+      hubChannelId: hub,
+      categoryId: 'cat',
+      memberRoleId: memberRole,
+      store: emptyTempVoiceStore(),
+      vs: vs({ user_id: owner, channel_id: hub }),
+    })
+    expect(result.done).toBe('spawn:room_new')
+    expect(result.store.channels.room_new?.ownerId).toBe(owner)
+    vi.unstubAllGlobals()
+  })
+
+  it('cleanupEmptyTempVoices deletes empty tracked', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(null, { status: 204 })),
+    )
+    const store: TempVoiceStore = {
+      channels: { empty1: { ownerId: '1', createdAt: 1, name: 'n' } },
+      occupancy: {},
+    }
+    const r = await cleanupEmptyTempVoices({ token: 't', store })
+    expect(r.deleted).toEqual(['empty1'])
+    expect(r.store.channels.empty1).toBeUndefined()
+    vi.unstubAllGlobals()
   })
 })

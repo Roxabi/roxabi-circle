@@ -29,6 +29,8 @@ export type GatewaySessionState = {
   lastError: string | null
   /** Last successful READY/RESUMED epoch ms. */
   lastReadyAt: number | null
+  /** Bot user id from READY — persisted so RESUME after eviction still self-filters. */
+  botUserId: string | null
 }
 
 export function emptyGatewaySession(): GatewaySessionState {
@@ -43,6 +45,7 @@ export function emptyGatewaySession(): GatewaySessionState {
     lastCloseCode: null,
     lastError: null,
     lastReadyAt: null,
+    botUserId: null,
   }
 }
 
@@ -61,6 +64,7 @@ export function hydrateGatewaySession(raw: unknown): GatewaySessionState {
     lastCloseCode: typeof o.lastCloseCode === 'number' ? o.lastCloseCode : null,
     lastError: typeof o.lastError === 'string' ? o.lastError : null,
     lastReadyAt: typeof o.lastReadyAt === 'number' ? o.lastReadyAt : null,
+    botUserId: typeof o.botUserId === 'string' ? o.botUserId : null,
   }
 }
 
@@ -161,6 +165,7 @@ export function applyReady(input: {
   sessionId: string
   resumeUrl?: string | null
   seq: number | null
+  botUserId?: string | null
 }): GatewaySessionState {
   return {
     ...input.session,
@@ -173,6 +178,7 @@ export function applyReady(input: {
     lastCloseCode: null,
     lastError: null,
     lastReadyAt: input.now,
+    botUserId: input.botUserId ?? input.session.botUserId,
   }
 }
 
