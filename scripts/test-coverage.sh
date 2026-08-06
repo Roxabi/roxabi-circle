@@ -40,6 +40,7 @@ run_pkg packages/types
 run_pkg packages/mcp
 run_pkg packages/email
 run_pkg packages/i18n
+run_pkg packages/flows
 
 # Lower bar — large UI surface still expanding
 run_pkg packages/ui
