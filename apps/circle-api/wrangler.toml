@@ -37,8 +37,9 @@ class_name = "DiscordGateway"
 tag = "v1-discord-gateway"
 new_sqlite_classes = ["DiscordGateway"]
 
+# Safety-net wake only (Gateway self-heartbeats via DO alarm). Was */2 — burned sessions.
 [triggers]
-crons = ["*/2 * * * *"]
+crons = ["*/15 * * * *"]
 
 [observability]
 enabled = true

@@ -1,218 +1,282 @@
 /**
- * Discord Gateway client as a Durable Object (outgoing WebSocket).
- * Receives MESSAGE_CREATE and enforces #github-to-watch rules.
- *
- * Requires privileged intents in Developer Portal:
- * - Message Content Intent
- * - (optional) Server Members Intent — not required for this handler
+ * Discord Gateway DO — outgoing WS.
+ * MESSAGE_CREATE → github-watch · VOICE_STATE → temp voice.
+ * Session hygiene: persist + RESUME preferred, backoff, hard-stop (≈1000 IDENTIFY/day).
+ * Outbound WS keeps DO ≤15m; alarms + storage recover after eviction.
+ * Intents: Message Content (priv) + Guild Voice States + GUILDS.
  */
 
 import { DurableObject } from 'cloudflare:workers'
 import type { Env } from '../types'
-import { enforceGithubWatch, type GatewayMessage, planGithubWatchMessage } from './github-watch'
+import {
+  type GatewayDispatchCtx,
+  handleGatewayDispatch,
+  loadTempVoiceStore,
+} from './gateway-handlers'
+import {
+  applyClose,
+  clearCircuit,
+  emptyGatewaySession,
+  GATEWAY_SESSION_KEY,
+  type GatewaySessionState,
+  hydrateGatewaySession,
+  planConnect,
+} from './gateway-session'
+import {
+  GATEWAY_INTENTS,
+  handleSocketClose,
+  handleSocketMessage,
+  resolveGatewayUrl,
+  sendIdentify,
+  sendResume,
+} from './gateway-socket'
 
-const GATEWAY_API = 'https://discord.com/api/v10'
 const ENCODING = 'json'
 const API_VERSION = 10
 
-// Intents: GUILD_MESSAGES (1<<9) | MESSAGE_CONTENT (1<<15)
-const INTENTS = (1 << 9) | (1 << 15)
-
-type HelloPayload = { heartbeat_interval: number }
-type DispatchPayload = { t?: string; s?: number | null; d?: unknown }
+function socketBusy(ws: WebSocket | null): boolean {
+  if (!ws) return false
+  return ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING
+}
 
 export class DiscordGateway extends DurableObject<Env> {
   private ws: WebSocket | null = null
-  private seq: number | null = null
-  private heartbeatMs = 41250
-  private botUserId: string | null = null
-  private sessionId: string | null = null
-  private resumeUrl: string | null = null
   private connecting = false
+  private voiceChain: Promise<void> = Promise.resolve()
+  private session: GatewaySessionState = emptyGatewaySession()
+  private botUserId: string | null = null
 
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url)
     if (url.pathname === '/status') {
+      await this.loadSession()
+      const store = await loadTempVoiceStore(this.ctx.storage)
       return Response.json({
         connected: this.ws !== null && this.ws.readyState === WebSocket.OPEN,
-        seq: this.seq,
+        connecting: this.connecting || this.ws?.readyState === WebSocket.CONNECTING,
+        seq: this.session.seq,
         botUserId: this.botUserId,
-        sessionId: this.sessionId,
+        sessionId: this.session.sessionId,
+        hardStop: this.session.hardStop,
+        failCount: this.session.failCount,
+        nextConnectAt: this.session.nextConnectAt,
+        lastCloseCode: this.session.lastCloseCode,
+        lastError: this.session.lastError,
+        lastReadyAt: this.session.lastReadyAt,
+        tempVoiceRooms: Object.keys(store.channels).length,
+        tempVoice: store.channels,
       })
     }
     if (url.pathname === '/connect' || url.pathname === '/ensure') {
-      await this.ensureConnected()
+      const force =
+        url.searchParams.get('force') === '1' ||
+        url.searchParams.get('force') === 'true' ||
+        request.headers.get('X-Gateway-Force') === '1'
+      await this.ensureConnected({ force })
       return Response.json({
         ok: true,
         connected: this.ws !== null && this.ws.readyState === WebSocket.OPEN,
+        hardStop: this.session.hardStop,
+        failCount: this.session.failCount,
+        sessionId: this.session.sessionId,
       })
     }
-    return new Response('DiscordGateway: /status | /connect', { status: 404 })
+    return new Response('DiscordGateway: /status | /connect|/ensure?force=1', { status: 404 })
   }
 
   async alarm(): Promise<void> {
-    // Heartbeat or reconnect
+    await this.loadSession()
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       try {
-        this.ws.send(JSON.stringify({ op: 1, d: this.seq }))
+        this.ws.send(JSON.stringify({ op: 1, d: this.session.seq }))
       } catch {
         this.ws = null
-        await this.ensureConnected()
+        await this.ensureConnected({ force: false })
         return
       }
-      // schedule next heartbeat
-      await this.ctx.storage.setAlarm(Date.now() + this.heartbeatMs)
+      await this.ctx.storage.setAlarm(Date.now() + this.session.heartbeatMs)
       return
     }
-    await this.ensureConnected()
+    await this.ensureConnected({ force: false })
   }
 
-  private async ensureConnected(): Promise<void> {
+  private async loadSession(): Promise<void> {
+    this.session = hydrateGatewaySession(await this.ctx.storage.get(GATEWAY_SESSION_KEY))
+  }
+
+  private async saveSession(): Promise<void> {
+    await this.ctx.storage.put(GATEWAY_SESSION_KEY, this.session)
+  }
+
+  private sessionAccess() {
+    return {
+      getSession: () => this.session,
+      setSession: (s: GatewaySessionState) => {
+        this.session = s
+      },
+      saveSession: () => this.saveSession(),
+      loadSession: () => this.loadSession(),
+      storage: this.ctx.storage,
+      setWs: (ws: WebSocket | null) => {
+        this.ws = ws
+      },
+      setConnecting: (v: boolean) => {
+        this.connecting = v
+      },
+    }
+  }
+
+  private async ensureConnected(opts: { force?: boolean }): Promise<void> {
+    await this.loadSession()
+
+    if (opts.force) {
+      this.session = clearCircuit(this.session)
+      await this.saveSession()
+      if (this.ws) {
+        try {
+          this.ws.close(1000, 'force_reconnect')
+        } catch {
+          /* ignore */
+        }
+        this.ws = null
+      }
+      this.connecting = false
+    }
+
     if (this.connecting) return
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) return
+
+    const gate = planConnect({
+      now: Date.now(),
+      session: this.session,
+      socketBusy: this.connecting || socketBusy(this.ws),
+      force: opts.force,
+    })
+    if (gate.action === 'skip') return
+    if (gate.action === 'hard_stop') {
+      console.error('gateway hard_stop — fix token/intents then POST ensure?force=1', gate.reason)
+      return
+    }
+    if (gate.action === 'wait') {
+      const existing = await this.ctx.storage.getAlarm()
+      if (existing == null || existing > gate.until) {
+        await this.ctx.storage.setAlarm(gate.until)
+      }
+      return
+    }
     if (!this.env.DISCORD_BOT_TOKEN) {
       console.error('gateway: missing DISCORD_BOT_TOKEN')
       return
     }
 
+    if (this.ws && this.ws.readyState !== WebSocket.OPEN) {
+      try {
+        this.ws.close(1000, 'replace')
+      } catch {
+        /* ignore */
+      }
+      this.ws = null
+    }
+
     this.connecting = true
     try {
-      const gatewayUrl = await this.getGatewayUrl()
+      const gatewayUrl = await resolveGatewayUrl({
+        token: this.env.DISCORD_BOT_TOKEN,
+        session: this.session,
+        setSession: (s) => {
+          this.session = s
+        },
+        saveSession: () => this.saveSession(),
+        storage: this.ctx.storage,
+      })
+      if (!gatewayUrl) {
+        this.connecting = false
+        return
+      }
+
       const ws = new WebSocket(`${gatewayUrl}?v=${API_VERSION}&encoding=${ENCODING}`)
       this.ws = ws
-
       ws.addEventListener('message', (event) => {
         void this.onSocketMessage(String(event.data))
       })
       ws.addEventListener('close', (event) => {
-        console.warn('gateway close', event.code, event.reason)
-        this.ws = null
-        // reconnect shortly
-        void this.ctx.storage.setAlarm(Date.now() + 5_000)
+        void this.onSocketClose(event.code, event.reason)
       })
       ws.addEventListener('error', () => {
         console.error('gateway socket error')
       })
-    } finally {
+      const settle = () => {
+        this.connecting = false
+      }
+      ws.addEventListener('open', settle)
+      ws.addEventListener('close', settle)
+    } catch (e) {
       this.connecting = false
+      this.ws = null
+      const msg = e instanceof Error ? e.message : String(e)
+      console.error('gateway ensure failed', msg)
+      const closed = applyClose({
+        session: this.session,
+        now: Date.now(),
+        code: 1006,
+        reason: msg.slice(0, 200),
+      })
+      this.session = closed.session
+      await this.saveSession()
+      if (closed.alarmAt != null) await this.ctx.storage.setAlarm(closed.alarmAt)
     }
   }
 
-  private async getGatewayUrl(): Promise<string> {
-    if (this.resumeUrl) return this.resumeUrl
-    const res = await fetch(`${GATEWAY_API}/gateway/bot`, {
-      headers: {
-        Authorization: `Bot ${this.env.DISCORD_BOT_TOKEN}`,
-        'User-Agent': 'RoxabiCircle (gateway, 0.1)',
-      },
-    })
-    if (!res.ok) {
-      throw new Error(`gateway/bot ${res.status}`)
-    }
-    const data = (await res.json()) as { url: string }
-    return data.url
+  private async onSocketClose(code: number, reason: string): Promise<void> {
+    await handleSocketClose({ code, reason, ...this.sessionAccess() })
   }
 
   private async onSocketMessage(raw: string): Promise<void> {
-    let packet: { op: number; d?: unknown; s?: number | null; t?: string | null }
-    try {
-      packet = JSON.parse(raw) as typeof packet
-    } catch {
-      return
-    }
-
-    if (packet.s != null) this.seq = packet.s
-
-    switch (packet.op) {
-      case 10: {
-        // HELLO
-        const hello = packet.d as HelloPayload
-        this.heartbeatMs = hello.heartbeat_interval
-        // jitter first heartbeat
-        const first = this.heartbeatMs * Math.random()
-        await this.ctx.storage.setAlarm(Date.now() + first)
-        this.identify()
-        break
-      }
-      case 11:
-        // HEARTBEAT_ACK
-        break
-      case 7:
-        // RECONNECT
-        this.ws?.close()
-        this.ws = null
-        await this.ensureConnected()
-        break
-      case 9:
-        // INVALID_SESSION
-        this.sessionId = null
-        this.resumeUrl = null
-        await new Promise((r) => setTimeout(r, 2000))
-        this.identify()
-        break
-      case 0:
-        await this.onDispatch(packet as DispatchPayload)
-        break
-      default:
-        break
-    }
+    await handleSocketMessage(
+      {
+        token: this.env.DISCORD_BOT_TOKEN,
+        getWs: () => this.ws,
+        onDispatch: (packet) => this.onDispatch(packet),
+        identify: () => this.identify(),
+        resume: () => this.resume(),
+        ...this.sessionAccess(),
+      },
+      raw,
+    )
   }
 
   private identify(): void {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return
-    this.ws.send(
-      JSON.stringify({
-        op: 2,
-        d: {
-          token: this.env.DISCORD_BOT_TOKEN,
-          intents: INTENTS,
-          properties: {
-            os: 'cloudflare',
-            browser: 'roxabi-circle',
-            device: 'roxabi-circle',
-          },
-        },
-      }),
-    )
+    sendIdentify(this.ws, this.env.DISCORD_BOT_TOKEN, GATEWAY_INTENTS)
   }
 
-  private async onDispatch(packet: DispatchPayload): Promise<void> {
-    const t = packet.t
-    if (t === 'READY') {
-      const d = packet.d as {
-        user?: { id?: string }
-        session_id?: string
-        resume_gateway_url?: string
-      }
-      this.botUserId = d.user?.id ?? null
-      this.sessionId = d.session_id ?? null
-      this.resumeUrl = d.resume_gateway_url ?? null
-      console.log('gateway READY bot=', this.botUserId)
-      return
+  private resume(): void {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return
+    if (!sendResume(this.ws, this.env.DISCORD_BOT_TOKEN, this.session)) this.identify()
+  }
+
+  private dispatchCtx(): GatewayDispatchCtx {
+    return {
+      env: this.env,
+      storage: this.ctx.storage,
+      getBotUserId: () => this.botUserId,
+      setBotUserId: (id) => {
+        this.botUserId = id
+      },
+      getSession: () => this.session,
+      setSession: (s) => {
+        this.session = s
+      },
+      saveSession: () => this.saveSession(),
+      enqueueVoice: async (fn) => {
+        this.voiceChain = this.voiceChain
+          .then(fn)
+          .catch((e) => console.error('temp-voice chain', e))
+        await this.voiceChain
+      },
     }
+  }
 
-    if (t !== 'MESSAGE_CREATE') return
-
-    const msg = packet.d as GatewayMessage
-    const watchId = this.env.DISCORD_GITHUB_WATCH_CHANNEL_ID
-    if (!watchId) return
-
-    const action = planGithubWatchMessage(msg, watchId, this.botUserId ?? undefined)
-    if (action.type === 'ignore') return
-
-    const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
-
-    try {
-      const result = await enforceGithubWatch({
-        token: this.env.DISCORD_BOT_TOKEN,
-        msg,
-        action,
-        noticeTtlMs: action.type === 'reject' ? 12_000 : undefined,
-        sleep: action.type === 'reject' ? sleep : undefined,
-      })
-      console.log('github-watch', result.done, 'msg', msg.id)
-    } catch (e) {
-      console.error('github-watch enforce failed', e)
-    }
+  private async onDispatch(packet: { t?: string; s?: number | null; d?: unknown }): Promise<void> {
+    await handleGatewayDispatch(this.dispatchCtx(), packet)
   }
 }

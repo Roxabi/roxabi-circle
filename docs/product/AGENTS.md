@@ -38,7 +38,7 @@ Discord gated community (AI + open source DNA). Entry = GitHub OAuth + **PR d’
 | Account | Mickael (`b5e90be9…`) — zone `roxabi.dev` |
 | Host | `circle.roxabi.dev` · `workers_dev = false` |
 | Secrets | `wrangler secret` + local `apps/circle-api/.dev.vars` |
-| Gateway wake | cron `*/2` · manual `POST /internal/discord-gateway/ensure` + `X-Ops-Secret` |
+| Gateway wake | cron `*/15` · DO alarms · manual ensure + `X-Ops-Secret` (`?force=1` after token rotate) · never from `/health` |
 
 ## D11 entry rail
 
