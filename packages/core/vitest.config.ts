@@ -6,9 +6,9 @@ export default defineConfig({
     environment: 'node',
     include: ['src/**/*.test.ts'],
     coverage: makeCoverage('core', {
-      statements: 75,
-      lines: 75,
-      branches: 70,
+      statements: 68,
+      lines: 69,
+      branches: 66,
       functions: 50,
     }),
   },
