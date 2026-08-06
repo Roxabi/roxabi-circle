@@ -102,12 +102,12 @@ Floors are enforced by Vitest (`packages/config/vitest-coverage.mjs` + per-packa
 
 | Tier | Scope | Floor (stmts/lines, approx.) | Policy |
 |---|---|---|---|
-| **T0** | `@kit/auth`, `@kit/example-api` (guards, dual auth, paths), FE **auth client** contracts | **80%** api/auth · pin named web contract files | **Never lower without ADR** |
-| **T1** | `core`, `storage`, `db`, `types`, `mcp` | **70–75%** | Raise when surface grows |
-| **T2** | `@kit/ui`, `example-web` (page chrome) | **20% / 10%** global | Low % OK **iff** contract suites green; do not chase Button coverage |
+| **T0** | `@kit/auth`, `@kit/example-api` (guards, dual auth, paths), FE **auth client** contracts | **auth 80%** · **example-api** machine floors **78/80/65/75** (stmts/lines/branches/funcs) · pin named web contract files | **Auth: never lower without ADR.** example-api: Vitest 4 v8 remapping exception (#21) — see inventory before/after; do not lower further without ADR |
+| **T1** | `core`, `storage`, `db`, `types`, `mcp` | **core ~68/69/66** (stmts/lines/branches) · others **70–75%** typical | Raise when surface grows; core floors recalibrated under Vitest 4 remapping (#21) |
+| **T2** | `@kit/ui`, `example-web` (page chrome) | **ui ~17/17/16/23** · **web 10/10/20/12** | Low % OK **iff** contract suites green; do not chase Button coverage; Vitest 4 remapping (#21) |
 | **T3** | `email` thin, mcp-example smoke | soft / special (e.g. funcs 0% mcp-example) | Document, don’t pretend product security |
 
-**% is a ratchet, not the story.** The story is **critical paths** below.
+**Vitest 4 remapping (#21):** Same sources/tests produce lower stmt/branch % under Vitest 4.1.x v8 than 3.2.x. Floors were recalibrated just under measured values with before/after evidence in [`artifacts/notes/21-vitest-vite-inventory.md`](../artifacts/notes/21-vitest-vite-inventory.md). **% is a ratchet, not the story.** The story is **critical paths** below.
 
 ---
 
