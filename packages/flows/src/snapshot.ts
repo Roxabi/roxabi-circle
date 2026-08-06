@@ -1,4 +1,5 @@
 import type { CapabilityGrant, EffectiveAuthority } from './authority'
+import { staticTokenBudget } from './budget'
 import { type CheckIssue, checkPlan } from './check'
 import type { ToolRegistry } from './registry'
 import type { PlanDocument } from './schema'
@@ -11,16 +12,19 @@ export type RunSnapshot = {
   sealedPlan: PlanDocument
   effectivePermits: { tools: readonly string[] }
   grantSnapshot: CapabilityGrant
+  /** Runtime registry.version at seal (not a forged grant pin). */
   registryVersion: string
   ceilings: {
-    maxTokens?: number
+    /** Hard static ceiling (= staticTokenBudget). */
+    maxTokens: number
     staticTokenBudget: number
   }
   createdAt: string
 }
 
 export type CreateSnapshotInput = {
-  plan: PlanDocument
+  /** Raw plan — re-validated via Zod inside checkPlan. */
+  plan: unknown
   grant: CapabilityGrant
   registry: ToolRegistry
   actorId: string
@@ -45,8 +49,7 @@ function stableStringify(value: unknown): string {
 
 /**
  * Content-address index of a plan (FNV-1a 32-bit hex).
- * **Not** a cryptographic integrity control — sealedPlan body is authoritative;
- * digests are for cache/index. Prefer SHA-256 before trusting digest-only compare in D1 (#29).
+ * **Not** a cryptographic integrity control — sealedPlan body is authoritative.
  */
 export function digestPlan(plan: PlanDocument): string {
   const s = stableStringify(plan)
@@ -58,26 +61,17 @@ export function digestPlan(plan: PlanDocument): string {
   return (h >>> 0).toString(16).padStart(8, '0')
 }
 
-function staticTokenBudget(plan: PlanDocument): number {
-  let sum = 0
-  for (const task of Object.values(plan.tasks)) {
-    if (task.infer) {
-      sum += task.infer.max_tokens ?? plan.plan.max_tokens ?? 4096
-    }
-  }
-  return sum
-}
-
 export function createRunSnapshot(input: CreateSnapshotInput): CreateSnapshotResult {
   const checked = checkPlan(input.plan, input.grant, input.registry)
   if (!checked.ok) return { ok: false, issues: checked.issues }
 
   const effective: EffectiveAuthority = checked.effective
-  const sealedPlan = structuredClone(input.plan) as PlanDocument
+  const sealedPlan = structuredClone(checked.plan) as PlanDocument
+  const budget = staticTokenBudget(sealedPlan)
   const grantSnapshot: CapabilityGrant = {
     orgId: input.grant.orgId,
     allowedTools: [...input.grant.allowedTools],
-    registryVersion: input.grant.registryVersion ?? input.registry.version,
+    registryVersion: input.grant.registryVersion,
   }
 
   return {
@@ -92,8 +86,8 @@ export function createRunSnapshot(input: CreateSnapshotInput): CreateSnapshotRes
       grantSnapshot,
       registryVersion: input.registry.version,
       ceilings: {
-        maxTokens: sealedPlan.plan.max_tokens,
-        staticTokenBudget: staticTokenBudget(sealedPlan),
+        maxTokens: budget,
+        staticTokenBudget: budget,
       },
       createdAt: input.createdAt ?? new Date().toISOString(),
     },

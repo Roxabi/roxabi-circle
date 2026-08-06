@@ -9,6 +9,7 @@ export {
   type EffectiveAuthority,
   resolveEffectiveAuthority,
 } from './authority'
+export { staticTokenBudget } from './budget'
 export {
   type CheckIssue,
   type CheckIssueCode,
@@ -16,6 +17,7 @@ export {
   checkPlan,
 } from './check'
 export {
+  DEFAULT_INFER_MAX_TOKENS,
   FLOWS_ADMIN_ROLES,
   FLOWS_MODULE_ID,
   FLOWS_VERSION,
@@ -40,6 +42,7 @@ export {
   planDocumentSchema,
   planPermitsSchema,
   planTaskSchema,
+  type SafeParsePlanResult,
   safeParsePlanDocument,
 } from './schema'
 

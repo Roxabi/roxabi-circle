@@ -3,12 +3,13 @@ import {
   type EffectiveAuthority,
   resolveEffectiveAuthority,
 } from './authority'
+import { staticTokenBudget } from './budget'
 import { MAX_PLAN_TASKS, MAX_PLAN_TOTAL_TOKENS } from './constants'
 import type { ToolRegistry } from './registry'
-import type { PlanDocument } from './schema'
+import { type PlanDocument, safeParsePlanDocument } from './schema'
 
 export type CheckIssueCode =
-  | 'AGENT_DEFERRED'
+  | 'SCHEMA_INVALID'
   | 'EMPTY_PERMITS'
   | 'UNKNOWN_TOOL'
   | 'TOOL_NOT_GRANTED'
@@ -17,6 +18,7 @@ export type CheckIssueCode =
   | 'CYCLE'
   | 'TOO_MANY_TASKS'
   | 'TOKEN_CEILING'
+  | 'REGISTRY_VERSION_REQUIRED'
   | 'REGISTRY_VERSION_MISMATCH'
   | 'ORG_ID_REQUIRED'
 
@@ -38,16 +40,6 @@ function invokedTools(plan: PlanDocument): Array<{ taskId: string; tool: string 
     }
   }
   return out
-}
-
-function staticTokenBudget(plan: PlanDocument): number {
-  let sum = 0
-  for (const task of Object.values(plan.tasks)) {
-    if (task.infer) {
-      sum += task.infer.max_tokens ?? plan.plan.max_tokens ?? 4096
-    }
-  }
-  return sum
 }
 
 function findCycle(plan: PlanDocument): string | null {
@@ -81,19 +73,36 @@ function findCycle(plan: PlanDocument): string | null {
   return null
 }
 
-/** Pure plan check — authority = grants ∩ plan.permits ∩ registry. */
+/**
+ * Pure plan check — re-validates schema then authority = grants ∩ permits ∩ registry.
+ * Accepts `unknown` so freeze/API cannot bypass Zod via a typed cast.
+ */
 export function checkPlan(
-  plan: PlanDocument,
+  planInput: unknown,
   grant: CapabilityGrant,
   registry: ToolRegistry,
 ): CheckResult {
+  const parsed = safeParsePlanDocument(planInput)
+  if (!parsed.success) {
+    const msg = parsed.error.issues.map((i) => i.message).join('; ') || 'plan schema invalid'
+    return {
+      ok: false,
+      issues: [{ code: 'SCHEMA_INVALID', message: msg, path: 'plan' }],
+    }
+  }
+  const plan = parsed.data
   const issues: CheckIssue[] = []
 
   if (!grant.orgId || grant.orgId.trim() === '') {
     issues.push({ code: 'ORG_ID_REQUIRED', message: 'grant.orgId is required' })
   }
 
-  if (grant.registryVersion && grant.registryVersion !== registry.version) {
+  if (!grant.registryVersion || grant.registryVersion.trim() === '') {
+    issues.push({
+      code: 'REGISTRY_VERSION_REQUIRED',
+      message: 'grant.registryVersion is required (no silent pin)',
+    })
+  } else if (grant.registryVersion !== registry.version) {
     issues.push({
       code: 'REGISTRY_VERSION_MISMATCH',
       message: `grant registryVersion ${grant.registryVersion} !== registry ${registry.version}`,
@@ -110,7 +119,6 @@ export function checkPlan(
 
   const invokes = invokedTools(plan)
   const hasInfer = Object.values(plan.tasks).some((t) => t.infer !== undefined)
-  // Fail-closed: empty permits + any effectful task (invoke or infer = token spend).
   if (plan.permits.tools.length === 0 && (invokes.length > 0 || hasInfer)) {
     issues.push({
       code: 'EMPTY_PERMITS',

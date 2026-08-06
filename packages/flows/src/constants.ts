@@ -16,6 +16,12 @@ export const MAX_PERMIT_TOOLS = 64
 /** Max total declared max_tokens across infer tasks. */
 export const MAX_PLAN_TOTAL_TOKENS = 100_000
 
+/**
+ * Default per-infer max_tokens when task omits max_tokens but plan.max_tokens is set
+ * (plan.max_tokens is required whenever any task uses infer — see schema).
+ */
+export const DEFAULT_INFER_MAX_TOKENS = 4096 as const
+
 /** Org roles allowed to admin flows in V0. */
 export const FLOWS_ADMIN_ROLES = ['owner', 'admin'] as const
 

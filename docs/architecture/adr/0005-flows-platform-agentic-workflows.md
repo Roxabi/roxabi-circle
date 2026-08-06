@@ -117,7 +117,7 @@ Minimum plan surface (**flows v0**):
 flows: v0
 plan:
   id · description?
-  model? · max_tokens ceiling (required upper bound for infer tasks)
+  model? · max_tokens  # REQUIRED when any task uses infer
 permits:
   tools: []          # V0 only — net/r2 deferred until enforced wrappers
 tasks:
@@ -135,7 +135,9 @@ tasks:
 | `agent` | Leashed tool-loop | **deferred** (schema reject until meter ships) |
 | `exec` | Shell | **never** on Workers kit |
 
-- **`check(plan, grants, registry)`** is pure: schema, unknown tools, DAG edges/cycles, missing/empty authority, tools outside **effective** allowlist, unbounded infer tokens → fail **before** first token  
+- **`check(planInput, grants, registry)`** is pure: **re-runs Zod** on `planInput` (`unknown`), then unknown tools, DAG edges/cycles, missing/empty authority, tools outside **effective** allowlist, static token ceilings → fail **before** first token  
+- **`grant.registryVersion`** required and must match registry; never silently default-filled on the snapshot  
+
 - Plans in kit dogfood = **generic** (e.g. echo → infer summary) — **zero** Roxabi/Silex business strings in `packages/*`  
 - Product plans live in product app, DB, or product-owned storage — not promoted into `@kit/*` as domain content  
 

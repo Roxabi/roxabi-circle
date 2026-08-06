@@ -74,13 +74,25 @@ export const planDocumentSchema = z
     }),
   })
   .strict()
+  .superRefine((doc, ctx) => {
+    const hasInfer = Object.values(doc.tasks).some((t) => t.infer !== undefined)
+    if (hasInfer && doc.plan.max_tokens === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'plan.max_tokens is required when any task uses infer',
+        path: ['plan', 'max_tokens'],
+      })
+    }
+  })
 
 export type PlanDocument = z.infer<typeof planDocumentSchema>
+
+export type SafeParsePlanResult = ReturnType<typeof planDocumentSchema.safeParse>
 
 export function parsePlanDocument(input: unknown): PlanDocument {
   return planDocumentSchema.parse(input)
 }
 
-export function safeParsePlanDocument(input: unknown) {
+export function safeParsePlanDocument(input: unknown): SafeParsePlanResult {
   return planDocumentSchema.safeParse(input)
 }

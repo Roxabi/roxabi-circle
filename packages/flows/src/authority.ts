@@ -8,11 +8,15 @@ import type { PlanDocument } from './schema'
  * **Caller trust:** pure `checkPlan` does not prove grant provenance.
  * Apps (#31) MUST build grants from server session / org module grants —
  * never from plan body or untrusted client JSON.
+ *
+ * **registryVersion** is required and must match the tool registry at check/seal
+ * (no silent default-fill on snapshots).
  */
 export type CapabilityGrant = {
   orgId: string
   allowedTools: readonly string[]
-  registryVersion?: string
+  /** Must equal registry.version at check time. */
+  registryVersion: string
 }
 
 export type EffectiveAuthority = {
