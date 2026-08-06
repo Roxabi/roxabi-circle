@@ -5,9 +5,9 @@
 | Endpoint | Auth | Notes |
 |---|---|---|
 | Host | `https://circle.roxabi.dev` | custom domain only (`workers_dev = false`) |
-| `GET /health` | public | infos non sensibles (seuil score volontairement open) |
+| `GET /health` | public | liveness only — **does not** wake Gateway |
 | `POST /interactions` | **Ed25519 Discord** | seule porte d’écriture bot |
-| `POST /internal/discord-gateway/ensure` | **`X-Ops-Secret`** (`GATEWAY_OPS_SECRET`) | wake/status DO only |
+| `POST /internal/discord-gateway/ensure` | **`X-Ops-Secret`** (`GATEWAY_OPS_SECRET`) | wake/status DO · `?force=1` clears hard-stop |
 | `GET /oauth/github/*` | HMAC state (à venir) | 501 stub |
 | `*` | — | **404** (pas d’inventaire endpoints) |
 
@@ -29,11 +29,26 @@
 4. **Pas de CF Access sur /interactions**  
    Discord doit appeler l’URL en clair HTTPS sans login humain.
 
+## Gateway reconnect policy (session storm guard)
+
+Discord caps **~1000 new Gateway sessions (IDENTIFY) / day**. Root cause of 2026-08-06 alert: DO forgot socket on wake and always IDENTIFY’d + 5s reconnect + cron `*/2` + `/health` ensure.
+
+| Control | Behaviour |
+|---|---|
+| Persist | `sessionId` / `seq` / `resumeUrl` in DO storage |
+| Resume | prefer **op 6 RESUME** over IDENTIFY when possible |
+| Backoff | 5s → 15s → 30s → 60s → 2m → 5m → **15m** cap |
+| Hard-stop | close `4004` / `4013` / `4014` / HTTP 401 on `/gateway/bot` → no auto reconnect |
+| Ops recover | `POST /internal/discord-gateway/ensure?force=1` + `X-Ops-Secret` after token rotate |
+| Cron | `*/15 * * * *` safety net only (not every 2 min) |
+| `/health` | **no** Gateway wake |
+
 ## À faire / hardening
 
 | Priorité | Mesure |
 |---|---|
-| P0 | **Rotate** bot token s’il a fuité en chat (encore recommandé) |
+| P0 | ~~Gateway session storm~~ **done** — resume + backoff + hard-stop + health decoupled |
+| P0 | After Discord token reset: BW → CF `wrangler secret put` → ensure `?force=1` |
 | P1 | ~~Domaine custom~~ **done** — `circle.roxabi.dev` · CF account Mickael · `workers_dev=false` |
 | P1 | Rate limit KV sur `/apply` et open ticket (frame: 3/h/user) |
 | P1 | Logs structurés sans PII / sans tokens |

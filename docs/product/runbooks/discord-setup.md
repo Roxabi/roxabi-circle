@@ -24,7 +24,19 @@
 |---|---|
 | **ENTRÉE** | `#accueil`, `#apply-help` (+ `#règles` / `#intros` si présents) |
 | **CERCLE** (member-only, SSoT perms) | see table below |
+| **VOIX** (member-only) | `générale` · hub `➕ créer un salon` (temp rooms) |
 | **SUPPORT** | `#appeal`, `#idées-améliorations` |
+
+#### VOIX — temp rooms (Gateway)
+
+| Item | Detail |
+|---|---|
+| Hub | `➕ créer un salon` (`DISCORD_VOICE_HUB_CHANNEL_ID`) |
+| Parent | category **VOIX** (`DISCORD_VOICE_CATEGORY_ID`) |
+| Flow | Join hub → Lyra creates `🔊 {displayName}` under VOIX → moves user · empty room → delete |
+| Perms room | `member`: VIEW · CONNECT · SPEAK · STREAM · **USE_VAD** · `@everyone` deny VIEW+CONNECT · **creator** (member overwrite): Manage Channel/Roles · Mute/Deafen/Move · Priority Speaker · text-in-voice |
+| Intent | `GUILD_VOICE_STATES` + `GUILDS` (non-privileged) on Gateway DO |
+| Re-join hub | Reuses the member’s existing temp room if still open |
 
 #### CERCLE permission model
 
@@ -43,7 +55,7 @@ source ~/projects/security/vaultwarden/scripts/agent-bw-login.sh
 bw get notes "roxabi-circle/discord"
 ```
 
-Keys: `DISCORD_APPLICATION_ID`, `DISCORD_PUBLIC_KEY`, `DISCORD_BOT_TOKEN`, `DISCORD_GUILD_ID`, `DISCORD_MEMBER_ROLE_ID`, `DISCORD_APPEAL_CATEGORY_ID`, `DISCORD_GITHUB_WATCH_CHANNEL_ID`, `GATEWAY_OPS_SECRET`.
+Keys: `DISCORD_APPLICATION_ID`, `DISCORD_PUBLIC_KEY`, `DISCORD_BOT_TOKEN`, `DISCORD_GUILD_ID`, `DISCORD_MEMBER_ROLE_ID`, `DISCORD_APPEAL_CATEGORY_ID`, `DISCORD_GITHUB_WATCH_CHANNEL_ID`, `DISCORD_VOICE_HUB_CHANNEL_ID`, `DISCORD_VOICE_CATEGORY_ID`, `GATEWAY_OPS_SECRET`.
 
 **Rotate** bot token if it was ever pasted in chat (Portal → Bot → Reset Token), then update BW + `.dev.vars`.
 
@@ -73,7 +85,7 @@ https://discord.com/api/oauth2/authorize?client_id=1534228521420067046&permissio
 | Item | Detail |
 |---|---|
 | Runtime | Durable Object `DiscordGateway` (outgoing WS to Discord Gateway) |
-| Wake | Cron `*/2 * * * *` + `/health` best-effort + `POST /internal/discord-gateway/ensure` |
+| Wake | DO heartbeat alarm · cron `*/15` safety net · `POST /internal/discord-gateway/ensure` (+ `?force=1` after token rotate). **Not** `/health`. |
 | Env | `DISCORD_GITHUB_WATCH_CHANNEL_ID` |
 | Accept | Exactly **one** `github.com` / `gist.github.com` URL; optional caption ≤120 chars |
 | On accept | Create public thread under the message (name from owner/repo) |
@@ -92,9 +104,9 @@ https://discord.com/api/oauth2/authorize?client_id=1534228521420067046&permissio
 |---|---|
 | **Host** | `https://circle.roxabi.dev` (`workers_dev = false`) |
 | `POST /interactions` | Ed25519 verify + PING + `/apply` scaffold |
-| `GET /health` | public · wakes Gateway best-effort |
-| Gateway DO | MESSAGE_CREATE → github-watch enforce · cron `*/2` |
-| `POST /internal/discord-gateway/ensure` | **auth** header `X-Ops-Secret: $GATEWAY_OPS_SECRET` |
+| `GET /health` | public liveness only (no Gateway wake) |
+| Gateway DO | MESSAGE_CREATE → github-watch · VOICE_STATE → temp rooms · resume + backoff |
+| `POST /internal/discord-gateway/ensure` | **auth** `X-Ops-Secret` · `?force=1` clears hard-stop |
 | `GET /oauth/github/*` | 501 not implemented |
 | Catch-all | **404** |
 | Interactions URL in Portal | **`https://circle.roxabi.dev/interactions`** |

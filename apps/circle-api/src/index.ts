@@ -3,11 +3,14 @@ import type { Env } from './types'
 
 export { DiscordGateway } from './discord/gateway'
 
-async function ensureDiscordGateway(env: Env): Promise<void> {
+async function ensureDiscordGateway(env: Env, opts?: { force?: boolean }): Promise<void> {
   if (!env.DISCORD_GATEWAY) return
   const id = env.DISCORD_GATEWAY.idFromName('lyra')
   const stub = env.DISCORD_GATEWAY.get(id)
-  await stub.fetch(new Request('https://discord-gateway.internal/ensure'))
+  const path = opts?.force
+    ? 'https://discord-gateway.internal/ensure?force=1'
+    : 'https://discord-gateway.internal/ensure'
+  await stub.fetch(new Request(path))
 }
 
 /** Constant-time-ish compare for ops secret (length leak ok for ops header). */
@@ -30,12 +33,11 @@ function opsSecretOk(request: Request, expected: string | undefined): boolean {
  * Public host: https://circle.roxabi.dev
  */
 export default {
-  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+  async fetch(request: Request, env: Env, _ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url)
 
     if (url.pathname === '/health') {
-      // Best-effort keep Gateway warm (also on cron).
-      ctx.waitUntil(ensureDiscordGateway(env).catch(() => undefined))
+      // Pure liveness — do NOT wake Gateway (public probes must not burn IDENTIFY sessions).
       return Response.json({
         ok: true,
         service: 'roxabi-circle',
@@ -46,10 +48,15 @@ export default {
 
     if (url.pathname === '/internal/discord-gateway/ensure' && request.method === 'POST') {
       // Cron wakes via scheduled(); manual wake requires GATEWAY_OPS_SECRET.
+      // ?force=1 clears hard-stop circuit (use after token rotate).
       if (!opsSecretOk(request, env.GATEWAY_OPS_SECRET)) {
         return new Response('unauthorized', { status: 401 })
       }
-      await ensureDiscordGateway(env)
+      const force =
+        url.searchParams.get('force') === '1' ||
+        url.searchParams.get('force') === 'true' ||
+        request.headers.get('X-Gateway-Force') === '1'
+      await ensureDiscordGateway(env, { force })
       const id = env.DISCORD_GATEWAY.idFromName('lyra')
       return env.DISCORD_GATEWAY.get(id).fetch(
         new Request('https://discord-gateway.internal/status'),

@@ -11,6 +11,13 @@ export type Env = {
   DISCORD_APPEAL_CATEGORY_ID: string
   /** #github-to-watch channel id — Gateway MESSAGE_CREATE enforcement */
   DISCORD_GITHUB_WATCH_CHANNEL_ID: string
+  /**
+   * Voice hub "➕ créer un salon" — join creates a temp room under VOIX.
+   * Optional: if unset, temp-voice is disabled.
+   */
+  DISCORD_VOICE_HUB_CHANNEL_ID?: string
+  /** Parent category for temp voice rooms (VOIX). Required with hub. */
+  DISCORD_VOICE_CATEGORY_ID?: string
   /** Durable Object: Discord Gateway client (Lyra) */
   DISCORD_GATEWAY: DurableObjectNamespace
   /** Shared secret for POST /internal/discord-gateway/ensure (header X-Ops-Secret) */
