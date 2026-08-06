@@ -266,7 +266,7 @@ Do **not** hardcode product chassis names into kit defaults. Prefer full chassis
 
 1. Create private repo `org/<product>` (empty or from kit history).
 2. Point `origin` at product; add `upstream` fetch-only (above).
-3. `bun install` (prepare wires lefthook only if `core.hooksPath` is unset).
+3. `bun install` (prepare wires lefthook only if `core.hooksPath` is unset; note residual package postinstall `install -f` — see `lefthook.yml` header).
 4. Copy env examples → gitignored local files only.
 5. Ensure **kit-ci** (org var/secret) or accept manual merge — see [`kit-ci-app-setup.md`](./kit-ci-app-setup.md).
 6. Add product apps under `apps/<product>-*` only.

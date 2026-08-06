@@ -54,7 +54,7 @@ False green: product with real apps and only kit `validate:full` green is **not*
 ### Commands
 
 ```bash
-bun install                    # prepare → lefthook install only if core.hooksPath unset
+bun install                    # prepare → lefthook install if hooksPath unset; postinstall may still force-install (see lefthook.yml)
 
 bun run validate               # lint · typecheck · test · banlist · extract · zero-edit · env:check
 bun run zero-edit              # product must not diverge kit paths without exception (kit = config only)
@@ -76,7 +76,7 @@ bun run validate:full
 
 | Rule | |
 |---|---|
-| Install hooks | `bun install` — prepare installs only if `core.hooksPath` unset; never force install when set (would overwrite foreign hook wiring) |
+| Install hooks | `bun install` — prepare installs only if `core.hooksPath` unset; **postinstall** still runs `lefthook install -f` non-CI (residual — [lefthook#1475](https://github.com/evilmartians/lefthook/issues/1475); documented in `lefthook.yml`) |
 | **Forbidden** without written reason | `git push --no-verify`, `LEFTHOOK=0` |
 | If pre-push is red | Fix locally; do **not** “let CI tell us” |
 | Docs-only exception | Still run hooks unless emergency; extract/banlist are cheap insurance |
