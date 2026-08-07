@@ -1,7 +1,5 @@
--- SKETCH / REFERENCE ONLY — NOT applied by wrangler.
--- Applied SSoT: apps/example-api/migrations/0012_flows_plans_runs.sql (#29)
--- OUT OF DATE for types: sketch used text timestamps; applied uses integer ms.
--- org_id NOT NULL on every row; prefer composite plan↔run FK from applied migration.
+-- #29 — flow_plans / flow_runs (ADR-0005 D4/D5). Applied SSoT for D1.
+-- org_id NOT NULL on every row; integer ms timestamps; composite plan↔run tenancy FK.
 
 CREATE TABLE IF NOT EXISTS "flow_plans" (
   "id" text PRIMARY KEY NOT NULL,
@@ -13,9 +11,10 @@ CREATE TABLE IF NOT EXISTS "flow_plans" (
   "plan_json" text NOT NULL,
   "plan_digest" text NOT NULL,
   "created_by" text,
-  "created_at" text NOT NULL,
-  "updated_at" text NOT NULL,
-  UNIQUE ("org_id", "plan_key", "version")
+  "created_at" integer NOT NULL,
+  "updated_at" integer NOT NULL,
+  UNIQUE ("org_id", "plan_key", "version"),
+  UNIQUE ("id", "org_id")
 );
 
 CREATE INDEX IF NOT EXISTS "flow_plans_org_idx" ON "flow_plans" ("org_id");
@@ -32,9 +31,9 @@ CREATE TABLE IF NOT EXISTS "flow_runs" (
   "workflow_instance_id" text,
   "receipt_json" text,
   "error_code" text,
-  "created_at" text NOT NULL,
-  "updated_at" text NOT NULL,
-  FOREIGN KEY ("plan_id") REFERENCES "flow_plans" ("id")
+  "created_at" integer NOT NULL,
+  "updated_at" integer NOT NULL,
+  FOREIGN KEY ("plan_id", "org_id") REFERENCES "flow_plans" ("id", "org_id")
 );
 
 CREATE INDEX IF NOT EXISTS "flow_runs_org_idx" ON "flow_runs" ("org_id");
