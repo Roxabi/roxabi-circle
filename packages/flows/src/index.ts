@@ -1,6 +1,10 @@
 /**
  * @kit/flows — governed plans + check + authority + run snapshots (ADR-0005).
  * Pure package: no Worker bindings. Apps wire Workflows + D1 + auth.
+ *
+ * **Incubating** — promote only with schema-stable dogfood + second call site (D6).
+ * Runner path: persist/rehydrate `RunnerView` via `parseRunnerView` only — never raw
+ * grant allowlists. Grant provenance (mint) is app-owned (#31).
  */
 
 export type { CapabilityGrant, EffectiveAuthority } from './authority'
@@ -55,5 +59,9 @@ export {
   createRunSnapshot,
   digestPlan,
   executionTools,
-  type RunSnapshot,
+  type ParseRunnerViewResult,
+  parseRunnerView,
+  RUNNER_VIEW_VERSION,
+  type RunnerView,
+  runnerViewSchema,
 } from './snapshot'

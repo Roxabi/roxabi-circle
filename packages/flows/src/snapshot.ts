@@ -1,44 +1,21 @@
 import type { CapabilityGrant, EffectiveAuthority } from './authority'
 import { hardMaxTokens, staticTokenBudget } from './budget'
 import { type CheckIssue, checkPlan } from './check'
+import { digestPlan } from './digest-plan'
 import { deepFreeze } from './freeze'
 import type { ToolRegistry } from './registry'
+import {
+  executionTools,
+  type ParseRunnerViewResult,
+  parseRunnerView,
+  RUNNER_VIEW_VERSION,
+  type RunnerView,
+  runnerViewSchema,
+} from './runner-view'
 import type { PlanDocument } from './schema'
 
-export type RunSnapshot = {
-  orgId: string
-  actorId: string
-  planId: string
-  planDigest: string
-  sealedPlan: PlanDocument
-  /**
-   * **Only** tool names a runner may invoke (grant ∩ permits ∩ registry).
-   * Do not authorize from grantAudit.allowedTools.
-   */
-  executionTools: readonly string[]
-  /** @deprecated alias of executionTools — prefer executionTools */
-  effectivePermits: { tools: readonly string[] }
-  /**
-   * Audit copy of the grant (full allowlist). **Not** the execution allowlist.
-   * Runners MUST NOT use this for tool dispatch.
-   */
-  grantAudit: CapabilityGrant
-  /** @deprecated use grantAudit */
-  grantSnapshot: CapabilityGrant
-  /** Runtime registry.version at seal. */
-  registryVersion: string
-  /** Content digest of registry tool names at seal. */
-  registryContentDigest: string
-  ceilings: {
-    /** Hard abort ceiling for runtime meter. */
-    hardMaxTokens: number
-    /** Alias of hardMaxTokens for older callers. */
-    maxTokens: number
-    staticTokenBudget: number
-    planMaxTokens?: number
-  }
-  createdAt: string
-}
+export type { ParseRunnerViewResult, RunnerView }
+export { digestPlan, executionTools, parseRunnerView, RUNNER_VIEW_VERSION, runnerViewSchema }
 
 export type CreateSnapshotInput = {
   plan: unknown
@@ -49,41 +26,28 @@ export type CreateSnapshotInput = {
 }
 
 export type CreateSnapshotResult =
-  | { ok: true; snapshot: RunSnapshot }
+  | { ok: true; runnerView: RunnerView; grantAudit: CapabilityGrant }
   | { ok: false; issues: CheckIssue[] }
 
-function stableStringify(value: unknown): string {
-  if (value === null || typeof value !== 'object') {
-    return JSON.stringify(value)
-  }
-  if (Array.isArray(value)) {
-    return `[${value.map((v) => stableStringify(v)).join(',')}]`
-  }
-  const obj = value as Record<string, unknown>
-  const keys = Object.keys(obj).sort()
-  return `{${keys.map((k) => `${JSON.stringify(k)}:${stableStringify(obj[k])}`).join(',')}}`
-}
-
 /**
- * Content-address index of a plan (FNV-1a 32-bit hex).
- * **Not** a cryptographic integrity control — sealedPlan body is authoritative.
+ * Seal a checked plan into a runner view + separate grant audit copy.
+ * **Persist `runnerView` only** on the Workflow / execution path (`JSON.stringify(runnerView)`).
+ * Store `grantAudit` separately if needed for admin audit (never for dispatch).
  */
-export function digestPlan(plan: PlanDocument): string {
-  const s = stableStringify(plan)
-  let h = 0x811c9dc5
-  for (let i = 0; i < s.length; i++) {
-    h ^= s.charCodeAt(i)
-    h = Math.imul(h, 0x01000193)
-  }
-  return (h >>> 0).toString(16).padStart(8, '0')
-}
-
-/** Tools a runner may invoke from a sealed snapshot. */
-export function executionTools(snapshot: RunSnapshot): readonly string[] {
-  return snapshot.executionTools
-}
-
 export function createRunSnapshot(input: CreateSnapshotInput): CreateSnapshotResult {
+  if (!input.actorId || input.actorId.trim() === '' || input.actorId.length > 256) {
+    return {
+      ok: false,
+      issues: [
+        {
+          code: 'SCHEMA_INVALID',
+          message: 'actorId is required (1..256 chars)',
+          path: 'actorId',
+        },
+      ],
+    }
+  }
+
   const checked = checkPlan(input.plan, input.grant, input.registry)
   if (!checked.ok) return { ok: false, issues: checked.issues }
 
@@ -95,29 +59,36 @@ export function createRunSnapshot(input: CreateSnapshotInput): CreateSnapshotRes
     orgId: checked.grant.orgId,
     allowedTools: [...checked.grant.allowedTools],
     registryVersion: checked.grant.registryVersion,
+    allowsInfer: checked.grant.allowsInfer,
   }
   const tools = Object.freeze([...effective.tools]) as readonly string[]
 
-  const snapshot: RunSnapshot = {
+  const ceilings: RunnerView['ceilings'] = {
+    hardMaxTokens: hard,
+    staticTokenBudget: staticBudget,
+    ...(sealedPlan.plan.max_tokens !== undefined
+      ? { planMaxTokens: sealedPlan.plan.max_tokens }
+      : {}),
+  }
+
+  const runnerView: RunnerView = {
+    runnerViewVersion: RUNNER_VIEW_VERSION,
     orgId: checked.grant.orgId,
     actorId: input.actorId,
     planId: sealedPlan.plan.id,
     planDigest: digestPlan(sealedPlan),
     sealedPlan,
     executionTools: tools,
-    effectivePermits: { tools },
-    grantAudit,
-    grantSnapshot: grantAudit,
     registryVersion: input.registry.version,
     registryContentDigest: input.registry.contentDigest,
-    ceilings: {
-      hardMaxTokens: hard,
-      maxTokens: hard,
-      staticTokenBudget: staticBudget,
-      planMaxTokens: sealedPlan.plan.max_tokens,
-    },
+    ceilings,
+    allowsInfer: checked.grant.allowsInfer,
     createdAt: input.createdAt ?? new Date().toISOString(),
   }
 
-  return { ok: true, snapshot: deepFreeze(snapshot) }
+  return {
+    ok: true,
+    runnerView: deepFreeze(runnerView),
+    grantAudit: deepFreeze(grantAudit),
+  }
 }

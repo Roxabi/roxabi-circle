@@ -3,10 +3,9 @@
  * Exercises check + createRunSnapshot (no HTTP route / Workflows yet — #30–#31).
  * Zero product domain strings.
  *
- * **Grant provenance:** callers must pass server-derived grants only.
- * **registryVersion** must match dogfoodToolRegistry.version.
- * Runners must use snapshot.executionTools only (not grantAudit.allowedTools).
- * FLOWS_MODULE_ID reserved — not seeded until #29.
+ * **Grant:** fixed demo grant only (`echo` + allowsInfer). Free-form allowlists
+ * are not exported — routes must mint grants server-side (#31).
+ * **Runner path:** persist `runnerView` only; rehydrate with `parseRunnerView`.
  */
 import {
   type CapabilityGrant,
@@ -26,26 +25,28 @@ export const dogfoodToolRegistry = createToolRegistry('example-api-dogfood-v0', 
   { name: 'echo', description: 'Echo args (dogfood)', effect: 'read' },
 ])
 
-export function dogfoodGrant(
-  orgId: string,
-  allowedTools: readonly string[] = ['echo'],
-): CapabilityGrant {
+/**
+ * Fixed dogfood grant — tools + infer capability for demo-echo only.
+ * Not a mint API: do not accept client `allowedTools`.
+ */
+export function dogfoodFixedGrant(orgId: string): CapabilityGrant {
   return {
     orgId,
-    allowedTools,
+    allowedTools: ['echo'],
     registryVersion: dogfoodToolRegistry.version,
+    allowsInfer: true,
   }
 }
 
 export function dogfoodPlanToSnapshot(
   yaml: string,
-  grant: CapabilityGrant,
+  orgId: string,
   actorId: string,
 ): CreateSnapshotResult {
   const plan = loadPlanFromYaml(yaml)
   return createRunSnapshot({
     plan,
-    grant,
+    grant: dogfoodFixedGrant(orgId),
     registry: dogfoodToolRegistry,
     actorId,
   })

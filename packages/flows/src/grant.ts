@@ -14,6 +14,8 @@ export const capabilityGrantSchema = z
     orgId: z.string().min(1).max(256),
     allowedTools: z.array(toolNameSchema).max(MAX_PERMIT_TOOLS),
     registryVersion: z.string().min(1).max(256),
+    /** Explicit infer capability — never defaulted to true. */
+    allowsInfer: z.boolean(),
   })
   .strict()
 
@@ -33,6 +35,7 @@ export function parseCapabilityGrant(
       orgId: r.data.orgId,
       allowedTools: [...r.data.allowedTools],
       registryVersion: r.data.registryVersion,
+      allowsInfer: r.data.allowsInfer,
     },
   }
 }
