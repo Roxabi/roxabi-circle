@@ -12,6 +12,7 @@ import {
   systemRoleGrantSeed,
 } from '@kit/auth'
 import { AppError } from '@kit/core'
+import { FLOWS_MODULE_ID } from '@kit/flows'
 import type { DrizzleD1Database } from 'drizzle-orm/d1'
 import type { schema } from '../db/schema'
 import { isKitModuleId, KIT_MODULE_IDS } from '../lib/kit-modules'
@@ -47,7 +48,13 @@ function slugRoleKey(input: string): string {
  */
 export async function ensureSystemRoles(db: Db, organizationId: string): Promise<void> {
   const now = Date.now()
-  const seed = systemRoleGrantSeed(KIT_MODULE_IDS)
+  // V0: FLOWS_ADMIN_ROLES (owner|admin) only — do not auto-write for member/reader (#29 review).
+  const seed = systemRoleGrantSeed(KIT_MODULE_IDS).map((row) => {
+    if (row.moduleId !== FLOWS_MODULE_ID) return row
+    if (row.roleKey === 'owner' || row.roleKey === 'admin')
+      return { ...row, access: 'write' as const }
+    return { ...row, access: 'disabled' as const }
+  })
   for (const roleKey of ORG_ROLE_KEYS) {
     let role = await orgRolesRepo.findRoleByKey(db, organizationId, roleKey)
     if (!role) {

@@ -1,4 +1,3 @@
-import { systemRoleGrantSeed } from '@kit/auth'
 import { createDb } from '@kit/db'
 import { FLOWS_MODULE_ID } from '@kit/flows'
 import { describe, expect, it } from 'vitest'
@@ -75,12 +74,9 @@ describe('platform-modules service (coverage / ADR dual-level)', () => {
   })
 
   it('registers flows in kit module catalogue (ensure + configured V0)', async () => {
-    // Grant-seed blast: expanding KIT_MODULE_IDS feeds systemRoleGrantSeed — intentional for kit dogfood.
     expect(KIT_MODULE_IDS).toContain(FLOWS_MODULE_ID)
     expect(isKitModuleId('flows')).toBe(true)
     expect(isModuleConfigured(FLOWS_MODULE_ID, null)).toBe(true)
-    const seed = systemRoleGrantSeed([...KIT_MODULE_IDS])
-    expect(seed.some((r) => r.moduleId === FLOWS_MODULE_ID)).toBe(true)
 
     const d = await db()
     await platformModulesService.ensurePlatformModules(d)
@@ -93,5 +89,19 @@ describe('platform-modules service (coverage / ADR dual-level)', () => {
     await platformModulesService.setPlatformAvailable(d, FLOWS_MODULE_ID, true)
     const after = await platformModulesService.listPlatformPublic(d)
     expect(after.flows.available).toBe(true)
+  })
+
+  it('ensureSystemRoles seeds flows write for owner/admin only (not member)', async () => {
+    const d = await db()
+    const { ensureSystemRoles, listRolesWithGrants } = await import('./org-roles')
+    await ensureSystemRoles(d, 'org_flows_seed')
+    const roles = await listRolesWithGrants(d, 'org_flows_seed')
+    const byKey = Object.fromEntries(roles.map((r) => [r.key, r]))
+    const access = (key: string) =>
+      byKey[key]?.grants.find((g) => g.moduleId === FLOWS_MODULE_ID)?.access
+    expect(access('owner')).toBe('write')
+    expect(access('admin')).toBe('write')
+    expect(access('member')).toBe('disabled')
+    expect(access('reader')).toBe('disabled')
   })
 })
