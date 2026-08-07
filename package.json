@@ -23,6 +23,7 @@
     "extract-dry-run": "bash scripts/extract-dry-run.sh",
     "banlist": "bash scripts/check-banned-strings.sh",
     "zod-major": "bash scripts/check-zod-major.sh",
+    "ts-major": "bash scripts/check-typescript-major.sh",
     "zero-edit": "bash scripts/check-zero-edit-zones.sh",
     "import-boundary": "bun run scripts/check-import-boundaries.ts",
     "test:import-boundary": "bash scripts/test-import-boundaries.sh",
@@ -34,10 +35,10 @@
     "i18n:check": "bun run --filter @kit/example-web test -- src/messages/messages.contract.test.ts",
     "license:check": "bun run tools/licenseChecker.ts",
     "quality-gates:check": "QG_FILE_MODE=tree bash tools/check_file_length.sh && bash tools/check_folder_size.sh",
-    "validate": "bun run lint && bun run typecheck && bun run test && bun run banlist && bun run zod-major && bun run extract-dry-run && bun run zero-edit && bun run env:check",
+    "validate": "bun run lint && bun run typecheck && bun run test && bun run banlist && bun run zod-major && bun run ts-major && bun run extract-dry-run && bun run zero-edit && bun run env:check",
     "build:kit": "turbo run build --filter=@kit/example-api --filter=@kit/example-web",
     "smoke:mcp": "bun run --filter @kit/mcp-example smoke:stdio",
-    "validate:full": "bun run lint && bun run typecheck && bun run banlist && bun run zod-major && bun run extract-dry-run && bun run zero-edit && bun run import-boundary && bun run test:import-boundary && bun run test:deny-upstream && bun run debt:check && bun run test:debt && bun run agents-adr:check && bun run env:check && bun run test:coverage && bun run license:check && bun run quality-gates:check && bun run build:kit && bun run smoke:mcp",
+    "validate:full": "bun run lint && bun run typecheck && bun run banlist && bun run zod-major && bun run ts-major && bun run extract-dry-run && bun run zero-edit && bun run import-boundary && bun run test:import-boundary && bun run test:deny-upstream && bun run debt:check && bun run test:debt && bun run agents-adr:check && bun run env:check && bun run test:coverage && bun run license:check && bun run quality-gates:check && bun run build:kit && bun run smoke:mcp",
     "prepare": "git config --get core.hooksPath >/dev/null 2>&1 || lefthook install",
     "dogfood:zero-edit": "bash scripts/dogfood-zero-edit.sh --self-sim",
     "test:deny-upstream": "bash scripts/test-deny-upstream.sh"
@@ -49,6 +50,6 @@
     "@vitest/coverage-v8": "4.1.10",
     "lefthook": "^2.1.0",
     "turbo": "^2.5.0",
-    "typescript": "^5.9.0"
+    "typescript": "^7.0.2"
   }
 }

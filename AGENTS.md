@@ -239,7 +239,7 @@ Ref : [changelog Base UI default](https://ui.shadcn.com/docs/changelog/2026-07-b
 
 | Couche | Choix | Quand |
 |---|---|---|
-| Language | **TypeScript 5.9+ strict** | S0 |
+| Language | **TypeScript 7+ strict** | S0 |
 | Package manager | **Bun** workspaces (`bun.lock`) | S0 |
 | Task runner | **Turborepo** (cache, filter, affected) — *pas* remplacé par Bun | S0 |
 | Edge | **Cloudflare Workers** | S0 |
