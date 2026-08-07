@@ -47,7 +47,7 @@ merge-on-green (label reviewed + checks)
 | Gate | Scope | Who runs it |
 |---|---|---|
 | `bun run validate` | lint · typecheck · test · banlist · **zod-major** · **ts-major** · extract · zero-edit · env:check on **kit** packages / examples | kit + product clones (kit zones) |
-| `bun run validate:full` | kit bar + import-boundary · test:import-boundary · deny-upstream · **debt:check** · **test:debt** · agents-adr · coverage floors · license · quality-gates (file+folder) · build:kit · smoke:mcp | pre-push + kit CI — **does not** prove product apps are tested |
+| `bun run validate:full` | kit bar + import-boundary · test:import-boundary · deny-upstream · **debt:check** · **test:debt** · **test:ts-major** · agents-adr · coverage floors · license · quality-gates (file+folder) · build:kit · smoke:mcp | pre-push + kit CI — **does not** prove product apps are tested |
 | product-validate / product-ci | product packages under `apps/<product>-*` | product repo only (copy templates; never dual-edit kit `ci.yml` / `test-coverage.sh`) |
 
 False green: product with real apps and only kit `validate:full` green is **not** product-tested.

@@ -5,7 +5,8 @@
 # Allowlist: empty by default. Dual-install (API 6 + native tsc 7) may add exact keys later.
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# Override for self-tests (never set in prod/CI to a path outside the monorepo).
+ROOT="${TS_MAJOR_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
 cd "$ROOT"
 
 # package.json files that must declare typescript ^7 (root + all workspaces that pin it)
