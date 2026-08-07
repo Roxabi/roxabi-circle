@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>#29 flows D1 + module catalogue — data flow</title>
+  <style>
+    :root { color-scheme: dark; --bg:#0b0f14; --card:#141a22; --line:#3d8bfd; --text:#e7ecf3; --muted:#8b98a8; --ok:#3ecf8e; }
+    * { box-sizing: border-box; }
+    body { margin:0; font:14px/1.45 system-ui,sans-serif; background:var(--bg); color:var(--text); padding:2rem; }
+    h1 { font-size:1.15rem; margin:0 0 1.5rem; }
+    .row { display:flex; flex-wrap:wrap; gap:1rem; align-items:stretch; justify-content:center; }
+    .node { background:var(--card); border:1px solid #243041; border-radius:12px; padding:1rem 1.25rem; min-width:150px; max-width:220px; box-shadow:0 0 24px rgba(61,139,253,.12); }
+    .node.hub { border-color:var(--line); box-shadow:0 0 28px rgba(61,139,253,.35); }
+    .node h2 { margin:0 0 .35rem; font-size:.85rem; color:var(--line); }
+    .node p { margin:0; font-size:.78rem; color:var(--muted); }
+    .arrow { display:flex; align-items:center; color:var(--line); font-size:1.4rem; opacity:.85; }
+    .legend { margin-top:2rem; color:var(--muted); font-size:.8rem; }
+    code { color:var(--ok); }
+  </style>
+</head>
+<body>
+  <h1>#29 — D1 flow_plans/flow_runs + module catalogue</h1>
+  <div class="row">
+    <div class="node"><h2>Sketch SQL</h2><p><code>packages/flows/migrations</code><br/>reference only</p></div>
+    <div class="arrow">→</div>
+    <div class="node hub"><h2>Applied migration</h2><p><code>0012_flows_*.sql</code><br/>integer ms · org_id NOT NULL</p></div>
+    <div class="arrow">→</div>
+    <div class="node"><h2>D1 tables</h2><p>flow_plans · flow_runs<br/>composite tenancy FK</p></div>
+  </div>
+  <div class="row" style="margin-top:1.5rem">
+    <div class="node"><h2>FLOWS_MODULE_ID</h2><p><code>@kit/flows</code></p></div>
+    <div class="arrow">→</div>
+    <div class="node hub"><h2>KIT_MODULE_IDS</h2><p>+ no-config set<br/>demo · flows</p></div>
+    <div class="arrow">→</div>
+    <div class="node"><h2>platform_modules</h2><p>ensure seed<br/>available=false</p></div>
+  </div>
+  <div class="row" style="margin-top:1.5rem">
+    <div class="node"><h2>Drizzle schema</h2><p>typed tables</p></div>
+    <div class="arrow">→</div>
+    <div class="node"><h2>Vitest</h2><p>registry · ensure</p></div>
+    <div class="arrow">→</div>
+    <div class="node hub"><h2>#31 / #30</h2><p>HTTP · Workflows<br/>(out of scope)</p></div>
+  </div>
+  <p class="legend">Applied migration is SSoT. Catalogue registration expands grant seed intentionally. No HTTP in #29.</p>
+</body>
+</html>
