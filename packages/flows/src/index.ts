@@ -61,6 +61,7 @@ export {
   executionTools,
   type ParseRunnerViewResult,
   parseRunnerView,
+  RUNNER_VIEW_VERSION,
   type RunnerView,
   runnerViewSchema,
 } from './snapshot'

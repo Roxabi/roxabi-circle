@@ -369,6 +369,9 @@ describe('createRunSnapshot + parseRunnerView', () => {
     if (re.ok) {
       expect(re.runnerView.executionTools).toEqual(['echo'])
       expect(re.runnerView.planId).toBe('demo-echo')
+      expect(re.runnerView.allowsInfer).toBe(true)
+      expect(re.runnerView.runnerViewVersion).toBe(1)
+      expect(Object.isFrozen(re.runnerView)).toBe(true)
     }
   })
 
@@ -407,6 +410,114 @@ describe('createRunSnapshot + parseRunnerView', () => {
     if (!re.ok) {
       expect(re.issues.some((i) => i.code === 'EXECUTION_TOOL_OUTSIDE_PERMITS')).toBe(true)
     }
+  })
+
+  it('parseRunnerView rejects allowsInfer false when sealed plan has infer', () => {
+    const plan = loadPlanFromYaml(DEMO_ECHO_PLAN_YAML)
+    const snap = createRunSnapshot({
+      plan,
+      grant: grant(['echo']),
+      registry,
+      actorId: 'user_1',
+    })
+    expect(snap.ok).toBe(true)
+    if (!snap.ok) return
+    const wire = JSON.parse(JSON.stringify(snap.runnerView))
+    wire.allowsInfer = false
+    const re = parseRunnerView(wire)
+    expect(re.ok).toBe(false)
+    if (!re.ok) {
+      expect(re.issues.some((i) => i.code === 'INFER_NOT_GRANTED')).toBe(true)
+    }
+  })
+
+  it('parseRunnerView rejects planDigest mismatch', () => {
+    const plan = loadPlanFromYaml(DEMO_ECHO_PLAN_YAML)
+    const snap = createRunSnapshot({
+      plan,
+      grant: grant(['echo']),
+      registry,
+      actorId: 'user_1',
+    })
+    expect(snap.ok).toBe(true)
+    if (!snap.ok) return
+    const wire = JSON.parse(JSON.stringify(snap.runnerView))
+    wire.planDigest = 'deadbeef'
+    const re = parseRunnerView(wire)
+    expect(re.ok).toBe(false)
+    if (!re.ok) {
+      expect(re.issues.some((i) => i.code === 'PLAN_DIGEST_MISMATCH')).toBe(true)
+    }
+  })
+
+  it('parseRunnerView rejects forged ceilings', () => {
+    const plan = loadPlanFromYaml(DEMO_ECHO_PLAN_YAML)
+    const snap = createRunSnapshot({
+      plan,
+      grant: grant(['echo']),
+      registry,
+      actorId: 'user_1',
+    })
+    expect(snap.ok).toBe(true)
+    if (!snap.ok) return
+    const wire = JSON.parse(JSON.stringify(snap.runnerView))
+    wire.ceilings.hardMaxTokens = 999_999
+    const re = parseRunnerView(wire)
+    expect(re.ok).toBe(false)
+    if (!re.ok) {
+      expect(re.issues.some((i) => i.code === 'CEILING_MISMATCH')).toBe(true)
+    }
+  })
+
+  it('parseRunnerView rejects planId mismatch', () => {
+    const plan = loadPlanFromYaml(DEMO_ECHO_PLAN_YAML)
+    const snap = createRunSnapshot({
+      plan,
+      grant: grant(['echo']),
+      registry,
+      actorId: 'user_1',
+    })
+    expect(snap.ok).toBe(true)
+    if (!snap.ok) return
+    const wire = JSON.parse(JSON.stringify(snap.runnerView))
+    wire.planId = 'other-id'
+    const re = parseRunnerView(wire)
+    expect(re.ok).toBe(false)
+    if (!re.ok) {
+      expect(re.issues.some((i) => i.code === 'PLAN_ID_MISMATCH')).toBe(true)
+    }
+  })
+
+  it('parseRunnerView rejects grantAudit with RUNNER_VIEW_INVALID', () => {
+    const plan = loadPlanFromYaml(DEMO_ECHO_PLAN_YAML)
+    const snap = createRunSnapshot({
+      plan,
+      grant: grant(['echo', 'write_demo']),
+      registry,
+      actorId: 'user_1',
+    })
+    expect(snap.ok).toBe(true)
+    if (!snap.ok) return
+    const wire = {
+      ...JSON.parse(JSON.stringify(snap.runnerView)),
+      grantAudit: snap.grantAudit,
+    }
+    const re = parseRunnerView(wire)
+    expect(re.ok).toBe(false)
+    if (!re.ok) {
+      expect(re.issues.some((i) => i.code === 'RUNNER_VIEW_INVALID')).toBe(true)
+    }
+  })
+
+  it('createRunSnapshot refuses empty actorId', () => {
+    const plan = loadPlanFromYaml(DEMO_ECHO_PLAN_YAML)
+    const snap = createRunSnapshot({
+      plan,
+      grant: grant(['echo']),
+      registry,
+      actorId: '',
+    })
+    expect(snap.ok).toBe(false)
   })
 })
 

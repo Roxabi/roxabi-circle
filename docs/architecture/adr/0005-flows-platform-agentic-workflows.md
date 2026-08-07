@@ -180,13 +180,16 @@ On **create-run**, `createRunSnapshot` returns:
 
 | Output | Persist on execution path? | Contents |
 |---|---|---|
-| **`runnerView`** | **Yes** (`snapshot_json` / Workflow payload) | `orgId` · `actorId` · `planId` · `planDigest` · `sealedPlan` · `executionTools` · `registryVersion` · `registryContentDigest` · `ceilings` (`hardMaxTokens`, `staticTokenBudget`, `planMaxTokens?`) · `allowsInfer` · `createdAt` |
+| **`runnerView`** | **Yes** (`snapshot_json` / Workflow payload) | `runnerViewVersion: 1` · `orgId` · `actorId` · `planId` · `planDigest` · `sealedPlan` · `executionTools` · `registryVersion` · `registryContentDigest` · `ceilings` (`hardMaxTokens`, `staticTokenBudget`, `planMaxTokens?`) · `allowsInfer` · `createdAt` |
 | **`grantAudit`** | **Separate only** (audit log / optional column) | Full grant allowlist + `allowsInfer` — **never** for tool dispatch |
 
-- Rehydrate with **`parseRunnerView(unknown)`** only — rejects `grantAudit` / deprecated dual fields; rejects `executionTools` outside sealed permits  
-- Runner **must** execute the **runner view**, never the live plan row  
+- Persist **only** `JSON.stringify(runnerView)` into `snapshot_json` — never the dual `{ ok, runnerView, grantAudit }` result object  
+- Rehydrate with **`parseRunnerView(unknown)` only** (required AC for #30): rejects `grantAudit` / unknown keys; `executionTools ⊆ permits`; every invoke tool ∈ `executionTools`; ceilings re-derived from `sealedPlan`; `planDigest` consistency; empty permits + effectful fail-closed  
+- **Not** full grant re-mint on rehydrate — provenance stays create-run mint (#31). Tamper resistance of the blob = trusted write path (+ optional MAC later)  
+- Runner **must** execute the **runner view**, never the live plan row; dispatch **only** `executionTools`  
 - Plan edits create a new version; in-flight runs unchanged  
-- `enabled=false` blocks **new** runs; cancel/kill = best-effort Workflow terminate (document non-idempotent tool risk)
+- `enabled=false` blocks **new** runs; cancel/kill = best-effort Workflow terminate (document non-idempotent tool risk)  
+- **Schema evolution:** `runnerViewVersion` literal `1`; breaking shape requires bump + dual-parse / migrate — do not silently loosen `.strict()`
 
 #### Runtime spend
 
