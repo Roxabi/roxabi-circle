@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>#24 TypeScript 7 — file map</title>
+  <style>
+    :root { color-scheme: dark; --bg:#0b0f14; --card:#141a22; --line:#3d8bfd; --text:#e7ecf3; --muted:#8b98a8; --ok:#3ecf8e; --warn:#f0b429; }
+    * { box-sizing: border-box; }
+    body { margin:0; font:14px/1.45 system-ui,sans-serif; background:var(--bg); color:var(--text); padding:2rem; }
+    h1 { font-size:1.15rem; margin:0 0 1rem; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:1rem; max-width:72rem; margin:0 auto; }
+    .card { background:var(--card); border:1px solid #243041; border-radius:12px; padding:1rem 1.15rem; }
+    .card h2 { margin:0 0 .5rem; font-size:.9rem; color:var(--line); }
+    .card ul { margin:0; padding-left:1.1rem; color:var(--muted); font-size:.8rem; }
+    .card.agent { border-color:rgba(61,139,253,.45); }
+    .card.ship { border-color:rgba(62,207,142,.45); }
+    .card.warn { border-color:rgba(240,180,41,.45); }
+    code { color:var(--ok); font-size:.75rem; }
+    .legend { margin-top:1.5rem; color:var(--muted); font-size:.8rem; max-width:72rem; margin-inline:auto; }
+  </style>
+</head>
+<body>
+  <h1>#24 — files × roles</h1>
+  <div class="grid">
+    <div class="card agent">
+      <h2>devops-A</h2>
+      <ul>
+        <li>15× <code>package.json</code> typescript pins</li>
+        <li><code>bun.lock</code></li>
+        <li><code>scripts/check-typescript-major.sh</code></li>
+        <li>root <code>ts-major</code> + validate wiring</li>
+        <li>inventory + PR attestation note</li>
+      </ul>
+    </div>
+    <div class="card warn">
+      <h2>backend-dev-A (compile)</h2>
+      <ul>
+        <li><code>packages/ui/tsconfig.json</code> (drop baseUrl)</li>
+        <li>first-party type errors under tsc 7</li>
+        <li>tool peers only if red</li>
+        <li>optional hatch 6→7 commits</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h2>doc-writer-A</h2>
+      <ul>
+        <li><code>AGENTS.md</code> Language row → 7+</li>
+        <li>grep residual 5.9 targets in kit docs</li>
+      </ul>
+    </div>
+    <div class="card ship">
+      <h2>tester-A</h2>
+      <ul>
+        <li><code>turbo typecheck --force</code></li>
+        <li><code>bun run build:kit</code></li>
+        <li><code>bun run validate:full</code></li>
+        <li><code>bun run ts-major</code></li>
+      </ul>
+    </div>
+  </div>
+  <p class="legend">No product domain files. <code>@kit/config</code> has no typescript pin. Dual-install API 6 + native 7 only if a tool requires JS Compiler API.</p>
+</body>
+</html>
