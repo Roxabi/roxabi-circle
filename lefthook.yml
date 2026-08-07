@@ -27,6 +27,9 @@ pre-commit:
     file-length:
       # Staged TS/TSX only under apps/ + packages/ (max 300; tools/file_exemptions.txt)
       run: QG_FILE_MODE=staged bash tools/check_file_length.sh
+    # Primary secret gate (before GitHub) — staged files + unpushed commits
+    trufflehog:
+      run: bash scripts/trufflehog-check.sh
 
 commit-msg:
   commands:
@@ -43,6 +46,7 @@ commit-msg:
 # import-boundary: packages↛apps · example-web↛api/workers (CP-IMPORT)
 # debt: DEBT:<slug> on suppressions + expiry warn (CP-DEBT · docs/debt-tracking.md)
 # (no separate turbo `test` for all pkgs — coverage suites are the unit gate)
+# secret-scan: primary = trufflehog-check.sh (pre-commit + pre-push); CI = secondary filet
 pre-push:
   parallel: false
   commands:
@@ -50,6 +54,10 @@ pre-push:
     deny-upstream:
       skip: false
       run: bash scripts/deny-upstream-push.sh {1} {2}
+    # Fail fast on secrets before long validate:full (CI is too late once pushed)
+    trufflehog:
+      skip: false
+      run: bash scripts/trufflehog-check.sh
     validate-full:
       skip: false
       run: bun run validate:full

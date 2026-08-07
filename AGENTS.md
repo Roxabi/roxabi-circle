@@ -603,7 +603,7 @@ Règles : guard first · Zod double frontière · pas de god file · packages �
 ### S0 / M0
 
 - [x] **PR template sécu** — `.github/PULL_REQUEST_TEMPLATE.md`  
-- [x] **Secret scan CI** — `.github/workflows/secret-scan.yml` (TruffleHog `--only-verified`)  
+- [x] **Secret scan** — **local primary** `scripts/trufflehog-check.sh` (lefthook pre-commit/pre-push: unpushed commits + staged; exclude SSoT) · **CI secondary** `.github/workflows/secret-scan.yml` (diff base/head + same exclude)  
 - [x] **Merge-on-green** — `.github/workflows/merge-on-green.yml` (label `reviewed` + fin CI/Secret only — pas de check_suite/sync spam ; close issues → `close-linked-issues.yml`)  
 - [x] Label **`reviewed`** créé sur le repo  
 - [x] Merge token = **GitHub App `kit-ci`** (pas de PAT) — setup : [`docs/kit-ci-app-setup.md`](docs/kit-ci-app-setup.md)  
@@ -728,7 +728,7 @@ Règles dures pour tout agent (humain qui drive l’IA) :
 | Fichiers | `.dev.vars` / `.env` **gitignored** · seul `.env.example` / `.dev.vars.example` **placeholders** |
 | Inventaire | Vaultwarden / Keychain — pas dans le repo, pas dans le transcript agent |
 | CI | secrets GitHub Actions / CF · jamais loggés |
-| Scan | **`.github/workflows/secret-scan.yml`** (TruffleHog verified) + secret scanning org GH ; gitleaks optionnel en local |
+| Scan | **local** `scripts/trufflehog-check.sh` (primary, before remote) + **CI** `secret-scan.yml` (diff base/head, secondary) + org GH secret scanning |
 | Agents cloud | ne pas uploader le repo avec `.dev.vars` non ignoré · vérifier ignore avant partage zip |
 | Prod keys | mint UI only · rotation documentée · recheck org |
 
