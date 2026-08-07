@@ -1,6 +1,10 @@
+import { systemRoleGrantSeed } from '@kit/auth'
 import { createDb } from '@kit/db'
+import { FLOWS_MODULE_ID } from '@kit/flows'
 import { describe, expect, it } from 'vitest'
 import { schema } from '../db/schema'
+import { isModuleConfigured } from '../lib/integration-config'
+import { isKitModuleId, KIT_MODULE_IDS } from '../lib/kit-modules'
 import { createMemoryEnv } from '../test/memory-env'
 import * as platformModulesService from './platform-modules'
 
@@ -68,5 +72,26 @@ describe('platform-modules service (coverage / ADR dual-level)', () => {
     await platformModulesService.setPlatformAvailable(d, 'demo', true)
     const list = await platformModulesService.listPlatformPublic(d)
     expect(list.demo.available).toBe(true)
+  })
+
+  it('registers flows in kit module catalogue (ensure + configured V0)', async () => {
+    // Grant-seed blast: expanding KIT_MODULE_IDS feeds systemRoleGrantSeed — intentional for kit dogfood.
+    expect(KIT_MODULE_IDS).toContain(FLOWS_MODULE_ID)
+    expect(isKitModuleId('flows')).toBe(true)
+    expect(isModuleConfigured(FLOWS_MODULE_ID, null)).toBe(true)
+    const seed = systemRoleGrantSeed([...KIT_MODULE_IDS])
+    expect(seed.some((r) => r.moduleId === FLOWS_MODULE_ID)).toBe(true)
+
+    const d = await db()
+    await platformModulesService.ensurePlatformModules(d)
+    const list = await platformModulesService.listPlatformPublic(d)
+    expect(list.flows).toMatchObject({
+      available: false,
+      configured: true,
+    })
+
+    await platformModulesService.setPlatformAvailable(d, FLOWS_MODULE_ID, true)
+    const after = await platformModulesService.listPlatformPublic(d)
+    expect(after.flows.available).toBe(true)
   })
 })

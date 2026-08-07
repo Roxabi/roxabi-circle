@@ -1,5 +1,7 @@
+import { FLOWS_MODULE_ID } from '@kit/flows'
+
 /** Known kit module ids — extend when adding optional surfaces (product-specific elsewhere). */
-export const KIT_MODULE_IDS = ['demo'] as const
+export const KIT_MODULE_IDS = ['demo', FLOWS_MODULE_ID] as const
 
 export type KitModuleId = (typeof KIT_MODULE_IDS)[number]
 
@@ -8,4 +10,7 @@ export function isKitModuleId(id: string): id is KitModuleId {
 }
 
 /** Registry of optional kit modules — disabled until admin enables. */
-export const KIT_MODULE_DEFAULTS: ReadonlyArray<{ id: KitModuleId }> = [{ id: 'demo' }]
+export const KIT_MODULE_DEFAULTS: ReadonlyArray<{ id: KitModuleId }> = [
+  { id: 'demo' },
+  { id: FLOWS_MODULE_ID },
+]
