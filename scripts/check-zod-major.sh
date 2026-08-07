@@ -45,21 +45,28 @@ if [[ ! -f bun.lock ]]; then
   exit 1
 fi
 
-# Every zod@3. lock key must be allowlisted (exact key prefix before version array)
-# Allowlist entries match substrings of lock lines (e.g. "shadcn/zod").
+# Every zod@3. lock key must equal an allowlisted nested key (exact match, not substring).
+# bun.lock lines look like:     "shadcn/zod": ["zod@3.25.76", "", {}, "sha…"],
 ALLOWLIST=(
   'shadcn/zod'
 )
 
 while IFS= read -r line; do
   [[ -z "$line" ]] && continue
+  # extract nested package key if present: "foo/zod": ["zod@3.…
+  key=""
+  if [[ "$line" =~ \"([^\"]+)\":[[:space:]]*\[\"zod@3\. ]]; then
+    key="${BASH_REMATCH[1]}"
+  fi
   allowed=0
-  for a in "${ALLOWLIST[@]}"; do
-    if echo "$line" | grep -qF "$a"; then
-      allowed=1
-      break
-    fi
-  done
+  if [[ -n "$key" ]]; then
+    for a in "${ALLOWLIST[@]}"; do
+      if [[ "$key" == "$a" ]]; then
+        allowed=1
+        break
+      fi
+    done
+  fi
   if [[ "$allowed" -eq 0 ]]; then
     echo "check-zod-major: non-allowlisted zod@3 in bun.lock:" >&2
     echo "  $line" >&2
