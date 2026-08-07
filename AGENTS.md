@@ -744,7 +744,7 @@ Règles dures pour tout agent (humain qui drive l’IA) :
 pre-commit (Lefthook) → Biome format/lint (staged)
          ↓
 pre-push (Lefthook)   → bun run validate:full
-                        (lint · typecheck · banlist · zod-major · ts-major · extract · zero-edit · import-boundary
+                        (lint · typecheck · banlist · zod-major · ts-major · test:ts-major · extract · zero-edit · import-boundary
                          · deny-upstream · debt:check · test:debt · agents-adr · env:check
                          · coverage floors · license:check · quality-gates · build:kit · smoke:mcp)
          ↓
