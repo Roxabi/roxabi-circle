@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>#23 Zod 4 — data flow</title>
+  <style>
+    :root { color-scheme: dark; --bg:#0b0f14; --card:#141a22; --line:#3d8bfd; --text:#e7ecf3; --muted:#8b98a8; --ok:#3ecf8e; --warn:#f0b429; }
+    * { box-sizing: border-box; }
+    body { margin:0; font:14px/1.45 system-ui,sans-serif; background:var(--bg); color:var(--text); padding:2rem; }
+    h1 { font-size:1.15rem; margin:0 0 1.5rem; }
+    .row { display:flex; flex-wrap:wrap; gap:1rem; align-items:stretch; justify-content:center; }
+    .node { background:var(--card); border:1px solid #243041; border-radius:12px; padding:1rem 1.25rem; min-width:140px; max-width:210px; box-shadow:0 0 24px rgba(61,139,253,.12); }
+    .node.hub { border-color:var(--line); box-shadow:0 0 28px rgba(61,139,253,.35); }
+    .node.ship { border-color:var(--ok); }
+    .node h2 { margin:0 0 .35rem; font-size:.85rem; color:var(--line); }
+    .node p { margin:0; font-size:.78rem; color:var(--muted); }
+    .arrow { display:flex; align-items:center; color:var(--line); font-size:1.4rem; opacity:.85; }
+    .legend { margin-top:2rem; color:var(--muted); font-size:.8rem; max-width:52rem; margin-inline:auto; }
+    code { color:var(--ok); }
+  </style>
+</head>
+<body>
+  <h1>#23 — wave 5a Zod 3→4 data flow</h1>
+  <div class="row">
+    <div class="node"><h2>T1 · Inventory</h2><p>6 package.json pins<br/>lock dual 3.25 + 4.4.3</p></div>
+    <div class="arrow">→</div>
+    <div class="node hub"><h2>D1 · Pin ^4.4.3</h2><p>all workspaces + lock<br/><code>clean bun install</code></p></div>
+    <div class="arrow">→</div>
+    <div class="node"><h2>D2 · Assert</h2><p>no <code>zod@3.</code> in lock<br/>or allowlist table</p></div>
+  </div>
+  <div class="row" style="margin-top:1.5rem">
+    <div class="node"><h2>A1 · core parse</h2><p>parseOrThrow + flatten<br/>fieldErrors fixture</p></div>
+    <div class="arrow">→</div>
+    <div class="node hub"><h2>A2 · flows port</h2><p>schema/grant/check<br/><code>z.record</code> fixture</p></div>
+    <div class="arrow">→</div>
+    <div class="node"><h2>A3–A6 · consumers</h2><p>mcp · api · web · mcp-example<br/>fix only if break</p></div>
+  </div>
+  <div class="row" style="margin-top:1.5rem">
+    <div class="node ship"><h2>S1–S3 · Gates</h2><p>typecheck · package tests<br/>smoke:mcp · validate:full</p></div>
+    <div class="arrow">→</div>
+    <div class="node ship"><h2>S4–S5 · Ship</h2><p>dedicated PR #23<br/>freeze #29/#30 · no #24</p></div>
+  </div>
+  <p class="legend">
+    Single ship unit (slices = commit gates, not separate PRs).
+    Manifest-only (D1/D2) is <strong>not</strong> mergeable alone — A2 flows port + green gates required.
+    Out of scope: TypeScript 7 (#24).
+  </p>
+</body>
+</html>

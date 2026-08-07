@@ -83,7 +83,7 @@ function assertArgsShape(value: unknown, depth: number, path: string, ctx: z.Ref
 const invokeBodySchema = z
   .object({
     tool: toolNameSchema,
-    args: z.record(z.unknown()).optional(),
+    args: z.record(z.string(), z.unknown()).optional(),
   })
   .strict()
   .superRefine((val, ctx) => {

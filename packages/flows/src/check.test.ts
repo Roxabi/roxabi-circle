@@ -348,6 +348,42 @@ describe('registry', () => {
   })
 })
 
+describe('planDocumentSchema z.record (Zod 4)', () => {
+  it('parses multi-task plan with string-keyed invoke.args', () => {
+    const plan = parsePlanDocument({
+      flows: 'v0',
+      plan: { id: 'p' },
+      permits: { tools: ['echo'] },
+      tasks: {
+        t1: { invoke: { tool: 'echo', args: { message: 'hi', n: 1 } } },
+        t2: { after: ['t1'], invoke: { tool: 'echo', args: { message: 'bye' } } },
+      },
+    })
+    expect(plan.tasks.t1.invoke?.args).toEqual({ message: 'hi', n: 1 })
+    expect(Object.keys(plan.tasks)).toEqual(['t1', 't2'])
+  })
+
+  it('rejects non-object invoke.args', () => {
+    const r = safeParsePlanDocument({
+      flows: 'v0',
+      plan: { id: 'p' },
+      permits: { tools: ['echo'] },
+      tasks: { t1: { invoke: { tool: 'echo', args: ['not', 'a', 'record'] } } },
+    })
+    expect(r.success).toBe(false)
+  })
+
+  it('rejects invalid task id keys (nonEmptyId)', () => {
+    const r = safeParsePlanDocument({
+      flows: 'v0',
+      plan: { id: 'p' },
+      permits: { tools: ['echo'] },
+      tasks: { '9bad': { invoke: { tool: 'echo' } } },
+    })
+    expect(r.success).toBe(false)
+  })
+})
+
 describe('V0 admin access', () => {
   it('owner/admin can admin flows; member cannot', () => {
     expect(canAdminFlows({ orgRole: 'owner' })).toBe(true)
