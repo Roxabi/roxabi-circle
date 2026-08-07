@@ -162,6 +162,20 @@ describe('checkPlan authority (grant ∩ permits)', () => {
     }
   })
 
+  it('parses invoke.args as string-keyed record (Zod 4 z.record arity)', () => {
+    const plan = parsePlanDocument({
+      flows: 'v0',
+      plan: { id: 'p' },
+      permits: { tools: ['echo'] },
+      tasks: {
+        t1: { invoke: { tool: 'echo', args: { message: 'hi', n: 1 } } },
+        t2: { after: ['t1'], invoke: { tool: 'echo', args: { message: 'bye' } } },
+      },
+    })
+    expect(plan.tasks.t1.invoke?.args).toEqual({ message: 'hi', n: 1 })
+    expect(Object.keys(plan.tasks)).toEqual(['t1', 't2'])
+  })
+
   it('fails empty permits with infer-only', () => {
     const plan = parsePlanDocument({
       flows: 'v0',
