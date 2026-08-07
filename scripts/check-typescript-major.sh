@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Fail if kit manifests pin typescript outside ^7, or if bun.lock has non-allowlisted
-# typescript@5. / typescript@6. package keys (kit compiler must be 7.x).
+# Fail if kit manifests pin typescript outside exclusive ^7.x, or if bun.lock has
+# non-allowlisted typescript@5./@6. package keys, or if the lock lacks a positive
+# typescript@7. resolution. Kit compiler must be 7.x.
 # Allowlist: empty by default. Dual-install (API 6 + native tsc 7) may add exact keys later.
 set -euo pipefail
 
@@ -26,7 +27,12 @@ PIN_FILES=(
   apps/mcp-example/package.json
 )
 
+# Exclusive ^7 pin: caret + major 7 only — reject || dual-ranges, spaces, npm: aliases, 5/6.
+# Accepts: ^7 | ^7.0 | ^7.0.2
+PIN_RE='^\^7(\.[0-9]+){0,2}$'
+
 fail=0
+pin_count=0
 
 for f in "${PIN_FILES[@]}"; do
   if [[ ! -f "$f" ]]; then
@@ -40,18 +46,22 @@ for f in "${PIN_FILES[@]}"; do
     fail=1
     continue
   fi
-  if echo "$line" | grep -qE '"typescript":\s*"\^?5'; then
-    echo "check-typescript-major: $f still pins typescript 5.x: $line" >&2
-    fail=1
+  # Extract first double-quoted value after "typescript"
+  val=""
+  if [[ "$line" =~ \"typescript\"[[:space:]]*:[[:space:]]*\"([^\"]+)\" ]]; then
+    val="${BASH_REMATCH[1]}"
   fi
-  if echo "$line" | grep -qE '"typescript":\s*"\^?6'; then
-    echo "check-typescript-major: $f pins typescript 6.x (end state must be ^7): $line" >&2
+  if [[ -z "$val" ]]; then
+    echo "check-typescript-major: $f could not parse typescript pin: $line" >&2
     fail=1
+    continue
   fi
-  if ! echo "$line" | grep -qE '"typescript":\s*"\^7'; then
-    echo "check-typescript-major: $f typescript pin is not ^7.x: $line" >&2
+  if [[ ! "$val" =~ $PIN_RE ]]; then
+    echo "check-typescript-major: $f pin must match exclusive ^7.x (got: $val)" >&2
     fail=1
+    continue
   fi
+  pin_count=$((pin_count + 1))
 done
 
 if [[ ! -f bun.lock ]]; then
@@ -59,13 +69,18 @@ if [[ ! -f bun.lock ]]; then
   exit 1
 fi
 
+# Positive identity: resolved compiler package must be typescript@7.x
+if ! grep -qE '\[\"typescript@7\.' bun.lock; then
+  echo "check-typescript-major: bun.lock missing positive typescript@7. resolution" >&2
+  fail=1
+fi
+
 # Residual typescript@5. / @6. lock package keys must be exact-allowlisted.
 # bun.lock lines look like:     "typescript": ["typescript@5.9.3", …]
 # or nested: "some-tool/typescript": ["typescript@6.0.2", …]
 # Platform optional deps @typescript/typescript-linux-x64@7… are fine (7.x).
 ALLOWLIST=(
-  # dual-install API exception keys go here if ever required, e.g.:
-  # 'npm:@typescript/typescript6'
+  # dual-install API exception: set key from an actual bun.lock residual line, e.g. "typescript"
 )
 
 while IFS= read -r line; do
@@ -90,9 +105,18 @@ while IFS= read -r line; do
   fi
 done < <(grep -E 'typescript@[56]\.' bun.lock || true)
 
+# Optional runtime probe when local tsc is available (CI after bun install)
+if [[ -x ./node_modules/.bin/tsc ]]; then
+  ver="$(./node_modules/.bin/tsc --version 2>/dev/null || true)"
+  if [[ ! "$ver" =~ ^Version[[:space:]]+7\. ]]; then
+    echo "check-typescript-major: local tsc is not 7.x (got: ${ver:-missing})" >&2
+    fail=1
+  fi
+fi
+
 if [[ "$fail" -ne 0 ]]; then
   echo "check-typescript-major: FAILED" >&2
   exit 1
 fi
 
-echo "check-typescript-major: OK (15 pins ^7; no non-allowlisted typescript@5/6 in lock)"
+echo "check-typescript-major: OK (${pin_count} pins exclusive ^7; typescript@7. in lock; no non-allowlisted @5/@6)"

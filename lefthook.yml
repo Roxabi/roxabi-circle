@@ -38,8 +38,8 @@ commit-msg:
 
 # Full suite before code leaves the machine (= validate:full).
 # Intentional cost: local SoT; CI re-runs as guardrail (skip hooks / env drift).
-# validate:full = lint · typecheck · banlist · extract · zero-edit · import-boundary ·
-#                 test:import-boundary · deny-upstream · debt:check · test:debt ·
+# validate:full = lint · typecheck · banlist · zod-major · ts-major · extract · zero-edit ·
+#                 import-boundary · test:import-boundary · deny-upstream · debt:check · test:debt ·
 #                 agents-adr · env · test:coverage · license · quality-gates (file+folder) ·
 #                 build:kit · smoke:mcp
 # zero-edit: product must not dual-edit kit paths (see docs/product-consumer-contract.md)

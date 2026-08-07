@@ -25,7 +25,7 @@
 - **`packages/ui/tsconfig.json`:** `"baseUrl": "."` + `paths` `@/*` → `./src/*` (6/7 hard-deprecation landmine)
 - **AGENTS.md Language row:** `TypeScript 5.9+ strict`
 - **Registry:** `typescript@7.0.2` latest stable; **6.x bridge exists** (`6.0.2` / `6.0.3`)
-- **Dependabot PR #12:** OPEN, MERGEABLE — `chore(deps-dev): bump typescript from 5.9.3 to 7.0.2` (same 15 files). **Not ship unit.** Close **before** dedicated merge; never label `reviewed`.
+- **Dependabot PR #12:** CLOSED (superseded by dedicated PR #43) — `chore(deps-dev): bump typescript from 5.9.3 to 7.0.2` (same 15 files). **Not ship unit.** Close **before** dedicated merge; never label `reviewed`.
 
 ## Post-bump (2026-08-08)
 
