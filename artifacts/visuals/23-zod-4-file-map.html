@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>#23 Zod 4 — file map</title>
+  <style>
+    :root { color-scheme: dark; --bg:#0b0f14; --card:#141a22; --line:#3d8bfd; --text:#e7ecf3; --muted:#8b98a8; --ok:#3ecf8e; }
+    * { box-sizing: border-box; }
+    body { margin:0; font:14px/1.45 system-ui,sans-serif; background:var(--bg); color:var(--text); padding:2rem; }
+    h1 { font-size:1.15rem; margin:0 0 1rem; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:1rem; max-width:960px; }
+    .card { background:var(--card); border:1px solid #243041; border-radius:12px; padding:1rem; }
+    .card h2 { margin:0 0 .5rem; font-size:.8rem; color:var(--line); text-transform:uppercase; letter-spacing:.04em; }
+    .card ul { margin:0; padding-left:1.1rem; font-size:.8rem; color:var(--muted); }
+    .card li { margin:.25rem 0; }
+    code { color:var(--ok); font-size:.75rem; }
+    .legend { margin-top:1.5rem; color:var(--muted); font-size:.8rem; max-width:52rem; }
+  </style>
+</head>
+<body>
+  <h1>#23 — wave 5a files × roles</h1>
+  <div class="grid">
+    <div class="card">
+      <h2>devops-A · deps</h2>
+      <ul>
+        <li><code>packages/core/package.json</code></li>
+        <li><code>packages/flows/package.json</code></li>
+        <li><code>packages/mcp/package.json</code></li>
+        <li><code>apps/example-api/package.json</code></li>
+        <li><code>apps/example-web/package.json</code></li>
+        <li><code>apps/mcp-example/package.json</code></li>
+        <li><code>bun.lock</code></li>
+      </ul>
+    </div>
+    <div class="card">
+      <h2>backend-dev-A · core + flows</h2>
+      <ul>
+        <li><code>packages/core/src/parse.ts</code></li>
+        <li><code>packages/flows/src/schema.ts</code></li>
+        <li><code>packages/flows/src/grant.ts</code></li>
+        <li><code>packages/flows/src/check.ts</code> (+ tests)</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h2>backend-dev-B · mcp + api</h2>
+      <ul>
+        <li><code>packages/mcp/src/catalogue.ts</code></li>
+        <li><code>packages/mcp/src/schemas.ts</code></li>
+        <li><code>apps/example-api/src/**/*.ts</code> (schemas only if break)</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h2>frontend-dev-A · web</h2>
+      <ul>
+        <li><code>apps/example-web/src/lib/schemas.ts</code></li>
+        <li>route zod uses only if typecheck fails</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h2>tester-A · gates</h2>
+      <ul>
+        <li>typecheck · core/flows/mcp/api/auth tests</li>
+        <li>example-web typecheck · smoke:mcp</li>
+        <li><code>validate:full</code></li>
+      </ul>
+    </div>
+    <div class="card">
+      <h2>devops-A · ship</h2>
+      <ul>
+        <li>D2 evidence note</li>
+        <li>PR body (#23 only, no #24)</li>
+        <li>#29/#30 freeze · Dependabot zod</li>
+      </ul>
+    </div>
+  </div>
+  <p class="legend">
+    No product domain files. Adapter edits only where Zod 4 breaks compile/runtime.
+    Mandatory port: <code>@kit/flows</code> schemas + minimal fixtures (record + flatten).
+  </p>
+</body>
+</html>
