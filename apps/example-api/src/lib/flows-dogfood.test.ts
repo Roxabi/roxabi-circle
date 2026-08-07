@@ -1,9 +1,11 @@
+import { createRunSnapshot, loadPlanFromYaml } from '@kit/flows'
 import { describe, expect, it } from 'vitest'
 import {
   canDogfoodCreateRun,
   DEMO_ECHO_PLAN_YAML,
-  dogfoodGrant,
+  dogfoodFixedGrant,
   dogfoodPlanToSnapshot,
+  dogfoodToolRegistry,
   FLOWS_MODULE_ID,
   isFlowsAdmin,
 } from './flows-dogfood'
@@ -13,24 +15,39 @@ describe('flows dogfood call site', () => {
     expect(FLOWS_MODULE_ID).toBe('flows')
   })
 
-  it('checks and freezes snapshot for demo plan with grant', () => {
-    const result = dogfoodPlanToSnapshot(DEMO_ECHO_PLAN_YAML, dogfoodGrant('org_demo'), 'user_demo')
+  it('checks and freezes runnerView for demo plan with fixed grant', () => {
+    const result = dogfoodPlanToSnapshot(DEMO_ECHO_PLAN_YAML, 'org_demo', 'user_demo')
     expect(result.ok).toBe(true)
     if (result.ok) {
-      expect(result.snapshot.planId).toBe('demo-echo')
-      expect(result.snapshot.executionTools).toEqual(['echo'])
-      expect(result.snapshot.orgId).toBe('org_demo')
-      expect(result.snapshot.grantAudit.registryVersion).toBe('example-api-dogfood-v0')
-      expect(result.snapshot.registryContentDigest).toMatch(/^[0-9a-f]{8}$/)
+      expect(result.runnerView.planId).toBe('demo-echo')
+      expect(result.runnerView.executionTools).toEqual(['echo'])
+      expect(result.runnerView.orgId).toBe('org_demo')
+      expect(result.runnerView.allowsInfer).toBe(true)
+      expect(result.grantAudit.registryVersion).toBe('example-api-dogfood-v0')
+      expect(result.runnerView.registryContentDigest).toMatch(/^[0-9a-f]{8}$/)
+      expect('grantAudit' in result.runnerView).toBe(false)
     }
   })
 
-  it('returns TOOL_NOT_GRANTED when grant omits tool', () => {
-    const result = dogfoodPlanToSnapshot(
-      DEMO_ECHO_PLAN_YAML,
-      dogfoodGrant('org_demo', []),
-      'user_demo',
-    )
+  it('fixed grant is not free-form (tools always echo)', () => {
+    const g = dogfoodFixedGrant('org_x')
+    expect(g.allowedTools).toEqual(['echo'])
+    expect(g.allowsInfer).toBe(true)
+  })
+
+  it('returns TOOL_NOT_GRANTED for empty tools via createRunSnapshot (not dogfood export)', () => {
+    const plan = loadPlanFromYaml(DEMO_ECHO_PLAN_YAML)
+    const result = createRunSnapshot({
+      plan,
+      grant: {
+        orgId: 'org_demo',
+        allowedTools: [],
+        registryVersion: dogfoodToolRegistry.version,
+        allowsInfer: true,
+      },
+      registry: dogfoodToolRegistry,
+      actorId: 'user_demo',
+    })
     expect(result.ok).toBe(false)
     if (!result.ok) {
       expect(result.issues.some((i) => i.code === 'TOOL_NOT_GRANTED')).toBe(true)

@@ -2,7 +2,7 @@
 title: 'ADR-0005 — Flows platform: governed plans + durable runs (agentic SaaS kit)'
 status: accepted
 date: 2026-08-05
-amended: 2026-08-06
+amended: 2026-08-07
 related:
   - docs/architecture/adr/0001-primary-axis-packages-compose-apps.md
   - docs/architecture/adr/0002-session-hmac-interim-vs-better-auth.md
@@ -75,7 +75,7 @@ Apps compose packages:
 - `apps/example-web` — `/admin/flows` dogfood (**P2 / #33**)  
 - Products — same packages + **product tools + product plans** under `apps/<product>-*` only  
 
-**Runner contract:** execute only `snapshot.executionTools` (not `grantAudit.allowedTools`). Snapshot is deep-frozen; persist JSON bytes promptly.
+**Runner contract:** execute only `RunnerView.executionTools` (never grant allowlist). Persist **`runnerView` JSON only** on the Workflow path; rehydrate with **`parseRunnerView`** (fail-closed). Grant audit is a **separate** object from `createRunSnapshot` — do not collocate on the runner blob.
 
 **Axial test (ADR-0001):** second product adds tools/plans in its app — it does **not** fork the runner or copy D1 run tables into a local god module.
 
@@ -148,17 +148,19 @@ tasks:
 #### Authority split (adversarial fatal fix)
 
 ```text
-org/admin capability grants  →  max power (tools registry subset)
+org/admin capability grants  →  max power (tools registry subset + allowsInfer)
 plan.permits.tools           →  may only NARROW grants
-effective = grants ∩ plan.permits ∩ registry
+effective.tools = grants.allowedTools ∩ plan.permits.tools ∩ registry
+infer allowed only if grant.allowsInfer === true
 ```
 
 - **Absent or empty plan permits** with any effectful task (`invoke` **or** `infer`) → **fail-closed** at check (NEP-0003 spirit: no ambient authority)  
 - Plan **cannot expand** beyond grants  
-- **Grant provenance (app):** `CapabilityGrant` is pure arithmetic — apps MUST mint grants from server session / org module policy, never from plan or client body  
+- **`allowsInfer` (option A):** `infer` is **not** ambient via a dummy tool permit — grant must set `allowsInfer: true` or check fails `INFER_NOT_GRANTED`  
+- **Grant provenance (app):** `CapabilityGrant` is pure arithmetic — apps MUST mint grants from server session / org module policy, never from plan or client body (residual until #31 mint path)  
 - Credentials never in plan body; tools use Worker bindings / secrets  
 - **V0 permits fields:** `tools` only. Do not advertise `net`/`r2` until kit wrappers enforce them  
-- **plan_digest:** content-address index only (not crypto integrity); sealed plan body is authoritative  
+- **plan_digest / registry contentDigest:** content-address **index** only (FNV-1a, not crypto integrity); sealed plan body is authoritative  
 
 #### Authn / authz
 
@@ -172,16 +174,17 @@ effective = grants ∩ plan.permits ∩ registry
 | Module catalogue | Register **`flows`** in platform modules (ADR-0003); V0 = available + admin write path |
 | Receipts | Redacted inputs/outputs; no secrets/tokens in D1 logs |
 
-#### Run snapshot (adversarial TOCTOU fix)
+#### Run snapshot / RunnerView (adversarial TOCTOU + dual-field fix)
 
-On **create-run**, freeze and persist:
+On **create-run**, `createRunSnapshot` returns:
 
-```text
-plan_digest · sealed_plan_json · effective_permits · grant_snapshot
-registry_version · ceilings · org_id · actor_id · created_at
-```
+| Output | Persist on execution path? | Contents |
+|---|---|---|
+| **`runnerView`** | **Yes** (`snapshot_json` / Workflow payload) | `orgId` · `actorId` · `planId` · `planDigest` · `sealedPlan` · `executionTools` · `registryVersion` · `registryContentDigest` · `ceilings` (`hardMaxTokens`, `staticTokenBudget`, `planMaxTokens?`) · `allowsInfer` · `createdAt` |
+| **`grantAudit`** | **Separate only** (audit log / optional column) | Full grant allowlist + `allowsInfer` — **never** for tool dispatch |
 
-- Runner **must** execute the **snapshot**, never the live plan row  
+- Rehydrate with **`parseRunnerView(unknown)`** only — rejects `grantAudit` / deprecated dual fields; rejects `executionTools` outside sealed permits  
+- Runner **must** execute the **runner view**, never the live plan row  
 - Plan edits create a new version; in-flight runs unchanged  
 - `enabled=false` blocks **new** runs; cancel/kill = best-effort Workflow terminate (document non-idempotent tool risk)
 

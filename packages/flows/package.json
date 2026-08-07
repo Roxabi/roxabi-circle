@@ -2,6 +2,7 @@
   "name": "@kit/flows",
   "version": "0.0.1",
   "private": true,
+  "description": "Incubating (ADR-0005 D6): pure plan check + RunnerView. Not promoted until second call site + example dogfood on request path.",
   "type": "module",
   "exports": {
     ".": {

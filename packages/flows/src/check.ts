@@ -16,6 +16,7 @@ export type CheckIssueCode =
   | 'UNKNOWN_TOOL'
   | 'TOOL_NOT_GRANTED'
   | 'TOOL_NOT_IN_PERMITS'
+  | 'INFER_NOT_GRANTED'
   | 'UNKNOWN_TASK_EDGE'
   | 'CYCLE'
   | 'TOO_MANY_TASKS'
@@ -143,6 +144,15 @@ export function checkPlan(
       message:
         'permits.tools is empty but plan has effectful tasks (invoke and/or infer) — fail-closed',
       path: 'permits.tools',
+    })
+  }
+
+  if (hasInfer && !grant.allowsInfer) {
+    issues.push({
+      code: 'INFER_NOT_GRANTED',
+      message:
+        'plan has infer tasks but grant.allowsInfer is false — infer is not ambient (option A)',
+      path: 'grant.allowsInfer',
     })
   }
 

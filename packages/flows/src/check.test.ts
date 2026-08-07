@@ -5,7 +5,7 @@ import { FLOWS_MODULE_ID } from './constants'
 import { DEMO_ECHO_PLAN_YAML } from './fixtures/demo-echo'
 import { createToolRegistry } from './registry'
 import { parsePlanDocument, safeParsePlanDocument } from './schema'
-import { createRunSnapshot, digestPlan, executionTools } from './snapshot'
+import { createRunSnapshot, digestPlan, executionTools, parseRunnerView } from './snapshot'
 import { loadPlanFromYaml, PlanYamlError } from './yaml'
 
 const registry = createToolRegistry('reg-1', [
@@ -13,10 +13,11 @@ const registry = createToolRegistry('reg-1', [
   { name: 'write_demo', description: 'Write demo blob', effect: 'write' },
 ])
 
-const grant = (allowedTools: readonly string[], registryVersion = 'reg-1') => ({
+const grant = (allowedTools: readonly string[], registryVersion = 'reg-1', allowsInfer = true) => ({
   orgId: 'org_1',
   allowedTools,
   registryVersion,
+  allowsInfer,
 })
 
 describe('loadPlanFromYaml + dogfood fixture', () => {
@@ -249,7 +250,7 @@ describe('checkPlan authority (grant ∩ permits)', () => {
     const plan = loadPlanFromYaml(DEMO_ECHO_PLAN_YAML)
     const result = checkPlan(
       plan,
-      { orgId: 'org_1', allowedTools: ['echo'], registryVersion: '' },
+      { orgId: 'org_1', allowedTools: ['echo'], registryVersion: '', allowsInfer: true },
       registry,
     )
     expect(result.ok).toBe(false)
@@ -283,7 +284,7 @@ describe('checkPlan authority (grant ∩ permits)', () => {
     const plan = loadPlanFromYaml(DEMO_ECHO_PLAN_YAML)
     const result = checkPlan(
       plan,
-      { orgId: '', allowedTools: ['echo'], registryVersion: 'reg-1' },
+      { orgId: '', allowedTools: ['echo'], registryVersion: 'reg-1', allowsInfer: true },
       registry,
     )
     expect(result.ok).toBe(false)
@@ -295,8 +296,8 @@ describe('checkPlan authority (grant ∩ permits)', () => {
   })
 })
 
-describe('createRunSnapshot', () => {
-  it('freezes executionTools, ceilings, registry digest; deep-freeze', () => {
+describe('createRunSnapshot + parseRunnerView', () => {
+  it('freezes runnerView without grant super-set; grantAudit separate', () => {
     const plan = loadPlanFromYaml(DEMO_ECHO_PLAN_YAML)
     const snap = createRunSnapshot({
       plan,
@@ -307,19 +308,21 @@ describe('createRunSnapshot', () => {
     })
     expect(snap.ok).toBe(true)
     if (snap.ok) {
-      expect(snap.snapshot.planDigest).toBe(digestPlan(plan))
-      expect(executionTools(snap.snapshot)).toEqual(['echo'])
-      expect(snap.snapshot.executionTools).toEqual(['echo'])
-      // grant has write_demo but plan does not — must not be executable
-      expect(snap.snapshot.grantAudit.allowedTools).toContain('write_demo')
-      expect(snap.snapshot.executionTools).not.toContain('write_demo')
-      expect(snap.snapshot.ceilings.hardMaxTokens).toBe(128)
-      expect(snap.snapshot.ceilings.staticTokenBudget).toBe(128)
-      expect(snap.snapshot.ceilings.planMaxTokens).toBe(2000)
-      expect(snap.snapshot.registryContentDigest).toBe(registry.contentDigest)
-      expect(Object.isFrozen(snap.snapshot)).toBe(true)
+      expect(snap.runnerView.planDigest).toBe(digestPlan(plan))
+      expect(executionTools(snap.runnerView)).toEqual(['echo'])
+      expect(snap.runnerView.executionTools).toEqual(['echo'])
+      // grant has write_demo but plan does not — must not be on runner view
+      expect(snap.grantAudit.allowedTools).toContain('write_demo')
+      expect(snap.runnerView.executionTools).not.toContain('write_demo')
+      expect('grantAudit' in snap.runnerView).toBe(false)
+      expect(snap.runnerView.ceilings.hardMaxTokens).toBe(128)
+      expect(snap.runnerView.ceilings.staticTokenBudget).toBe(128)
+      expect(snap.runnerView.ceilings.planMaxTokens).toBe(2000)
+      expect(snap.runnerView.allowsInfer).toBe(true)
+      expect(snap.runnerView.registryContentDigest).toBe(registry.contentDigest)
+      expect(Object.isFrozen(snap.runnerView)).toBe(true)
       expect(() => {
-        ;(snap.snapshot as { actorId: string }).actorId = 'mutated'
+        ;(snap.runnerView as { actorId: string }).actorId = 'mutated'
       }).toThrow()
     }
   })
@@ -333,6 +336,77 @@ describe('createRunSnapshot', () => {
       actorId: 'user_1',
     })
     expect(snap.ok).toBe(false)
+  })
+
+  it('refuses infer when allowsInfer is false', () => {
+    const plan = loadPlanFromYaml(DEMO_ECHO_PLAN_YAML)
+    const snap = createRunSnapshot({
+      plan,
+      grant: grant(['echo'], 'reg-1', false),
+      registry,
+      actorId: 'user_1',
+    })
+    expect(snap.ok).toBe(false)
+    if (!snap.ok) {
+      expect(snap.issues.some((i) => i.code === 'INFER_NOT_GRANTED')).toBe(true)
+    }
+  })
+
+  it('parseRunnerView accepts sealed runnerView JSON', () => {
+    const plan = loadPlanFromYaml(DEMO_ECHO_PLAN_YAML)
+    const snap = createRunSnapshot({
+      plan,
+      grant: grant(['echo']),
+      registry,
+      actorId: 'user_1',
+      createdAt: '2026-08-06T00:00:00.000Z',
+    })
+    expect(snap.ok).toBe(true)
+    if (!snap.ok) return
+    const wire = JSON.parse(JSON.stringify(snap.runnerView))
+    const re = parseRunnerView(wire)
+    expect(re.ok).toBe(true)
+    if (re.ok) {
+      expect(re.runnerView.executionTools).toEqual(['echo'])
+      expect(re.runnerView.planId).toBe('demo-echo')
+    }
+  })
+
+  it('parseRunnerView rejects grantAudit super-set on the blob', () => {
+    const plan = loadPlanFromYaml(DEMO_ECHO_PLAN_YAML)
+    const snap = createRunSnapshot({
+      plan,
+      grant: grant(['echo', 'write_demo']),
+      registry,
+      actorId: 'user_1',
+    })
+    expect(snap.ok).toBe(true)
+    if (!snap.ok) return
+    const wire = {
+      ...JSON.parse(JSON.stringify(snap.runnerView)),
+      grantAudit: snap.grantAudit,
+    }
+    const re = parseRunnerView(wire)
+    expect(re.ok).toBe(false)
+  })
+
+  it('parseRunnerView rejects executionTools outside sealed permits', () => {
+    const plan = loadPlanFromYaml(DEMO_ECHO_PLAN_YAML)
+    const snap = createRunSnapshot({
+      plan,
+      grant: grant(['echo']),
+      registry,
+      actorId: 'user_1',
+    })
+    expect(snap.ok).toBe(true)
+    if (!snap.ok) return
+    const wire = JSON.parse(JSON.stringify(snap.runnerView))
+    wire.executionTools = ['echo', 'write_demo']
+    const re = parseRunnerView(wire)
+    expect(re.ok).toBe(false)
+    if (!re.ok) {
+      expect(re.issues.some((i) => i.code === 'EXECUTION_TOOL_OUTSIDE_PERMITS')).toBe(true)
+    }
   })
 })
 
