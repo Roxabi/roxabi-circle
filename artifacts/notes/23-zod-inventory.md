@@ -78,3 +78,6 @@ Kit workspaces resolve **zod@4.4.3** (verified via require.resolve).
 - #29/#30: rebase if schema conflict; do not land dirty concurrent schema PRs without re-assert
 - Dependabot zod bots: close/supersede — not ship unit
 - Gates: typecheck, core/flows/mcp/example-api/auth tests, example-web typecheck, smoke:mcp, validate:full
+
+### Tooling follow-fix (same PR)
+- `@kit/flows` was still on `vitest@^3.2.0` while monorepo is vitest 4 — broke `test:coverage` (mixed coverage-v8 provider). Aligned to `^4.1.10` so validate:full passes. Residual from #28 landing before full vitest4 dogfood on flows.
