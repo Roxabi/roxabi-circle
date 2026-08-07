@@ -81,3 +81,9 @@ Kit workspaces resolve **zod@4.4.3** (verified via require.resolve).
 
 ### Tooling follow-fix (same PR)
 - `@kit/flows` was still on `vitest@^3.2.0` while monorepo is vitest 4 — broke `test:coverage` (mixed coverage-v8 provider). Aligned to `^4.1.10` so validate:full passes. Residual from #28 landing before full vitest4 dogfood on flows.
+
+## Review fixes (#41)
+
+- `scripts/check-zod-major.sh` + `bun run zod-major` in `validate:full`
+- `shadcn` moved to `@kit/ui` **devDependencies** (CLI only; `ui:add` already uses `bunx`)
+- flows tests: dedicated describe + negatives for non-object args / invalid task id

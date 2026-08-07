@@ -162,20 +162,6 @@ describe('checkPlan authority (grant ∩ permits)', () => {
     }
   })
 
-  it('parses invoke.args as string-keyed record (Zod 4 z.record arity)', () => {
-    const plan = parsePlanDocument({
-      flows: 'v0',
-      plan: { id: 'p' },
-      permits: { tools: ['echo'] },
-      tasks: {
-        t1: { invoke: { tool: 'echo', args: { message: 'hi', n: 1 } } },
-        t2: { after: ['t1'], invoke: { tool: 'echo', args: { message: 'bye' } } },
-      },
-    })
-    expect(plan.tasks.t1.invoke?.args).toEqual({ message: 'hi', n: 1 })
-    expect(Object.keys(plan.tasks)).toEqual(['t1', 't2'])
-  })
-
   it('fails empty permits with infer-only', () => {
     const plan = parsePlanDocument({
       flows: 'v0',
@@ -359,6 +345,42 @@ describe('registry', () => {
 
   it('exposes contentDigest', () => {
     expect(registry.contentDigest).toMatch(/^[0-9a-f]{8}$/)
+  })
+})
+
+describe('planDocumentSchema z.record (Zod 4)', () => {
+  it('parses multi-task plan with string-keyed invoke.args', () => {
+    const plan = parsePlanDocument({
+      flows: 'v0',
+      plan: { id: 'p' },
+      permits: { tools: ['echo'] },
+      tasks: {
+        t1: { invoke: { tool: 'echo', args: { message: 'hi', n: 1 } } },
+        t2: { after: ['t1'], invoke: { tool: 'echo', args: { message: 'bye' } } },
+      },
+    })
+    expect(plan.tasks.t1.invoke?.args).toEqual({ message: 'hi', n: 1 })
+    expect(Object.keys(plan.tasks)).toEqual(['t1', 't2'])
+  })
+
+  it('rejects non-object invoke.args', () => {
+    const r = safeParsePlanDocument({
+      flows: 'v0',
+      plan: { id: 'p' },
+      permits: { tools: ['echo'] },
+      tasks: { t1: { invoke: { tool: 'echo', args: ['not', 'a', 'record'] } } },
+    })
+    expect(r.success).toBe(false)
+  })
+
+  it('rejects invalid task id keys (nonEmptyId)', () => {
+    const r = safeParsePlanDocument({
+      flows: 'v0',
+      plan: { id: 'p' },
+      permits: { tools: ['echo'] },
+      tasks: { '9bad': { invoke: { tool: 'echo' } } },
+    })
+    expect(r.success).toBe(false)
   })
 })
 
