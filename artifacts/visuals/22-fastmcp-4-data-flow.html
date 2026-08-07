@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>#22 fastmcp 4 — data flow</title>
+  <style>
+    :root { color-scheme: dark; --bg:#0b0f14; --card:#141a22; --line:#3d8bfd; --text:#e7ecf3; --muted:#8b98a8; --ok:#3ecf8e; }
+    * { box-sizing: border-box; }
+    body { margin:0; font:14px/1.45 system-ui,sans-serif; background:var(--bg); color:var(--text); padding:2rem; }
+    h1 { font-size:1.15rem; margin:0 0 1.5rem; }
+    .row { display:flex; flex-wrap:wrap; gap:1rem; align-items:stretch; justify-content:center; }
+    .node { background:var(--card); border:1px solid #243041; border-radius:12px; padding:1rem 1.25rem; min-width:140px; max-width:200px; box-shadow:0 0 24px rgba(61,139,253,.12); }
+    .node.hub { border-color:var(--line); box-shadow:0 0 28px rgba(61,139,253,.35); }
+    .node h2 { margin:0 0 .35rem; font-size:.85rem; color:var(--line); }
+    .node p { margin:0; font-size:.78rem; color:var(--muted); }
+    .arrow { display:flex; align-items:center; color:var(--line); font-size:1.4rem; opacity:.85; }
+    .legend { margin-top:2rem; color:var(--muted); font-size:.8rem; }
+    code { color:var(--ok); }
+  </style>
+</head>
+<body>
+  <h1>#22 — wave 4 FastMCP 3→4 data flow</h1>
+  <div class="row">
+    <div class="node"><h2>T1 · Inventory</h2><p>mcp-example fastmcp pin<br/>index + catalogue + smoke</p></div>
+    <div class="arrow">→</div>
+    <div class="node hub"><h2>D1 · Pin 4.x</h2><p>package.json + lock<br/><code>one bun install</code></p></div>
+    <div class="arrow">→</div>
+    <div class="node"><h2>D2 · Assert</h2><p>no fastmcp@3 for consumer<br/>range ^4</p></div>
+  </div>
+  <div class="row" style="margin-top:1.5rem">
+    <div class="node"><h2>A1 · index.ts</h2><p>FastMCP construct + start<br/>only if break</p></div>
+    <div class="arrow">→</div>
+    <div class="node hub"><h2>A2 · catalogue</h2><p>ToolServer / addTool<br/>duck-type if needed</p></div>
+    <div class="arrow">→</div>
+    <div class="node"><h2>A3 · stdio-smoke</h2><p>handshake only if break</p></div>
+  </div>
+  <div class="row" style="margin-top:1.5rem">
+    <div class="node"><h2>typecheck</h2><p>mcp + mcp-example</p></div>
+    <div class="arrow">→</div>
+    <div class="node"><h2>tests</h2><p>@kit/mcp + mcp-example</p></div>
+    <div class="arrow">→</div>
+    <div class="node hub"><h2>smoke:mcp</h2><p>ship control</p></div>
+    <div class="arrow">→</div>
+    <div class="node"><h2>validate:full</h2><p>pre-push gate</p></div>
+    <div class="arrow">→</div>
+    <div class="node"><h2>Ship PR</h2><p>close #7 · not merge #7</p></div>
+  </div>
+  <p class="legend">Pipeline: inventory → pin FastMCP 4 → single-major assert → adapter only if break → typecheck/tests/smoke/validate:full → dedicated PR · do not merge Dependabot #7.</p>
+</body>
+</html>
