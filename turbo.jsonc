@@ -1,5 +1,7 @@
 {
   "$schema": "https://turbo.build/schema.json",
+  // Invalidate package task caches when the lockfile (and thus tsc major) changes.
+  "globalDependencies": ["bun.lock"],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],

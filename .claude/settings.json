@@ -64,8 +64,7 @@
     "semctx-stable": {
       "source": {
         "source": "github",
-        "repo": "hoklims/semctx",
-        "ref": "stable"
+        "repo": "hoklims/semctx"
       },
       "autoUpdate": true
     },

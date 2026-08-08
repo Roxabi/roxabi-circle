@@ -111,7 +111,9 @@ describe('parseOrThrow', () => {
       expect(err.code).toBe('VALIDATION_ERROR')
       expect(err.status).toBe(400)
       expect(err.message).toBe('Invalid note')
-      expect(err.details).toMatchObject({ fieldErrors: expect.any(Object) })
+      expect(err.details).toMatchObject({
+        fieldErrors: { title: expect.arrayContaining([expect.any(String)]) },
+      })
     }
   })
 })

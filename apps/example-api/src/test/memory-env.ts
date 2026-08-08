@@ -125,6 +125,8 @@ export type EnvLike = {
 /** Fresh in-memory SQLite + R2 for each test (same createApp entry as Worker). */
 export function createMemoryEnv(overrides?: Partial<EnvLike>): EnvLike {
   const sqlite = new Database(':memory:')
+  // Enforce composite FKs (e.g. flow_runs.plan_id+org_id) in tests — SQLite default is OFF.
+  sqlite.pragma('foreign_keys = ON')
   applyMigrations(sqlite)
   return {
     DB: makeD1(sqlite),

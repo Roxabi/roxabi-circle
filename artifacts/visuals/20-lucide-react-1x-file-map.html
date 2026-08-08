@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>#20 lucide-react 1.x — file map</title>
+  <style>
+    :root { color-scheme: dark; --bg:#0b0f14; --card:#141a22; --line:#3d8bfd; --text:#e7ecf3; --muted:#8b98a8; --ok:#3ecf8e; --warn:#f0b429; }
+    body { margin:0; font:14px/1.45 system-ui,sans-serif; background:var(--bg); color:var(--text); padding:2rem; }
+    h1 { font-size:1.15rem; margin:0 0 1rem; }
+    .zones { display:grid; grid-template-columns:1fr 1fr 1fr; gap:1rem; }
+    @media (max-width:900px){ .zones { grid-template-columns:1fr; } }
+    .zone { background:var(--card); border:1px solid #243041; border-radius:12px; padding:1rem; }
+    .zone h2 { margin:0 0 .75rem; font-size:.9rem; color:var(--line); }
+    ul { margin:0; padding-left:1.1rem; font-size:.78rem; color:var(--muted); }
+    li { margin:.25rem 0; }
+    code { color:var(--ok); font-size:.75rem; }
+    .meta { margin-top:1.5rem; color:var(--muted); font-size:.8rem; }
+    .tag { display:inline-block; padding:.1rem .4rem; border-radius:4px; background:#1c2736; color:var(--warn); font-size:.7rem; }
+  </style>
+</head>
+<body>
+  <h1>#20 — files × roles</h1>
+  <div class="zones">
+    <div class="zone">
+      <h2>Manifests <span class="tag">devops</span></h2>
+      <ul>
+        <li><code>packages/ui/package.json</code> — bump lucide-react</li>
+        <li><code>apps/example-web/package.json</code> — same range</li>
+        <li><code>bun.lock</code> — single 1.x resolve</li>
+      </ul>
+    </div>
+    <div class="zone">
+      <h2>@kit/ui imports <span class="tag">frontend</span></h2>
+      <ul>
+        <li><code>src/components/ui/*</code> — dialog, sheet, select, …</li>
+        <li><code>src/components/app-sidebar.tsx</code> + nav-*</li>
+        <li><code>team-switcher</code>, <code>nav-user</code>, sonner</li>
+      </ul>
+    </div>
+    <div class="zone">
+      <h2>example-web imports <span class="tag">frontend</span></h2>
+      <ul>
+        <li><code>src/components/app-shell.tsx</code>, org-switcher</li>
+        <li><code>src/routes/*</code> — dashboard, notes, keys, …</li>
+        <li><code>design-system.tsx</code> — icon showcase</li>
+      </ul>
+    </div>
+  </div>
+  <p class="meta">Verify consumers: <code>bun run --filter @kit/ui typecheck</code> · <code>bun run --filter @kit/example-web typecheck</code> · <code>bun run --filter @kit/example-web build</code>. Artifact only: inventory note + PR body rename table (if any).</p>
+</body>
+</html>

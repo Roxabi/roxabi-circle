@@ -46,17 +46,17 @@ merge-on-green (label reviewed + checks)
 
 | Gate | Scope | Who runs it |
 |---|---|---|
-| `bun run validate` | lint · typecheck · test · banlist · extract · zero-edit · env:check on **kit** packages / examples | kit + product clones (kit zones) |
-| `bun run validate:full` | kit bar + import-boundary · test:import-boundary · deny-upstream · **debt:check** · **test:debt** · agents-adr · coverage floors · license · quality-gates (file+folder) · build:kit · smoke:mcp | pre-push + kit CI — **does not** prove product apps are tested |
+| `bun run validate` | lint · typecheck · test · banlist · **zod-major** · **ts-major** · extract · zero-edit · env:check on **kit** packages / examples | kit + product clones (kit zones) |
+| `bun run validate:full` | kit bar + import-boundary · test:import-boundary · deny-upstream · **debt:check** · **test:debt** · **test:ts-major** · agents-adr · coverage floors · license · quality-gates (file+folder) · build:kit · smoke:mcp | pre-push + kit CI — **does not** prove product apps are tested |
 | product-validate / product-ci | product packages under `apps/<product>-*` | product repo only (copy templates; never dual-edit kit `ci.yml` / `test-coverage.sh`) |
 
 False green: product with real apps and only kit `validate:full` green is **not** product-tested.
 ### Commands
 
 ```bash
-bun install                    # prepare → lefthook install only if core.hooksPath unset
+bun install                    # prepare → lefthook install if hooksPath unset; postinstall may still force-install (see lefthook.yml)
 
-bun run validate               # lint · typecheck · test · banlist · extract · zero-edit · env:check
+bun run validate               # lint · typecheck · test · banlist · zod-major · ts-major · extract · zero-edit · env:check
 bun run zero-edit              # product must not diverge kit paths without exception (kit = config only)
 bun run env:check              # schema ↔ .dev.vars.example (DX only)
 bun run i18n:check             # messages contract (also in turbo test)
@@ -76,7 +76,7 @@ bun run validate:full
 
 | Rule | |
 |---|---|
-| Install hooks | `bun install` — prepare installs only if `core.hooksPath` unset; never force install when set (would overwrite foreign hook wiring) |
+| Install hooks | `bun install` — prepare installs only if `core.hooksPath` unset; **postinstall** still runs `lefthook install -f` non-CI (residual — [lefthook#1475](https://github.com/evilmartians/lefthook/issues/1475); documented in `lefthook.yml`) |
 | **Forbidden** without written reason | `git push --no-verify`, `LEFTHOOK=0` |
 | If pre-push is red | Fix locally; do **not** “let CI tell us” |
 | Docs-only exception | Still run hooks unless emergency; extract/banlist are cheap insurance |
@@ -102,12 +102,12 @@ Floors are enforced by Vitest (`packages/config/vitest-coverage.mjs` + per-packa
 
 | Tier | Scope | Floor (stmts/lines, approx.) | Policy |
 |---|---|---|---|
-| **T0** | `@kit/auth`, `@kit/example-api` (guards, dual auth, paths), FE **auth client** contracts | **80%** api/auth · pin named web contract files | **Never lower without ADR** |
-| **T1** | `core`, `storage`, `db`, `types`, `mcp` | **70–75%** | Raise when surface grows |
-| **T2** | `@kit/ui`, `example-web` (page chrome) | **20% / 10%** global | Low % OK **iff** contract suites green; do not chase Button coverage |
+| **T0** | `@kit/auth`, `@kit/example-api` (guards, dual auth, paths), FE **auth client** contracts | **auth 80%** · **example-api** machine floors **78/80/65/75** (stmts/lines/branches/funcs) · pin named web contract files | **Auth: never lower without ADR.** example-api: Vitest 4 v8 remapping exception (#21) — see inventory before/after; do not lower further without ADR |
+| **T1** | `core`, `storage`, `db`, `types`, `mcp` | **core ~68/69/66** (stmts/lines/branches) · others **70–75%** typical | Raise when surface grows; core floors recalibrated under Vitest 4 remapping (#21) |
+| **T2** | `@kit/ui`, `example-web` (page chrome) | **ui ~17/17/16/23** · **web 10/10/20/12** | Low % OK **iff** contract suites green; do not chase Button coverage; Vitest 4 remapping (#21) |
 | **T3** | `email` thin, mcp-example smoke | soft / special (e.g. funcs 0% mcp-example) | Document, don’t pretend product security |
 
-**% is a ratchet, not the story.** The story is **critical paths** below.
+**Vitest 4 remapping (#21):** Same sources/tests produce lower stmt/branch % under Vitest 4.1.x v8 than 3.2.x. Floors were recalibrated just under measured values with before/after evidence in [`artifacts/notes/21-vitest-vite-inventory.md`](../artifacts/notes/21-vitest-vite-inventory.md). **% is a ratchet, not the story.** The story is **critical paths** below.
 
 ---
 
@@ -178,6 +178,7 @@ Machine-enforced today via full `validate` + `test:coverage` + package tests. Pr
 | **CP-DENY** | multi-hop deny-upstream: kit origin no-op; product blocks remote name `upstream`, kit URL substring, and product/env-extended chassis substrings; weaken name-guard fails harness | `bun run test:deny-upstream` · `scripts/test-deny-upstream.sh` · `scripts/deny-upstream-push.sh` (in `validate:full`) |
 | **CP-IMPORT** | static R1–R4 import edges (packages↛apps, example-web↛example-api src / `cloudflare:workers`) after exemptions; self-test plants edges in temp tree | `bun run import-boundary` · `scripts/check-import-boundaries.ts` · `bun run test:import-boundary` (in `validate:full`) |
 | **CP-DEBT** | suppressions in `apps|packages` carry `DEBT:<slug>`; untagged + expiry (default **warn**, non-blocking); self-test plants untagged/tagged **and** expiry (stale / pin / warn) cases | `bun run debt:check` · `scripts/check-debt.ts` · `bun run test:debt` · [`debt-tracking.md`](./debt-tracking.md) (in `validate:full`) |
+| **CP-TS-MAJOR** | exclusive `typescript` `^7` pins on kit manifests; lock has positive `typescript@7.` and no non-allowlisted `@5`/`@6`; self-test plants dual-range / residual / missing-7 cases | `bun run ts-major` · `scripts/check-typescript-major.sh` · `bun run test:ts-major` (in `validate:full`) |
 | **CP-ENV** | **Kit only:** `apps/example-api` Worker string keys documented in `apps/example-api/.dev.vars.example` (SSoT Zod schema) + root Vite placeholders; no real secrets in examples. **Does not** cover product apps’ env inventories | `bun run env:check` — **DX only**, example-api scoped; not “prod secrets validated”, not product-wide |
 | **CP-LICENSE** | third-party deps on allowlist; disallowed SPDX fails | `bun run license:check` — **compliance hygiene**, not malware audit |
 | **CP-I18N** | FR/EN non-empty copy; key parity via TypeScript `Messages` | `messages.contract.test.ts` / `i18n:check` — **not** semantic/security review |

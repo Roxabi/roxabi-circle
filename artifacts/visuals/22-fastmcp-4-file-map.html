@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>#22 fastmcp 4 — file map</title>
+  <style>
+    :root { color-scheme: dark; --bg:#0b0f14; --card:#141a22; --line:#3d8bfd; --text:#e7ecf3; --muted:#8b98a8; --ok:#3ecf8e; }
+    * { box-sizing: border-box; }
+    body { margin:0; font:14px/1.45 system-ui,sans-serif; background:var(--bg); color:var(--text); padding:2rem; }
+    h1 { font-size:1.15rem; margin:0 0 1.5rem; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:1rem; }
+    .node { background:var(--card); border:1px solid #243041; border-radius:12px; padding:1rem 1.25rem; box-shadow:0 0 24px rgba(61,139,253,.12); }
+    .node.hub { border-color:var(--line); box-shadow:0 0 28px rgba(61,139,253,.35); }
+    .node h2 { margin:0 0 .5rem; font-size:.9rem; color:var(--line); }
+    .node ul { margin:0; padding-left:1.1rem; color:var(--muted); font-size:.8rem; }
+    .node li { margin:.25rem 0; }
+    .legend { margin-top:2rem; color:var(--muted); font-size:.8rem; }
+    code { color:var(--ok); }
+  </style>
+</head>
+<body>
+  <h1>#22 — files × roles</h1>
+  <div class="grid">
+    <div class="node hub">
+      <h2>apps/mcp-example/package.json</h2>
+      <ul>
+        <li>deps.fastmcp ^3 → ^4</li>
+        <li>devops-A · D1</li>
+      </ul>
+    </div>
+    <div class="node">
+      <h2>bun.lock</h2>
+      <ul>
+        <li>resolve fastmcp@4.x</li>
+        <li>devops-A · D1/D2</li>
+      </ul>
+    </div>
+    <div class="node">
+      <h2>apps/mcp-example/src/index.ts</h2>
+      <ul>
+        <li><code>new FastMCP</code> + <code>start</code></li>
+        <li>devops-A · A1 if break</li>
+      </ul>
+    </div>
+    <div class="node">
+      <h2>packages/mcp/src/catalogue.ts</h2>
+      <ul>
+        <li>ToolServer / registerAll / addTool</li>
+        <li>devops-A · A2 if break</li>
+      </ul>
+    </div>
+    <div class="node">
+      <h2>apps/mcp-example/scripts/stdio-smoke.mjs</h2>
+      <ul>
+        <li>tools/list + ping + whoami</li>
+        <li>devops-A · A3 if break</li>
+      </ul>
+    </div>
+    <div class="node hub">
+      <h2>Gates (no new files)</h2>
+      <ul>
+        <li>typecheck · test · smoke:mcp</li>
+        <li>validate:full</li>
+        <li>tester-A · S1–S3</li>
+      </ul>
+    </div>
+  </div>
+  <p class="legend">@kit/mcp stays free of hard fastmcp dep unless peer force under mcp-example only. Ship: dedicated PR · close Dependabot #7 · do not merge #7.</p>
+</body>
+</html>

@@ -1,17 +1,16 @@
 # Dependabot CVE → Slack #int-bugs-alert (Flint bot).
 #
 # Note: `dependabot_alert` is a *webhook* event only — NOT a valid GitHub Actions
-# workflow trigger (parser: Unexpected value 'dependabot_alert'). We poll the
-# Dependabot Alerts REST API on a short cron + catch Dependabot security PRs.
+# workflow trigger (parser: Unexpected value 'dependabot_alert'). Cron poll was
+# disabled (2026-08-06) — prefer a GitHub App webhook later. Remaining triggers:
+# Dependabot security PRs + manual workflow_dispatch (smoke / catch-up).
 #
 # Channel: C0BDAPS2MG8 · secret: SLACK_FLINT_BOT_TOKEN · var: SLACK_CHANNEL_BUGS_ALERT
 # Docs: docs/security-dependabot.md
 name: Dependabot alert → Slack
 
 on:
-  schedule:
-    # ~15 min; overlap with lookback window below
-    - cron: "*/15 * * * *"
+  # schedule: disabled — no Actions-native dependabot_alert event; revisit via App webhook
   pull_request:
     types: [opened]
   workflow_dispatch: {}

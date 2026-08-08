@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>#20 lucide-react 1.x — data flow</title>
+  <style>
+    :root { color-scheme: dark; --bg:#0b0f14; --card:#141a22; --line:#3d8bfd; --text:#e7ecf3; --muted:#8b98a8; --ok:#3ecf8e; }
+    * { box-sizing: border-box; }
+    body { margin:0; font:14px/1.45 system-ui,sans-serif; background:var(--bg); color:var(--text); padding:2rem; }
+    h1 { font-size:1.15rem; margin:0 0 1.5rem; }
+    .row { display:flex; flex-wrap:wrap; gap:1rem; align-items:stretch; justify-content:center; }
+    .node { background:var(--card); border:1px solid #243041; border-radius:12px; padding:1rem 1.25rem; min-width:140px; max-width:180px; box-shadow:0 0 24px rgba(61,139,253,.12); }
+    .node.hub { border-color:var(--line); box-shadow:0 0 28px rgba(61,139,253,.35); }
+    .node h2 { margin:0 0 .35rem; font-size:.85rem; color:var(--line); }
+    .node p { margin:0; font-size:.78rem; color:var(--muted); }
+    .arrow { display:flex; align-items:center; color:var(--line); font-size:1.4rem; opacity:.85; }
+    .legend { margin-top:2rem; color:var(--muted); font-size:.8rem; }
+    code { color:var(--ok); }
+  </style>
+</head>
+<body>
+  <h1>#20 — lucide-react bump data flow</h1>
+  <div class="row">
+    <div class="node"><h2>D1 · @kit/ui</h2><p>package.json<br/><code>lucide-react ^0.515 → ^1.N</code></p></div>
+    <div class="arrow">→</div>
+    <div class="node hub"><h2>Lockfile</h2><p>single 1.x resolve<br/>bun install (clean)</p></div>
+    <div class="arrow">→</div>
+    <div class="node"><h2>D2 · example-web</h2><p>package.json<br/>same <code>^1.N.M</code></p></div>
+  </div>
+  <div class="row" style="margin-top:1.5rem">
+    <div class="node"><h2>I1 · packages/ui</h2><p>~14 import sites<br/>*Icon exports</p></div>
+    <div class="arrow">→</div>
+    <div class="node hub"><h2>lucide-react 1.x</h2><p>named exports<br/>1:1 renames if needed</p></div>
+    <div class="arrow">→</div>
+    <div class="node"><h2>I2 · example-web</h2><p>~11 import sites<br/>unprefixed names</p></div>
+  </div>
+  <div class="row" style="margin-top:1.5rem">
+    <div class="node"><h2>V1 typecheck ui</h2><p>tsc --noEmit</p></div>
+    <div class="arrow">→</div>
+    <div class="node"><h2>V2 typecheck web</h2><p>tsc --noEmit</p></div>
+    <div class="arrow">→</div>
+    <div class="node"><h2>V3 build web</h2><p>Vite production</p></div>
+    <div class="arrow">→</div>
+    <div class="node"><h2>D3 PR + #5</h2><p>dedicated PR<br/>close Dependabot</p></div>
+  </div>
+  <p class="legend">Pipeline: inventory → dual pin → lock → rename pass → clean-install gates → ship PR · close #5 pre-merge.</p>
+</body>
+</html>

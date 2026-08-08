@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>#29 flows D1 — file map</title>
+  <style>
+    :root { color-scheme: dark; --bg:#0b0f14; --card:#141a22; --line:#3d8bfd; --text:#e7ecf3; --muted:#8b98a8; --ok:#3ecf8e; }
+    * { box-sizing: border-box; }
+    body { margin:0; font:14px/1.45 system-ui,sans-serif; background:var(--bg); color:var(--text); padding:2rem; }
+    h1 { font-size:1.15rem; margin:0 0 1.5rem; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:1rem; }
+    .node { background:var(--card); border:1px solid #243041; border-radius:12px; padding:1rem; }
+    .node h2 { margin:0 0 .5rem; font-size:.85rem; color:var(--line); }
+    .node ul { margin:0; padding-left:1.1rem; font-size:.78rem; color:var(--muted); }
+    code { color:var(--ok); }
+  </style>
+</head>
+<body>
+  <h1>#29 — file × function map</h1>
+  <div class="grid">
+    <div class="node"><h2>migrations/0012_…sql</h2><ul><li>CREATE flow_plans</li><li>CREATE flow_runs</li><li>indexes + composite FK</li></ul></div>
+    <div class="node"><h2>db/schema.ts</h2><ul><li>flowPlans</li><li>flowRuns</li><li>schema export</li></ul></div>
+    <div class="node"><h2>lib/kit-modules.ts</h2><ul><li>KIT_MODULE_IDS</li><li>KIT_MODULE_DEFAULTS</li><li>FLOWS_MODULE_ID import</li></ul></div>
+    <div class="node"><h2>lib/integration-config.ts</h2><ul><li>NO_CONFIG_MODULES</li><li>isModuleConfigured</li><li>INTEGRATION_CONFIG_PATHS</li></ul></div>
+    <div class="node"><h2>packages/flows/migrations</h2><ul><li>sketch header → applied SSoT</li></ul></div>
+    <div class="node"><h2>tests</h2><ul><li>platform-modules.test</li><li>kit-modules / ensure</li></ul></div>
+  </div>
+</body>
+</html>

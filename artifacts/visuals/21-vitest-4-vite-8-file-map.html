@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>#21 vitest 4 + vite 8 — file map</title>
+  <style>
+    :root { color-scheme: dark; --bg:#0b0f14; --card:#141a22; --line:#3d8bfd; --text:#e7ecf3; --muted:#8b98a8; --ok:#3ecf8e; --warn:#f0b429; }
+    body { margin:0; font:14px/1.45 system-ui,sans-serif; background:var(--bg); color:var(--text); padding:2rem; }
+    h1 { font-size:1.15rem; margin:0 0 1rem; }
+    .zones { display:grid; grid-template-columns:1fr 1fr 1fr; gap:1rem; }
+    @media (max-width:900px){ .zones { grid-template-columns:1fr; } }
+    .zone { background:var(--card); border:1px solid #243041; border-radius:12px; padding:1rem; }
+    .zone h2 { margin:0 0 .75rem; font-size:.9rem; color:var(--line); }
+    ul { margin:0; padding-left:1.1rem; font-size:.78rem; color:var(--muted); }
+    li { margin:.25rem 0; }
+    code { color:var(--ok); font-size:.75rem; }
+    .meta { margin-top:1.5rem; color:var(--muted); font-size:.8rem; }
+    .tag { display:inline-block; padding:.1rem .4rem; border-radius:4px; background:#1c2736; color:var(--warn); font-size:.7rem; }
+  </style>
+</head>
+<body>
+  <h1>#21 — files × roles</h1>
+  <div class="zones">
+    <div class="zone">
+      <h2>Manifests <span class="tag">devops</span></h2>
+      <ul>
+        <li><code>package.json</code> — @vitest/coverage-v8 4.x</li>
+        <li>apps + packages ×13 — <code>vitest ^4.N.M</code></li>
+        <li><code>example-web</code> + <code>ui</code> — vite 8 + plugin-react 6</li>
+        <li><code>bun.lock</code> — single major families</li>
+      </ul>
+    </div>
+    <div class="zone">
+      <h2>Configs <span class="tag">devops</span></h2>
+      <ul>
+        <li><code>packages/config/vitest-coverage.mjs</code></li>
+        <li><code>*/vitest.config.ts</code> (13) — only if API break</li>
+        <li><code>example-web/vite.config.ts</code>, <code>ui/vite.config.ts</code></li>
+        <li><code>scripts/test-coverage.sh</code> — orchestration (usually untouched)</li>
+      </ul>
+    </div>
+    <div class="zone">
+      <h2>Gates <span class="tag">tester</span></h2>
+      <ul>
+        <li><code>bun run typecheck</code></li>
+        <li><code>bun run test:coverage</code> — floors frozen</li>
+        <li><code>bun run build:kit</code></li>
+        <li>Dual-major assert (lock / bun pm)</li>
+        <li>Close Dependabot #4 pre-merge</li>
+      </ul>
+    </div>
+  </div>
+  <p class="meta">Implement pins (npm latest at plan time): vitest / coverage-v8 <code>4.1.10</code> · vite <code>8.2.0</code> · @vitejs/plugin-react <code>6.0.5</code> — re-check at implement.</p>
+</body>
+</html>
