@@ -1,0 +1,81 @@
+# semctx — gate change-impact sur PR. BLOCK fait échouer le job, WARN non.
+#
+# Lentille sémantique sur le diff : symboles impactés, contrats exportés, invariants
+# annotés, tests couvrants, contradictions. Déterministe — pas de LLM, pas de réseau
+# pendant l'analyse, pas de secret.
+#
+# Pourquoi pas l'action `hoklims/semctx/packages/github-action` : elle fait
+# `bun install --frozen-lockfile` puis exécute le CLI depuis les sources TS
+# (`apps/cli/src/index.ts`) — vrai à v0.1.0 comme à v0.1.16. On récupère à la place le
+# CLI **bundlé** (`plugins/claude-code/dist/semctx.js`, autonome, `#!/usr/bin/env bun`),
+# le même artefact que le plugin Claude Code local. Pas d'install, et `--format github`
+# produit les mêmes annotations que l'adaptateur de l'action.
+#
+# Version : v0.1.16 (le local tourne en 0.1.17). v0.1.0 — ce que pinne roxabi-factory —
+# date du 2026-07-04 et ne contient pas encore de bundle : à éviter, la CI jugerait avec
+# un moteur d'un mois plus vieux que le poste de dev.
+#
+# Le bundle est téléchargé dans RUNNER_TEMP, hors du workspace : sinon `index` l'avalerait
+# (le `exclude` par défaut ne couvre pas un dossier ajouté à la racine).
+#
+# Rapport au gate primaire : `validate:full` (pre-push local + job CI `validate-full`)
+# reste LE gate qualité (AGENTS.md § Doctrine ops). Ce job est un garde-fou en plus.
+#
+# Limite connue au 2026-08-08 : le tier `strict` (les 3 règles `block`) ne peut rien
+# déclencher tant que le code ne porte pas de marqueurs JSDoc `@invariant <slug>` /
+# `@tag critical|security`. Sans eux : 0 arête `constrained_by`, 0 nœud tagué, donc BLOCK
+# structurellement impossible. Ce job est vert par construction aujourd'hui ; les WARN,
+# eux, sont réels (contrats exportés sans test). Il devient un vrai gate à mesure que les
+# marqueurs arrivent — cf. .claude/semctx.md.
+name: Semctx
+
+permissions:
+  contents: read
+
+# Pas de workflow_dispatch : l'analyse exige un `base` de PR ; un run manuel n'en a pas.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches: [main, staging]
+
+concurrency:
+  group: semctx-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Bundle épinglé par commit SHA (contenu immuable) + checksum vérifié.
+  SEMCTX_REF: 6716f3db2d3f5959370d93bd4278d90c1ad9e23d # v0.1.16
+  SEMCTX_SHA256: 03d4ad5ca8bbab04d26d8cbe59574da9e4f1fd2f508d8139c5b0804888b3be3c
+
+jobs:
+  verify:
+    # Draft PRs : pas de gate (aligné ci.yml).
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Historique complet : le verdict a besoin du vrai merge-base.
+          fetch-depth: 0
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.14"
+
+      - name: Fetch semctx CLI (bundle autonome, pas d'install)
+        run: |
+          set -euo pipefail
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/semctx.js" \
+            "https://raw.githubusercontent.com/hoklims/semctx/$SEMCTX_REF/plugins/claude-code/dist/semctx.js"
+          echo "$SEMCTX_SHA256  $RUNNER_TEMP/semctx.js" | sha256sum -c -
+
+      - name: Verify change impact
+        env:
+          SEMCTX_BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          bun "$RUNNER_TEMP/semctx.js" init  --root .
+          bun "$RUNNER_TEMP/semctx.js" index --root .
+          bun "$RUNNER_TEMP/semctx.js" verify diff --root . \
+            --base "$SEMCTX_BASE" --head "$GITHUB_SHA" \
+            --format github --fail-on block
