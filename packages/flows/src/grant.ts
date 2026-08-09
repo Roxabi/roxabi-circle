@@ -9,36 +9,39 @@ const toolNameSchema = z
   .regex(/^[a-zA-Z][a-zA-Z0-9_-]*$/)
 
 /**
- * Prototype-shaped keys. `.strict()` alone does not cover these: `JSON.parse` creates an own
- * `__proto__` key that zod does not report as unknown, so it must be rejected before the object
- * schema runs. Same family as `assertArgsShape` in `schema.ts`.
+ * Prototype-shaped keys, rejected at the parse boundary below.
+ *
+ * `.strict()` does not cover `__proto__`: `JSON.parse` creates it as an own enumerable key that
+ * zod does not report as unknown. Nothing leaks either way — zod rebuilds a fresh object, so the
+ * key never reaches the output — but the rejection contract should say what it does.
+ *
+ * Anchored deliberately: `constructor` and `prototype` are rejected as whole keys only, so a
+ * legitimate `constructorName` is accepted. `assertArgsShape` in `schema.ts` uses an unanchored
+ * variant that over-rejects; converging the two is tracked separately.
  */
 const FORBIDDEN_GRANT_KEY = /^__|^(?:constructor|prototype)$/i
 
-function rejectPrototypeKeys(input: unknown, ctx: z.RefinementCtx): void {
-  if (input === null || typeof input !== 'object' || Array.isArray(input)) return
-  for (const k of Object.getOwnPropertyNames(input)) {
-    if (FORBIDDEN_GRANT_KEY.test(k)) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: `grant key forbidden: ${k}` })
-    }
-  }
+function findForbiddenKey(input: unknown): string | undefined {
+  if (input === null || typeof input !== 'object' || Array.isArray(input)) return undefined
+  return Object.getOwnPropertyNames(input).find((k) => FORBIDDEN_GRANT_KEY.test(k))
 }
 
-/** Runtime validation for CapabilityGrant (caller-supplied plain objects). */
+/**
+ * Runtime validation for CapabilityGrant (caller-supplied plain objects).
+ *
+ * Kept a plain object schema so consumers can still compose it (`extend`, `omit`, `shape`…):
+ * it is public API of `@kit/flows`. The prototype-key guard lives in `parseCapabilityGrant`,
+ * which is the boundary that documents the rejection contract.
+ */
 export const capabilityGrantSchema = z
-  .unknown()
-  .superRefine(rejectPrototypeKeys)
-  .pipe(
-    z
-      .object({
-        orgId: z.string().min(1).max(256),
-        allowedTools: z.array(toolNameSchema).max(MAX_PERMIT_TOOLS),
-        registryVersion: z.string().min(1).max(256),
-        /** Explicit infer capability — never defaulted to true. */
-        allowsInfer: z.boolean(),
-      })
-      .strict(),
-  )
+  .object({
+    orgId: z.string().min(1).max(256),
+    allowedTools: z.array(toolNameSchema).max(MAX_PERMIT_TOOLS),
+    registryVersion: z.string().min(1).max(256),
+    /** Explicit infer capability — never defaulted to true. */
+    allowsInfer: z.boolean(),
+  })
+  .strict()
 
 /**
  * Shape validation only. Grant **provenance** is an app-layer duty (apps mint from server
@@ -52,6 +55,10 @@ export const capabilityGrantSchema = z
 export function parseCapabilityGrant(
   input: unknown,
 ): { ok: true; grant: CapabilityGrant } | { ok: false; message: string } {
+  const forbidden = findForbiddenKey(input)
+  if (forbidden !== undefined) {
+    return { ok: false, message: `grant key forbidden: ${forbidden}` }
+  }
   const r = capabilityGrantSchema.safeParse(input)
   if (!r.success) {
     return {
