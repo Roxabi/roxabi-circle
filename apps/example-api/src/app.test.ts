@@ -363,22 +363,59 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     expect(badBody.requestId).toMatch(/^req_/)
   })
 
+  /**
+   * The key must be **org-bound and otherwise valid**, so that the 401 can only come from
+   * expiry. Minting without an organization used to be possible and this test did exactly
+   * that — once `findKeyRecord` started denying NULL-org rows, the assertion still passed but
+   * for the wrong reason and the expiry path stopped being exercised at all. Tenancy is seeded
+   * so the org/membership re-check succeeds and expiry is the single remaining variable.
+   */
   it('rejects expired API keys', async () => {
     const app = createApp()
     const env = createMemoryEnv()
-    // Seed demo users via login (session cookie unused — we mint expired key directly)
-    await loginAs(app, env, DEMO_EMAIL, DEMO_PASSWORD)
     const { createDb } = await import('@kit/db')
     const { schema } = await import('./db/schema')
     const { mintApiKey } = await import('./services/auth')
+    const { seedTenancyDemo } = await import('./seed/seed-tenancy')
     const db = createDb(env.DB, schema)
-    const minted = await mintApiKey(db, 'user_demo', { expiresAt: Date.now() - 1000, name: 'old' })
+    await seedTenancyDemo(db, { environment: 'test', force: true })
+
+    // positive control: the same key, unexpired, authenticates
+    const live = await mintApiKey(db, 'user_staff', { organizationId: 'org_acme', name: 'live' })
+    const okRes = await app.request(
+      '/api/me',
+      { headers: { authorization: `Bearer ${live.key}` } },
+      env,
+    )
+    expect(okRes.status, 'org-bound key must authenticate before expiry is tested').toBe(200)
+
+    const minted = await mintApiKey(db, 'user_staff', {
+      organizationId: 'org_acme',
+      expiresAt: Date.now() - 1000,
+      name: 'old',
+    })
     const res = await app.request(
       '/api/me',
       { headers: { authorization: `Bearer ${minted.key}` } },
       env,
     )
-    expect(res.status).toBe(401)
+    expect(res.status, 'expired key must be rejected').toBe(401)
+  })
+
+  it('mint refuses a missing organization (ADR-0003 D11, fail-closed)', async () => {
+    const env = createMemoryEnv()
+    const { createDb } = await import('@kit/db')
+    const { schema } = await import('./db/schema')
+    const { mintApiKey } = await import('./services/auth')
+    const { seedTenancyDemo } = await import('./seed/seed-tenancy')
+    const db = createDb(env.DB, schema)
+    await seedTenancyDemo(db, { environment: 'test', force: true })
+
+    // No opt-in flag: omitting the organization is refused by the service itself, so a new
+    // call site cannot recreate the subject-global key state D11 forbids.
+    await expect(mintApiKey(db, 'user_staff', { name: 'no-org' })).rejects.toThrow(
+      /organizationId is required/i,
+    )
   })
 
   it('cookie mutations require trusted Origin', async () => {
