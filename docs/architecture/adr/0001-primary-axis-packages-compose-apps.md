@@ -1,6 +1,7 @@
 ---
 title: 'ADR-0001 — Primary axis: platform packages compose deployable apps'
 status: accepted
+normative: true
 date: 2026-07-12
 axial: true
 ---

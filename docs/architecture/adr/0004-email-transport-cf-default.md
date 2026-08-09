@@ -1,6 +1,7 @@
 ---
 title: 'ADR-0004 — Email transport: CF Email Sending default (prod), Mailpit/log local'
 status: accepted
+normative: true
 date: 2026-07-30
 related:
   - packages/email

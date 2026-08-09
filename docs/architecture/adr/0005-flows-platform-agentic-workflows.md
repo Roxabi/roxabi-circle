@@ -1,6 +1,7 @@
 ---
 title: 'ADR-0005 — Flows platform: governed plans + durable runs (agentic SaaS kit)'
 status: accepted
+normative: true
 date: 2026-08-05
 amended: 2026-08-07
 related:

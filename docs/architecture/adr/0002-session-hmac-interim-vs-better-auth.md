@@ -1,6 +1,7 @@
 ---
 title: 'ADR-0002 — SessionPort: Better Auth only + Bearer sk_ dual-path'
 status: accepted
+normative: true
 date: 2026-07-12
 amended: 2026-07-30
 supersedes_notes: >
