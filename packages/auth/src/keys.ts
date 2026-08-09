@@ -45,6 +45,13 @@ export function parseBearer(header: string | null | undefined): string | null {
   return m?.[1]?.trim() || null
 }
 
+/**
+ * Verify a presented `sk_` against its stored hash.
+ *
+ * @capability auth-api-key-verify
+ * @tag security
+ * @invariant api-key-compare-is-constant-time: comparison goes through timingSafeEqualHex — never === on a digest — ADR-0002 D6 § Credential comparison
+ */
 export async function verifyApiKey(plaintext: string, expectedHash: string): Promise<boolean> {
   const h = await hashApiKey(plaintext)
   return timingSafeEqualHex(h, expectedHash)

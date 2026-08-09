@@ -3,12 +3,14 @@ title: 'ADR-0002 — SessionPort: Better Auth only + Bearer sk_ dual-path'
 status: accepted
 normative: true
 date: 2026-07-12
-amended: 2026-07-30
+amended: 2026-08-09
 supersedes_notes: >
   2026-07-15: Better Auth first-class via AUTH_SESSION_ADAPTER.
   2026-07-30: HMAC session path retired — no upstream product consumers;
   kit dogfood and all new products use Better Auth only for browser sessions.
   Bearer sk_ dual-path unchanged.
+  2026-08-09: D6 added — constant-time comparison made explicit for the sk_ verify
+  path (was implemented but unstated, so nothing owned the rule).
 related:
   - docs/architecture/adr/0003-multi-tenant-rbac-modules.md
   - GitHub epic #14 (B2 HMAC cut)
@@ -80,6 +82,21 @@ BA implements `auth.api.getSession({ headers })`.
 | Mounted | Not mounted |
 |---|---|
 | BA `handler` on `/api/auth/*` | HMAC login/logout routes |
+
+### D6 — Credential comparison (normative)
+
+Added 2026-08-09. The behaviour predates this section; the rule was implemented in
+`@kit/auth` but stated nowhere, so no review or tool could own it.
+
+- **Constant-time only.** Any comparison of a secret or of a digest derived from a secret goes
+  through `timingSafeEqualHex`. Never `===` / `==` / `!==` on a digest — it leaks length and
+  prefix through timing.
+- Applies to the `sk_` verify path (`verifyApiKey`) and to password verification
+  (`verifyPassword`).
+- **Workers-safe:** no `node:crypto`; `timingSafeEqualHex` compares fixed-length hex via
+  byte-wise XOR accumulation.
+- Length mismatch returns `false` **before** the byte loop — an accepted, documented leak of
+  digest *length* only, which is a constant for a given algorithm.
 
 ## Consequences
 
