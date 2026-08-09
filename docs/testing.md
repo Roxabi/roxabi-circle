@@ -66,6 +66,19 @@ so neither sees a secret that was force-pushed out of the window or predates the
 [`secret-scan-history.yml`](../.github/workflows/secret-scan-history.yml) covers full history on
 a weekly schedule. Rationale + regex: [`scripts/trufflehog-detectors.yaml`](../scripts/trufflehog-detectors.yaml).
 
+**Where local-first does not reach.** The scan is the one gate whose local and CI forms are not
+the same command: locally `scripts/trufflehog-check.sh` invokes the binary directly, while CI goes
+through the TruffleHog **action**, which prepends `--fail --no-update --github-actions` of its own.
+An argument that is valid locally can therefore be rejected in CI — measured: adding `--fail` to
+`extra_args` duplicates the injected one and TruffleHog exits **1** with
+`error: flag 'fail' cannot be repeated`, before scanning anything. A green `validate:full`
+cannot cover this, so changes to the scan workflows are verified by replaying the action's exact
+argument vector against a fixture, not by the local gate.
+
+Note the consequence for reading failures: on this job **exit 183 means findings**, exit 1 means
+the scan did not run. A step that fails identically on every commit is not a strict gate, it is
+noise that gets muted — which is the same fail-open ending by a different route.
+
 **Kit bar vs product bar**
 
 | Gate | Scope | Who runs it |
