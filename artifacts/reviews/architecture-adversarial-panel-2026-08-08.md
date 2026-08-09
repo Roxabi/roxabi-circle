@@ -206,7 +206,7 @@ lui-même.
 | 2 | Détecteur `sk_` custom + scan **historique complet** TruffleHog | H3 | `--only-verified` est structurellement aveugle au format `sk_` maison |
 | 3 | Throttle **par compte** (email) en plus du per-IP ; `'local'` fail-closed en prod | H4 | Aujourd'hui : per-IP seul, pas de lockout compte |
 | 4 | Deny/révoque les clés `organization_id IS NULL` à l'auth | H5 résiduel | Finir ce que `0008` annonçait |
-| 5 | **Split un pre-push rapide** (lint + typecheck + tests affectés) du gate complet | G | Tue l'incitation `LEFTHOOK=0` |
+| 5 | ~~**Split un pre-push rapide**~~ — **justification affaiblie, voir §6.1** | G | Mesuré : 16,5 s, pas des minutes |
 | 6 | **Brander `ServerMintedGrant`** maintenant, pendant que flows est inerte | A | Convertit le commentaire de provenance en type. Fenêtre idéale : rien ne tourne |
 | 7 | Surface d'exemption propre aux apps produit, hors zone zero-edit | G | Cap 300 lignes + `tools/file_exemptions.txt` en zone protégée = gate contre build |
 | 8 | Promouvoir en fail-mode ou sortir du gate primaire les gates warn-only | F | Pas de théâtre dans le gate primaire |
@@ -217,6 +217,32 @@ lui-même.
 inerte actuelle avant d'avoir transformé les invariants #2 (snapshot-only) et #3
 (provenance) en types/gates. Sinon la violation sera à une ligne d'écart, et rien ne
 deviendra rouge.
+
+### 6.1 Correction mesurée — l'action #5 reposait sur une inférence, pas une mesure
+
+La lentille DX a chiffré le coût du pre-push en citant le **budget** CI de 25 min
+(`.github/workflows/ci.yml:33`), puis en a déduit que les devs aliaseraient `LEFTHOOK=0`.
+**Mesure réelle** sur le push de cette revue (branche docs + tests) :
+
+```
+✔️ deny-upstream (0.01s)   ✔️ trufflehog (1.72s)   ✔️ validate-full (16.50s)
+total pre-push : 25.07s
+```
+
+**16,5 s**, pas des minutes. Le budget CI est un *timeout*, pas un temps d'exécution — la
+lentille DX a confondu les deux. L'action #5 perd donc l'essentiel de sa justification.
+
+**Contre-nuance, pour ne pas surcorriger** : ce push ne touchait que `artifacts/` et
+`packages/flows/*.test.ts`, avec cache turbo et `bun install` chauds — le graphe
+*affected* a court-circuité builds et tests non concernés. Un changement sur
+`packages/ui` (3 824 LOC) ou `example-web` à froid coûterait beaucoup plus. **16,5 s est
+un plancher observé, pas un plafond.**
+
+**Reco révisée** : ne pas splitter le pre-push sur la foi de cette attaque. **Mesurer
+d'abord** le pire cas réel (cache froid, changement dans `ui` ou `example-web`) ; ne
+splitter que si ce pire cas dépasse le seuil de patience. Ce qui reste vrai de la
+lentille DX en G, sans dépendre du chrono : le **cap 300 lignes appliqué aux apps
+produit** avec un registre d'exemptions en zone zero-edit protégée (action #7).
 
 ---
 
