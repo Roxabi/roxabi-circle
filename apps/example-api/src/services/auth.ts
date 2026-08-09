@@ -3,9 +3,6 @@ import {
   createBetterAuthSessionPort,
   generateApiKey,
   hashApiKey,
-  resolveDualAuth,
-  SESSION_COOKIE,
-  type SessionPort,
   sessionCookieName,
   verifyApiKey,
 } from '@kit/auth'
@@ -49,22 +46,26 @@ export async function mintApiKey(
     name?: string
     expiresAt?: number | null
     ttlMs?: number
-    /** ADR-0003 — required for multi-tenant keys. */
+    /**
+     * ADR-0003 D11 — mandatory. Minting without an organization is refused.
+     *
+     * This was previously gated behind an opt-in `requireOrganization` flag, which only one
+     * call site passed: any new route that forgot it minted a subject-global key, the exact
+     * state D11 forbids. Fail-closed instead of opt-in, so the guarantee holds by construction
+     * rather than by every caller remembering.
+     */
     organizationId?: string | null
-    requireOrganization?: boolean
   },
-): Promise<{ id: string; key: string; keyPrefix: string; organizationId: string | null }> {
+): Promise<{ id: string; key: string; keyPrefix: string; organizationId: string }> {
   const organizationId = opts?.organizationId?.trim() || null
-  if (opts?.requireOrganization && !organizationId) {
+  if (!organizationId) {
     throw AppError.validation('organizationId is required to mint an API key')
   }
-  if (organizationId) {
-    const { findMembership, findOrgById } = await import('../repos/orgs')
-    const org = await findOrgById(db, organizationId)
-    if (org?.status !== 'active') throw AppError.notFound('Organization not found')
-    const membership = await findMembership(db, organizationId, subject)
-    if (!membership) throw AppError.forbidden('Not a member of this organization')
-  }
+  const { findMembership, findOrgById } = await import('../repos/orgs')
+  const org = await findOrgById(db, organizationId)
+  if (org?.status !== 'active') throw AppError.notFound('Organization not found')
+  const membership = await findMembership(db, organizationId, subject)
+  if (!membership) throw AppError.forbidden('Not a member of this organization')
   const key = generateApiKey()
   const keyHash = await hashApiKey(key)
   const keyPrefix = apiKeyPrefix(key)
@@ -94,40 +95,12 @@ export async function revokeApiKey(db: Db, id: string, subject: string): Promise
   if (!ok) throw AppError.notFound('API key not found')
 }
 
-export async function resolveAuth(
-  db: Db,
-  _secret: string,
-  authorization: string | null,
-  cookieHeader: string | null,
-  opts: { sessions: SessionPort; cookieName?: string },
-): Promise<{
-  subject: string
-  method: 'session' | 'api_key'
-  organizationId?: string | null
-} | null> {
-  return resolveDualAuth(authorization, cookieHeader, {
-    cookieName: opts.cookieName ?? SESSION_COOKIE,
-    sessions: opts.sessions,
-    findApiKeyByPrefix: async (prefix) => {
-      const row = await keysRepo.findApiKeyByPrefix(db, prefix)
-      if (!row) return null
-      if (row.organizationId) {
-        const { findMembership, findOrgById } = await import('../repos/orgs')
-        const org = await findOrgById(db, row.organizationId)
-        if (org?.status !== 'active') return null
-        const membership = await findMembership(db, row.organizationId, row.subject)
-        if (!membership) return null
-      }
-      return {
-        subject: row.subject,
-        keyHash: row.keyHash,
-        revokedAt: row.revokedAt ?? null,
-        expiresAt: row.expiresAt ?? null,
-        organizationId: row.organizationId ?? null,
-      }
-    },
-  })
-}
+// `resolveAuth` was removed here: an exported dual-auth resolver with zero call sites that
+// carried its own copy of the org/membership re-check. Two copies of one guard is the drift
+// mechanism that produced the NULL-org hole in the first place — the surviving copy in
+// `middleware/require-auth.ts` was fixed while this one still skipped the check for
+// `organization_id IS NULL`. Deleted rather than patched, so the trap cannot come back.
+// The supported path is `createRequireAuth` (`middleware/require-auth.ts`).
 
 /** Helper for tests that need a BA SessionPort with mock getAuth. */
 export { createBetterAuthSessionPort, DEMO_EMAIL, DEMO_EMAIL_B, DEMO_PASSWORD, DEMO_PASSWORD_B }

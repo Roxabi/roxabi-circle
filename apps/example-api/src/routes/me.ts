@@ -77,10 +77,10 @@ meRoutes.post('/api/keys', async (c) => {
 
   const orgFromHeader = c.req.header('x-org-id')?.trim()
   const organizationId = body.data.organizationId?.trim() || orgFromHeader || null
+  // `mintApiKey` refuses a missing organization itself (ADR-0003 D11) — no opt-in flag to pass.
   const minted = await authService.mintApiKey(db, subject, {
     name: body.data.name,
     organizationId,
-    requireOrganization: true,
   })
   return c.json({
     id: minted.id,

@@ -3,7 +3,7 @@ import { eq } from 'drizzle-orm'
 import { describe, expect, it } from 'vitest'
 import { createApp } from './app'
 import { baMember, baOrganization } from './db/better-auth-schema'
-import { schema } from './db/schema'
+import { apiKeys, schema } from './db/schema'
 import { seedTenancyDemo } from './seed/seed-tenancy'
 import { createMemoryEnv } from './test/memory-env'
 
@@ -231,6 +231,37 @@ describe('org RBAC (ADR-0003 Phase A) — IDOR matrix', () => {
     await db.delete(baMember).where(eq(baMember.id, 'mem_org_acme_user_staff'))
     const dead = await app.request('/api/me', { headers: { authorization: `Bearer ${key}` } }, env)
     expect(dead.status).toBe(401)
+  })
+
+  /**
+   * ADR-0003 D11 forbids subject-global keys. No current path can create one — mint requires
+   * an organization — so the only way to reach this state is a pre-`0008` legacy row, which
+   * migration `0008` left nullable and never revoked. The binding is therefore stripped
+   * directly in the DB: same key, same hash, only `organization_id` differs.
+   */
+  it('key with no organization binding never authenticates (D11 legacy row)', async () => {
+    const { app, env, db } = await seedEnv()
+    const cookie = await signIn(app, env, 'staff@kit.local')
+    const mint = await app.request(
+      '/api/keys',
+      {
+        method: 'POST',
+        headers: { cookie, 'content-type': 'application/json', Origin: ORIGIN },
+        body: JSON.stringify({ organizationId: 'org_acme' }),
+      },
+      env,
+    )
+    expect(mint.status).toBe(200)
+    const { key, keyPrefix } = (await mint.json()) as { key: string; keyPrefix: string }
+
+    // positive control — the org-bound key authenticates before the binding is stripped
+    const ok = await app.request('/api/me', { headers: { authorization: `Bearer ${key}` } }, env)
+    expect(ok.status).toBe(200)
+
+    await db.update(apiKeys).set({ organizationId: null }).where(eq(apiKeys.keyPrefix, keyPrefix))
+
+    const dead = await app.request('/api/me', { headers: { authorization: `Bearer ${key}` } }, env)
+    expect(dead.status, 'null-org key must not authenticate').toBe(401)
   })
 
   it('suspended org is denied', async () => {
