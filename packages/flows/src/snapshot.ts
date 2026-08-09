@@ -33,6 +33,11 @@ export type CreateSnapshotResult =
  * Seal a checked plan into a runner view + separate grant audit copy.
  * **Persist `runnerView` only** on the Workflow / execution path (`JSON.stringify(runnerView)`).
  * Store `grantAudit` separately if needed for admin audit (never for dispatch).
+ *
+ * @capability flows-run-snapshot
+ * @tag critical
+ * @invariant runner-executes-snapshot-only: the runner must execute the runner view, never the live plan row; plan edits create a new version and in-flight runs are unchanged — ADR-0005 D4 § Run snapshot / RunnerView
+ * @contract flows-snapshot-port: createRunSnapshot(input) -> RunnerView + grantAudit
  */
 export function createRunSnapshot(input: CreateSnapshotInput): CreateSnapshotResult {
   if (!input.actorId || input.actorId.trim() === '' || input.actorId.length > 256) {

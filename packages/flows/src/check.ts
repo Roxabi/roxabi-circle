@@ -79,6 +79,12 @@ function findCycle(plan: PlanDocument): string | null {
 /**
  * Pure plan check — re-validates plan + grant schemas, then
  * authority = grants ∩ permits ∩ registry.
+ *
+ * @capability flows-plan-check
+ * @tag critical
+ * @invariant default-deny-ambient-authority: absent or empty plan permits with any effectful task (invoke or infer) fail closed at check — ADR-0005 D4 § Authority split
+ * @invariant plan-cannot-expand-authority: a plan cannot expand beyond grants — a permits.tools entry outside the grant is TOOL_NOT_GRANTED — ADR-0005 D4 § Authority split
+ * @contract flows-check-port: checkPlan(plan, grant, registry) -> CheckResult
  */
 export function checkPlan(
   planInput: unknown,
