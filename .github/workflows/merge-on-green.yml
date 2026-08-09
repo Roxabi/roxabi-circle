@@ -26,6 +26,9 @@
 #     Setup: docs/kit-ci-app-setup.md
 #
 # Gating workflows: Secret scan + CI (job name validate-full).
+# Semctx est dans les triggers mais PAS dans les required checks : il ne peut pas
+# débloquer un merge à lui seul, il évite juste qu'une PR reste coincée s'il termine
+# après CI/Secret scan (l'évaluation skippe sur `pending`).
 name: Merge on Green
 
 on:
@@ -33,7 +36,7 @@ on:
     types: [labeled]
     branches: [main, staging]
   workflow_run:
-    workflows: [Secret scan, CI]
+    workflows: [Secret scan, CI, Semctx]
     types: [completed]
   workflow_dispatch:
     inputs:
