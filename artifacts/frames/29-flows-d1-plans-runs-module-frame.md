@@ -2,6 +2,7 @@
 title: "feat(flows): D1 flow_plans/flow_runs + module catalogue flows"
 issue: 29
 status: approved
+normative: false
 tier: F-lite
 date: 2026-08-07
 ---

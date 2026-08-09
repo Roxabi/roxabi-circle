@@ -3,6 +3,7 @@ title: "chore(deps): wave 4 — fastmcp 4"
 description: "Bump FastMCP 3→4 on mcp-example; adapt catalogue wiring if needed; green smoke:mcp + mcp tests."
 type: spec
 status: approved
+normative: false
 issue: 22
 tier: F-lite
 ---

@@ -1,3 +1,8 @@
+---
+status: reference
+normative: false
+---
+
 # Lucide import inventory — #20
 
 Pre-bump sites: **25**

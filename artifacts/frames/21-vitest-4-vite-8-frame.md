@@ -2,6 +2,7 @@
 title: "chore(deps): wave 3 — vitest 4 + vite 8 + plugin-react"
 issue: 21
 status: approved
+normative: false
 tier: F-lite
 date: 2026-08-06
 ---

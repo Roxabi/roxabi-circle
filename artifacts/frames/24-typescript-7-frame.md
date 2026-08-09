@@ -2,6 +2,7 @@
 title: "chore(deps): wave 5b — TypeScript → 7"
 issue: 24
 status: approved
+normative: false
 tier: F-lite
 date: 2026-08-07
 ---

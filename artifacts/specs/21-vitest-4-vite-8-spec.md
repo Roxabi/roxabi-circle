@@ -3,6 +3,7 @@ title: "chore(deps): wave 3 — vitest 4 + vite 8 + plugin-react"
 description: "Bump Vitest 3→4 + coverage-v8, Vite 6→8 + plugin-react major; green test/coverage/build:kit."
 type: spec
 status: approved
+normative: false
 issue: 21
 tier: F-lite
 ---

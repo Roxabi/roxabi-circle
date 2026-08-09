@@ -5,6 +5,8 @@ spec: artifacts/specs/24-typescript-7-spec.md
 complexity: 6/10
 tier: F-lite
 generated: "2026-08-07T14:00:00Z"
+status: approved
+normative: false
 ---
 
 ## Summary

@@ -1,3 +1,8 @@
+---
+status: reference
+normative: false
+---
+
 # #23 Zod inventory (pre-bump)
 
 Generated: 2026-08-07T10:41:30+02:00

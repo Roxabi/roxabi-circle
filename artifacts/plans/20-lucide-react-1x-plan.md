@@ -5,6 +5,8 @@ spec: artifacts/specs/20-lucide-react-1x-spec.md
 complexity: 3/10
 tier: F-lite
 generated: "2026-08-06T12:00:00Z"
+status: approved
+normative: false
 ---
 
 ## Summary

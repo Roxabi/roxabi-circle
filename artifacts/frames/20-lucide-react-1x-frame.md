@@ -2,6 +2,7 @@
 title: "chore(deps): wave 2 — lucide-react 1.x"
 issue: 20
 status: approved
+normative: false
 tier: F-lite
 date: 2026-08-06
 ---

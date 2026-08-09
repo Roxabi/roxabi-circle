@@ -3,6 +3,7 @@ title: "chore(deps): wave 2 — lucide-react 1.x"
 description: "Bump lucide-react 0.515 → 1.x in packages/ui + example-web; fix icon renames; green typecheck/build."
 type: spec
 status: approved
+normative: false
 issue: 20
 tier: F-lite
 ---

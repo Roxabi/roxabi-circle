@@ -1,3 +1,8 @@
+---
+status: reference
+normative: false
+---
+
 # #24 TypeScript 7 — inventory & ship notes
 
 ## Pre-bump (2026-08-08)
