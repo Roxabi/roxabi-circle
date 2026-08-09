@@ -44,13 +44,23 @@ export const requireAuth: MiddlewareHandler<AppEnv> = createRequireAuth((c) => {
  * was removed from every org.
  *
  * These rows can only be pre-`0008` legacy data: migration `0008_api_keys_organization.sql`
- * added the column nullable and told operators to re-mint, but never revoked, and the mint
- * path has required an organization since (`services/auth.ts` — `requireOrganization`).
+ * added the column nullable and told operators to re-mint but never revoked, and `mintApiKey`
+ * now refuses a missing organization unconditionally (`services/auth.ts`).
  *
- * @capability auth-api-key-lookup
- * @tag security
- * @invariant api-keys-are-org-bound: a key row whose organization_id is absent never
- *   authenticates — the membership + active-org re-check is not skippable (ADR-0003 D11)
+ * Authority for this rule is ADR-0003 D11, not a marker here. Deliberately carries **no** semctx
+ * annotation of any kind — no invariant, capability or tag marker. (Written without the leading
+ * sigils on purpose: a doc comment naming them literally could be parsed as declaring them.)
+ * semctx derives `tested_by` only from a named import inside a test-role file, and this function
+ * is module-private, so no test can ever
+ * name it without widening the module's surface for the sake of a tool. A marker no gate can
+ * substantiate would make every future edit here unsatisfiable under the `block`-tier rules, and
+ * pressure the next person into exporting a private function or deleting the marker while a gate
+ * is red. It is also the failure this repo already paid for once — the `grant.ts` marker asserting
+ * "unknown keys are rejected" while a test in the same commit disproved it. Repo policy: annotate
+ * only what can be targeted; otherwise the rule lives in the ADR.
+ *
+ * The behaviour is covered by integration: `org-rbac.test.ts` mints a real org-bound key, proves
+ * it authenticates, strips only `organization_id`, and requires 401.
  */
 async function findKeyRecord(db: KitDb, prefix: string) {
   const row = await keysRepo.findApiKeyByPrefix(db, prefix)
