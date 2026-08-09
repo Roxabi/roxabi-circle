@@ -13,6 +13,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
 EXCLUDE_SRC="${ROOT}/scripts/trufflehog-exclude-paths.txt"
+DETECTORS_SRC="${ROOT}/scripts/trufflehog-detectors.yaml"
 excl=$(mktemp)
 staged_list=$(mktemp)
 trap 'rm -f "$excl" "$staged_list"' EXIT
@@ -22,6 +23,16 @@ if [ -f "$EXCLUDE_SRC" ]; then
 else
   printf '%s\n' 'node_modules' '\.venv' > "$excl"
   echo >&2 "WARN: ${EXCLUDE_SRC} missing — minimal excludes only"
+fi
+
+# Kit-issued secrets (`sk_`) have no third-party API to verify against, so they are always
+# *unverified* findings and `--only-verified` drops them silently. They therefore need their
+# own pass, without that flag, scoped to our detectors. Measured to report 0 on a clean tree.
+# Rationale + numbers: scripts/trufflehog-detectors.yaml
+custom_detectors=1
+if [ ! -f "$DETECTORS_SRC" ]; then
+  custom_detectors=0
+  echo >&2 "WARN: ${DETECTORS_SRC} missing — kit-issued sk_ keys are NOT scanned"
 fi
 
 if ! command -v trufflehog >/dev/null 2>&1; then
@@ -60,6 +71,13 @@ if base_ref="$(detect_base_ref)"; then
         --exclude-paths="$excl"; then
         failed=1
       fi
+      if [ "$custom_detectors" -eq 1 ] && ! trufflehog git "file://${ROOT}" \
+        --since-commit="$since_sha" \
+        --config="$DETECTORS_SRC" \
+        --fail \
+        --exclude-paths="$excl"; then
+        failed=1
+      fi
     fi
   fi
 else
@@ -83,6 +101,13 @@ if [ -s "$staged_list" ]; then
     "${staged_files[@]}"; then
     failed=1
   fi
+  if [ "$custom_detectors" -eq 1 ] && ! trufflehog filesystem \
+    --config="$DETECTORS_SRC" \
+    --fail \
+    --exclude-paths="$excl" \
+    "${staged_files[@]}"; then
+    failed=1
+  fi
 fi
 
 if [ "$scanned" -eq 0 ]; then
@@ -91,7 +116,7 @@ if [ "$scanned" -eq 0 ]; then
 fi
 
 if [ "$failed" -ne 0 ]; then
-  echo >&2 "trufflehog: verified secret(s) found — fix before commit/push (CI is too late)"
+  echo >&2 "trufflehog: secret(s) found — fix before commit/push (CI is too late)"
   exit 183
 fi
 
