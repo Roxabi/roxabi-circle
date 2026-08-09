@@ -5,6 +5,8 @@ spec: artifacts/specs/29-flows-d1-plans-runs-module-spec.md
 complexity: 4/10
 tier: F-lite
 generated: 2026-08-07
+status: approved
+normative: false
 ---
 
 ## Summary

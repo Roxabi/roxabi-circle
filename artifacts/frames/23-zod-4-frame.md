@@ -2,6 +2,7 @@
 title: "chore(deps): wave 5a — Zod 3 → 4"
 issue: 23
 status: approved
+normative: false
 tier: F-lite
 date: 2026-08-07
 ---

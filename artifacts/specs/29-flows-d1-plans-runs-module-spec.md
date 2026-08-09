@@ -3,6 +3,7 @@ title: "feat(flows): D1 flow_plans/flow_runs + module catalogue flows"
 description: "Apply org-scoped D1 tables for flow plans/runs and register flows in the ADR-0003 module catalogue."
 type: spec
 status: approved
+normative: false
 issue: 29
 tier: F-lite
 ---

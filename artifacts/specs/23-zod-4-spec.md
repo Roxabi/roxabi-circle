@@ -3,6 +3,7 @@ title: "chore(deps): wave 5a — Zod 3 → 4"
 description: "Bump monorepo zod 3→4; fix API breaks; port @kit/flows schemas; single resolved major; green typecheck + focused tests."
 type: spec
 status: approved
+normative: false
 issue: 23
 tier: F-lite
 ---

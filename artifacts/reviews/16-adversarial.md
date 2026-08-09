@@ -2,6 +2,7 @@
 title: "feat(flows) platform module — Adversarial review"
 issue: 16
 status: review-complete
+normative: false
 date: 2026-08-06
 subject: "docs/architecture/adr/0005-flows-platform-agentic-workflows.md + issue #16 + conversation locks"
 verdict_lean: survives-with-major

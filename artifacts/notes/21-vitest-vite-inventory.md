@@ -1,3 +1,8 @@
+---
+status: reference
+normative: false
+---
+
 # #21 pre-bump inventory — vitest / vite / plugin-react
 
 Generated: 2026-08-06T13:40Z
