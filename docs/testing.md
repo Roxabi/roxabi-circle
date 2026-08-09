@@ -40,7 +40,31 @@ merge-on-green (label reviewed + checks)
 | **Lefthook pre-push** | **Primary kit bar** — `validate:full` | Accept wall-clock; fix here |
 | **CI** (`validate-full` job) | **Secondary kit bar** — same `validate:full` if hooks skipped or local env lied | Should almost always be green if pre-push ran |
 | **Product CI** (`product-validate`) | **Product bar** — typecheck/test/build for `apps/<product>-*` via **copied** templates ([`product-validate.example.sh`](./templates/product-validate.example.sh), [`product-ci.example.yml`](./templates/product-ci.example.yml)) | Product repos only; not kit CI |
-| **Secret scan** | Orthogonal security | Always |
+| **Secret scan** | Orthogonal security | Always — **two passes, see below** |
+
+**Secret scan: why it runs TruffleHog twice (do not collapse it back)**
+
+`--only-verified` keeps the generic detectors quiet by reporting only what TruffleHog could
+confirm against the issuing provider's API. A `sk_` key **this kit mints itself** has no such
+provider, so it is always an *unverified* finding — and that flag discards it **silently**.
+
+Measured on trufflehog 3.96.0 with a real-format fixture (`sk_` + 48 lowercase hex):
+
+| Invocation | Result |
+|---|---|
+| `--only-verified` (generic pass) | `unverified_secrets: 0` → **exit 0, the key passes** |
+| `--config=scripts/trufflehog-detectors.yaml`, no such flag | `unverified_secrets: 1` → exit 183 |
+| same config over the whole repo | `unverified_secrets: 0` → no false positives |
+
+So: generic detectors keep `--only-verified`; kit-issued secrets get a **separate** pass
+without it. Adding the detector while keeping the flag yields a green scan and zero coverage —
+the failure mode is invisible, which is why this is written down rather than left to the diff.
+Do **not** merge the two invocations, and do **not** add `--only-verified` to the custom pass.
+
+Scope: both passes are **diff-scoped** (PR base…head; locally, commits after the origin base),
+so neither sees a secret that was force-pushed out of the window or predates the gates.
+[`secret-scan-history.yml`](../.github/workflows/secret-scan-history.yml) covers full history on
+a weekly schedule. Rationale + regex: [`scripts/trufflehog-detectors.yaml`](../scripts/trufflehog-detectors.yaml).
 
 **Kit bar vs product bar**
 
