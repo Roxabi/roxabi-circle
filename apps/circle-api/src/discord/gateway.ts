@@ -1,6 +1,6 @@
 /**
  * Discord Gateway DO — outgoing WS.
- * MESSAGE_CREATE → github-watch / news-actu · VOICE_STATE → temp voice.
+ * MESSAGE_CREATE → github-watch / news-actu / daily-digest · VOICE_STATE → temp voice.
  * Session hygiene: persist + RESUME, backoff, hard-stop (≈1000 IDENTIFY/day).
  */
 

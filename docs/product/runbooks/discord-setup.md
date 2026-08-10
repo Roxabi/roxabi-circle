@@ -52,9 +52,9 @@ An **empty** overwrite list is **not** “Synced” in the UI (even if calc stil
 | Channel | Discord overwrites | Behaviour |
 |---|---|---|
 | All CERCLE children | **Copy of category** (3 roles) | Full text · UI shows **Synced** |
-| `#github-to-watch` | same (synced) | Gateway enforces **1 GitHub URL** + auto-thread |
-| `#news-actu` | same (synced) | Gateway enforces **1 http(s) URL** + auto-thread |
-| `#daily-digest` | same (synced) | Soft: discuss in thread under digest posts |
+| `#github-to-watch` | same (synced) | Gateway: **1 GitHub URL** top-level + auto-thread |
+| `#news-actu` | same (synced) | Gateway: **1 http(s) URL** top-level + auto-thread |
+| `#daily-digest` | same (synced) | Gateway: **bots only** top-level + auto-thread (humans → thread) |
 
 To re-sync after drift: run setup with `--apply-perms` (copies category overwrites onto each `inherit` / `linksTopLevel` child).
 
@@ -97,7 +97,7 @@ source ~/projects/security/vaultwarden/scripts/agent-bw-login.sh
 bw get notes "roxabi-circle/discord"
 ```
 
-Keys: `DISCORD_APPLICATION_ID`, `DISCORD_PUBLIC_KEY`, `DISCORD_BOT_TOKEN`, `DISCORD_GUILD_ID`, `DISCORD_MEMBER_ROLE_ID`, `DISCORD_APPEAL_CATEGORY_ID` (**TICKETS**), `DISCORD_APPEAL_CHANNEL_ID` (`#appeal`), `DISCORD_GITHUB_WATCH_CHANNEL_ID`, `DISCORD_NEWS_ACTU_CHANNEL_ID`, `DISCORD_VOICE_HUB_CHANNEL_ID`, `DISCORD_VOICE_CATEGORY_ID`, `GATEWAY_OPS_SECRET`.
+Keys: `DISCORD_APPLICATION_ID`, `DISCORD_PUBLIC_KEY`, `DISCORD_BOT_TOKEN`, `DISCORD_GUILD_ID`, `DISCORD_MEMBER_ROLE_ID`, `DISCORD_APPEAL_CATEGORY_ID` (**TICKETS**), `DISCORD_APPEAL_CHANNEL_ID` (`#appeal`), `DISCORD_GITHUB_WATCH_CHANNEL_ID`, `DISCORD_NEWS_ACTU_CHANNEL_ID`, `DISCORD_DAILY_DIGEST_CHANNEL_ID`, `DISCORD_VOICE_HUB_CHANNEL_ID`, `DISCORD_VOICE_CATEGORY_ID`, `GATEWAY_OPS_SECRET`.
 
 **Rotate** bot token if it was ever pasted in chat (Portal → Bot → Reset Token), then update BW + CF secret (local `.dev.vars` keeps DUMMY).
 
@@ -120,11 +120,12 @@ https://discord.com/api/oauth2/authorize?client_id=1534228521420067046&permissio
 |---|---|
 | Runtime | Durable Object `DiscordGateway` |
 | Wake | DO alarm · cron `*/15` · `POST /internal/discord-gateway/ensure` (+ `?force=1` after token rotate) · **not** `/health` |
-| Env | `DISCORD_GITHUB_WATCH_CHANNEL_ID` · `DISCORD_NEWS_ACTU_CHANNEL_ID` |
-| Accept | Exactly **one** URL (GitHub hosts vs any http(s)) · caption ≤120 |
+| Env | `DISCORD_GITHUB_WATCH_CHANNEL_ID` · `DISCORD_NEWS_ACTU_CHANNEL_ID` · `DISCORD_DAILY_DIGEST_CHANNEL_ID` |
+| `#github-to-watch` / `#news-actu` | Exactly **one** URL (GitHub vs any http(s)) · caption ≤120 · thread |
+| `#daily-digest` | **Bot/webhook only** top-level · humans deleted · thread under digest |
 | On accept | Public thread under the message |
 | On reject | Delete · notice ~12s · DM best-effort |
-| Ignore | bots, webhooks, other channels, thread messages |
+| Ignore | other channels, thread messages (different channel id) |
 
 ---
 

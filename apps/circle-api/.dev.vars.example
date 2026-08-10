@@ -11,6 +11,8 @@ DISCORD_APPEAL_CATEGORY_ID=
 DISCORD_GITHUB_WATCH_CHANNEL_ID=
 # #news-actu channel id (Gateway enforces 1 http(s) link top-level + thread)
 DISCORD_NEWS_ACTU_CHANNEL_ID=
+# #daily-digest channel id (Gateway: bots only top-level + auto-thread)
+DISCORD_DAILY_DIGEST_CHANNEL_ID=
 # Temp voice hub (➕ créer un salon) + VOIX category parent
 DISCORD_VOICE_HUB_CHANNEL_ID=
 DISCORD_VOICE_CATEGORY_ID=

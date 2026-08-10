@@ -20,7 +20,7 @@
  *   Tickets:  category TICKETS hidden; private appeal-{userId} channels
  *   CERCLE:   category SSoT — children are **permission-synced** (same overwrites
  *             as the category; empty overwrites ≠ Discord “Synced” UI).
- *             #github-to-watch / #news-actu: synced + Gateway content rules
+ *             #github-to-watch / #news-actu / #daily-digest: synced + Gateway rules
  */
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
@@ -355,10 +355,10 @@ async function main() {
         },
         {
           name: 'daily-digest',
-          // Synced with CERCLE (same as siblings). Soft rule: prefer threads under digest posts.
-          mode: 'inherit',
+          // Synced with CERCLE; Gateway: bots only top-level + auto-thread (like news/github).
+          mode: 'linksTopLevel',
           topic:
-            'Digest Lyra — préfère un thread sous le digest pour discuter (channel sync catégorie).',
+            'Digest Lyra (bot) en top-level. Discussion → réponds en thread sous le digest (pas de chat top-level).',
         },
         {
           name: 'ai-agentic-workflow',
@@ -573,6 +573,7 @@ async function main() {
   }
   printId('DISCORD_GITHUB_WATCH_CHANNEL_ID', 'github-to-watch')
   printId('DISCORD_NEWS_ACTU_CHANNEL_ID', 'news-actu')
+  printId('DISCORD_DAILY_DIGEST_CHANNEL_ID', 'daily-digest')
   printId('DISCORD_VOICE_HUB_CHANNEL_ID', '➕ créer un salon')
   printId('DISCORD_VOICE_CATEGORY_ID', 'VOIX')
   printId('DISCORD_APPEAL_CATEGORY_ID', 'TICKETS')

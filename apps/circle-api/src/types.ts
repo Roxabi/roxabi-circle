@@ -17,6 +17,11 @@ export type Env = {
    */
   DISCORD_NEWS_ACTU_CHANNEL_ID?: string
   /**
+   * #daily-digest channel id — Gateway: bots only top-level + auto-thread.
+   * Optional: if unset, daily-digest enforcement is disabled.
+   */
+  DISCORD_DAILY_DIGEST_CHANNEL_ID?: string
+  /**
    * Voice hub "➕ créer un salon" — join creates a temp room under VOIX.
    * Optional: if unset, temp-voice is disabled.
    */

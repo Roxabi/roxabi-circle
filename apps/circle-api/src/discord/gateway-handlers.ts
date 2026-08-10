@@ -4,6 +4,7 @@
  */
 
 import type { Env } from '../types'
+import { enforceDailyDigest, planDailyDigestMessage } from './daily-digest'
 import { applyReady, applyResumed, type GatewaySessionState } from './gateway-session'
 import { enforceGithubWatch, type GatewayMessage, planGithubWatchMessage } from './github-watch'
 import { enforceNewsActu, planNewsActuMessage } from './news-actu'
@@ -120,6 +121,7 @@ export async function handleGatewayDispatch(
   const msg = packet.d as GatewayMessage
   await onGithubWatchMessage(ctx, msg)
   await onNewsActuMessage(ctx, msg)
+  await onDailyDigestMessage(ctx, msg)
 }
 
 async function onGuildCreate(ctx: GatewayDispatchCtx, d: unknown): Promise<void> {
@@ -231,5 +233,28 @@ async function onNewsActuMessage(ctx: GatewayDispatchCtx, msg: GatewayMessage): 
     console.log('news-actu', result.done, 'msg', msg.id)
   } catch (e) {
     console.error('news-actu enforce failed', e)
+  }
+}
+
+async function onDailyDigestMessage(ctx: GatewayDispatchCtx, msg: GatewayMessage): Promise<void> {
+  const digestId = ctx.env.DISCORD_DAILY_DIGEST_CHANNEL_ID
+  if (!digestId) return
+
+  const action = planDailyDigestMessage(msg, digestId, ctx.getBotUserId() ?? undefined)
+  if (action.type === 'ignore') return
+
+  const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
+
+  try {
+    const result = await enforceDailyDigest({
+      token: ctx.env.DISCORD_BOT_TOKEN,
+      msg,
+      action,
+      noticeTtlMs: action.type === 'reject' ? 12_000 : undefined,
+      sleep: action.type === 'reject' ? sleep : undefined,
+    })
+    console.log('daily-digest', result.done, 'msg', msg.id)
+  } catch (e) {
+    console.error('daily-digest enforce failed', e)
   }
 }

@@ -103,6 +103,8 @@ export type GatewayMessage = {
   content?: string
   author?: { id?: string; bot?: boolean; username?: string }
   webhook_id?: string | null
+  /** Embeds (digest posts often use these) */
+  embeds?: unknown[] | null
   /** Present when this message is a reply; still top-level if not in a thread channel */
   message_reference?: { message_id?: string; channel_id?: string } | null
   /** 0 = DEFAULT, 19 = REPLY, etc. — not used for thread detection */
