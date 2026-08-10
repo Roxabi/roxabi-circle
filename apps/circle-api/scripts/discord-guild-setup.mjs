@@ -18,9 +18,9 @@
  *   Members:  #intros + whole CERCLE (inherit) + SUPPORT#idées + VOIX hub
  *   Appeal:   #appeal visible to non-members (read/button); members hidden
  *   Tickets:  category TICKETS hidden; private appeal-{userId} channels
- *   CERCLE:   category SSoT — children inherit empty overwrites
- *             exception: #daily-digest threadOnly (deny SEND top-level)
- *             #github-to-watch / #news-actu: inherit + Gateway content rules
+ *   CERCLE:   category SSoT — children are **permission-synced** (same overwrites
+ *             as the category; empty overwrites ≠ Discord “Synced” UI).
+ *             #github-to-watch / #news-actu: synced + Gateway content rules
  */
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
@@ -252,17 +252,29 @@ async function main() {
   }
 
   /**
-   * Channel-level modes (override category).
+   * Channel-level modes.
+   * For Discord UI “Synced with category”, overwrites must **equal** the parent
+   * category’s list (empty array is NOT synced — it only inherits at calc time).
    * @param {string} mode
+   * @param {any[]} parentCatOws category overwrites to clone for sync modes
    */
-  function channelOverwrites(mode) {
+  function channelOverwrites(mode, parentCatOws = []) {
     const { everyone, member, bot } = ids
+    /** deep-copy category rows → channel is permission-synced */
+    const synced = () =>
+      parentCatOws.map((o) => ({
+        id: o.id,
+        type: o.type,
+        allow: String(o.allow ?? '0'),
+        deny: String(o.deny ?? '0'),
+      }))
     switch (mode) {
       case 'inherit':
       case 'linksTopLevel':
-        // Empty = full category inherit. linksTopLevel is Gateway-only (no Discord override).
-        return []
+        // linksTopLevel: Discord-synced; content rules are Gateway-only.
+        return synced()
       case 'threadOnly':
+        // Deliberately unsynced: deny top-level SEND for members.
         return ows(
           roleOw(member, THREAD_ONLY_MEMBER_ALLOW, THREAD_ONLY_MEMBER_DENY),
           roleOw(bot, BOT_TEXT_ALLOW),
@@ -300,7 +312,7 @@ async function main() {
           roleOw(bot, BOT_TEXT_ALLOW),
         )
       default:
-        return []
+        return synced()
     }
   }
 
@@ -343,9 +355,10 @@ async function main() {
         },
         {
           name: 'daily-digest',
-          mode: 'threadOnly',
+          // Synced with CERCLE (same as siblings). Soft rule: prefer threads under digest posts.
+          mode: 'inherit',
           topic:
-            'Digest Lyra — pas de post top-level. Réagis ou ouvre un thread sous le digest pour discuter.',
+            'Digest Lyra — préfère un thread sous le digest pour discuter (channel sync catégorie).',
         },
         {
           name: 'ai-agentic-workflow',
@@ -470,7 +483,7 @@ async function main() {
       }
 
       const mode = ch.mode ?? 'inherit'
-      const overwrites = channelOverwrites(mode)
+      const overwrites = channelOverwrites(mode, catOws)
 
       if (!existing) {
         if (!createMissing) {

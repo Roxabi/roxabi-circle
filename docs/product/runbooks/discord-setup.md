@@ -43,16 +43,20 @@
 | **Ticket opener** (non-member) | Own private channel `appeal-{discordUserId}` under **TICKETS** only |
 | **Lyra** (Admin) | All |
 
-### CERCLE — category is SSoT
+### CERCLE — category is SSoT (Discord “Synced”)
+
+Discord marks a channel **Synced with category** only when its `permission_overwrites`
+are **identical** to the category’s (same roles + allow/deny).  
+An **empty** overwrite list is **not** “Synced” in the UI (even if calc still falls back to the category).
 
 | Channel | Discord overwrites | Behaviour |
 |---|---|---|
-| Most children | **empty → inherit** category | Full text (view/send/attach/react/threads) |
-| `#daily-digest` | **threadOnly** | Deny top-level `SEND` · react + threads OK · Lyra posts digests |
-| `#github-to-watch` | **inherit** (empty) | Gateway enforces **1 GitHub URL** + auto-thread |
-| `#news-actu` | **inherit** (empty) | Gateway enforces **1 http(s) URL** + auto-thread |
+| All CERCLE children | **Copy of category** (3 roles) | Full text · UI shows **Synced** |
+| `#github-to-watch` | same (synced) | Gateway enforces **1 GitHub URL** + auto-thread |
+| `#news-actu` | same (synced) | Gateway enforces **1 http(s) URL** + auto-thread |
+| `#daily-digest` | same (synced) | Soft: discuss in thread under digest posts |
 
-Do **not** re-apply redundant member allows on links channels — inheritance is the model.
+To re-sync after drift: run setup with `--apply-perms` (copies category overwrites onto each `inherit` / `linksTopLevel` child).
 
 ### ENTRÉE
 
