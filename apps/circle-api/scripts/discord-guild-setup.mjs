@@ -1,18 +1,26 @@
 #!/usr/bin/env bun
 /**
- * One-shot Discord guild ops for Roxabi Circle.
- * Loads apps/circle-api/.dev.vars (or env). Idempotent where possible.
+ * Discord guild ops for Roxabi Circle — layout SSoT matching the live server.
+ * Loads apps/circle-api/.dev.vars (or env DISCORD_*).
  *
- * Creates:
- *  - role `member`
- *  - categories + channels: entrée, communauté, ops
- *  - guild slash command `/apply`
- *  - basic overwrites (member vs @everyone)
- *  - updates .dev.vars DISCORD_MEMBER_ROLE_ID
+ * Default (safe): role check + /apply upsert + print channel IDs.
+ * Does **not** create channels or rewrite overwrites unless flagged.
  *
  * Usage:
  *   bun apps/circle-api/scripts/discord-guild-setup.mjs
  *   bun apps/circle-api/scripts/discord-guild-setup.mjs --dry-run
+ *   bun apps/circle-api/scripts/discord-guild-setup.mjs --create-missing
+ *   bun apps/circle-api/scripts/discord-guild-setup.mjs --apply-perms
+ *   bun apps/circle-api/scripts/discord-guild-setup.mjs --create-missing --apply-perms
+ *
+ * Permission model (live):
+ *   Public:   #règles + #arrivées only (read-only)
+ *   Members:  #intros + whole CERCLE (inherit) + SUPPORT#idées + VOIX hub
+ *   Appeal:   #appeal visible to non-members (read/button); members hidden
+ *   Tickets:  category TICKETS hidden; private appeal-{userId} channels
+ *   CERCLE:   category SSoT — children inherit empty overwrites
+ *             exception: #daily-digest threadOnly (deny SEND top-level)
+ *             #github-to-watch / #news-actu: inherit + Gateway content rules
  */
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
@@ -22,6 +30,8 @@ const API = 'https://discord.com/api/v10'
 const PKG_ROOT = resolve(import.meta.dir, '..')
 const DEVVARS = resolve(PKG_ROOT, '.dev.vars')
 const dryRun = process.argv.includes('--dry-run')
+const createMissing = process.argv.includes('--create-missing')
+const applyPerms = process.argv.includes('--apply-perms')
 
 /** @type {Record<string, string>} */
 function loadDevVars() {
@@ -176,178 +186,237 @@ async function main() {
     console.log(`updated .dev.vars DISCORD_MEMBER_ROLE_ID`)
   }
 
-  // Channels layout
-  // memberOnly on a category = SSoT overwrites (children inherit by default)
-  // Channel modes under a memberOnly category:
-  //   inherit (default) — empty channel overwrites
-  //   threadOnly        — no top-level SEND; react + create/public threads + send in threads
-  //   linksTopLevel     — SEND ok; Gateway bot enforces 1 URL top-level (github-watch / news-actu)
-  // memberOnly on a channel only = overwrites on that channel (parent stays public)
-  //
-  // Use bigint for thread bits (CREATE_PUBLIC_THREADS = 1<<35, etc.)
+  // ── Permission bits (bigint for high thread bits) ──────────────────────
   const bit = (n) => 1n << BigInt(n)
   const sumBits = (...ns) => String(ns.reduce((a, n) => a + bit(n), 0n))
-
   // VIEW=10 SEND=11 REACT=6 EMBED=14 ATTACH=15 HISTORY=16 EXT_EMOJI=18
   // MANAGE_MSG=13 MANAGE_CH=4 APP_CMD=31 MANAGE_THREADS=34
-  // CREATE_PUB_THREAD=35 SEND_IN_THREAD=38 EXT_STICKER=37
+  // CREATE_PUB_THREAD=35 SEND_IN_THREAD=38 EXT_STICKER=37 CONNECT=20 SPEAK=21 VAD=25
+  const VIEW = sumBits(10)
   const MEMBER_TEXT_ALLOW = sumBits(10, 11, 6, 14, 15, 16, 18, 37, 31, 35, 38)
   const BOT_TEXT_ALLOW = sumBits(10, 11, 6, 14, 15, 16, 18, 37, 31, 35, 38, 13, 4, 34)
   const THREAD_ONLY_MEMBER_ALLOW = sumBits(10, 6, 14, 15, 16, 18, 37, 31, 35, 38)
   const THREAD_ONLY_MEMBER_DENY = sumBits(11) // SEND_MESSAGES
-  const LINKS_TOP_MEMBER_ALLOW = MEMBER_TEXT_ALLOW
+  const PUBLIC_READ_ALLOW = sumBits(10, 16) // VIEW + HISTORY
+  const PUBLIC_READ_DENY = sumBits(11, 14, 15) // SEND, EMBED, ATTACH
+  const PUBLIC_READ_SILENT_DENY = sumBits(11, 14, 15, 6, 31) // + REACT + APP_CMD
+  const BOT_MOD_ALLOW = sumBits(10, 11, 13, 14, 15, 16)
+  const MEMBER_VOICE_HUB = sumBits(10, 20, 21, 25) // VIEW CONNECT SPEAK VAD
+  const EVERYONE_VOICE_DENY = sumBits(10, 20)
 
-  /**
-   * @param {{ memberRoleId: string, botRoleId?: string }} ids
-   */
-  function memberOnlyOverwrites({ memberRoleId, botRoleId }) {
-    /** @type {any[]} */
-    const overwrites = [
-      {
-        id: guildId, // @everyone === guild id
-        type: 0,
-        deny: sumBits(10),
-        allow: '0',
-      },
-      {
-        id: memberRoleId,
-        type: 0,
-        allow: MEMBER_TEXT_ALLOW,
-        deny: '0',
-      },
-    ]
-    if (botRoleId) {
-      overwrites.push({
-        id: botRoleId,
-        type: 0,
-        allow: BOT_TEXT_ALLOW,
-        deny: '0',
-      })
-    }
-    return overwrites
+  const ids = {
+    everyone: guildId,
+    member: memberRole?.id,
+    bot: managedBotRole?.id,
+  }
+
+  /** @param {any[]} rows */
+  function ows(...rows) {
+    return rows.filter(Boolean)
+  }
+  function roleOw(id, allow, deny = '0') {
+    return id ? { id, type: 0, allow, deny } : null
   }
 
   /**
-   * Channel-level overwrites that override category inheritance for special modes.
-   * @param {"threadOnly" | "linksTopLevel"} mode
-   * @param {{ memberRoleId: string, botRoleId?: string }} ids
+   * Category-level templates.
+   * @param {"gatePublic" | "memberText" | "memberView" | "ticketsHidden"} kind
    */
-  function channelModeOverwrites(mode, { memberRoleId, botRoleId }) {
-    /** @type {any[]} */
-    const overwrites = []
-    if (mode === 'threadOnly') {
-      overwrites.push({
-        id: memberRoleId,
-        type: 0,
-        allow: THREAD_ONLY_MEMBER_ALLOW,
-        deny: THREAD_ONLY_MEMBER_DENY,
-      })
-    } else if (mode === 'linksTopLevel') {
-      overwrites.push({
-        id: memberRoleId,
-        type: 0,
-        allow: LINKS_TOP_MEMBER_ALLOW,
-        deny: '0',
-      })
+  function categoryOverwrites(kind) {
+    const { everyone, member, bot } = ids
+    if (kind === 'gatePublic') {
+      // ENTRÉE: default hidden; public channels grant @everyone VIEW themselves
+      return ows(roleOw(everyone, '0', VIEW), roleOw(member, VIEW), roleOw(bot, VIEW))
     }
-    if (botRoleId) {
-      overwrites.push({
-        id: botRoleId,
-        type: 0,
-        allow: BOT_TEXT_ALLOW,
-        deny: '0',
-      })
+    if (kind === 'memberText') {
+      // CERCLE: SSoT text for members; children inherit empty overwrites
+      return ows(
+        roleOw(everyone, '0', VIEW),
+        roleOw(member, MEMBER_TEXT_ALLOW),
+        roleOw(bot, BOT_TEXT_ALLOW),
+      )
     }
-    return overwrites
+    if (kind === 'memberView') {
+      // SUPPORT / VOIX shell — children refine
+      return ows(roleOw(everyone, '0', VIEW), roleOw(member, VIEW), roleOw(bot, VIEW))
+    }
+    if (kind === 'ticketsHidden') {
+      // Private tickets only — nobody browses the category
+      return ows(
+        roleOw(everyone, '0', VIEW),
+        roleOw(member, '0', VIEW),
+        roleOw(bot, BOT_TEXT_ALLOW),
+      )
+    }
+    return []
   }
 
   /**
-   * @typedef {{ name: string, topic?: string, memberOnly?: boolean, mode?: "inherit" | "threadOnly" | "linksTopLevel" }} ChildCh
-   * @typedef {{ name: string, type: number, memberOnly?: boolean, children?: ChildCh[] }} CatLayout
+   * Channel-level modes (override category).
+   * @param {string} mode
+   */
+  function channelOverwrites(mode) {
+    const { everyone, member, bot } = ids
+    switch (mode) {
+      case 'inherit':
+      case 'linksTopLevel':
+        // Empty = full category inherit. linksTopLevel is Gateway-only (no Discord override).
+        return []
+      case 'threadOnly':
+        return ows(
+          roleOw(member, THREAD_ONLY_MEMBER_ALLOW, THREAD_ONLY_MEMBER_DENY),
+          roleOw(bot, BOT_TEXT_ALLOW),
+        )
+      case 'publicRead':
+        return ows(
+          roleOw(everyone, PUBLIC_READ_ALLOW, PUBLIC_READ_DENY),
+          roleOw(member, PUBLIC_READ_ALLOW, PUBLIC_READ_DENY),
+          roleOw(bot, BOT_MOD_ALLOW),
+        )
+      case 'publicReadSilent':
+        return ows(
+          roleOw(everyone, PUBLIC_READ_ALLOW, PUBLIC_READ_SILENT_DENY),
+          roleOw(member, PUBLIC_READ_ALLOW, PUBLIC_READ_SILENT_DENY),
+          roleOw(bot, BOT_MOD_ALLOW),
+        )
+      case 'memberText':
+        return ows(
+          roleOw(everyone, '0', VIEW),
+          roleOw(member, MEMBER_TEXT_ALLOW),
+          roleOw(bot, BOT_TEXT_ALLOW),
+        )
+      case 'appealHub':
+        // Non-members: view + history (button). Members: hidden (already accepted).
+        // Send denied for everyone — open ticket via interactions only.
+        return ows(
+          roleOw(everyone, PUBLIC_READ_ALLOW, PUBLIC_READ_SILENT_DENY),
+          roleOw(member, '0', VIEW),
+          roleOw(bot, sumBits(10, 11, 6, 13, 14, 15, 16)),
+        )
+      case 'voiceHub':
+        return ows(
+          roleOw(everyone, '0', EVERYONE_VOICE_DENY),
+          roleOw(member, MEMBER_VOICE_HUB),
+          roleOw(bot, BOT_TEXT_ALLOW),
+        )
+      default:
+        return []
+    }
+  }
+
+  /**
+   * Live layout SSoT (2026-08-10).
+   * @typedef {{ name: string, topic?: string, mode?: string, type?: number }} ChildCh
+   * @typedef {{ name: string, catMode: string, children?: ChildCh[] }} CatLayout
    * @type {CatLayout[]}
    */
   const layout = [
     {
       name: 'ENTRÉE',
-      type: GUILD_CATEGORY,
+      catMode: 'gatePublic',
       children: [
         {
-          name: 'accueil',
-          topic:
-            'Bienvenue dans le Roxabi Circle. Utilise /apply pour candidater (GitHub + PR d’entrée).',
-          memberOnly: false,
+          name: 'règles',
+          mode: 'publicRead',
+          topic: 'Règles du cercle — lisibles par tous. Accès membre après /apply.',
         },
         {
-          name: 'apply-help',
-          topic: 'Questions sur le process d’entrée (pas de spoiler scoring).',
-          memberOnly: false,
+          name: 'arrivées',
+          mode: 'publicReadSilent',
+          topic: 'Notifications d’arrivée — lecture seule (messages système Discord).',
+        },
+        {
+          name: 'intros',
+          mode: 'memberText',
+          topic: 'Présente-toi : stack, focus IA/OSS, ce que tu partages.',
         },
       ],
     },
     {
       name: 'CERCLE',
-      type: GUILD_CATEGORY,
-      // Gate once at category — open children inherit full text + threads
-      memberOnly: true,
+      catMode: 'memberText',
       children: [
         {
           name: 'general',
-          topic: 'Discussion technique — harness, MCP, agents, stack.',
           mode: 'inherit',
+          topic: 'Discussion technique — harness, MCP, agents, stack.',
         },
         {
           name: 'daily-digest',
+          mode: 'threadOnly',
           topic:
             'Digest Lyra — pas de post top-level. Réagis ou ouvre un thread sous le digest pour discuter.',
-          mode: 'threadOnly',
         },
         {
           name: 'ai-agentic-workflow',
-          topic: 'Workflows agentiques, harness, orchestration.',
           mode: 'inherit',
+          topic: 'Workflows agentiques, harness, orchestration.',
         },
         {
           name: 'dev-with-ai',
-          topic: 'Dev assisté IA — patterns, outils, retours terrain.',
           mode: 'inherit',
-        },
-        {
-          name: 'github-to-watch',
-          topic:
-            'Un lien GitHub (repo/PR/issue) par message top-level. Tout le reste → thread sous le lien.',
-          mode: 'linksTopLevel',
+          topic: 'Dev assisté IA — patterns, outils, retours terrain.',
         },
         {
           name: 'news-actu',
-          topic:
-            'Un lien actu (http/https) par message top-level. Discussion → réponds en thread sous le lien (pas de chat top-level).',
           mode: 'linksTopLevel',
+          topic:
+            'Un lien actu (http/https) par message top-level. Discussion → réponds en thread sous le lien.',
         },
         {
-          name: 'showcase',
-          topic: 'Ship, repos, demos, write-ups.',
-          mode: 'inherit',
+          name: 'github-to-watch',
+          mode: 'linksTopLevel',
+          topic:
+            'Un lien GitHub (repo/PR/issue) par message top-level. Tout le reste → thread sous le lien.',
         },
+        { name: 'showcase', mode: 'inherit', topic: 'Ship, repos, demos, write-ups.' },
         {
           name: 'opportunités',
-          topic: 'Jobs, collabs, appels à projet — cercle only.',
           mode: 'inherit',
+          topic: 'Jobs, collabs, appels à projet — cercle only.',
         },
       ],
     },
     {
       name: 'SUPPORT',
-      type: GUILD_CATEGORY,
+      catMode: 'memberView',
       children: [
         {
+          name: 'idées-améliorations',
+          mode: 'memberText',
+          topic: 'Suggestions produit / process — membres only.',
+        },
+        {
           name: 'appeal',
+          mode: 'appealHub',
           topic:
-            'Cas edge (OSS surtout privé, faux négatif). Staff review — pas un second scoring chat.',
-          memberOnly: false,
+            'Cas edge (OSS surtout privé, faux négatif). Non-membres : ouvrir un ticket (bouton). Membres : masqué.',
         },
       ],
     },
+    {
+      name: 'VOIX',
+      catMode: 'memberView',
+      children: [
+        {
+          name: '➕ créer un salon',
+          mode: 'voiceHub',
+          type: 2, // GUILD_VOICE
+          topic: '',
+        },
+      ],
+    },
+    {
+      name: 'TICKETS',
+      catMode: 'ticketsHidden',
+      children: [], // private appeal-{userId} created by Worker only
+    },
   ]
+
+  console.log(
+    `\nflags: dryRun=${dryRun} createMissing=${createMissing} applyPerms=${applyPerms}` +
+      ` (default is inventory-only for channels)`,
+  )
 
   const channels = await discord(token, 'GET', `/guilds/${guildId}/channels`)
   /** @type {Map<string, any>} */
@@ -355,24 +424,21 @@ async function main() {
 
   for (const cat of layout) {
     let parent = byName.get(cat.name)
-    /** @type {any[] | undefined} */
-    const catOverwrites =
-      cat.memberOnly && memberRole?.id
-        ? memberOnlyOverwrites({
-            memberRoleId: memberRole.id,
-            botRoleId: managedBotRole?.id,
-          })
-        : undefined
+    const catOws = categoryOverwrites(cat.catMode)
 
     if (!parent) {
+      if (!createMissing) {
+        console.log(`category MISSING ${cat.name} (pass --create-missing)`)
+        continue
+      }
       if (dryRun) {
-        console.log(`[dry-run] create category ${cat.name}`)
+        console.log(`[dry-run] create category ${cat.name} mode=${cat.catMode}`)
         parent = { id: 'dry', name: cat.name }
       } else {
         parent = await discord(token, 'POST', `/guilds/${guildId}/channels`, {
           name: cat.name,
           type: GUILD_CATEGORY,
-          permission_overwrites: catOverwrites,
+          permission_overwrites: catOws,
           reason: 'Roxabi Circle setup',
         })
         byName.set(cat.name, parent)
@@ -380,12 +446,12 @@ async function main() {
       }
     } else {
       console.log(`category exists ${cat.name}`)
-      if (!dryRun && catOverwrites && memberRole?.id) {
+      if (applyPerms && !dryRun && memberRole?.id) {
         try {
           await discord(token, 'PATCH', `/channels/${parent.id}`, {
-            permission_overwrites: catOverwrites,
+            permission_overwrites: catOws,
           })
-          console.log(`  updated category overwrites ${cat.name} (children inherit)`)
+          console.log(`  applied category overwrites ${cat.name}`)
         } catch (e) {
           console.warn(
             `  skip category patch ${cat.name}:`,
@@ -397,65 +463,51 @@ async function main() {
     }
 
     for (const ch of cat.children ?? []) {
+      const chType = ch.type ?? GUILD_TEXT
       let existing = byName.get(ch.name)
-      // prefer text channel under this category if duplicates
-      if (existing && existing.type !== GUILD_TEXT) {
-        existing = channels.find((c) => c.name === ch.name && c.type === GUILD_TEXT)
+      if (existing && existing.type !== chType) {
+        existing = channels.find((c) => c.name === ch.name && c.type === chType)
       }
 
-      const mode = ch.mode ?? (ch.memberOnly && !cat.memberOnly ? 'memberOnly' : 'inherit')
-
-      /** @type {any[]} */
-      let overwrites = []
-      if (mode === 'threadOnly' || mode === 'linksTopLevel') {
-        if (memberRole?.id) {
-          overwrites = channelModeOverwrites(mode, {
-            memberRoleId: memberRole.id,
-            botRoleId: managedBotRole?.id,
-          })
-        }
-      } else if (ch.memberOnly && !cat.memberOnly && memberRole?.id) {
-        overwrites = memberOnlyOverwrites({
-          memberRoleId: memberRole.id,
-          botRoleId: managedBotRole?.id,
-        })
-      }
-      // inherit under memberOnly category → empty overwrites (clear on patch)
+      const mode = ch.mode ?? 'inherit'
+      const overwrites = channelOverwrites(mode)
 
       if (!existing) {
+        if (!createMissing) {
+          console.log(`  channel MISSING #${ch.name} (pass --create-missing)`)
+          continue
+        }
         if (dryRun) {
           console.log(`[dry-run] create #${ch.name} under ${cat.name} mode=${mode}`)
-        } else {
+        } else if (parent?.id && parent.id !== 'dry') {
           const created = await discord(token, 'POST', `/guilds/${guildId}/channels`, {
             name: ch.name,
-            type: GUILD_TEXT,
-            parent_id: parent.id === 'dry' ? undefined : parent.id,
-            topic: ch.topic ?? '',
+            type: chType,
+            parent_id: parent.id,
+            topic: chType === GUILD_TEXT ? (ch.topic ?? '') : undefined,
             permission_overwrites: overwrites.length ? overwrites : undefined,
             reason: 'Roxabi Circle setup',
           })
           byName.set(ch.name, created)
-          console.log(`created #${ch.name} mode=${mode}`)
+          console.log(`  created #${ch.name} mode=${mode}`)
         }
       } else {
-        console.log(`channel exists #${ch.name}`)
-        if (!dryRun && memberRole?.id) {
+        const owCount = (existing.permission_overwrites || []).length
+        console.log(`  channel exists #${ch.name} mode=${mode} overwrites=${owCount}`)
+        if (applyPerms && !dryRun && memberRole?.id) {
           try {
             /** @type {Record<string, unknown>} */
             const patch = {
-              parent_id: parent.id === 'dry' ? existing.parent_id : parent.id,
-              topic: ch.topic ?? existing.topic,
+              parent_id: parent?.id && parent.id !== 'dry' ? parent.id : existing.parent_id,
             }
-            if (cat.memberOnly && mode === 'inherit') {
-              patch.permission_overwrites = []
-            } else if (overwrites.length) {
-              patch.permission_overwrites = overwrites
-            }
+            if (chType === GUILD_TEXT && ch.topic) patch.topic = ch.topic
+            // Always set overwrites list (empty = inherit) when applying perms
+            patch.permission_overwrites = overwrites
             await discord(token, 'PATCH', `/channels/${existing.id}`, patch)
-            console.log(`  mode=${mode} + topic #${ch.name}`)
+            console.log(`    applied perms mode=${mode} ow=${overwrites.length}`)
           } catch (e) {
             console.warn(
-              `  skip patch #${ch.name}:`,
+              `    skip patch #${ch.name}:`,
               // @ts-expect-error
               e.body ?? e.message,
             )
@@ -495,49 +547,26 @@ async function main() {
     console.log(`created guild command /apply id=${created.id}`)
   }
 
-  // Pin welcome in #accueil if we can post
-  if (!dryRun) {
-    const accueil = byName.get('accueil')
-    if (accueil?.id && accueil.id !== 'dry') {
-      try {
-        await discord(token, 'POST', `/channels/${accueil.id}/messages`, {
-          content: [
-            '## Roxabi Circle',
-            'Cercle fermé — IA + open source. Pas de hype touriste.',
-            '',
-            '**Entrée**',
-            '1. `/apply` — OAuth GitHub',
-            '2. PR d’entrée sur le repo dédié (unlock scoring)',
-            '3. Score auto → rôle `member` ou refus + cooldown',
-            '',
-            'Après accept : lis **#règles**, présente-toi dans **#intros**.',
-            'Cas edge (OSS surtout privé) → **#appeal**.',
-            '',
-            `_Bot: ${me.username} · scorer open source dans le monorepo_`,
-          ].join('\n'),
-        })
-        console.log('posted welcome in #accueil')
-      } catch (e) {
-        console.warn(
-          'could not post welcome (Send Messages?):',
-          // @ts-expect-error
-          e.body ?? e.message,
-        )
-      }
-    }
-  }
+  // Refresh map after possible creates
+  const channelsNow = await discord(token, 'GET', `/guilds/${guildId}/channels`)
+  const byNameNow = new Map(channelsNow.map((/** @type {any} */ c) => [c.name, c]))
 
   console.log('\n=== setup done ===')
+  console.log(`flags: createMissing=${createMissing} applyPerms=${applyPerms}`)
   if (memberRole?.id) console.log(`DISCORD_MEMBER_ROLE_ID=${memberRole.id}`)
-  const ghWatch = byName.get('github-to-watch')
-  const newsActu = byName.get('news-actu')
-  if (ghWatch?.id) console.log(`DISCORD_GITHUB_WATCH_CHANNEL_ID=${ghWatch.id}`)
-  if (newsActu?.id) console.log(`DISCORD_NEWS_ACTU_CHANNEL_ID=${newsActu.id}`)
+  const printId = (label, name) => {
+    const c = byNameNow.get(name)
+    if (c?.id) console.log(`${label}=${c.id}`)
+  }
+  printId('DISCORD_GITHUB_WATCH_CHANNEL_ID', 'github-to-watch')
+  printId('DISCORD_NEWS_ACTU_CHANNEL_ID', 'news-actu')
+  printId('DISCORD_VOICE_HUB_CHANNEL_ID', '➕ créer un salon')
+  printId('DISCORD_VOICE_CATEGORY_ID', 'VOIX')
+  printId('DISCORD_APPEAL_CATEGORY_ID', 'TICKETS')
+  printId('DISCORD_APPEAL_CHANNEL_ID', 'appeal')
   console.log(
-    'Next: set Interactions Endpoint URL after Worker deploy:',
-    'https://circle.roxabi.dev/interactions',
+    'Next: Interactions URL https://circle.roxabi.dev/interactions · real bot token from BW only',
   )
-  console.log('Rotate bot token if it was ever pasted in chat (Developer Portal → Reset Token).')
 }
 
 main().catch((e) => {

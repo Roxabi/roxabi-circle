@@ -24,12 +24,12 @@
 - Env: `DISCORD_APPEAL_CATEGORY_ID` (see `.dev.vars`)
 - Gates: pure `decideTicketOpen()` — members blocked; existing `appeal-{id}` channel blocks
 
-## Live IDs (2026-08-04)
+## Live IDs (2026-08-10)
 
 | | |
 |---|---|
-| Appeal panel | `1534233768028799056` |
-| TICKETS category | `1534245720821858467` |
+| Appeal panel `#appeal` | `1534233768028799056` |
+| TICKETS category | `1536454135103361115` (hidden; recreated 2026-08-10) |
 
 ## Prerequisite
 

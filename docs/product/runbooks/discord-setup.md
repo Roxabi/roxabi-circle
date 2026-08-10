@@ -1,6 +1,6 @@
 # Runbook — Discord Roxabi Circle
 
-## Live state (2026-08-04)
+## Live state (2026-08-10)
 
 | Item | Value |
 |---|---|
@@ -8,24 +8,71 @@
 | Invite | https://discord.gg/W6HjAQ5q |
 | Guild ID | `1534225455144636526` |
 | Application ID | `1534228521420067046` |
-| Bot | **Lyra** |
+| Bot | **Lyra** (role Admin = `permissions=8`) |
 | Member role | `member` → id `1534233545453604906` |
-| Hierarchy | role bot **Lyra** (pos 2) > **member** (pos 1) |
-| Slash | `/apply` (guild command) |
+| Hierarchy | **Lyra** (pos 2) > **member** (pos 1) > `@everyone` |
+| Slash | `/apply` (guild) · appeal button / `/appeal` |
 | BW item | `roxabi-circle/discord` |
-| Local secrets | `apps/circle-api/.dev.vars` (gitignored) |
+| Local secrets | `apps/circle-api/.dev.vars` (gitignored · bot token = **DUMMY** local) |
 | CF account | **Mickael** `b5e90be9…` (zone `roxabi.dev`) — **not** Tool@gosilex |
-| Public host | `https://circle.roxabi.dev` (`workers_dev = false`) |
-| Setup script | `bun apps/circle-api/scripts/discord-guild-setup.mjs` (idempotent) |
+| Public host | `https://circle.roxabi.dev` |
+| Setup script | `bun apps/circle-api/scripts/discord-guild-setup.mjs` |
 
-### Channels
+### Channels (live layout)
 
-| Category | Channels |
+| Category | Channels | Who sees |
+|---|---|---|
+| **ENTRÉE** | `#règles` · `#arrivées` · `#intros` | Public: règles + arrivées only · Members: + intros |
+| **CERCLE** | `#general` · `#daily-digest` · `#ai-agentic-workflow` · `#dev-with-ai` · `#news-actu` · `#github-to-watch` · `#showcase` · `#opportunités` | **Members only** (category SSoT) |
+| **SUPPORT** | `#idées-améliorations` · `#appeal` | Members: idées · Non-members: appeal hub · Members **hidden** from `#appeal` |
+| **VOIX** | hub `➕ créer un salon` (temp rooms) | **Members only** |
+| **TICKETS** | *(empty — private `appeal-{userId}` only)* | **Hidden** from @everyone + member · bot + ticket author only |
+
+> There is **no** `#accueil` / `#apply-help`. Onboarding copy lives in `#règles` + `/apply`.
+
+---
+
+## Permission model (normative)
+
+### Who can see what
+
+| Audience | Access |
 |---|---|
-| **ENTRÉE** | `#accueil`, `#apply-help` (+ `#règles` / `#intros` si présents) |
-| **CERCLE** (member-only, SSoT perms) | see table below |
-| **VOIX** (member-only) | `générale` · hub `➕ créer un salon` (temp rooms) |
-| **SUPPORT** | `#appeal`, `#idées-améliorations` |
+| **@everyone** (visitor) | `#règles` (read) · `#arrivées` (read, no react) · `#appeal` (read + open ticket button) |
+| **member** | Everything under **CERCLE** + **VOIX** + `#intros` + `#idées-améliorations` · **not** `#appeal` · **not** other people’s tickets |
+| **Ticket opener** (non-member) | Own private channel `appeal-{discordUserId}` under **TICKETS** only |
+| **Lyra** (Admin) | All |
+
+### CERCLE — category is SSoT
+
+| Channel | Discord overwrites | Behaviour |
+|---|---|---|
+| Most children | **empty → inherit** category | Full text (view/send/attach/react/threads) |
+| `#daily-digest` | **threadOnly** | Deny top-level `SEND` · react + threads OK · Lyra posts digests |
+| `#github-to-watch` | **inherit** (empty) | Gateway enforces **1 GitHub URL** + auto-thread |
+| `#news-actu` | **inherit** (empty) | Gateway enforces **1 http(s) URL** + auto-thread |
+
+Do **not** re-apply redundant member allows on links channels — inheritance is the model.
+
+### ENTRÉE
+
+| Channel | Mode |
+|---|---|
+| Category | Default **deny VIEW** for `@everyone` (public channels re-allow) |
+| `#règles` | public read-only (VIEW + HISTORY) |
+| `#arrivées` | public read-only silent (no send/react/app commands) |
+| `#intros` | **member** text only |
+
+### SUPPORT + tickets
+
+| Surface | Mode |
+|---|---|
+| `#idées-améliorations` | member text |
+| `#appeal` | **Non-members** VIEW+HISTORY · deny send (button only) · **`member` deny VIEW** |
+| **TICKETS** category | `@everyone` + `member` **deny VIEW** · Lyra manage |
+| `appeal-{userId}` | created by Worker: everyone deny VIEW · author allow VIEW+SEND · 1 max · non-members only |
+
+---
 
 #### VOIX — temp rooms (Gateway)
 
@@ -34,20 +81,10 @@
 | Hub | `➕ créer un salon` (`DISCORD_VOICE_HUB_CHANNEL_ID`) |
 | Parent | category **VOIX** (`DISCORD_VOICE_CATEGORY_ID`) |
 | Flow | Join hub → Lyra creates `🔊 {displayName}` under VOIX → moves user · empty room → delete |
-| Perms room | `member`: VIEW · CONNECT · SPEAK · STREAM · **USE_VAD** · **text-in-voice** (send · history · embed · attach · reactions) · `@everyone` deny VIEW+CONNECT · **creator** (member overwrite): Manage Channel/Roles · Mute/Deafen/Move · Priority Speaker · Manage Messages |
-| Intent | `GUILD_VOICE_STATES` + `GUILDS` (non-privileged) on Gateway DO |
-| Re-join hub | Reuses the member’s existing temp room if still open |
+| Perms room | `member`: VIEW · CONNECT · SPEAK · STREAM · USE_VAD · text-in-voice · creator manage bits |
+| Intent | `GUILD_VOICE_STATES` + `GUILDS` on Gateway DO |
 
-#### CERCLE permission model
-
-| Channel | Mode | Members |
-|---|---|---|
-| `#general`, `#ai-agentic-workflow`, `#dev-with-ai`, `#showcase`, `#opportunités` | **inherit** | Full text (view/send/attach/react/threads) from category |
-| `#daily-digest` | **threadOnly** | No top-level `SEND` · react · create public threads · send **in** threads · Lyra posts digests |
-| `#github-to-watch` | **linksTopLevel** | Can post top-level · **Lyra Gateway** enforces **exactly 1 GitHub URL** (+ caption ≤120) · else delete + notice · on OK opens discussion thread |
-| `#news-actu` | **linksTopLevel** | Can post top-level · **Lyra Gateway** enforces **exactly 1 http(s) URL** (+ caption ≤120) · else delete + notice · on OK opens discussion thread (reply in thread) |
-
-Category **CERCLE** deny `@everyone` VIEW; allow `member` + **Lyra**. Special channels override only the bits they need (e.g. deny `SEND` on digest).
+---
 
 ### Secrets (BW)
 
@@ -56,85 +93,66 @@ source ~/projects/security/vaultwarden/scripts/agent-bw-login.sh
 bw get notes "roxabi-circle/discord"
 ```
 
-Keys: `DISCORD_APPLICATION_ID`, `DISCORD_PUBLIC_KEY`, `DISCORD_BOT_TOKEN`, `DISCORD_GUILD_ID`, `DISCORD_MEMBER_ROLE_ID`, `DISCORD_APPEAL_CATEGORY_ID`, `DISCORD_GITHUB_WATCH_CHANNEL_ID`, `DISCORD_NEWS_ACTU_CHANNEL_ID`, `DISCORD_VOICE_HUB_CHANNEL_ID`, `DISCORD_VOICE_CATEGORY_ID`, `GATEWAY_OPS_SECRET`.
+Keys: `DISCORD_APPLICATION_ID`, `DISCORD_PUBLIC_KEY`, `DISCORD_BOT_TOKEN`, `DISCORD_GUILD_ID`, `DISCORD_MEMBER_ROLE_ID`, `DISCORD_APPEAL_CATEGORY_ID` (**TICKETS**), `DISCORD_APPEAL_CHANNEL_ID` (`#appeal`), `DISCORD_GITHUB_WATCH_CHANNEL_ID`, `DISCORD_NEWS_ACTU_CHANNEL_ID`, `DISCORD_VOICE_HUB_CHANNEL_ID`, `DISCORD_VOICE_CATEGORY_ID`, `GATEWAY_OPS_SECRET`.
 
-**Rotate** bot token if it was ever pasted in chat (Portal → Bot → Reset Token), then update BW + `.dev.vars`.
+**Rotate** bot token if it was ever pasted in chat (Portal → Bot → Reset Token), then update BW + CF secret (local `.dev.vars` keeps DUMMY).
 
-### Bot permissions
+### Bot / intents
 
-Scopes: `bot`, `applications.commands`  
-Bits (target least-privilege): Manage Roles, Manage Channels, Send Messages, Embed Links, Send Messages in Threads, Use Application Commands (`71135414288`).
+1. https://discord.com/developers/applications/1534228521420067046/bot  
+2. **Message Content Intent** — required for `#github-to-watch` / `#news-actu`  
+3. **Server Members Intent** if listing all members  
+4. Save  
 
-Member-only **category CERCLE** is the SSoT: deny `@everyone` VIEW; allow `member` (view + send + attach + history + reactions + public threads + send-in-threads + app commands) and bot **Lyra** (+ manage messages/channels/threads). Open children **inherit** (empty channel overwrites). Exceptions: `#daily-digest` (threadOnly), `#github-to-watch` / `#news-actu` (linksTopLevel + Gateway bot).
-
-**Administrator (2026-08-04):** bot role **Lyra** = `permissions=8` (full Admin).  
-Re-invite if needed:
+Admin re-invite (current):
 
 ```text
 https://discord.com/api/oauth2/authorize?client_id=1534228521420067046&permissions=8&scope=bot%20applications.commands&guild_id=1534225455144636526&disable_guild_select=true
 ```
 
-**Developer Portal intents** (not the same as Admin):
-
-1. https://discord.com/developers/applications/1534228521420067046/bot  
-2. Enable **Message Content Intent** — **required** for `#github-to-watch` / `#news-actu` Gateway handlers (without it, content is empty → false rejects).  
-3. Enable **Server Members Intent** if you list all members (50001 otherwise; per-id search still works).  
-4. Save.
-
 ### Gateway bot (links top-level)
 
 | Item | Detail |
 |---|---|
-| Runtime | Durable Object `DiscordGateway` (outgoing WS to Discord Gateway) |
-| Wake | DO heartbeat alarm · cron `*/15` safety net · `POST /internal/discord-gateway/ensure` (+ `?force=1` after token rotate). **Not** `/health`. |
+| Runtime | Durable Object `DiscordGateway` |
+| Wake | DO alarm · cron `*/15` · `POST /internal/discord-gateway/ensure` (+ `?force=1` after token rotate) · **not** `/health` |
 | Env | `DISCORD_GITHUB_WATCH_CHANNEL_ID` · `DISCORD_NEWS_ACTU_CHANNEL_ID` |
-| `#github-to-watch` accept | Exactly **one** `github.com` / `gist.github.com` URL; optional caption ≤120 chars |
-| `#news-actu` accept | Exactly **one** `http(s)` URL (any host); optional caption ≤120 chars |
-| On accept | Create public thread under the message (reply / discuss there) |
-| On reject | Delete message · short channel notice (auto-delete ~12s) · DM best-effort |
-| Ignore | bots, webhooks, other channels, thread messages (different channel id) |
+| Accept | Exactly **one** URL (GitHub hosts vs any http(s)) · caption ≤120 |
+| On accept | Public thread under the message |
+| On reject | Delete · notice ~12s · DM best-effort |
+| Ignore | bots, webhooks, other channels, thread messages |
 
-Re-invite (least privilege):
-
-```text
-https://discord.com/api/oauth2/authorize?client_id=1534228521420067046&permissions=71135414288&scope=bot%20applications.commands&guild_id=1534225455144636526&disable_guild_select=true
-```
+---
 
 ## Worker wiring
 
 | Endpoint | Status |
 |---|---|
-| **Host** | `https://circle.roxabi.dev` (`workers_dev = false`) |
-| `POST /interactions` | Ed25519 verify + PING + `/apply` scaffold |
-| `GET /health` | public liveness only (no Gateway wake) |
-| Gateway DO | MESSAGE_CREATE → github-watch / news-actu · VOICE_STATE → temp rooms · resume + backoff |
-| `POST /internal/discord-gateway/ensure` | **auth** `X-Ops-Secret` · `?force=1` clears hard-stop |
-| `GET /oauth/github/*` | 501 not implemented |
-| Catch-all | **404** |
-| Interactions URL in Portal | **`https://circle.roxabi.dev/interactions`** |
+| **Host** | `https://circle.roxabi.dev` |
+| `POST /interactions` | Ed25519 · PING · `/apply` · appeal |
+| `GET /health` | liveness only (no Gateway wake) |
+| Gateway DO | MESSAGE_CREATE → github-watch / news-actu · VOICE_STATE → temp rooms |
+| `POST /internal/discord-gateway/ensure` | auth `X-Ops-Secret` |
+
+## Setup script (safe by default)
 
 ```bash
-# local
-cd apps/circle-api && bun run dev
-# then tunnel / workers.dev URL into Portal Interactions Endpoint for PING check
-```
-
-Discord saves the Interactions URL only if PING → PONG (signature OK).
-
-## Re-run setup
-
-```bash
+# inventory + /apply upsert + print env IDs (no channel create, no perm rewrite)
 bun apps/circle-api/scripts/discord-guild-setup.mjs
-# bun apps/circle-api/scripts/discord-guild-setup.mjs --dry-run
+
+# optional (explicit)
+bun apps/circle-api/scripts/discord-guild-setup.mjs --dry-run
+bun apps/circle-api/scripts/discord-guild-setup.mjs --create-missing   # create missing cats/channels only
+bun apps/circle-api/scripts/discord-guild-setup.mjs --apply-perms      # rewrite overwrites to layout SSoT
 ```
 
-Creates missing role/channels/command; updates `DISCORD_MEMBER_ROLE_ID` in `.dev.vars`.
+**Do not** run `--create-missing` / `--apply-perms` on a live guild without reviewing the layout in the script first.
+
+Real bot token: pull from BW into the shell env (never commit). Local `.dev.vars` may keep `DISCORD_BOT_TOKEN=DUMMY`.
 
 ## Still manual / product
 
-1. Contenu exact `#règles` / `#intros` (O2)
-2. Merge or archive legacy Text Channels
-3. GitHub OAuth App + D11 repo d’entrée
-4. Deploy Worker + set Interactions Endpoint
-5. Token rotation post-leak chat
-6. Optional: staff role + `#appeal` overwrites
+1. Contenu exact `#règles` / `#intros`  
+2. GitHub OAuth App + entry PR repo  
+3. Deploy Worker + Interactions Endpoint  
+4. Token rotation if leaked  
