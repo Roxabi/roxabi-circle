@@ -1,11 +1,12 @@
 /**
- * Discord Gateway dispatch handlers (READY, voice, github-watch).
+ * Discord Gateway dispatch handlers (READY, voice, links channels).
  * Kept out of gateway.ts for the 300-line file-length gate.
  */
 
 import type { Env } from '../types'
 import { applyReady, applyResumed, type GatewaySessionState } from './gateway-session'
 import { enforceGithubWatch, type GatewayMessage, planGithubWatchMessage } from './github-watch'
+import { enforceNewsActu, planNewsActuMessage } from './news-actu'
 import {
   emptyTempVoiceStore,
   hydrateOccupancyFromVoiceStates,
@@ -116,7 +117,9 @@ export async function handleGatewayDispatch(
   }
 
   if (t !== 'MESSAGE_CREATE') return
-  await onGithubWatchMessage(ctx, packet.d as GatewayMessage)
+  const msg = packet.d as GatewayMessage
+  await onGithubWatchMessage(ctx, msg)
+  await onNewsActuMessage(ctx, msg)
 }
 
 async function onGuildCreate(ctx: GatewayDispatchCtx, d: unknown): Promise<void> {
@@ -205,5 +208,28 @@ async function onGithubWatchMessage(ctx: GatewayDispatchCtx, msg: GatewayMessage
     console.log('github-watch', result.done, 'msg', msg.id)
   } catch (e) {
     console.error('github-watch enforce failed', e)
+  }
+}
+
+async function onNewsActuMessage(ctx: GatewayDispatchCtx, msg: GatewayMessage): Promise<void> {
+  const newsId = ctx.env.DISCORD_NEWS_ACTU_CHANNEL_ID
+  if (!newsId) return
+
+  const action = planNewsActuMessage(msg, newsId, ctx.getBotUserId() ?? undefined)
+  if (action.type === 'ignore') return
+
+  const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
+
+  try {
+    const result = await enforceNewsActu({
+      token: ctx.env.DISCORD_BOT_TOKEN,
+      msg,
+      action,
+      noticeTtlMs: action.type === 'reject' ? 12_000 : undefined,
+      sleep: action.type === 'reject' ? sleep : undefined,
+    })
+    console.log('news-actu', result.done, 'msg', msg.id)
+  } catch (e) {
+    console.error('news-actu enforce failed', e)
   }
 }

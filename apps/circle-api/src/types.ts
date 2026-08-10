@@ -12,6 +12,11 @@ export type Env = {
   /** #github-to-watch channel id — Gateway MESSAGE_CREATE enforcement */
   DISCORD_GITHUB_WATCH_CHANNEL_ID: string
   /**
+   * #news-actu channel id — Gateway: exactly 1 http(s) link top-level + auto-thread.
+   * Optional: if unset, news-actu enforcement is disabled.
+   */
+  DISCORD_NEWS_ACTU_CHANNEL_ID?: string
+  /**
    * Voice hub "➕ créer un salon" — join creates a temp room under VOIX.
    * Optional: if unset, temp-voice is disabled.
    */

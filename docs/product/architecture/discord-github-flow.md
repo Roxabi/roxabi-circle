@@ -25,7 +25,7 @@ User          Discord           Worker              GitHub
 ## Discord setup (ops)
 
 1. Créer Application Discord → Bot
-2. Privileged intents : **Message Content** requis pour Gateway `#github-to-watch` ; Server Members optionnel
+2. Privileged intents : **Message Content** requis pour Gateway `#github-to-watch` / `#news-actu` ; Server Members optionnel
 3. OAuth2 bot scopes : `bot`, `applications.commands`
 4. Permissions bot : Manage Roles, Send Messages, Send Messages in Threads, Embed Links (Admin live for now)
 5. Interactions Endpoint URL : `https://circle.roxabi.dev/interactions` (Portal — done)

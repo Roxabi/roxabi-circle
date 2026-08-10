@@ -34,7 +34,7 @@
 | Hub | `➕ créer un salon` (`DISCORD_VOICE_HUB_CHANNEL_ID`) |
 | Parent | category **VOIX** (`DISCORD_VOICE_CATEGORY_ID`) |
 | Flow | Join hub → Lyra creates `🔊 {displayName}` under VOIX → moves user · empty room → delete |
-| Perms room | `member`: VIEW · CONNECT · SPEAK · STREAM · **USE_VAD** · `@everyone` deny VIEW+CONNECT · **creator** (member overwrite): Manage Channel/Roles · Mute/Deafen/Move · Priority Speaker · text-in-voice |
+| Perms room | `member`: VIEW · CONNECT · SPEAK · STREAM · **USE_VAD** · **text-in-voice** (send · history · embed · attach · reactions) · `@everyone` deny VIEW+CONNECT · **creator** (member overwrite): Manage Channel/Roles · Mute/Deafen/Move · Priority Speaker · Manage Messages |
 | Intent | `GUILD_VOICE_STATES` + `GUILDS` (non-privileged) on Gateway DO |
 | Re-join hub | Reuses the member’s existing temp room if still open |
 
@@ -45,6 +45,7 @@
 | `#general`, `#ai-agentic-workflow`, `#dev-with-ai`, `#showcase`, `#opportunités` | **inherit** | Full text (view/send/attach/react/threads) from category |
 | `#daily-digest` | **threadOnly** | No top-level `SEND` · react · create public threads · send **in** threads · Lyra posts digests |
 | `#github-to-watch` | **linksTopLevel** | Can post top-level · **Lyra Gateway** enforces **exactly 1 GitHub URL** (+ caption ≤120) · else delete + notice · on OK opens discussion thread |
+| `#news-actu` | **linksTopLevel** | Can post top-level · **Lyra Gateway** enforces **exactly 1 http(s) URL** (+ caption ≤120) · else delete + notice · on OK opens discussion thread (reply in thread) |
 
 Category **CERCLE** deny `@everyone` VIEW; allow `member` + **Lyra**. Special channels override only the bits they need (e.g. deny `SEND` on digest).
 
@@ -55,7 +56,7 @@ source ~/projects/security/vaultwarden/scripts/agent-bw-login.sh
 bw get notes "roxabi-circle/discord"
 ```
 
-Keys: `DISCORD_APPLICATION_ID`, `DISCORD_PUBLIC_KEY`, `DISCORD_BOT_TOKEN`, `DISCORD_GUILD_ID`, `DISCORD_MEMBER_ROLE_ID`, `DISCORD_APPEAL_CATEGORY_ID`, `DISCORD_GITHUB_WATCH_CHANNEL_ID`, `DISCORD_VOICE_HUB_CHANNEL_ID`, `DISCORD_VOICE_CATEGORY_ID`, `GATEWAY_OPS_SECRET`.
+Keys: `DISCORD_APPLICATION_ID`, `DISCORD_PUBLIC_KEY`, `DISCORD_BOT_TOKEN`, `DISCORD_GUILD_ID`, `DISCORD_MEMBER_ROLE_ID`, `DISCORD_APPEAL_CATEGORY_ID`, `DISCORD_GITHUB_WATCH_CHANNEL_ID`, `DISCORD_NEWS_ACTU_CHANNEL_ID`, `DISCORD_VOICE_HUB_CHANNEL_ID`, `DISCORD_VOICE_CATEGORY_ID`, `GATEWAY_OPS_SECRET`.
 
 **Rotate** bot token if it was ever pasted in chat (Portal → Bot → Reset Token), then update BW + `.dev.vars`.
 
@@ -64,7 +65,7 @@ Keys: `DISCORD_APPLICATION_ID`, `DISCORD_PUBLIC_KEY`, `DISCORD_BOT_TOKEN`, `DISC
 Scopes: `bot`, `applications.commands`  
 Bits (target least-privilege): Manage Roles, Manage Channels, Send Messages, Embed Links, Send Messages in Threads, Use Application Commands (`71135414288`).
 
-Member-only **category CERCLE** is the SSoT: deny `@everyone` VIEW; allow `member` (view + send + attach + history + reactions + public threads + send-in-threads + app commands) and bot **Lyra** (+ manage messages/channels/threads). Open children **inherit** (empty channel overwrites). Exceptions: `#daily-digest` (threadOnly), `#github-to-watch` (linksTopLevel + Gateway bot).
+Member-only **category CERCLE** is the SSoT: deny `@everyone` VIEW; allow `member` (view + send + attach + history + reactions + public threads + send-in-threads + app commands) and bot **Lyra** (+ manage messages/channels/threads). Open children **inherit** (empty channel overwrites). Exceptions: `#daily-digest` (threadOnly), `#github-to-watch` / `#news-actu` (linksTopLevel + Gateway bot).
 
 **Administrator (2026-08-04):** bot role **Lyra** = `permissions=8` (full Admin).  
 Re-invite if needed:
@@ -76,19 +77,20 @@ https://discord.com/api/oauth2/authorize?client_id=1534228521420067046&permissio
 **Developer Portal intents** (not the same as Admin):
 
 1. https://discord.com/developers/applications/1534228521420067046/bot  
-2. Enable **Message Content Intent** — **required** for `#github-to-watch` Gateway handler (without it, content is empty → false rejects).  
+2. Enable **Message Content Intent** — **required** for `#github-to-watch` / `#news-actu` Gateway handlers (without it, content is empty → false rejects).  
 3. Enable **Server Members Intent** if you list all members (50001 otherwise; per-id search still works).  
 4. Save.
 
-### Gateway bot (`#github-to-watch`)
+### Gateway bot (links top-level)
 
 | Item | Detail |
 |---|---|
 | Runtime | Durable Object `DiscordGateway` (outgoing WS to Discord Gateway) |
 | Wake | DO heartbeat alarm · cron `*/15` safety net · `POST /internal/discord-gateway/ensure` (+ `?force=1` after token rotate). **Not** `/health`. |
-| Env | `DISCORD_GITHUB_WATCH_CHANNEL_ID` |
-| Accept | Exactly **one** `github.com` / `gist.github.com` URL; optional caption ≤120 chars |
-| On accept | Create public thread under the message (name from owner/repo) |
+| Env | `DISCORD_GITHUB_WATCH_CHANNEL_ID` · `DISCORD_NEWS_ACTU_CHANNEL_ID` |
+| `#github-to-watch` accept | Exactly **one** `github.com` / `gist.github.com` URL; optional caption ≤120 chars |
+| `#news-actu` accept | Exactly **one** `http(s)` URL (any host); optional caption ≤120 chars |
+| On accept | Create public thread under the message (reply / discuss there) |
 | On reject | Delete message · short channel notice (auto-delete ~12s) · DM best-effort |
 | Ignore | bots, webhooks, other channels, thread messages (different channel id) |
 
@@ -105,7 +107,7 @@ https://discord.com/api/oauth2/authorize?client_id=1534228521420067046&permissio
 | **Host** | `https://circle.roxabi.dev` (`workers_dev = false`) |
 | `POST /interactions` | Ed25519 verify + PING + `/apply` scaffold |
 | `GET /health` | public liveness only (no Gateway wake) |
-| Gateway DO | MESSAGE_CREATE → github-watch · VOICE_STATE → temp rooms · resume + backoff |
+| Gateway DO | MESSAGE_CREATE → github-watch / news-actu · VOICE_STATE → temp rooms · resume + backoff |
 | `POST /internal/discord-gateway/ensure` | **auth** `X-Ops-Secret` · `?force=1` clears hard-stop |
 | `GET /oauth/github/*` | 501 not implemented |
 | Catch-all | **404** |

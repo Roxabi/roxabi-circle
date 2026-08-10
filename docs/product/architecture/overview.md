@@ -5,7 +5,7 @@
 Un Worker Cloudflare qui :
 
 1. reçoit les interactions Discord (`/apply`, composants, appeal) — **live**
-2. Gateway : enforce `#github-to-watch` — **live**
+2. Gateway : enforce `#github-to-watch` + `#news-actu` — **live**
 3. orchestre OAuth GitHub — **stub 501**
 4. collecte des **signaux quantitatifs** via l’API GitHub — **not wired**
 5. calcule un **score déterministe** — **lib pure + tests**
@@ -34,8 +34,8 @@ Un Worker Cloudflare qui :
 | Interactions HTTP | Gateway (Durable Object) |
 |---|---|
 | scale-to-zero, CF natif | WS sortant Discord (always-on DO + cron) |
-| `/apply`, appeal tickets | `#github-to-watch` MESSAGE_CREATE |
-| 3s ACK + deferred follow-up | modération liens GH + threads |
+| `/apply`, appeal tickets | `#github-to-watch` / `#news-actu` MESSAGE_CREATE |
+| 3s ACK + deferred follow-up | modération liens + threads |
 
 Live = **Interactions + Gateway DO** (pas un process Node long-lived). Host: `https://circle.roxabi.dev`.
 

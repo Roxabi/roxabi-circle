@@ -41,6 +41,6 @@ Kit packages live under `packages/@kit/*` and `apps/example-*` (zero-edit). Prod
 
 | Live now | Later |
 |---|---|
-| `/health`, `/interactions`, Gateway github-watch, appeal tickets | GitHub OAuth + collect + score → role |
+| `/health`, `/interactions`, Gateway github-watch / news-actu, appeal tickets | GitHub OAuth + collect + score → role |
 | Scoring pure + tests | D1 applications / cooldowns |
 | | Admin web / MCP ops (not scaffolded) |

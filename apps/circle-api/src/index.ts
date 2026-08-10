@@ -29,7 +29,7 @@ function opsSecretOk(request: Request, expected: string | undefined): boolean {
 }
 
 /**
- * Roxabi Circle Worker — Discord interactions + Gateway (#github-to-watch) + GitHub OAuth + scoring.
+ * Roxabi Circle Worker — Discord interactions + Gateway (links channels) + GitHub OAuth + scoring.
  * Public host: https://circle.roxabi.dev
  */
 export default {

@@ -18,8 +18,9 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 const API = 'https://discord.com/api/v10'
-const ROOT = resolve(import.meta.dir, '..')
-const DEVVARS = resolve(ROOT, 'apps/circle-api/.dev.vars')
+/** Script lives in apps/circle-api/scripts — package root is parent. */
+const PKG_ROOT = resolve(import.meta.dir, '..')
+const DEVVARS = resolve(PKG_ROOT, '.dev.vars')
 const dryRun = process.argv.includes('--dry-run')
 
 /** @type {Record<string, string>} */
@@ -180,7 +181,7 @@ async function main() {
   // Channel modes under a memberOnly category:
   //   inherit (default) — empty channel overwrites
   //   threadOnly        — no top-level SEND; react + create/public threads + send in threads
-  //   linksTopLevel     — SEND ok; Gateway bot enforces 1 GH URL top-level (see github-watch.ts)
+  //   linksTopLevel     — SEND ok; Gateway bot enforces 1 URL top-level (github-watch / news-actu)
   // memberOnly on a channel only = overwrites on that channel (parent stays public)
   //
   // Use bigint for thread bits (CREATE_PUBLIC_THREADS = 1<<35, etc.)
@@ -314,6 +315,12 @@ async function main() {
           name: 'github-to-watch',
           topic:
             'Un lien GitHub (repo/PR/issue) par message top-level. Tout le reste → thread sous le lien.',
+          mode: 'linksTopLevel',
+        },
+        {
+          name: 'news-actu',
+          topic:
+            'Un lien actu (http/https) par message top-level. Discussion → réponds en thread sous le lien (pas de chat top-level).',
           mode: 'linksTopLevel',
         },
         {
@@ -522,6 +529,10 @@ async function main() {
 
   console.log('\n=== setup done ===')
   if (memberRole?.id) console.log(`DISCORD_MEMBER_ROLE_ID=${memberRole.id}`)
+  const ghWatch = byName.get('github-to-watch')
+  const newsActu = byName.get('news-actu')
+  if (ghWatch?.id) console.log(`DISCORD_GITHUB_WATCH_CHANNEL_ID=${ghWatch.id}`)
+  if (newsActu?.id) console.log(`DISCORD_NEWS_ACTU_CHANNEL_ID=${newsActu.id}`)
   console.log(
     'Next: set Interactions Endpoint URL after Worker deploy:',
     'https://circle.roxabi.dev/interactions',
