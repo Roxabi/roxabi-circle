@@ -269,14 +269,29 @@ describe('MEMBER_VOICE_ALLOW', () => {
     const USE_VAD = 1 << 25
     expect(MEMBER_VOICE_ALLOW & USE_VAD).toBeTruthy()
   })
+
+  it('includes text-in-voice so members can post in the channel chat', () => {
+    const SEND_MESSAGES = 1 << 11
+    const READ_HISTORY = 1 << 16
+    const EMBED_LINKS = 1 << 14
+    const ATTACH_FILES = 1 << 15
+    const ADD_REACTIONS = 1 << 6
+    expect(MEMBER_VOICE_ALLOW & SEND_MESSAGES).toBeTruthy()
+    expect(MEMBER_VOICE_ALLOW & READ_HISTORY).toBeTruthy()
+    expect(MEMBER_VOICE_ALLOW & EMBED_LINKS).toBeTruthy()
+    expect(MEMBER_VOICE_ALLOW & ATTACH_FILES).toBeTruthy()
+    expect(MEMBER_VOICE_ALLOW & ADD_REACTIONS).toBeTruthy()
+  })
 })
 
 describe('OWNER_VOICE_ALLOW + overwrites', () => {
   it('gives creator channel admin bits', () => {
     const MANAGE_CHANNELS = 1 << 4
     const MUTE = 1 << 22
+    const MANAGE_MESSAGES = 1 << 13
     expect(OWNER_VOICE_ALLOW & MANAGE_CHANNELS).toBeTruthy()
     expect(OWNER_VOICE_ALLOW & MUTE).toBeTruthy()
+    expect(OWNER_VOICE_ALLOW & MANAGE_MESSAGES).toBeTruthy()
     expect(OWNER_VOICE_ALLOW & MEMBER_VOICE_ALLOW).toBe(MEMBER_VOICE_ALLOW)
   })
 
@@ -289,6 +304,18 @@ describe('OWNER_VOICE_ALLOW + overwrites', () => {
     const ow = ows.find((o) => o.id === 'user_owner')
     expect(ow?.type).toBe(1)
     expect(ow?.allow).toBe(String(OWNER_VOICE_ALLOW))
+  })
+
+  it('grants member role SEND_MESSAGES on the channel overwrite', () => {
+    const SEND_MESSAGES = 1 << 11
+    const ows = memberVoiceOverwrites({
+      guildId: 'g1',
+      memberRoleId: 'role_member',
+      ownerId: 'user_owner',
+    })
+    const memberOw = ows.find((o) => o.id === 'role_member')
+    expect(memberOw?.type).toBe(0)
+    expect(Number(memberOw?.allow) & SEND_MESSAGES).toBeTruthy()
   })
 })
 

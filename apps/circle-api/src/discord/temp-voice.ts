@@ -8,8 +8,9 @@ export const MAX_TEMP_VOICE_ROOMS = 25
 /** Min ms between successful spawns per user. */
 export const TEMP_VOICE_SPAWN_COOLDOWN_MS = 30_000
 
-// Permission bits (voice + channel control)
+// Permission bits (voice + channel control + text-in-voice)
 const CREATE_INVITE = 1 << 0
+const ADD_REACTIONS = 1 << 6
 const MANAGE_CHANNELS = 1 << 4
 const PRIORITY_SPEAKER = 1 << 8
 const STREAM = 1 << 9
@@ -19,6 +20,7 @@ const MANAGE_MESSAGES = 1 << 13
 const EMBED_LINKS = 1 << 14
 const ATTACH_FILES = 1 << 15
 const READ_HISTORY = 1 << 16
+const USE_EXTERNAL_EMOJIS = 1 << 18
 const CONNECT = 1 << 20
 const SPEAK = 1 << 21
 const MUTE_MEMBERS = 1 << 22
@@ -26,9 +28,22 @@ const DEAFEN_MEMBERS = 1 << 23
 const MOVE_MEMBERS = 1 << 24
 const USE_VAD = 1 << 25
 const MANAGE_ROLES = 1 << 28
+const USE_EXTERNAL_STICKERS = 1 << 37
 
-/** member: view + connect + speak + stream + voice activity */
-export const MEMBER_VOICE_ALLOW = STREAM | VIEW | CONNECT | SPEAK | USE_VAD
+/** member: voice + text-in-voice (explicit — unsynced channel, no category inherit). */
+export const MEMBER_VOICE_ALLOW =
+  STREAM |
+  VIEW |
+  CONNECT |
+  SPEAK |
+  USE_VAD |
+  SEND_MESSAGES |
+  EMBED_LINKS |
+  ATTACH_FILES |
+  READ_HISTORY |
+  ADD_REACTIONS |
+  USE_EXTERNAL_EMOJIS |
+  USE_EXTERNAL_STICKERS
 /** Creator channel-admin bits (type=1 overwrite; not guild Admin). */
 export const OWNER_VOICE_ALLOW =
   MEMBER_VOICE_ALLOW |
@@ -39,11 +54,7 @@ export const OWNER_VOICE_ALLOW =
   MUTE_MEMBERS |
   DEAFEN_MEMBERS |
   MOVE_MEMBERS |
-  SEND_MESSAGES |
-  MANAGE_MESSAGES |
-  EMBED_LINKS |
-  ATTACH_FILES |
-  READ_HISTORY
+  MANAGE_MESSAGES
 export const EVERYONE_VOICE_DENY = VIEW | CONNECT
 
 export type VoiceStateUpdate = {
@@ -141,11 +152,8 @@ export function planTempVoiceEvent(input: {
   const left = input.previousChannelId
 
   if (joined === hubChannelId) {
-    if (memberRoleId) {
-      const roles = vs.member?.roles
-      if (!roles || !roles.includes(memberRoleId)) {
-        return { type: 'ignore', reason: 'not_member' }
-      }
+    if (memberRoleId && !vs.member?.roles?.includes(memberRoleId)) {
+      return { type: 'ignore', reason: 'not_member' }
     }
     const existing = Object.entries(store.channels).find(([, m]) => m.ownerId === vs.user_id)
     if (existing) {
