@@ -2,6 +2,8 @@
 
 **Status:** **ops runbook draft** — not B4 DoD complete. Kit `apps/example-api/wrangler.toml` has **no** `[env.staging]` yet; do not treat this doc as “staging is provisioned”.
 
+**Canonical deploy + account gate:** [`deploy-cloudflare.md`](./deploy-cloudflare.md) + local `config/deploy.cf.local.toml` (from `config/deploy.cf.example.toml`). This page is staging-focused detail only.
+
 **Goal B4 (when complete):** industrialize staging for kit examples without shipping `ENVIRONMENT=development` to the cloud.
 
 ## Preconditions

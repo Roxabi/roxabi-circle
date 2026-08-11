@@ -17,6 +17,10 @@ Thumbs.db
 .env.*
 !.env.example
 
+# Cloudflare deploy profile (operator-local; template is config/deploy.cf.example.toml)
+config/deploy.cf.local.toml
+
+
 # Node / build (future Worker)
 node_modules/
 dist/

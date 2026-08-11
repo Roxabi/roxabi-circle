@@ -16,11 +16,13 @@
 5. Configure CI App vars/secrets on the **product** repo if you want merge-on-green (`CI_APP_ID` / `CI_APP_PRIVATE_KEY`) — see [`docs/ci-app-setup.md`](../ci-app-setup.md).
 6. Add product apps only under `apps/<product>-*`.
 7. Keep `bun run validate:full` green (kit bar). Wire product-validate when product apps exist ([`docs/templates/`](../templates/)).
+8. Cloudflare deploy profile (when shipping): copy `config/deploy.cf.example.toml` → `config/deploy.cf.local.toml` (gitignored), fill **account id** + zone/hosts — see [`docs/deploy-cloudflare.md`](../deploy-cloudflare.md). Account is never assumed by the kit.
 
 ## Contract
 
 - Zero-edit + remotes: [`docs/product-consumer-contract.md`](../product-consumer-contract.md)
 - Org map / which URL is kit parent: **operator SSoT** (outside this repo)
+- CF account / zone for deploy: **local** `deploy.cf.local.toml` (not kit defaults)
 
 ## Never
 
