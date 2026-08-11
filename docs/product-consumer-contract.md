@@ -39,8 +39,8 @@ Machine gates here only care: product does not dual-edit kit paths; `upstream` i
 | `packages/*` | **kit** | **Read / import only.** No product strings. Change → PR on **boilerplate**, then pull. |
 | `apps/example-*`, `apps/mcp-example` | **kit** | Leave green; do not product-brand. |
 | `apps/<product>-api|web|mcp` | **product** | **Create freely** (new dirs). |
-| `.github/workflows/ci.yml` · `secret-scan.yml` · `merge-on-green.yml` | **kit** | **Do not edit.** Config via **GitHub vars/secrets** only. |
-| `.github/workflows/product-*.yml` | product | **Add** new files only (optional). |
+| `.github/workflows/ci.yml` · `deploy-main.yml` · `secret-scan.yml` · `merge-on-green.yml` | **kit** | **Do not edit.** Showcase CD = **Cloudflare Builds** on kit HEAD (not GH deploy). Products: own CF Builds or `product-*.yml`. |
+| `.github/workflows/product-*.yml` | product | **Add** new files only (optional product CD). |
 | `lefthook.yml` | **kit** | **Do not edit.** Kit already runs deny-upstream + validate:full. |
 | `package.json` root scripts (validate:full, build:kit, …) | **kit** | **Do not edit.** Product scripts → `apps/<product>-*/package.json` or `scripts/product/*.sh` called from product workflow. |
 | `biome.json` · `turbo.jsonc` · `tsconfig.json` · `commitlint*` | **kit** | **Do not edit** unless promoting a kit-wide change upstream first. |
@@ -60,7 +60,7 @@ Machine gates here only care: product does not dual-edit kit paths; `upstream` i
 | Product Worker name / D1 / R2 | `apps/<product>-api/wrangler.toml` (**new**) | Edit `apps/example-api/wrangler.toml` |
 | Product UI routes | `apps/<product>-web/**` | Patch `example-web` into a product |
 | Product AGENTS / frame | `docs/product/AGENTS.md` or app-level AGENTS | Rewrite root `AGENTS.md` |
-| Extra CI job | `.github/workflows/product-deploy.yml` (**new**) | Append jobs into kit `ci.yml` |
+| Extra CI job / product CD | `.github/workflows/product-deploy.yml` (**new**) or product CF Builds | Append jobs into kit `ci.yml` · never reconnect kit showcase CF projects |
 | Deny push to kit | **Already in kit** lefthook + `scripts/deny-upstream-push.sh` | Copy-paste divergent lefthook in product |
 | Brand / design system | **Design overrides** (below) in `apps/<product>-web` | Edit `packages/ui/**` |
 | Gate “did we touch kit paths?” | `bun run zero-edit` (in `validate` / `validate:full`) | Hope merge conflicts never happen |

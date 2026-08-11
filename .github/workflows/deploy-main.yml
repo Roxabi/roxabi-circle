@@ -1,0 +1,35 @@
+name: Deploy main
+
+# RETIRED — kit showcase CD is Cloudflare Builds (git pull + build on CF).
+# See docs/deploy-cloudflare.md and scripts/cf-builds/.
+#
+# This workflow is kept as a no-op so old workflow_run subscriptions and docs links
+# do not confuse operators. It never deploys.
+#
+# Break-glass laptop:
+#   bash scripts/cf-builds/api-deploy.sh
+#   bash scripts/cf-builds/web-build.sh && cd apps/example-web && bunx wrangler pages deploy dist --project-name=boilerplate --branch=main
+
+on:
+  workflow_dispatch:
+    inputs:
+      notice:
+        description: 'No-op — use Cloudflare Builds or laptop scripts (docs/deploy-cloudflare.md)'
+        type: string
+        required: false
+        default: 'see docs/deploy-cloudflare.md'
+
+permissions:
+  contents: read
+
+jobs:
+  retired:
+    name: retired-use-cloudflare-builds
+    runs-on: ubuntu-latest
+    steps:
+      - name: Point operators at CF Builds
+        run: |
+          echo "::notice::Showcase CD is Cloudflare Builds, not GitHub Actions."
+          echo "Docs: docs/deploy-cloudflare.md"
+          echo "Scripts: scripts/cf-builds/"
+          exit 0
