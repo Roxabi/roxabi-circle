@@ -27,6 +27,7 @@ import { NotesPage } from './routes/notes'
 import { OrgMembersPage } from './routes/org-members'
 import { ResetPasswordPage } from './routes/reset-password'
 import { SettingsPage } from './routes/settings'
+import { TasksPage } from './routes/tasks'
 
 export type RouterContext = {
   queryClient: QueryClient
@@ -161,6 +162,12 @@ const appItemsRoute = createRoute({
   component: ItemsPage,
 })
 
+const appTasksRoute = createRoute({
+  getParentRoute: () => appLayoutRoute,
+  path: 'tasks',
+  component: TasksPage,
+})
+
 const appKeysRoute = createRoute({
   getParentRoute: () => appLayoutRoute,
   path: 'keys',
@@ -267,6 +274,7 @@ export const routeTree = rootRoute.addChildren([
     appIndexRoute,
     appNotesRoute,
     appItemsRoute,
+    appTasksRoute,
     appKeysRoute,
     appSettingsRoute,
     appChangelogRoute,

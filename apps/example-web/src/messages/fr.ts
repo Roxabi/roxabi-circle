@@ -112,7 +112,27 @@ export type Messages = {
   navDashboard: string
   navNotes: string
   navItems: string
+  navTasks: string
   navKeys: string
+  tasksDesc: string
+  tasksNeedOrg: string
+  tasksEmpty: string
+  tasksEmptyDesc: string
+  tasksList: string
+  taskCreate: string
+  taskCreated: string
+  taskTitle: string
+  taskDescription: string
+  taskStage: string
+  taskVisibility: string
+  taskVisibilityInternal: string
+  taskVisibilityShared: string
+  taskComments: string
+  taskSelectForComments: string
+  taskCommentsEmpty: string
+  taskCommentPlaceholder: string
+  taskCommentAdd: string
+  taskCommentAdded: string
   navSettings: string
   navChangelog: string
   changelogTitle: string
@@ -373,7 +393,27 @@ export const fr: Messages = {
   navDashboard: 'Dashboard',
   navNotes: 'Notes',
   navItems: 'Catalogue',
+  navTasks: 'Tâches',
   navKeys: 'Clés API',
+  tasksDesc: 'Dogfood @kit/tasks — board main, visibilité, commentaires (org active).',
+  tasksNeedOrg: 'Sélectionnez une organisation pour charger les tâches.',
+  tasksEmpty: 'Aucune tâche',
+  tasksEmptyDesc: 'Créez une tâche pour valider le module tasks sur cette org.',
+  tasksList: 'Liste',
+  taskCreate: 'Nouvelle tâche',
+  taskCreated: 'Tâche créée',
+  taskTitle: 'Titre',
+  taskDescription: 'Description',
+  taskStage: 'Colonne',
+  taskVisibility: 'Visibilité',
+  taskVisibilityInternal: 'Interne',
+  taskVisibilityShared: 'Partagée',
+  taskComments: 'Commentaires',
+  taskSelectForComments: 'Sélectionnez une tâche pour voir les commentaires.',
+  taskCommentsEmpty: 'Pas encore de commentaire.',
+  taskCommentPlaceholder: 'Ajouter un commentaire…',
+  taskCommentAdd: 'Commenter',
+  taskCommentAdded: 'Commentaire ajouté',
   navSettings: 'Paramètres',
   navChangelog: 'Nouveautés',
   changelogTitle: 'Nouveautés',

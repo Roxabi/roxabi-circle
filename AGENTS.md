@@ -124,6 +124,7 @@ Phase (normative order — not aspiration):
 |---|---|---|
 | **P0** | **Kit Chemin A** | `packages/*` + `apps/example-*` verts · 0 string métier · bar machine — **gagne toujours** vs platform growth |
 | **P0 incubating** | **Flows** | `@kit/flows` + ADR-0005 children (#29–#31…) — promote D6 only |
+| **P0 incubating** | **Tasks + comments** | `@kit/tasks` + `@kit/comments` ([ADR-0007](docs/architecture/adr/0007-tasks-comments-kernel.md)) — pure shipped; example dogfood next · promote after first product compose |
 | **After flows evidence** | **Agents org-aware** | Same grant∩ + registryVersion as flows · no new agent package without second call site |
 | **Hors scope** | Apps métier (`apps/share-*`, etc.) | Repos product |
 | **Hors scope** | Cloudflare OS as kit · code-mode kit default | Product opt-in or external deploy |
@@ -411,6 +412,8 @@ Ref pattern : `kit-boilerplate` (`errorCodes`, `errorUtils`, `ApiError`).
 | `@kit/i18n` | Locale engine only; catalogs app-owned (FR/EN live) | **P0** |
 | `@kit/mcp` | FastMCP/SDK conventions (ping/whoami) · tools under grants when wired · **parity grant∩ with flows** | **P0** example |
 | `@kit/flows` | Pure plan engine: YAML MVP · `check` · grant∩permits · snapshot helpers ([ADR-0005](docs/architecture/adr/0005-flows-platform-agentic-workflows.md) · #16 · #27–#28); Workflows/D1/API = children #29–#31 · promote **D6 only** | **P0** incubating |
+| `@kit/tasks` | Pure task engine: stages · visibility · links · opaque scope · AudiencePort helpers ([ADR-0007](docs/architecture/adr/0007-tasks-comments-kernel.md)); D1/API dogfood later · **no resource links until resource system** | **P0** incubating |
+| `@kit/comments` | Pure multi-target comments (`target_type`+`target_id`, visibility) — compose with tasks + product entities ([ADR-0007](docs/architecture/adr/0007-tasks-comments-kernel.md)) | **P0** incubating |
 | *(no `@kit/agents` yet)* | Agent loop / code-mode → **after** flows runner evidence · optional ADR-0006 · product code-mode only | blocked until D6 |
 | `@kit/rate-limit` | D1/KV / CF binding | P1 |
 | `@kit/audit` | append-only events | P1 |

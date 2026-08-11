@@ -1,3 +1,5 @@
+import { COMMENTS_MODULE_ID } from '@kit/comments'
+import { TASKS_MODULE_ID } from '@kit/tasks'
 import { hashPassword } from 'better-auth/crypto'
 import { eq } from 'drizzle-orm'
 import type { DrizzleD1Database } from 'drizzle-orm/d1'
@@ -7,7 +9,11 @@ import * as platformModulesRepo from '../repos/platform-modules'
 import * as platformRolesRepo from '../repos/platform-roles'
 import * as orgRolesService from '../services/org-roles'
 import * as platformModulesService from '../services/platform-modules'
+import * as tasksService from '../services/tasks'
 import { TENANCY_ORGS, TENANCY_PERSONAS } from './tenancy-data'
+
+/** Platform-available + org_acme-enabled for dogfood (ADR-0007). Leave `demo` admin-gated. */
+const ACME_DOGFOOD_MODULES = new Set<string>([TASKS_MODULE_ID, COMMENTS_MODULE_ID])
 
 type Db = DrizzleD1Database<typeof schema>
 
@@ -108,10 +114,24 @@ export async function seedTenancyDemo(
       }
     }
 
-    // org modules: demo enabled only on acme
-    const platform = await platformModulesRepo.listPlatformModules(db)
+    // Phase B — system roles + module grants (before org module enable)
+    await orgRolesService.ensureSystemRoles(db, o.id)
+  }
+
+  // Dogfood: tasks/comments available on platform + enabled on org_acme only
+  for (const moduleId of ACME_DOGFOOD_MODULES) {
+    await platformModulesRepo.upsertPlatformModule(db, {
+      moduleId,
+      available: true,
+      configJson: null,
+      updatedAt: ts,
+    })
+  }
+  const platform = await platformModulesRepo.listPlatformModules(db)
+  for (const o of TENANCY_ORGS) {
     for (const mod of platform) {
-      const enabled = o.id === 'org_acme' && mod.moduleId === 'demo' && Boolean(mod.available)
+      const enabled =
+        o.id === 'org_acme' && ACME_DOGFOOD_MODULES.has(mod.moduleId) && Boolean(mod.available)
       await platformModulesRepo.upsertOrgModule(db, {
         organizationId: o.id,
         moduleId: mod.moduleId,
@@ -120,12 +140,10 @@ export async function seedTenancyDemo(
         updatedAt: ts,
       })
     }
-
-    // Phase B — system roles + module grants
-    await orgRolesService.ensureSystemRoles(db, o.id)
+    if (o.id === 'org_acme') {
+      await tasksService.ensureDefaultBoard(db, o.id)
+    }
   }
-
-  // Platform modules stay available=false until an admin enables them.
 
   const platformRoles = TENANCY_PERSONAS.filter((p) => p.platformRole).map((p) => ({
     userId: p.id,

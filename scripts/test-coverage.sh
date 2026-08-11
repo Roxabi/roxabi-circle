@@ -41,6 +41,8 @@ run_pkg packages/mcp
 run_pkg packages/email
 run_pkg packages/i18n
 run_pkg packages/flows
+run_pkg packages/tasks
+run_pkg packages/comments
 
 # Lower bar — large UI surface still expanding
 run_pkg packages/ui

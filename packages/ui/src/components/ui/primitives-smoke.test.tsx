@@ -2,8 +2,12 @@ import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { Alert, AlertDescription, AlertTitle } from './alert'
 import { Badge } from './badge'
+import { Calendar } from './calendar'
 import { Checkbox } from './checkbox'
+import { Combobox, ComboboxChips, ComboboxChipsInput } from './combobox'
+import { DatePicker } from './date-picker'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from './empty'
+import { Popover, PopoverContent, PopoverTrigger } from './popover'
 import {
   Select,
   SelectContent,
@@ -82,5 +86,26 @@ describe('new shadcn primitives smoke', () => {
       </Select>,
     )
     expect(screen.getByLabelText('pick')).toBeInTheDocument()
+  })
+
+  it('renders Calendar + DatePicker + Popover + Combobox chips shell', () => {
+    render(
+      <div>
+        <Calendar mode="single" />
+        <DatePicker placeholder="Due date" />
+        <Popover>
+          <PopoverTrigger>Open</PopoverTrigger>
+          <PopoverContent>Popover body</PopoverContent>
+        </Popover>
+        <Combobox multiple>
+          <ComboboxChips>
+            <ComboboxChipsInput placeholder="Assignees" aria-label="assignees" />
+          </ComboboxChips>
+        </Combobox>
+      </div>,
+    )
+    expect(screen.getByText('Due date')).toBeInTheDocument()
+    expect(screen.getByText('Open')).toBeInTheDocument()
+    expect(screen.getByLabelText('assignees')).toBeInTheDocument()
   })
 })

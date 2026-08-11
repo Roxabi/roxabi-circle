@@ -27,6 +27,7 @@ import {
   KeyRound,
   Languages,
   LayoutDashboard,
+  ListTodo,
   Moon,
   Palette,
   Settings,
@@ -71,6 +72,7 @@ function NavItem({ to, label, icon }: { to: string; label: string; icon: ReactNo
 
 function pageTitle(pathname: string, m: ReturnType<typeof useLocale>['m']): string {
   if (pathname.startsWith('/app/items')) return m.navItems
+  if (pathname.startsWith('/app/tasks')) return m.navTasks
   if (pathname.startsWith('/app/notes') || pathname === '/notes') return m.navNotes
   if (pathname.startsWith('/app/keys') || pathname === '/keys') return m.navKeys
   if (pathname.includes('/members')) return m.navMembers
@@ -175,6 +177,7 @@ function ShellChrome({ mode, children }: { mode: ShellMode; children: ReactNode 
                   <NavItem to="/app" label={m.navAppHome} icon={<LayoutDashboard />} />
                   <NavItem to="/app/notes" label={m.navNotes} icon={<FileText />} />
                   <NavItem to="/app/items" label={m.navItems} icon={<Boxes />} />
+                  <NavItem to="/app/tasks" label={m.navTasks} icon={<ListTodo />} />
                   <NavItem to="/app/keys" label={m.navKeys} icon={<KeyRound />} />
                   {showMembers && activeOrgId ? (
                     <NavItem
