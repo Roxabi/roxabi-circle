@@ -136,5 +136,63 @@ describe('tasks dogfood API', () => {
     expect(comments.status).toBe(200)
     const body = (await comments.json()) as { comments: { body: string }[] }
     expect(body.comments[0]?.body).toBe('Looks good')
+
+    const stages = await app.request('/api/tasks/stages', { headers: headers(staffCookie) }, env)
+    expect(stages.status).toBe(200)
+    const stageBody = (await stages.json()) as { stages: { id: string; isDefault: boolean }[] }
+    const doing = stageBody.stages.find((s) => !s.isDefault)
+    expect(doing).toBeTruthy()
+
+    const patch = await app.request(
+      `/api/tasks/${shared.task.id}`,
+      {
+        method: 'PATCH',
+        headers: headers(staffCookie),
+        body: JSON.stringify({ stageId: doing!.id, title: 'Shared task v2' }),
+      },
+      env,
+    )
+    expect(patch.status).toBe(200)
+    const patched = (await patch.json()) as { task: { title: string; stageId: string } }
+    expect(patched.task.title).toBe('Shared task v2')
+    expect(patched.task.stageId).toBe(doing!.id)
+
+    const link = await app.request(
+      '/api/tasks/links',
+      {
+        method: 'POST',
+        headers: headers(staffCookie),
+        body: JSON.stringify({
+          fromTaskId: shared.task.id,
+          toTaskId: internal.task.id,
+          kind: 'blocks',
+        }),
+      },
+      env,
+    )
+    expect(link.status).toBe(201)
+
+    const listLinks = await app.request('/api/tasks/links', { headers: headers(staffCookie) }, env)
+    expect(listLinks.status).toBe(200)
+    const linksBody = (await listLinks.json()) as { links: unknown[] }
+    expect(linksBody.links.length).toBeGreaterThanOrEqual(1)
+
+    const readerPatch = await app.request(
+      `/api/tasks/${shared.task.id}`,
+      {
+        method: 'PATCH',
+        headers: headers(readerCookie),
+        body: JSON.stringify({ title: 'nope' }),
+      },
+      env,
+    )
+    expect(readerPatch.status).toBe(403)
+
+    const del = await app.request(
+      `/api/tasks/${internal.task.id}`,
+      { method: 'DELETE', headers: headers(staffCookie) },
+      env,
+    )
+    expect(del.status).toBe(200)
   })
 })
