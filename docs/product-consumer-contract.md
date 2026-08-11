@@ -60,7 +60,7 @@ Machine gates here only care: product does not dual-edit kit paths; `upstream` i
 | Product Worker name / D1 / R2 | `apps/<product>-api/wrangler.toml` (**new**) | Edit `apps/example-api/wrangler.toml` |
 | Product UI routes | `apps/<product>-web/**` | Patch `example-web` into a product |
 | Product AGENTS / frame | `docs/product/AGENTS.md` or app-level AGENTS | Rewrite root `AGENTS.md` |
-| Extra CI job / product CD | `.github/workflows/product-deploy.yml` (**new**) or product CF Builds | Append jobs into kit `ci.yml` · never reconnect kit showcase CF projects |
+| Extra CI job / product CD | `.github/workflows/product-deploy.yml` (**new**) or product CF Builds on `apps/<product>-*` | Append jobs into kit `ci.yml` · never set `KIT_SHOWCASE_DEPLOY` · never run `cf:showcase:*` |
 | Deny push to kit | **Already in kit** lefthook + `scripts/deny-upstream-push.sh` | Copy-paste divergent lefthook in product |
 | Brand / design system | **Design overrides** (below) in `apps/<product>-web` | Edit `packages/ui/**` |
 | Gate “did we touch kit paths?” | `bun run zero-edit` (in `validate` / `validate:full`) | Hope merge conflicts never happen |

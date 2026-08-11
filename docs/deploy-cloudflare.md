@@ -35,28 +35,34 @@ dev → PR → GitHub CI (validate:full)     # prove quality
 
 ### “Only when CI is green”
 
-Workers Builds triggers on **push to the production branch** (`main`).  
-It does **not** wait for a GH workflow. The gate is:
+Workers Builds / Pages trigger on **push to `main`**. They do **not** natively wait for a GitHub check.
 
-```text
-do not merge / push broken main  →  CI green before merge (lefthook + merge-on-green + discipline)
-```
-
-On Free private without branch protection: **process** (merge-on-green + human) is the gate. Do not push red `main`.
+| Want | Reality |
+|------|---------|
+| CF only deploys after GH CI green | **No built-in Workers Builds switch** for that |
+| Practical gate | Keep red code off `main` (lefthook + merge-on-green + optional Team branch protection) |
+| Optional later | External CD: GH deploys only on `workflow_run` success |
 
 ### Success AC (showcase dogfood)
 
 | AC | Expect |
 |----|--------|
-| Merge to kit `main` | GitHub CI green |
-| CF Builds connected | Worker `boilerplate-api` + Pages `boilerplate` → repo `Roxabi/roxabi-boilerplate-cf` |
-| After push main | CF builds succeed |
-| Live API | `GET https://api.boilerplate.roxabi.dev/health` → 200 + `"environment":"production"` |
-| Live SPA | `GET https://boilerplate.roxabi.dev/` → 200 |
+| Merge to kit `main` | GitHub CI green (process) |
+| CF Builds | `KIT_SHOWCASE_DEPLOY=1` · commands §3–4 · **main only** |
+| Live | `/health` + SPA 200 |
 
-**Non-goals:** GH `workflow_run` deploy, multi-env promotion, product repos using this showcase connect.
+### Product / fork — deploy *your* product
 
-**Products:** own CD (`product-*.yml` or their own CF Builds). Never point product remotes at kit showcase resources. See [product-consumer-contract](./product-consumer-contract.md).
+Showcase scripts refuse without `KIT_SHOWCASE_DEPLOY=1` and refuse non-`main`.
+
+```text
+1. apps/<product>-api + apps/<product>-web   # new paths
+2. wrangler with YOUR worker / D1 / hosts    # not boilerplate-*
+3. CF Builds on YOUR projects  OR  product-deploy.yml
+4. Never KIT_SHOWCASE_DEPLOY=1  ·  never cf:showcase:*
+```
+
+See [product-consumer-contract](./product-consumer-contract.md).
 
 ---
 
@@ -92,11 +98,13 @@ printf '%s' "$(openssl rand -hex 32)" | bunx wrangler secret put SESSION_SECRET 
 
 Domains: API custom domain on Worker; SPA custom domain on Pages (already used for showcase).
 
-Optional **first** laptop deploy before Builds is connected:
+Optional **first** laptop deploy (showcase only):
 
 ```bash
-bash scripts/cf-builds/api-deploy.sh
-bash scripts/cf-builds/web-build.sh
+export KIT_SHOWCASE_DEPLOY=1
+# on branch main
+bun run cf:showcase:deploy-api
+bun run cf:showcase:build-web
 cd apps/example-web && bunx wrangler pages deploy dist --project-name=boilerplate --branch=main
 ```
 
@@ -104,64 +112,72 @@ Afterwards: **CF Builds only**.
 
 ---
 
-## 3. Connect Workers Builds (API)
+## 3. Connect Workers Builds (API) — kit HEAD only
 
-Dashboard → **Workers & Pages** → Worker **`boilerplate-api`**  
-(If missing: one laptop `bun run cf:deploy:api` creates it.)
-
-**Settings → Builds → Connect** repository `Roxabi/roxabi-boilerplate-cf`.
-
-**Root directory = monorepo root** (leave empty / `/`).  
-Do **not** set root to `apps/example-api` (avoids `../..` path hell).
+Dashboard → **Workers & Pages** → Worker **`boilerplate-api`**.
 
 | Setting | Value |
 |---------|--------|
-| **Production branch** | `main` |
+| **Production branch** | `main` only |
 | **Root directory** | *(empty — repo root)* |
-| **Build command** | `bun run cf:install` |
-| **Deploy command** | `bun run cf:deploy:api` |
-| **Non-production deploy** | disable non-prod builds, or `bunx wrangler versions upload --env production -c apps/example-api/wrangler.toml` |
-| **Watch paths** (optional) | `apps/example-api/**`, `packages/**`, `scripts/cf-builds/**`, `bun.lock`, `package.json` |
+| **Build command** | `bun run cf:showcase:install` |
+| **Deploy command** | `bun run cf:showcase:deploy-api` |
+| **Build variable** | `KIT_SHOWCASE_DEPLOY` = `1` |
+| **Non-production builds** | **Disabled** (required) |
+| **Watch paths** (optional) | `apps/example-api/**`, `packages/**`, `scripts/cf-builds/**`, `bun.lock` |
 
-`cf:install` / `cf:deploy:api` are root `package.json` scripts (install Bun if needed, workspace install, D1 migrate, `wrangler deploy --env production`).
+Scripts **refuse** without `KIT_SHOWCASE_DEPLOY=1` and refuse if branch ≠ `main`.
 
-Runtime secrets stay on the Worker (dashboard), not build vars.
-
-Ref: [Builds configuration](https://developers.cloudflare.com/workers/ci-cd/builds/configuration/), [monorepos](https://developers.cloudflare.com/workers/ci-cd/builds/advanced-setups/#monorepos).
+Token: include **D1 Edit** if migrate fails with auth errors.
 
 ---
 
-## 4. Connect Pages (SPA)
-
-Dashboard → **Workers & Pages** → Pages project **`boilerplate`**  
-→ **Settings → Builds** → connect **same** Git repo.
-
-Again: **root = monorepo root**.
+## 4. Connect Pages (SPA) — kit HEAD only
 
 | Setting | Value |
 |---------|--------|
-| **Production branch** | `main` |
-| **Root directory** | *(empty — repo root)* |
-| **Build command** | `bun run cf:build:web` |
+| **Production branch** | `main` only |
+| **Root directory** | *(empty)* |
+| **Build command** | `bun run cf:showcase:build-web` |
 | **Build output directory** | `apps/example-web/dist` |
-| **Build variable** | `VITE_API_URL` = `https://api.boilerplate.roxabi.dev` |
-| **Watch paths** (optional) | `apps/example-web/**`, `packages/**`, `scripts/cf-builds/**`, `bun.lock` |
-
-No separate “deploy command” on Pages — build output is published automatically.
-
-Custom domain: `boilerplate.roxabi.dev`.
+| **Build variables** | `KIT_SHOWCASE_DEPLOY=1` · `VITE_API_URL=https://api.boilerplate.roxabi.dev` |
+| **Non-production / preview** | prefer **off** for showcase |
 
 ---
 
-## 5. GitHub role (after switch)
+## 5. GitHub role
 
 | Keep | Drop |
 |------|------|
-| `.github/workflows/ci.yml` — `validate:full` | **No** GH `deploy-main` for showcase CD |
-| merge-on-green / secret-scan | Repo secrets `CLOUDFLARE_*` for day-to-day CD (optional keep for break-glass laptop) |
-| Lefthook pre-push quality | `DEPLOY_ENABLED` arming for GH deploy |
+| `ci.yml` quality | GH auto-deploy showcase |
+| merge-on-green | Arming product with `KIT_SHOWCASE_DEPLOY` |
 
-Break-glass laptop: still `bash scripts/cf-builds/api-deploy.sh` + web build + `pages deploy` with local CF auth.
+---
+
+## 5b. Migrate then deploy (not a DB+Worker transaction)
+
+`cf:showcase:deploy-api` runs:
+
+1. `wrangler d1 migrations apply … --remote`  
+2. `wrangler deploy --env production`
+
+These are **two Cloudflare APIs**. There is **no** cross-product transaction that rolls back the Worker if migrate fails or rolls back D1 if deploy fails.
+
+| Failure | State | What to do |
+|---------|--------|------------|
+| Migrate fails | D1 unchanged, Worker old | Fix migration; retry |
+| Migrate OK, deploy fails | D1 **new**, Worker **old** | Fix deploy; retry (migrations are idempotent once applied) |
+| Both OK | Aligned | — |
+
+Mitigations: **expand/contract** migrations (old code tolerates new schema); watch CF build logs; dogfood only.
+
+---
+
+## 5c. Public signup + rate limits
+
+Showcase production sets `ALLOW_PUBLIC_SIGNUP=true` (intentional dogfood).
+
+Auth-sensitive BA paths already hit **D1 fixed-window rate limit** (e.g. **20 / IP / 15 min** on sign-in / sign-up / magic-link / reset — see `apps/example-api/src/routes/auth.ts` + `lib/rate-limit.ts`). Not a full WAF; abuse playbook still applies.
 
 ---
 
@@ -217,8 +233,10 @@ Health path: **`/health`**.
 | CF build: workspace package missing | install not from monorepo root |
 | Deploy name mismatch | Dashboard Worker name ≠ wrangler `--env production` name |
 | SPA calls wrong API | `VITE_API_URL` build var missing |
-| Schema errors after deploy | migrate step failed — check `api-deploy.sh` logs |
-| CF deploys broken main | Merged without green CI — fix process, not CF |
+| Schema errors after deploy | migrate failed or half-deploy — see §5b |
+| `refusing deploy — KIT_SHOWCASE_DEPLOY` | Build var not set to `1` (or product wrongly using showcase scripts) |
+| `refusing deploy — branch is …` | Non-main build; disable non-prod Builds |
+| CF deploys broken main | Merged without green CI — process gate only (§0) |
 
 ---
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Workers Builds / Pages: install Bun monorepo from **repo root**.
-# Dashboard: Root directory = empty (/). Build: `bun run cf:install`
+# Dashboard: Root = empty · Build: `bun run cf:showcase:install`
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"

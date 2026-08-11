@@ -6,9 +6,9 @@ name: Deploy main
 # This workflow is kept as a no-op so old workflow_run subscriptions and docs links
 # do not confuse operators. It never deploys.
 #
-# Break-glass laptop:
-#   bash scripts/cf-builds/api-deploy.sh
-#   bash scripts/cf-builds/web-build.sh && cd apps/example-web && bunx wrangler pages deploy dist --project-name=boilerplate --branch=main
+# Break-glass laptop (branch main + KIT_SHOWCASE_DEPLOY=1):
+#   bun run cf:showcase:deploy-api
+#   bun run cf:showcase:build-web && cd apps/example-web && bunx wrangler pages deploy dist --project-name=boilerplate --branch=main
 
 on:
   workflow_dispatch:
