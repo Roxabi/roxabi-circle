@@ -177,7 +177,18 @@ Mitigations: **expand/contract** migrations (old code tolerates new schema); wat
 
 Showcase production sets `ALLOW_PUBLIC_SIGNUP=true` (intentional dogfood).
 
-Auth-sensitive BA paths already hit **D1 fixed-window rate limit** (e.g. **20 / IP / 15 min** on sign-in / sign-up / magic-link / reset — see `apps/example-api/src/routes/auth.ts` + `lib/rate-limit.ts`). Not a full WAF; abuse playbook still applies.
+Auth-sensitive BA paths already hit **D1 fixed-window rate limit** (e.g. **20 / IP / 15 min** on sign-in / sign-up / magic-link / reset — see `apps/example-api/src/routes/auth.ts` + `lib/rate-limit.ts`). Enough for dogfood; not a full WAF.
+
+**Edge (no product code)** — zone `roxabi.dev` in CF dashboard:
+
+| Control | Where | Needs app code? |
+|---------|--------|-----------------|
+| Security level / Browser Integrity Check | Zone → Security | No |
+| Bot Fight Mode / Super Bot Fight (plan-dependent) | Zone → Security → Bots | No |
+| WAF custom rate limit (e.g. `/api/auth/*`) | Zone → Security → WAF | No |
+| Turnstile / interactive captcha | needs widget in login UI | **Yes** (product) |
+
+Captcha in-app is optional for showcase; prefer zone bot/WAF if abuse grows.
 
 ---
 
