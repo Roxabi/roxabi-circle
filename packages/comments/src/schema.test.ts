@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { parseComment, parseCommentTarget, parseCreateCommentInput } from './schema'
-import { filterByTarget, taskCommentTarget } from './target'
-import { canViewComment, filterCommentsForAudience } from './visibility'
+import { isAudience } from './audience'
+import {
+  parseComment,
+  parseCommentTarget,
+  parseCreateCommentInput,
+  parseUpdateCommentInput,
+} from './schema'
+import { filterByTarget, matchesTarget, targetKey, taskCommentTarget } from './target'
+import { canSetCommentVisibility, canViewComment, filterCommentsForAudience } from './visibility'
 
 describe('comment schema', () => {
   it('parses comment', () => {
@@ -72,5 +78,34 @@ describe('visibility', () => {
         'external',
       ),
     ).toHaveLength(1)
+  })
+
+  it('staff sees all and can set internal', () => {
+    expect(canViewComment({ visibility: 'internal' }, 'staff')).toBe(true)
+    expect(filterCommentsForAudience([{ visibility: 'internal' as const }], 'staff')).toHaveLength(
+      1,
+    )
+    expect(canSetCommentVisibility('staff', 'internal')).toBe(true)
+    expect(canSetCommentVisibility('external', 'internal')).toBe(false)
+    expect(canSetCommentVisibility('external', 'shared')).toBe(true)
+  })
+})
+
+describe('parse update + audience helpers', () => {
+  it('parseUpdateCommentInput', () => {
+    expect(parseUpdateCommentInput({ body: 'x' }).success).toBe(true)
+    expect(parseUpdateCommentInput({ body: '' }).success).toBe(false)
+  })
+
+  it('isAudience', () => {
+    expect(isAudience('staff')).toBe(true)
+    expect(isAudience('nope')).toBe(false)
+  })
+
+  it('targetKey + matchesTarget negative', () => {
+    expect(targetKey({ targetType: 'task', targetId: 't1' })).toBe('task:t1')
+    expect(
+      matchesTarget({ targetType: 'task', targetId: 't1' }, { targetType: 'note', targetId: 't1' }),
+    ).toBe(false)
   })
 })

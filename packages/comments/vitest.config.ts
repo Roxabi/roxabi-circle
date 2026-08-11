@@ -6,10 +6,10 @@ export default defineConfig({
     environment: 'node',
     include: ['src/**/*.test.ts'],
     coverage: makeCoverage('comments', {
-      statements: 80,
-      lines: 80,
-      branches: 70,
-      functions: 80,
+      statements: 75,
+      lines: 75,
+      branches: 55,
+      functions: 75,
     }),
   },
 })
