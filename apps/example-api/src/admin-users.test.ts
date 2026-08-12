@@ -364,4 +364,19 @@ describe('admin users (B-users #58)', () => {
     expect(body.users.length).toBeGreaterThan(0)
     expect(body.users.some((u) => u.email === 'super@kit.local')).toBe(true)
   })
+
+  it('GET /api/admin/users — staff only sees users sharing an org (IDOR privacy)', async () => {
+    const { app, env } = await seedEnv()
+    const cookie = await signIn(app, env, 'staff@kit.local')
+    const res = await app.request('/api/admin/users', { headers: sessionMutation(cookie) }, env)
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as { users: { email: string }[] }
+    const emails = body.users.map((u) => u.email)
+    // staff is on org_acme + org_beta (with team-owner), not org_solo
+    expect(emails).toContain('staff@kit.local')
+    expect(emails).toContain('team-owner@kit.local')
+    expect(emails).not.toContain('solo@kit.local')
+    // super may not share staff orgs in seed — must not appear in staff directory
+    expect(emails).not.toContain('super@kit.local')
+  })
 })

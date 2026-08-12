@@ -65,7 +65,15 @@ adminUsersRoutes.get('/api/admin/users', requirePlatformRole('super_admin', 'sta
     throw AppError.validation('Invalid query', parsed.error.flatten().fieldErrors)
   }
   const db = c.get('db')!
-  const users = await adminUsersService.listAdminUsers(db, parsed.data)
+  const platformRole = c.get('platformRole')
+  if (platformRole !== 'super_admin' && platformRole !== 'staff') {
+    throw AppError.forbidden('Platform role required')
+  }
+  const users = await adminUsersService.listAdminUsers(db, {
+    actorUserId: c.get('subject')!,
+    actorPlatformRole: platformRole,
+    ...parsed.data,
+  })
   return c.json({ users, requestId: c.get('requestId') })
 })
 

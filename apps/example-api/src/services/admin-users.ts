@@ -203,30 +203,7 @@ export async function createAdminUser(db: Db, input: CreateAdminUserInput) {
   }
 }
 
-export async function listAdminUsers(
-  db: Db,
-  opts?: { q?: string; limit?: number; offset?: number },
-) {
-  const rows = await usersRepo.listBaUsers(db, opts)
-  const out: {
-    id: string
-    email: string
-    name: string
-    platformRole: PlatformRole | null
-    createdAt: string
-  }[] = []
-  for (const r of rows) {
-    const platformRole = await platformRolesRepo.getPlatformRole(db, r.id)
-    out.push({
-      id: r.id,
-      email: r.email,
-      name: r.name,
-      platformRole,
-      createdAt: r.createdAt instanceof Date ? r.createdAt.toISOString() : String(r.createdAt),
-    })
-  }
-  return out
-}
+export { type ListAdminUsersInput, listAdminUsers } from './admin-users-list'
 
 export async function resendWelcome(
   db: Db,

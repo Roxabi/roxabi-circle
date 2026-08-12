@@ -29,6 +29,15 @@ export type DualAuthPorts = {
   /** Required — apps inject createBetterAuthSessionPort (ADR-0002 BA-only). */
   sessions: SessionPort
   findApiKeyByPrefix: (prefix: string) => Promise<ApiKeyRecord | null>
+  /**
+   * Multi-tenant (ADR-0003 D11): when true, Bearer keys without `organizationId` → 401.
+   * Prefer true in product injects; example-api sets it. Default false only for legacy
+   * single-tenant / migration escape — do not leave off on multi-tenant products.
+   *
+   * Note: `findApiKeyByPrefix` may still enforce membership recheck; this flag is the
+   * package-level fail-closed for unbound rows that a naïve inject would otherwise accept.
+   */
+  requireApiKeyOrganization?: boolean
 }
 
 /**
@@ -55,10 +64,15 @@ export async function resolveDualAuth(
     if (row.expiresAt != null && row.expiresAt <= Date.now()) throw AppError.unauthorized()
     const ok = await verifyApiKey(bearer, row.keyHash)
     if (!ok) throw AppError.unauthorized()
+    const organizationId = row.organizationId ?? null
+    // ADR-0003 D11 — unbound keys must not authenticate when multi-tenant gate is on.
+    if (ports.requireApiKeyOrganization && !organizationId) {
+      throw AppError.unauthorized()
+    }
     return {
       subject: row.subject,
       method: 'api_key',
-      organizationId: row.organizationId ?? null,
+      organizationId,
     }
   }
 

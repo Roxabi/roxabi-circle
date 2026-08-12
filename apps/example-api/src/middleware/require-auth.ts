@@ -31,6 +31,9 @@ export const requireAuth: MiddlewareHandler<AppEnv> = createRequireAuth((c) => {
       getAuth: () => auth,
     }),
     findApiKeyByPrefix: async (prefix) => findKeyRecord(db, prefix),
+    // ADR-0003 D11 — package-level fail-closed for unbound keys (defense in depth
+    // alongside findKeyRecord membership recheck). Product injects should copy this.
+    requireApiKeyOrganization: true,
   }
 }) as MiddlewareHandler<AppEnv>
 

@@ -369,6 +369,41 @@ describe('createRequireAuth', () => {
     expect(store.authMethod).toBe('api_key')
     expect(store.keyOrganizationId).toBe('org_x')
   })
+
+  it('D11: requireApiKeyOrganization rejects unbound keys (null organizationId)', async () => {
+    const key = generateApiKey()
+    const hash = await hashApiKey(key)
+    await expect(
+      resolveDualAuth(`Bearer ${key}`, null, {
+        sessions: baPort(null),
+        requireApiKeyOrganization: true,
+        findApiKeyByPrefix: async () => ({
+          subject: 'legacy',
+          keyHash: hash,
+          revokedAt: null,
+          expiresAt: null,
+          organizationId: null,
+        }),
+      }),
+    ).rejects.toMatchObject({ code: 'UNAUTHORIZED' })
+  })
+
+  it('D11: requireApiKeyOrganization off still accepts unbound keys (legacy escape)', async () => {
+    const key = generateApiKey()
+    const hash = await hashApiKey(key)
+    const r = await resolveDualAuth(`Bearer ${key}`, null, {
+      sessions: baPort(null),
+      requireApiKeyOrganization: false,
+      findApiKeyByPrefix: async () => ({
+        subject: 'legacy',
+        keyHash: hash,
+        revokedAt: null,
+        expiresAt: null,
+        organizationId: null,
+      }),
+    })
+    expect(r).toMatchObject({ subject: 'legacy', method: 'api_key', organizationId: null })
+  })
 })
 
 describe('BA SessionPort cookie helpers', () => {
