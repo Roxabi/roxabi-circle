@@ -1,4 +1,4 @@
-import { AppError } from '@kit/core'
+import { AppError, zodFieldErrors } from '@kit/core'
 import { Hono } from 'hono'
 import { z } from 'zod'
 import { assertRateLimit } from '../lib/rate-limit'
@@ -42,15 +42,16 @@ meRoutes.get('/api/me', async (c) => {
 meRoutes.get('/api/keys', async (c) => {
   const db = c.get('db')!
   const subject = c.get('subject')!
-  // D11: api_key always passes organizationId (empty → repo fail-closed []); session omits opts.
-  const keys = await authService.listApiKeys(
-    db,
-    subject,
-    c.get('authMethod') === 'api_key'
-      ? { organizationId: c.get('keyOrganizationId') ?? '' }
-      : undefined,
-  )
-  return c.json({ keys, requestId: c.get('requestId') })
+  const requestId = c.get('requestId')
+  // D11: api_key is org-scoped; missing/blank key org → [] without sentinel '' into the repo.
+  if (c.get('authMethod') === 'api_key') {
+    const org = c.get('keyOrganizationId')
+    if (!org?.trim()) return c.json({ keys: [], requestId })
+    const keys = await authService.listApiKeysForOrg(db, subject, org)
+    return c.json({ keys, requestId })
+  }
+  const keys = await authService.listApiKeys(db, subject)
+  return c.json({ keys, requestId })
 })
 
 meRoutes.post('/api/keys', async (c) => {
@@ -69,9 +70,7 @@ meRoutes.post('/api/keys', async (c) => {
     })
     .safeParse(await c.req.json().catch(() => ({})))
   if (!body.success) {
-    throw AppError.validation('Invalid key mint payload', {
-      fieldErrors: body.error.flatten().fieldErrors,
-    })
+    throw AppError.fieldErrors('Invalid key mint payload', zodFieldErrors(body.error))
   }
 
   const orgFromHeader = c.req.header('x-org-id')?.trim()

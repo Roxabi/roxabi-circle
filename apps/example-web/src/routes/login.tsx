@@ -6,7 +6,7 @@ import { GalleryVerticalEnd } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { LoginMagicForm } from '../components/login-magic-form'
-import { loginErrorMessage } from '../lib/account-errors'
+import { loginErrorMessage, profileErrorMessage } from '../lib/account-errors'
 import { apiFetch } from '../lib/api'
 import { defaultHomePath, type MeResponse, meQueryKey, useMe } from '../lib/auth'
 import { useLocale } from '../lib/locale'
@@ -66,6 +66,15 @@ export function LoginPage() {
           method: 'POST',
           body: JSON.stringify({ email: value.email, password: value.password }),
         })
+      } catch (e) {
+        // UI copy only via loginErrorMessage — wire status may still differ (see helper).
+        const msg = loginErrorMessage(e, m)
+        setError(msg)
+        toast.error(m.error, { description: msg })
+        return
+      }
+      // Sign-in succeeded — do not map /api/me failures as "invalid email or password".
+      try {
         await qc.invalidateQueries({ queryKey: meQueryKey })
         const meAfter = await qc.fetchQuery({
           queryKey: meQueryKey,
@@ -75,8 +84,7 @@ export function LoginPage() {
         const target = postLoginTarget(meAfter, search.next)
         await navigate({ href: target })
       } catch (e) {
-        // BA non-kit envelopes → Error('HTTP {status}'); wrong creds ≠ session expired
-        const msg = loginErrorMessage(e, m)
+        const msg = profileErrorMessage(e, m)
         setError(msg)
         toast.error(m.error, { description: msg })
       }

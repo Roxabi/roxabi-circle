@@ -220,8 +220,8 @@ export type Messages = {
   /** Stable ErrorCode → UI copy (API codes stay English; FE translates). */
   errUnauthorized: string
   /**
-   * Wrong credentials on password sign-in — non-enumerating
-   * (never “unknown email” vs “bad password”).
+   * Wrong credentials on password sign-in — **UI copy only**
+   * (never “unknown email” vs “bad password” in the toast; wire status may still differ).
    */
   loginFailed: string
   errForbidden: string

@@ -65,11 +65,14 @@ describe('profileErrorMessage', () => {
 })
 
 describe('loginErrorMessage', () => {
-  it('maps 400/401/403 → same loginFailed (non-enumerating)', () => {
+  // Intentional: UI toast collapse only. Wire HTTP status may still differ
+  // (Network tab). Full anti-enum needs BA/Worker normalization — not this helper.
+  it('maps 400/401/403 ApiError + raw HTTP → same loginFailed (UI copy only)', () => {
     expect(loginErrorMessage(apiErr(401, 'UNAUTHORIZED'), en)).toBe(en.loginFailed)
     expect(loginErrorMessage(new Error('HTTP 401'), en)).toBe(en.loginFailed)
     expect(loginErrorMessage(apiErr(400, 'VALIDATION_ERROR'), en)).toBe(en.loginFailed)
     expect(loginErrorMessage(new Error('HTTP 400'), en)).toBe(en.loginFailed)
+    expect(loginErrorMessage(apiErr(403, 'FORBIDDEN'), en)).toBe(en.loginFailed)
     expect(loginErrorMessage(new Error('HTTP 403'), en)).toBe(en.loginFailed)
     expect(loginErrorMessage(apiErr(401, 'UNAUTHORIZED'), en)).not.toBe(en.errUnauthorized)
   })
@@ -82,6 +85,7 @@ describe('loginErrorMessage', () => {
     const cases: unknown[] = [
       apiErr(400, 'VALIDATION_ERROR'),
       apiErr(401, 'UNAUTHORIZED'),
+      apiErr(403, 'FORBIDDEN'),
       new Error('HTTP 401'),
       new Error('HTTP 403'),
     ]

@@ -81,8 +81,8 @@ export async function createInvitation(
 
   const email = normalizeEmail(input.email)
   if (!email?.includes('@')) {
-    throw AppError.validation('Invalid email', {
-      fieldErrors: { email: ['Valid email required'] },
+    throw AppError.fieldErrors('Invalid email', {
+      email: ['Valid email required'],
     })
   }
 

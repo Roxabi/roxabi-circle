@@ -1,4 +1,4 @@
-import { AppError } from '@kit/core'
+import { AppError, zodFieldErrors } from '@kit/core'
 import { Hono } from 'hono'
 import { z } from 'zod'
 import { resolveEmailPort } from '../lib/email-port'
@@ -62,9 +62,7 @@ adminUsersRoutes.get('/api/admin/users', requirePlatformRole('super_admin', 'sta
     offset: c.req.query('offset') ?? undefined,
   })
   if (!parsed.success) {
-    throw AppError.validation('Invalid query', {
-      fieldErrors: parsed.error.flatten().fieldErrors,
-    })
+    throw AppError.fieldErrors('Invalid query', zodFieldErrors(parsed.error))
   }
   const db = c.get('db')!
   const platformRole = c.get('platformRole')
@@ -86,9 +84,7 @@ adminUsersRoutes.post(
     requireSession(c)
     const parsed = createSchema.safeParse(await c.req.json().catch(() => null))
     if (!parsed.success) {
-      throw AppError.validation('Invalid create user payload', {
-        fieldErrors: parsed.error.flatten().fieldErrors,
-      })
+      throw AppError.fieldErrors('Invalid create user payload', zodFieldErrors(parsed.error))
     }
     const platformRole = c.get('platformRole')
     if (platformRole !== 'super_admin' && platformRole !== 'staff') {

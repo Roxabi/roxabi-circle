@@ -5,6 +5,8 @@
  * Usage: scripts / Node CLIs with SMTP_HOST/SMTP_PORT (Mailpit 1025).
  */
 
+import { scrubHeaderLine } from './scrub'
+
 export type SmtpSendInput = {
   host: string
   port: number
@@ -93,12 +95,10 @@ export async function sendSmtp(
     }
   }
 
-  // All Unicode line terminators → space (CR/LF, NEL U+0085, LS U+2028, PS U+2029).
-  const scrubHeader = (s: string) =>
-    s.replace(/[\r\n\u0085\u2028\u2029]+/g, ' ').replace(/ +/g, ' ')
-  const from = scrubHeader(input.from).trim()
-  const to = scrubHeader(input.to).trim()
-  const subject = scrubHeader(input.subject).trimEnd()
+  // Header scrub at transport boundary (shared choke point — see scrub.ts).
+  const from = scrubHeaderLine(input.from).trim()
+  const to = scrubHeaderLine(input.to).trim()
+  const subject = scrubHeaderLine(input.subject).trimEnd()
   // Fail-closed envelope: printable ASCII, exactly one @, no SMTP/header delimiters.
   const isValidEnvelopeAddr = (addr: string) => {
     if (addr.length === 0 || addr.length > 254) return false

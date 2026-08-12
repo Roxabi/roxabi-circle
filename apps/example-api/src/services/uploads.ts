@@ -16,7 +16,9 @@ export async function createUploadPresign(opts: {
     throw AppError.validation(`size must be 1..${MAX_BYTES}`, { max: MAX_BYTES })
   }
   if (!opts.contentType?.trim()) {
-    throw AppError.validation('contentType required')
+    throw AppError.fieldErrors('contentType required', {
+      contentType: ['contentType required'],
+    })
   }
   const uploadId = crypto.randomUUID()
   const signed = await presignDemoUpload({

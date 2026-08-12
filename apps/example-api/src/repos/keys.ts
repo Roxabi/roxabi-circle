@@ -38,49 +38,39 @@ export async function findApiKeyByPrefix(db: Db, keyPrefix: string) {
   return rows[0] ?? null
 }
 
-/**
- * Public key metadata (never returns keyHash).
- * - omit `organizationId` / leave opts undefined → all subject keys (session path)
- * - non-empty `organizationId` → D11 scoped list
- * - empty string `organizationId` → **fail-closed `[]`** (never “list all”)
- */
-export async function listApiKeysForSubject(
-  db: Db,
-  subject: string,
-  opts?: { organizationId?: string },
-) {
-  if (opts && 'organizationId' in opts) {
-    const org = opts.organizationId?.trim()
-    if (!org) return []
-    return db
-      .select({
-        id: apiKeys.id,
-        subject: apiKeys.subject,
-        keyPrefix: apiKeys.keyPrefix,
-        organizationId: apiKeys.organizationId,
-        name: apiKeys.name,
-        createdAt: apiKeys.createdAt,
-        expiresAt: apiKeys.expiresAt,
-        revokedAt: apiKeys.revokedAt,
-      })
-      .from(apiKeys)
-      .where(and(eq(apiKeys.subject, subject), eq(apiKeys.organizationId, org)))
-      .orderBy(desc(apiKeys.createdAt))
-      .all()
-  }
+const apiKeyPublicColumns = {
+  id: apiKeys.id,
+  subject: apiKeys.subject,
+  keyPrefix: apiKeys.keyPrefix,
+  organizationId: apiKeys.organizationId,
+  name: apiKeys.name,
+  createdAt: apiKeys.createdAt,
+  expiresAt: apiKeys.expiresAt,
+  revokedAt: apiKeys.revokedAt,
+}
+
+/** Session path: all API key metadata for subject (never returns keyHash). No org filter. */
+export async function listApiKeysForSubject(db: Db, subject: string) {
   return db
-    .select({
-      id: apiKeys.id,
-      subject: apiKeys.subject,
-      keyPrefix: apiKeys.keyPrefix,
-      organizationId: apiKeys.organizationId,
-      name: apiKeys.name,
-      createdAt: apiKeys.createdAt,
-      expiresAt: apiKeys.expiresAt,
-      revokedAt: apiKeys.revokedAt,
-    })
+    .select(apiKeyPublicColumns)
     .from(apiKeys)
     .where(eq(apiKeys.subject, subject))
+    .orderBy(desc(apiKeys.createdAt))
+    .all()
+}
+
+/**
+ * D11 scoped list: keys for subject within one organization.
+ * Blank / whitespace `organizationId` → `[]` (fail-closed; never unscoped list, never `eq('', …)` SQL).
+ * Callers that already know org is missing should short-circuit before calling.
+ */
+export async function listApiKeysForOrg(db: Db, subject: string, organizationId: string) {
+  const org = organizationId.trim()
+  if (!org) return []
+  return db
+    .select(apiKeyPublicColumns)
+    .from(apiKeys)
+    .where(and(eq(apiKeys.subject, subject), eq(apiKeys.organizationId, org)))
     .orderBy(desc(apiKeys.createdAt))
     .all()
 }

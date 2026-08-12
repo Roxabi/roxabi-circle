@@ -165,6 +165,32 @@ export class StorageClient {
     }
     return []
   }
+
+  /**
+   * Preferred product presign path: join `parts` under `basePrefix`, assert prefix,
+   * then sign via {@link createPresignedUrl}. Prefer this over free-form keys +
+   * `createPresignedUrl` so signed URLs cannot escape the product prefix.
+   */
+  async presign(
+    signer: PresignSigner,
+    input: {
+      parts: string[]
+      method?: PresignMethod
+      /** seconds — clamped to [60, 3600]; default 300 */
+      expiresIn?: number
+      contentType?: string
+    },
+  ): Promise<PresignResult & { key: string }> {
+    const key = this.key(...input.parts)
+    this.assertUnderPrefix(key)
+    const result = await createPresignedUrl(signer, {
+      key,
+      method: input.method ?? 'PUT',
+      expiresIn: input.expiresIn ?? 300,
+      contentType: input.contentType,
+    })
+    return { ...result, key }
+  }
 }
 
 // ── Light presign (A25 kit — PUT only; secrets never in package) ─────────────
@@ -196,12 +222,13 @@ function clampExpiresIn(seconds: number): number {
 }
 
 /**
- * Validate key safety then delegate to an app-provided signer (S3 or mock).
- * Package never holds R2 secrets.
+ * Low-level presign: validate key safety then delegate to an app-provided signer
+ * (S3 or mock). Package never holds R2 secrets.
  *
- * **Canonical presign entrypoint** (not deprecated). Build `input.key` via
- * {@link StorageClient.key} so URLs stay under the product prefix — this helper
- * only asserts path safety, it does **not** enforce a prefix.
+ * **Advanced / custom keys** (not deprecated). Path-safe only — does **not**
+ * enforce a product prefix. Prefer {@link StorageClient.presign} so keys are
+ * joined under `basePrefix`; use this only when you already have a full key
+ * (e.g. from `client.key` or a trusted store).
  */
 export async function createPresignedUrl(
   signer: PresignSigner,

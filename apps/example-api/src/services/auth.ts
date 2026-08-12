@@ -53,7 +53,9 @@ export async function mintApiKey(
 ): Promise<{ id: string; key: string; keyPrefix: string; organizationId: string }> {
   const organizationId = opts?.organizationId?.trim() || null
   if (!organizationId) {
-    throw AppError.validation('organizationId is required to mint an API key')
+    throw AppError.fieldErrors('organizationId is required to mint an API key', {
+      organizationId: ['organizationId is required'],
+    })
   }
   const { findMembership, findOrgById } = await import('../repos/orgs')
   const org = await findOrgById(db, organizationId)
@@ -80,13 +82,17 @@ export async function mintApiKey(
   return { id, key, keyPrefix, organizationId }
 }
 
+/** Session path: all keys for subject (no org filter). */
+export async function listApiKeys(db: Db, subject: string) {
+  return keysRepo.listApiKeysForSubject(db, subject)
+}
+
 /**
- * List API keys for subject.
- * D11: pass `{ organizationId }` for api_key auth (scope to key org);
- * empty/whitespace org → `[]` fail-closed; omit opts for session (all subject keys).
+ * D11 scoped list for api_key auth.
+ * Blank/whitespace org → `[]` fail-closed (repo); prefer short-circuiting in the route when org is missing.
  */
-export async function listApiKeys(db: Db, subject: string, opts?: { organizationId?: string }) {
-  return keysRepo.listApiKeysForSubject(db, subject, opts)
+export async function listApiKeysForOrg(db: Db, subject: string, organizationId: string) {
+  return keysRepo.listApiKeysForOrg(db, subject, organizationId)
 }
 
 export async function revokeApiKey(db: Db, id: string, subject: string): Promise<void> {

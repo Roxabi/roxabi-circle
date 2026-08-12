@@ -5,6 +5,7 @@ import {
   buildDemoEmailText,
   buildMagicLinkEmailText,
   createEmailPort,
+  createLogEmailPort,
   isRecipientDomainAllowed,
   parseAllowDomains,
   prefixStagingSubject,
@@ -12,9 +13,20 @@ import {
   resolveEmailTransport,
   type SendEmailBinding,
   STAGING_SUBJECT_PREFIX,
+  scrubHeaderLine,
   sendCf,
   sendLog,
 } from './index'
+
+describe('scrubHeaderLine', () => {
+  it('collapses CR/LF/NEL/LS/PS to space and collapses runs', () => {
+    expect(scrubHeaderLine('hi\r\nX-Injected: yes')).toBe('hi X-Injected: yes')
+    expect(scrubHeaderLine('Acme\u2028Bcc: evil@x')).toBe('Acme Bcc: evil@x')
+    expect(scrubHeaderLine('a\u0085b\u2029c')).toBe('a b c')
+    expect(scrubHeaderLine('a  \r\n  b')).toBe('a b')
+    expect(scrubHeaderLine('clean')).toBe('clean')
+  })
+})
 
 describe('buildDemoEmailText', () => {
   it('builds subject and text', () => {
@@ -153,6 +165,42 @@ describe('assertStagingEmailPolicy', () => {
 })
 
 describe('createEmailPort / sendCf', () => {
+  it('log port scrubs subject Unicode line terminators before console', async () => {
+    const spy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const port = createLogEmailPort()
+    await port.send({
+      to: 'a@b.c',
+      subject: 'Hi\u2028Bcc: evil@x',
+      text: 'body',
+    })
+    const logged = JSON.parse(String(spy.mock.calls[0]?.[0] ?? '{}')) as { subject: string }
+    expect(logged.subject).toBe('Hi Bcc: evil@x')
+    expect(logged.subject).not.toMatch(/\u2028/)
+    spy.mockRestore()
+  })
+
+  it('cf port scrubs subject CR/LF and LS before binding.send', async () => {
+    const send = vi.fn(async () => ({ messageId: 'mid_1' }))
+    const port = createEmailPort({
+      transport: 'cf',
+      environment: 'production',
+      email: { send },
+      from: 'noreply@example.com',
+    })
+    await port.send({
+      to: 'user@example.com',
+      subject: 'Invite\r\nX-Injected: yes\u2028more',
+      text: 'hello',
+    })
+    expect(send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        subject: 'Invite X-Injected: yes more',
+      }),
+    )
+    const arg = send.mock.calls[0]?.[0] as { subject: string }
+    expect(arg.subject).not.toMatch(/[\r\n\u0085\u2028\u2029]/)
+  })
+
   it('cf port calls binding with from.email shape', async () => {
     const send = vi.fn(async () => ({ messageId: 'mid_1' }))
     const binding: SendEmailBinding = { send }

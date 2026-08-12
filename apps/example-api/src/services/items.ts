@@ -1,4 +1,4 @@
-import { AppError } from '@kit/core'
+import { AppError, type FieldErrors } from '@kit/core'
 import type { DrizzleD1Database } from 'drizzle-orm/d1'
 import type { schema } from '../db/schema'
 import * as itemsRepo from '../repos/items'
@@ -23,7 +23,10 @@ export async function createItem(
   const code = input.code.trim()
   const label = input.label.trim()
   if (!code || !label) {
-    throw AppError.validation('code and label are required')
+    const fieldErrors: FieldErrors = {}
+    if (!code) fieldErrors.code = ['code is required']
+    if (!label) fieldErrors.label = ['label is required']
+    throw AppError.fieldErrors('code and label are required', fieldErrors)
   }
   const existing = await itemsRepo.getItemByCode(db, subject, code)
   if (existing) {

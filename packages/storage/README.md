@@ -7,9 +7,10 @@ R2 helpers for Chemin A kit apps: safe keys, prefix-enforced client, light **PUT
 | Export | Role |
 |--------|------|
 | `joinObjectKey` / `assertObjectKey` | Path join; reject `..` / empty |
-| `putObject` / `getObject` / `deleteObject` | Free helpers (key must be safe) — **escape hatch** |
-| `StorageClient` | Prefix-enforced put/get/delete/head/list — **prefer this** |
-| `createPresignedUrl(signer, input)` | Validate key then sign via app `PresignSigner` |
+| `putObject` / `getObject` / `deleteObject` | Free helpers (key must be safe) — **escape hatch**, `@deprecated` |
+| `StorageClient` | Prefix-enforced put/get/delete/head/list/**presign** — **prefer this** |
+| `StorageClient.presign(signer, { parts, … })` | **Preferred** product presign (prefix-safe key + sign) |
+| `createPresignedUrl(signer, input)` | Advanced: path-safe sign only — **no** prefix; custom full keys |
 | `createMockPresignSigner` | Local/CI mock (no CF account / secrets) |
 
 ## Free helpers = escape hatch
@@ -19,30 +20,32 @@ R2 helpers for Chemin A kit apps: safe keys, prefix-enforced client, light **PUT
 
 **Products should use `StorageClient`** so every key is joined under `basePrefix`.
 
-`createPresignedUrl` is the **canonical** presign entrypoint (not deprecated).
-Pass keys from `client.key(...parts)` so signed URLs stay under the product prefix.
-
 ## Presign (kit v1)
 
+- **Preferred path:** `client.presign(signer, { parts })` — builds the key under
+  `basePrefix`, asserts prefix, then signs. Returns `{ url, method, headers?, expiresAt, key }`.
+- **Advanced:** `createPresignedUrl(signer, { key, … })` — not deprecated; validates
+  path safety only (no product prefix). Use when you already hold a full trusted key.
 - **PUT only** (A25 light helper — no video multipart).
 - Package **never** holds R2 secrets — apps inject a `PresignSigner` (mock or future S3/aws4fetch).
 - Example app: `PRESIGN_MODE=mock` (default) · `s3` **fail-closed** until a real signer is wired.
 
 ```ts
-import {
-  createMockPresignSigner,
-  createPresignedUrl,
-  StorageClient,
-} from '@kit/storage'
+import { createMockPresignSigner, StorageClient } from '@kit/storage'
 
 const client = new StorageClient(bucket, 'demo')
 const signer = createMockPresignSigner()
-const { url, headers, expiresAt } = await createPresignedUrl(signer, {
-  key: client.key('user', 'upload-id', 'file.bin'), // prefer StorageClient.key
-  method: 'PUT',
+
+// Preferred: prefix-safe parts → key + sign
+const { url, headers, expiresAt, key } = await client.presign(signer, {
+  parts: ['user', 'upload-id', 'file.bin'],
   expiresIn: 300,
   contentType: 'application/octet-stream',
 })
+
+// Advanced (custom full key — no prefix enforcement):
+// import { createPresignedUrl } from '@kit/storage'
+// await createPresignedUrl(signer, { key, method: 'PUT', expiresIn: 300 })
 ```
 
 Demo HTTP (auth required):

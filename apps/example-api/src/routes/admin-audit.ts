@@ -1,4 +1,4 @@
-import { AppError } from '@kit/core'
+import { AppError, zodFieldErrors } from '@kit/core'
 import { Hono } from 'hono'
 import { z } from 'zod'
 import { requirePlatformRole } from '../middleware/org-context'
@@ -22,9 +22,7 @@ adminAuditRoutes.get('/api/admin/audit-events', requirePlatformRole('super_admin
     cursor: c.req.query('cursor') ?? undefined,
   })
   if (!parsed.success) {
-    throw AppError.validation('Invalid query', {
-      fieldErrors: parsed.error.flatten().fieldErrors,
-    })
+    throw AppError.fieldErrors('Invalid query', zodFieldErrors(parsed.error))
   }
   const db = c.get('db')
   if (!db) throw AppError.internal('db not bound')

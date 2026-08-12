@@ -1,7 +1,6 @@
 import type { KitR2Bucket } from '@kit/storage'
 import {
   createMockPresignSigner,
-  createPresignedUrl,
   type PresignResult,
   type PresignSigner,
   StorageClient,
@@ -54,13 +53,11 @@ export async function presignDemoUpload(opts: {
   expiresIn?: number
 }): Promise<PresignResult & { key: string }> {
   const safeName = opts.filename.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 120) || 'file.bin'
+  // Dummy bucket: presign only builds a prefix-safe key + signs (no R2 I/O).
   const client = new StorageClient({} as KitR2Bucket, 'demo')
-  const key = client.key(opts.subject, opts.uploadId, safeName)
-  const result = await createPresignedUrl(opts.signer, {
-    key,
-    method: 'PUT',
+  return client.presign(opts.signer, {
+    parts: [opts.subject, opts.uploadId, safeName],
     expiresIn: opts.expiresIn ?? 300,
     contentType: opts.contentType,
   })
-  return { ...result, key }
 }

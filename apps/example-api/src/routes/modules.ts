@@ -1,4 +1,4 @@
-import { AppError } from '@kit/core'
+import { AppError, zodFieldErrors } from '@kit/core'
 import { Hono } from 'hono'
 import { z } from 'zod'
 import { requirePlatformRole } from '../middleware/org-context'
@@ -31,9 +31,7 @@ modulesRoutes.patch('/api/modules/:id', requirePlatformRole('super_admin'), asyn
 
   const parsed = patchSchema.safeParse(await c.req.json().catch(() => null))
   if (!parsed.success) {
-    throw AppError.validation('Invalid module payload', {
-      fieldErrors: parsed.error.flatten().fieldErrors,
-    })
+    throw AppError.fieldErrors('Invalid module payload', zodFieldErrors(parsed.error))
   }
 
   const db = c.get('db')!

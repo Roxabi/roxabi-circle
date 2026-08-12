@@ -5,14 +5,11 @@ import { createMemoryEnv } from '../test/memory-env'
 import * as keysRepo from './keys'
 
 /**
- * D11 fail-closed: when callers pass organizationId (even empty/whitespace),
- * never return the unscoped subject list.
- *
- * The empty-string org row is intentional: pure deletion of
- * `if (!org) return []` would make `eq(organizationId, '')` match key_empty
- * and this suite must go red.
+ * Explicit list paths (no triple-semantics opts bag):
+ * - listApiKeysForSubject → all keys for subject (session)
+ * - listApiKeysForOrg → D11 scoped; blank org → [] without empty-string SQL
  */
-describe('listApiKeysForSubject D11 empty-org fail-closed', () => {
+describe('listApiKeysForSubject / listApiKeysForOrg', () => {
   async function seedStaffKeys() {
     const env = createMemoryEnv({
       BETTER_AUTH_SECRET: 'test-better-auth-secret-at-least-32!!',
@@ -37,43 +34,28 @@ describe('listApiKeysForSubject D11 empty-org fail-closed', () => {
       organizationId: 'org_beta',
       createdAt: now,
     })
-    // Pins early-return: without fail-closed, eq(organizationId, '') matches this row.
-    await keysRepo.insertApiKey(db, {
-      id: 'key_empty',
-      keyHash: 'hash_empty',
-      keyPrefix: 'sk_cccc',
-      subject: 'user_staff',
-      organizationId: '',
-      createdAt: now,
-    })
     return db
   }
 
-  it('unscoped list includes empty-org row (baseline fixture)', async () => {
+  it('listApiKeysForSubject returns all keys for subject', async () => {
     const db = await seedStaffKeys()
     const all = await keysRepo.listApiKeysForSubject(db, 'user_staff')
-    expect(all.map((k) => k.id).sort()).toEqual(['key_1', 'key_2', 'key_empty'])
+    expect(all.map((k) => k.id).sort()).toEqual(['key_1', 'key_2'])
   })
 
-  it('returns [] for empty organizationId despite empty-org row existing', async () => {
+  it('listApiKeysForOrg scopes to a real organizationId', async () => {
     const db = await seedStaffKeys()
-    expect(await keysRepo.listApiKeysForSubject(db, 'user_staff', { organizationId: '' })).toEqual(
-      [],
-    )
-  })
-
-  it('returns [] for whitespace organizationId despite empty-org row existing', async () => {
-    const db = await seedStaffKeys()
-    expect(
-      await keysRepo.listApiKeysForSubject(db, 'user_staff', { organizationId: '   ' }),
-    ).toEqual([])
-  })
-
-  it('scopes to non-empty organizationId', async () => {
-    const db = await seedStaffKeys()
-    const scoped = await keysRepo.listApiKeysForSubject(db, 'user_staff', {
-      organizationId: 'org_acme',
-    })
+    const scoped = await keysRepo.listApiKeysForOrg(db, 'user_staff', 'org_acme')
     expect(scoped.map((k) => k.id)).toEqual(['key_1'])
+  })
+
+  it('listApiKeysForOrg with empty string returns [] (fail-closed)', async () => {
+    const db = await seedStaffKeys()
+    expect(await keysRepo.listApiKeysForOrg(db, 'user_staff', '')).toEqual([])
+  })
+
+  it('listApiKeysForOrg with whitespace returns [] (fail-closed)', async () => {
+    const db = await seedStaffKeys()
+    expect(await keysRepo.listApiKeysForOrg(db, 'user_staff', '   ')).toEqual([])
   })
 })

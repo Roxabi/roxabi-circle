@@ -109,6 +109,42 @@ describe('StorageClient', () => {
   it('rejects invalid base prefix', () => {
     expect(() => new StorageClient(memoryBucket(), 'a/../b')).toThrow(StorageError)
   })
+
+  it('presign builds key under prefix and calls signer', async () => {
+    const client = new StorageClient(memoryBucket(), 'demo')
+    const signedKeys: string[] = []
+    const signer = {
+      async sign(input: { key: string; method: 'PUT'; expiresIn: number; contentType?: string }) {
+        signedKeys.push(input.key)
+        return {
+          url: `https://mock.test/${encodeURIComponent(input.key)}`,
+          method: 'PUT' as const,
+          headers: input.contentType ? { 'Content-Type': input.contentType } : undefined,
+          expiresAt: Date.now() + input.expiresIn * 1000,
+        }
+      },
+    }
+
+    const res = await client.presign(signer, {
+      parts: ['user', 'u1', 'file.bin'],
+      expiresIn: 300,
+      contentType: 'application/octet-stream',
+    })
+
+    expect(res.key).toBe('demo/user/u1/file.bin')
+    expect(signedKeys).toEqual(['demo/user/u1/file.bin'])
+    expect(res.method).toBe('PUT')
+    expect(res.url).toContain(encodeURIComponent('demo/user/u1/file.bin'))
+    expect(res.headers?.['Content-Type']).toBe('application/octet-stream')
+  })
+
+  it('presign rejects path traversal in parts', async () => {
+    const client = new StorageClient(memoryBucket(), 'demo')
+    const signer = createMockPresignSigner()
+    await expect(client.presign(signer, { parts: ['../secret'], expiresIn: 300 })).rejects.toThrow(
+      /traversal/,
+    )
+  })
 })
 
 describe('createPresignedUrl', () => {

@@ -71,9 +71,13 @@ export async function createOrganization(
   },
 ) {
   const name = input.name.trim()
-  if (!name) throw AppError.validation('name is required')
+  if (!name) {
+    throw AppError.fieldErrors('name is required', { name: ['name is required'] })
+  }
   const slug = slugify(input.slug?.trim() || name)
-  if (!slug) throw AppError.validation('slug is required')
+  if (!slug) {
+    throw AppError.fieldErrors('slug is required', { slug: ['slug is required'] })
+  }
   const existing = await orgsRepo.findOrgBySlug(db, slug)
   if (existing) throw AppError.conflict('Organization slug already exists')
 
@@ -142,7 +146,9 @@ export async function listOrgMembers(db: Db, orgId: string) {
 
 export function assertOrgRoleKey(role: string): OrgRoleKey {
   if (!isOrgRoleKey(role)) {
-    throw AppError.validation('Invalid organization role')
+    throw AppError.fieldErrors('Invalid organization role', {
+      role: ['Invalid organization role'],
+    })
   }
   return role
 }

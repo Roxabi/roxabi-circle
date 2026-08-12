@@ -63,8 +63,8 @@ export async function createAdminUser(db: Db, input: CreateAdminUserInput) {
 
   const email = normalizeEmail(input.email)
   if (!email?.includes('@')) {
-    throw AppError.validation('Invalid email', {
-      fieldErrors: { email: ['Valid email required'] },
+    throw AppError.fieldErrors('Invalid email', {
+      email: ['Valid email required'],
     })
   }
 
@@ -86,7 +86,9 @@ export async function createAdminUser(db: Db, input: CreateAdminUserInput) {
   let platformRole: PlatformRole | null = null
   if (input.platformRole != null && input.platformRole !== undefined) {
     if (!isPlatformRole(input.platformRole)) {
-      throw AppError.validation('Invalid platformRole')
+      throw AppError.fieldErrors('Invalid platformRole', {
+        platformRole: ['Invalid platform role'],
+      })
     }
     if (input.actorPlatformRole !== 'super_admin') {
       throw AppError.forbidden('Only super_admin may assign platform roles')

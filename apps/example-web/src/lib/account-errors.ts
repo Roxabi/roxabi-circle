@@ -56,8 +56,13 @@ export function profileErrorMessage(err: unknown, m: Messages): string {
 
 /**
  * Map errors for **password sign-in** only.
- * 400 / 401 / 403 / UNAUTHORIZED / FORBIDDEN / VALIDATION → same non-enumerating
- * `loginFailed` (unknown email vs wrong password must not differ in UI copy).
+ *
+ * **UI copy only** — 400 / 401 / 403 / UNAUTHORIZED / FORBIDDEN / VALIDATION_ERROR
+ * collapse to the same `loginFailed` string so the toast does not differ for
+ * unknown email vs wrong password. HTTP status (and BA body) may still differ
+ * on the wire (Network tab). Full anti-enumeration requires BA/Worker response
+ * normalization — not this helper.
+ *
  * 429 stays rate-limited.
  */
 export function loginErrorMessage(err: unknown, m: Messages): string {
