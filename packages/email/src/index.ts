@@ -1,4 +1,5 @@
 import type { CfEmailAddress, SendEmailBinding } from './cf'
+import { emailDomain } from './domain'
 import {
   createCfEmailPort,
   createLogEmailPort,
@@ -171,25 +172,10 @@ export function parseAllowDomains(raw?: string | null): string[] {
   return [...out]
 }
 
-/** Extract domain from an email address (after last @). */
-export function emailDomain(address: string): string | null {
-  const s = address.trim().toLowerCase()
-  const at = s.lastIndexOf('@')
-  if (at <= 0 || at === s.length - 1) return null
-  return s.slice(at + 1)
-}
+export { emailDomain, isRecipientDomainAllowed } from './domain'
 
 export function fromEmailString(from: CfEmailAddress): string {
   return typeof from === 'string' ? from : from.email
-}
-
-/** Exact domain match (no parent-domain wildcard). */
-export function isRecipientDomainAllowed(to: string, allowDomains: string[]): boolean {
-  if (allowDomains.length === 0) return true
-  const domain = emailDomain(to)
-  if (domain == null) return false
-  const allow = new Set(allowDomains.map((d) => d.trim().toLowerCase()).filter(Boolean))
-  return allow.has(domain)
 }
 
 export function assertFromDomain(from: CfEmailAddress, fromDomain: string): void {
@@ -303,7 +289,7 @@ export function createEmailPort(opts: CreateEmailPortOpts): EmailPort {
     throw new Error(`Unsupported EMAIL_TRANSPORT: ${opts.transport}`)
   }
 
-  port = withRecipientAllowlist(port, allow, isRecipientDomainAllowed, emailDomain)
+  port = withRecipientAllowlist(port, allow)
   if (isStaging(opts.environment)) {
     port = withStagingSubjectPrefix(port, prefixStagingSubject)
   }

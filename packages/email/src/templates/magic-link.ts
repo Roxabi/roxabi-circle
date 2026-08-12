@@ -2,13 +2,7 @@
  * Kit magic-link sign-in email (string-rendered). No product-domain copy.
  * Header scrub is at EmailPort boundary (scrubHeaderLine).
  */
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-}
+import { escapeHtml } from '../escape-html'
 
 export function MagicLinkEmail(props: { to: string; magicUrl: string; expiresHint?: string }) {
   const safeUrl = escapeHtml(props.magicUrl)

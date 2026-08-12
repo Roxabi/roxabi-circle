@@ -83,7 +83,7 @@ export async function mintApiKey(
 }
 
 /** Session path: all keys for subject (no org filter). */
-export async function listApiKeys(db: Db, subject: string) {
+export async function listApiKeysForSubject(db: Db, subject: string) {
   return keysRepo.listApiKeysForSubject(db, subject)
 }
 

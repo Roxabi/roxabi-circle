@@ -3,6 +3,7 @@
  * Choke point: every transport scrubs to/subject (and From where applicable).
  */
 import { type CfEmailAddress, type SendEmailBinding, sendCf } from './cf'
+import { emailDomain, isRecipientDomainAllowed } from './domain'
 import { redactEmailBody } from './redact'
 import { scrubHeaderLine } from './scrub'
 import type { EmailPort } from './types'
@@ -112,17 +113,12 @@ export function createResendEmailPort(apiKey: string, from: CfEmailAddress): Ema
   }
 }
 
-export function withRecipientAllowlist(
-  port: EmailPort,
-  allowDomains: string[],
-  isAllowed: (to: string, domains: string[]) => boolean,
-  domainOf: (to: string) => string | null,
-): EmailPort {
+export function withRecipientAllowlist(port: EmailPort, allowDomains: string[]): EmailPort {
   if (allowDomains.length === 0) return port
   return {
     async send(input) {
-      if (!isAllowed(input.to, allowDomains)) {
-        const d = domainOf(input.to) ?? '(invalid)'
+      if (!isRecipientDomainAllowed(input.to, allowDomains)) {
+        const d = emailDomain(input.to) ?? '(invalid)'
         throw new Error(`EMAIL_RECIPIENT_DOMAIN_NOT_ALLOWED: ${d} not in EMAIL_ALLOW_DOMAINS`)
       }
       return port.send(input)

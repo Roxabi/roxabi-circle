@@ -1,4 +1,4 @@
-import { AppError, zodFieldErrors } from '@kit/core'
+import { AppError, parseOrThrow } from '@kit/core'
 import { Hono } from 'hono'
 import { z } from 'zod'
 import { resolveEmailPort } from '../lib/email-port'
@@ -77,14 +77,15 @@ orgsRoutes.post('/api/orgs', async (c) => {
   if (c.get('authMethod') !== 'session') {
     throw AppError.forbidden('Creating organizations requires a session')
   }
-  const parsed = createSchema.safeParse(await c.req.json().catch(() => null))
-  if (!parsed.success) {
-    throw AppError.fieldErrors('Invalid organization payload', zodFieldErrors(parsed.error))
-  }
+  const data = parseOrThrow(
+    createSchema,
+    await c.req.json().catch(() => null),
+    'Invalid organization payload',
+  )
   const db = c.get('db')!
   const org = await orgsService.createOrganization(db, {
-    name: parsed.data.name,
-    slug: parsed.data.slug,
+    name: data.name,
+    slug: data.slug,
     kind: 'client',
     ownerUserId: c.get('subject')!,
   })
@@ -121,17 +122,18 @@ orgsRoutes.post(
     if (!orgRole) {
       throw AppError.forbidden('Organization membership required')
     }
-    const parsed = inviteCreateSchema.safeParse(await c.req.json().catch(() => null))
-    if (!parsed.success) {
-      throw AppError.fieldErrors('Invalid invitation payload', zodFieldErrors(parsed.error))
-    }
+    const data = parseOrThrow(
+      inviteCreateSchema,
+      await c.req.json().catch(() => null),
+      'Invalid invitation payload',
+    )
     const acceptBaseUrl = corsAllowlist(c.env)[0] ?? 'http://localhost:5173'
     const invitation = await invitationsService.createInvitation(c.get('db')!, {
       orgId: c.get('orgId')!,
       inviterUserId: c.get('subject')!,
       inviterOrgRole: orgRole,
-      email: parsed.data.email,
-      role: parsed.data.role,
+      email: data.email,
+      role: data.role,
       acceptBaseUrl,
       emailPort: resolveEmailPort(c.env),
       requestId: c.get('requestId'),
@@ -195,16 +197,17 @@ orgsRoutes.patch(
     if (c.get('authMethod') !== 'session') {
       throw AppError.forbidden('Module settings require a session cookie')
     }
-    const parsed = patchModuleSchema.safeParse(await c.req.json().catch(() => null))
-    if (!parsed.success) {
-      throw AppError.fieldErrors('Invalid module payload', zodFieldErrors(parsed.error))
-    }
+    const data = parseOrThrow(
+      patchModuleSchema,
+      await c.req.json().catch(() => null),
+      'Invalid module payload',
+    )
     const db = c.get('db')!
     await platformModulesService.setOrgModuleEnabled(
       db,
       c.get('orgId')!,
       c.req.param('moduleId'),
-      parsed.data.enabled,
+      data.enabled,
     )
     const modules = await platformModulesService.getOrgModulesEffective(db, c.get('orgId')!)
     return c.json({ modules, requestId: c.get('requestId') })
@@ -233,16 +236,17 @@ orgsRoutes.post(
     }
     const orgRole = c.get('orgRole')
     if (!orgRole) throw AppError.forbidden('Organization role required')
-    const parsed = createRoleSchema.safeParse(await c.req.json().catch(() => null))
-    if (!parsed.success) {
-      throw AppError.fieldErrors('Invalid role payload', zodFieldErrors(parsed.error))
-    }
+    const data = parseOrThrow(
+      createRoleSchema,
+      await c.req.json().catch(() => null),
+      'Invalid role payload',
+    )
     const db = c.get('db')!
     const role = await orgRolesService.createCustomRole(db, {
       organizationId: c.get('orgId')!,
-      key: parsed.data.key,
-      name: parsed.data.name,
-      grants: parsed.data.grants,
+      key: data.key,
+      name: data.name,
+      grants: data.grants,
       actorRoleKey: orgRole,
     })
     return c.json({ role, requestId: c.get('requestId') }, 201)
@@ -259,16 +263,17 @@ orgsRoutes.patch(
     }
     const orgRole = c.get('orgRole')
     if (!orgRole) throw AppError.forbidden('Organization role required')
-    const parsed = patchGrantSchema.safeParse(await c.req.json().catch(() => null))
-    if (!parsed.success) {
-      throw AppError.fieldErrors('Invalid grant payload', zodFieldErrors(parsed.error))
-    }
+    const data = parseOrThrow(
+      patchGrantSchema,
+      await c.req.json().catch(() => null),
+      'Invalid grant payload',
+    )
     const db = c.get('db')!
     const role = await orgRolesService.setRoleGrant(db, {
       organizationId: c.get('orgId')!,
       roleId: c.req.param('roleId'),
       moduleId: c.req.param('moduleId'),
-      access: parsed.data.access,
+      access: data.access,
       actorRoleKey: orgRole,
     })
     return c.json({ role, requestId: c.get('requestId') })
@@ -302,18 +307,13 @@ orgsRoutes.patch(
     if (c.get('authMethod') !== 'session') {
       throw AppError.forbidden('Platform module settings require a session')
     }
-    const body = z
-      .object({ available: z.boolean() })
-      .safeParse(await c.req.json().catch(() => null))
-    if (!body.success) {
-      throw AppError.fieldErrors('Invalid platform module payload', zodFieldErrors(body.error))
-    }
-    const db = c.get('db')!
-    await platformModulesService.setPlatformAvailable(
-      db,
-      c.req.param('moduleId'),
-      body.data.available,
+    const data = parseOrThrow(
+      z.object({ available: z.boolean() }),
+      await c.req.json().catch(() => null),
+      'Invalid platform module payload',
     )
+    const db = c.get('db')!
+    await platformModulesService.setPlatformAvailable(db, c.req.param('moduleId'), data.available)
     const modules = await platformModulesService.listPlatformPublic(db)
     return c.json({ modules, requestId: c.get('requestId') })
   },

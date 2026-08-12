@@ -1,4 +1,4 @@
-import { AppError, zodFieldErrors } from '@kit/core'
+import { AppError, parseOrThrow } from '@kit/core'
 import { Hono } from 'hono'
 import { z } from 'zod'
 import { resolveEmailPort } from '../lib/email-port'
@@ -56,14 +56,15 @@ function webBase(c: {
 
 adminUsersRoutes.get('/api/admin/users', requirePlatformRole('super_admin', 'staff'), async (c) => {
   requireSession(c)
-  const parsed = listSchema.safeParse({
-    q: c.req.query('q') ?? undefined,
-    limit: c.req.query('limit') ?? undefined,
-    offset: c.req.query('offset') ?? undefined,
-  })
-  if (!parsed.success) {
-    throw AppError.fieldErrors('Invalid query', zodFieldErrors(parsed.error))
-  }
+  const data = parseOrThrow(
+    listSchema,
+    {
+      q: c.req.query('q') ?? undefined,
+      limit: c.req.query('limit') ?? undefined,
+      offset: c.req.query('offset') ?? undefined,
+    },
+    'Invalid query',
+  )
   const db = c.get('db')!
   const platformRole = c.get('platformRole')
   if (platformRole !== 'super_admin' && platformRole !== 'staff') {
@@ -72,7 +73,7 @@ adminUsersRoutes.get('/api/admin/users', requirePlatformRole('super_admin', 'sta
   const users = await adminUsersService.listAdminUsers(db, {
     actorUserId: c.get('subject')!,
     actorPlatformRole: platformRole,
-    ...parsed.data,
+    ...data,
   })
   return c.json({ users, requestId: c.get('requestId') })
 })
@@ -82,10 +83,11 @@ adminUsersRoutes.post(
   requirePlatformRole('super_admin', 'staff'),
   async (c) => {
     requireSession(c)
-    const parsed = createSchema.safeParse(await c.req.json().catch(() => null))
-    if (!parsed.success) {
-      throw AppError.fieldErrors('Invalid create user payload', zodFieldErrors(parsed.error))
-    }
+    const data = parseOrThrow(
+      createSchema,
+      await c.req.json().catch(() => null),
+      'Invalid create user payload',
+    )
     const platformRole = c.get('platformRole')
     if (platformRole !== 'super_admin' && platformRole !== 'staff') {
       throw AppError.forbidden('Platform role required')
@@ -94,11 +96,11 @@ adminUsersRoutes.post(
     const result = await adminUsersService.createAdminUser(db, {
       actorUserId: c.get('subject')!,
       actorPlatformRole: platformRole,
-      email: parsed.data.email,
-      name: parsed.data.name,
-      platformRole: parsed.data.platformRole ?? null,
-      memberships: parsed.data.memberships,
-      sendEmail: parsed.data.sendEmail,
+      email: data.email,
+      name: data.name,
+      platformRole: data.platformRole ?? null,
+      memberships: data.memberships,
+      sendEmail: data.sendEmail,
       webBaseUrl: webBase(c),
       emailPort: resolveEmailPort(c.env),
       requestId: c.get('requestId'),

@@ -1,4 +1,4 @@
-import { AppError, zodFieldErrors } from '@kit/core'
+import { AppError, parseOrThrow } from '@kit/core'
 import { Hono } from 'hono'
 import { z } from 'zod'
 import { assertRateLimit } from '../lib/rate-limit'
@@ -50,7 +50,7 @@ meRoutes.get('/api/keys', async (c) => {
     const keys = await authService.listApiKeysForOrg(db, subject, org)
     return c.json({ keys, requestId })
   }
-  const keys = await authService.listApiKeys(db, subject)
+  const keys = await authService.listApiKeysForSubject(db, subject)
   return c.json({ keys, requestId })
 })
 
@@ -63,21 +63,20 @@ meRoutes.post('/api/keys', async (c) => {
   const db = c.get('db')!
   await assertRateLimit(db, `mint:${subject}`, MINT_LIMIT, MINT_WINDOW_MS)
 
-  const body = z
-    .object({
+  const data = parseOrThrow(
+    z.object({
       name: z.string().max(80).optional(),
       organizationId: z.string().min(1).optional(),
-    })
-    .safeParse(await c.req.json().catch(() => ({})))
-  if (!body.success) {
-    throw AppError.fieldErrors('Invalid key mint payload', zodFieldErrors(body.error))
-  }
+    }),
+    await c.req.json().catch(() => ({})),
+    'Invalid key mint payload',
+  )
 
   const orgFromHeader = c.req.header('x-org-id')?.trim()
-  const organizationId = body.data.organizationId?.trim() || orgFromHeader || null
+  const organizationId = data.organizationId?.trim() || orgFromHeader || null
   // `mintApiKey` refuses a missing organization itself (ADR-0003 D11) — no opt-in flag to pass.
   const minted = await authService.mintApiKey(db, subject, {
-    name: body.data.name,
+    name: data.name,
     organizationId,
   })
   return c.json({

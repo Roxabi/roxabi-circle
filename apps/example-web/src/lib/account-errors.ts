@@ -1,13 +1,20 @@
 import type { Messages } from '../messages/fr'
 import { ApiError, apiErrorToMessage } from './api'
 
-function httpStatus(err: unknown): number | null {
-  if (err instanceof ApiError) return err.status
+/** ApiError fields + BA non-kit envelopes `Error('HTTP N')` from apiFetch. */
+function resolveStatusCode(err: unknown): { status: number | null; code: string | null } {
+  if (err instanceof ApiError) return { status: err.status, code: err.code }
   if (err instanceof Error) {
     const match = /^HTTP (\d{3})$/.exec(err.message)
-    if (match) return Number(match[1])
+    if (match) return { status: Number(match[1]), code: null }
   }
-  return null
+  return { status: null, code: null }
+}
+
+/** True for ApiError 429 / RATE_LIMITED or `Error('HTTP 429')`. */
+export function isRateLimited(err: unknown): boolean {
+  const { status, code } = resolveStatusCode(err)
+  return status === 429 || code === 'RATE_LIMITED'
 }
 
 /**
@@ -21,17 +28,10 @@ function httpStatus(err: unknown): number | null {
  * - 403 → re-auth (future SESSION_NOT_FRESH / forbidden sensitive) — not “wrong password”
  */
 export function changePasswordErrorMessage(err: unknown, m: Messages): string {
-  if (err instanceof ApiError) {
-    if (err.status === 401 || err.code === 'UNAUTHORIZED') return m.changePasswordReauth
-    if (err.status === 429 || err.code === 'RATE_LIMITED') return m.errRateLimited
-    if (err.status === 403 || err.code === 'FORBIDDEN') return m.changePasswordReauth
-    if (err.status === 400) return m.changePasswordWrong
-    return apiErrorToMessage(err, m)
-  }
-  const status = httpStatus(err)
-  if (status === 401) return m.changePasswordReauth
-  if (status === 429) return m.errRateLimited
-  if (status === 403) return m.changePasswordReauth
+  const { status, code } = resolveStatusCode(err)
+  if (status === 401 || code === 'UNAUTHORIZED') return m.changePasswordReauth
+  if (status === 429 || code === 'RATE_LIMITED') return m.errRateLimited
+  if (status === 403 || code === 'FORBIDDEN') return m.changePasswordReauth
   if (status === 400) return m.changePasswordWrong
   return apiErrorToMessage(err, m)
 }
@@ -41,16 +41,10 @@ export function changePasswordErrorMessage(err: unknown, m: Messages): string {
  * Never uses change-password copy (wrong password / reauth-for-password).
  */
 export function profileErrorMessage(err: unknown, m: Messages): string {
-  if (err instanceof ApiError) {
-    if (err.status === 401 || err.code === 'UNAUTHORIZED') return m.errUnauthorized
-    if (err.status === 429 || err.code === 'RATE_LIMITED') return m.errRateLimited
-    if (err.status === 400 || err.code === 'VALIDATION_ERROR') return m.errValidation
-    return apiErrorToMessage(err, m)
-  }
-  const status = httpStatus(err)
-  if (status === 401) return m.errUnauthorized
-  if (status === 429) return m.errRateLimited
-  if (status === 400) return m.errValidation
+  const { status, code } = resolveStatusCode(err)
+  if (status === 401 || code === 'UNAUTHORIZED') return m.errUnauthorized
+  if (status === 429 || code === 'RATE_LIMITED') return m.errRateLimited
+  if (status === 400 || code === 'VALIDATION_ERROR') return m.errValidation
   return apiErrorToMessage(err, m)
 }
 
@@ -66,22 +60,17 @@ export function profileErrorMessage(err: unknown, m: Messages): string {
  * 429 stays rate-limited.
  */
 export function loginErrorMessage(err: unknown, m: Messages): string {
-  if (err instanceof ApiError) {
-    if (err.status === 429 || err.code === 'RATE_LIMITED') return m.errRateLimited
-    if (
-      err.status === 400 ||
-      err.status === 401 ||
-      err.status === 403 ||
-      err.code === 'UNAUTHORIZED' ||
-      err.code === 'FORBIDDEN' ||
-      err.code === 'VALIDATION_ERROR'
-    ) {
-      return m.loginFailed
-    }
-    return apiErrorToMessage(err, m)
+  const { status, code } = resolveStatusCode(err)
+  if (status === 429 || code === 'RATE_LIMITED') return m.errRateLimited
+  if (
+    status === 400 ||
+    status === 401 ||
+    status === 403 ||
+    code === 'UNAUTHORIZED' ||
+    code === 'FORBIDDEN' ||
+    code === 'VALIDATION_ERROR'
+  ) {
+    return m.loginFailed
   }
-  const status = httpStatus(err)
-  if (status === 429) return m.errRateLimited
-  if (status === 400 || status === 401 || status === 403) return m.loginFailed
   return apiErrorToMessage(err, m)
 }

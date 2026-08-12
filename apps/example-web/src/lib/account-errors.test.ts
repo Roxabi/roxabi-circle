@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { en } from '../messages/en'
 import {
   changePasswordErrorMessage,
+  isRateLimited,
   loginErrorMessage,
   profileErrorMessage,
 } from './account-errors'
@@ -13,6 +14,18 @@ function apiErr(status: number, code: string): ApiError {
     requestId: 'req_test',
   })
 }
+
+describe('isRateLimited', () => {
+  it('detects ApiError 429 / RATE_LIMITED and Error(HTTP 429)', () => {
+    expect(isRateLimited(apiErr(429, 'RATE_LIMITED'))).toBe(true)
+    expect(isRateLimited(apiErr(429, 'INTERNAL_ERROR'))).toBe(true)
+    expect(isRateLimited(apiErr(401, 'RATE_LIMITED'))).toBe(true)
+    expect(isRateLimited(new Error('HTTP 429'))).toBe(true)
+    expect(isRateLimited(new Error('HTTP 401'))).toBe(false)
+    expect(isRateLimited(apiErr(401, 'UNAUTHORIZED'))).toBe(false)
+    expect(isRateLimited(new Error('nope'))).toBe(false)
+  })
+})
 
 describe('changePasswordErrorMessage', () => {
   it('maps 401 / UNAUTHORIZED → reauth', () => {
@@ -61,6 +74,7 @@ describe('profileErrorMessage', () => {
     expect(profileErrorMessage(new Error('HTTP 400'), en)).toBe(en.errValidation)
     expect(profileErrorMessage(apiErr(401, 'UNAUTHORIZED'), en)).toBe(en.errUnauthorized)
     expect(profileErrorMessage(apiErr(429, 'RATE_LIMITED'), en)).toBe(en.errRateLimited)
+    expect(profileErrorMessage(new Error('HTTP 429'), en)).toBe(en.errRateLimited)
   })
 })
 
@@ -79,6 +93,7 @@ describe('loginErrorMessage', () => {
 
   it('maps 429 → rate limited only', () => {
     expect(loginErrorMessage(apiErr(429, 'RATE_LIMITED'), en)).toBe(en.errRateLimited)
+    expect(loginErrorMessage(new Error('HTTP 429'), en)).toBe(en.errRateLimited)
   })
 
   it('never returns change-password or session-expired copy on failed sign-in', () => {
