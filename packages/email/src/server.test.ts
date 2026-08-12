@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from 'vitest'
 import { parseSmtpReply, type SmtpConnect, sendLog, sendSmtp } from './server'
 
-function mockConnect(script: string[]): SmtpConnect {
-  return async () => {
+function mockConnect(script: string[]): SmtpConnect & { getWritten: () => string } {
+  let writeBuf = ''
+  const connect = (async () => {
     let scriptIdx = 0
-    let writeBuf = ''
     const decoder = new TextDecoder()
     const encoder = new TextEncoder()
 
@@ -27,17 +27,21 @@ function mockConnect(script: string[]): SmtpConnect {
       readable,
       writable,
       async close() {},
-      // expose for assertions in tests via closure
-      get _written() {
-        return writeBuf
-      },
-    } as unknown as {
-      writable: WritableStream
-      readable: ReadableStream
-      close: () => Promise<void>
     }
-  }
+  }) as SmtpConnect & { getWritten: () => string }
+  connect.getWritten = () => writeBuf
+  return connect
 }
+
+const okSmtpScript = [
+  '220 mailpit\r\n',
+  '250-hello\r\n250 OK\r\n',
+  '250 OK\r\n',
+  '250 OK\r\n',
+  '354 go ahead\r\n',
+  '250 queued\r\n',
+  '221 bye\r\n',
+]
 
 describe('parseSmtpReply', () => {
   it('parses single-line success', () => {
@@ -79,15 +83,7 @@ describe('email server transport', () => {
   })
 
   it('sendSmtp succeeds only after SMTP success codes', async () => {
-    const connect = mockConnect([
-      '220 mailpit\r\n',
-      '250-hello\r\n250 OK\r\n',
-      '250 OK\r\n',
-      '250 OK\r\n',
-      '354 go ahead\r\n',
-      '250 queued\r\n',
-      '221 bye\r\n',
-    ])
+    const connect = mockConnect(okSmtpScript)
     const r = await sendSmtp(
       {
         host: '127.0.0.1',
@@ -119,5 +115,69 @@ describe('email server transport', () => {
     if (!r.ok) {
       expect(r.error).toMatch(/550|MAIL FROM|relay/i)
     }
+  })
+
+  it('sendSmtp scrubs CR/LF from envelope MAIL FROM / RCPT TO (no command injection)', async () => {
+    const connect = mockConnect(okSmtpScript)
+    const r = await sendSmtp(
+      {
+        host: '127.0.0.1',
+        port: 1025,
+        from: 'kit@kit.local\r\nBCC: evil@evil.com',
+        to: 'demo@kit.local\r\nRCPT TO:<other@evil.com>',
+        subject: 'hi\r\nX-Injected: yes',
+        text: 'body',
+      },
+      { connect },
+    )
+    expect(r).toEqual({ ok: true, transport: 'smtp' })
+    const written = connect.getWritten()
+    // Envelope commands must be single-line; CR/LF only as SMTP line terminators we append.
+    const mailFrom = written.split('\r\n').find((l) => l.startsWith('MAIL FROM:'))
+    const rcptTo = written.split('\r\n').find((l) => l.startsWith('RCPT TO:'))
+    expect(mailFrom).toBeDefined()
+    expect(rcptTo).toBeDefined()
+    expect(mailFrom).not.toMatch(/[\r\n]/)
+    expect(rcptTo).not.toMatch(/[\r\n]/)
+    expect(mailFrom).toBe('MAIL FROM:<kit@kit.local BCC: evil@evil.com>')
+    expect(rcptTo).toBe('RCPT TO:<demo@kit.local RCPT TO:<other@evil.com>>')
+    // Must not write a second RCPT from injected payload as its own command line.
+    const rcptLines = written.split('\r\n').filter((l) => l.startsWith('RCPT TO:'))
+    expect(rcptLines).toHaveLength(1)
+    expect(written).not.toContain('\r\nBCC:')
+  })
+
+  it('sendSmtp fails closed when from/to empty after CR/LF scrub', async () => {
+    const connect = mockConnect(okSmtpScript)
+    const rFrom = await sendSmtp(
+      {
+        host: '127.0.0.1',
+        port: 1025,
+        from: '\r\n\t  ',
+        to: 'demo@kit.local',
+        subject: 'hi',
+        text: 'body',
+      },
+      { connect },
+    )
+    expect(rFrom.ok).toBe(false)
+    if (!rFrom.ok) expect(rFrom.error).toMatch(/empty after CR\/LF scrub/i)
+    expect(connect.getWritten()).toBe('')
+
+    const connect2 = mockConnect(okSmtpScript)
+    const rTo = await sendSmtp(
+      {
+        host: '127.0.0.1',
+        port: 1025,
+        from: 'kit@kit.local',
+        to: '\r\n',
+        subject: 'hi',
+        text: 'body',
+      },
+      { connect: connect2 },
+    )
+    expect(rTo.ok).toBe(false)
+    if (!rTo.ok) expect(rTo.error).toMatch(/empty after CR\/LF scrub/i)
+    expect(connect2.getWritten()).toBe('')
   })
 })

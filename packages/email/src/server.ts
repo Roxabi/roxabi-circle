@@ -93,12 +93,24 @@ export async function sendSmtp(
     }
   }
 
-  // Strip CR/LF from header fields (header injection if caller passes user input).
-  const scrub = (s: string) => s.replace(/[\r\n]/g, ' ')
+  // Strip CR/LF from header fields and SMTP envelope (command injection if user input).
+  // Collapse any CR/LF run to a single space so `\r\n` does not become two spaces.
+  const scrub = (s: string) => s.replace(/[\r\n]+/g, ' ')
+  const from = scrub(input.from).trim()
+  const to = scrub(input.to).trim()
+  const subject = scrub(input.subject).trimEnd()
+  if (!from || !to) {
+    return {
+      ok: false,
+      transport: 'smtp',
+      error: 'invalid from/to address (empty after CR/LF scrub)',
+    }
+  }
+
   const body = [
-    `From: ${scrub(input.from)}`,
-    `To: ${scrub(input.to)}`,
-    `Subject: ${scrub(input.subject)}`,
+    `From: ${from}`,
+    `To: ${to}`,
+    `Subject: ${subject}`,
     `Date: ${new Date().toUTCString()}`,
     `Message-ID: <${crypto.randomUUID()}@kit.local>`,
     ``,
@@ -132,9 +144,9 @@ export async function sendSmtp(
     await expect('banner')
     await write('EHLO localhost')
     await expect('EHLO')
-    await write(`MAIL FROM:<${input.from}>`)
+    await write(`MAIL FROM:<${from}>`)
     await expect('MAIL FROM')
-    await write(`RCPT TO:<${input.to}>`)
+    await write(`RCPT TO:<${to}>`)
     await expect('RCPT TO')
     await write('DATA')
     await expect('DATA')

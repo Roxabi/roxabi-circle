@@ -1,6 +1,5 @@
 import { parseBearer } from '@kit/auth'
-import { DEFAULT_EXAMPLE_TOOL_NAMES, type WhoamiStatus } from './agentWire'
-import { assertToolsMatchAllowlist } from './catalogue'
+import type { WhoamiStatus } from './agentWire'
 import { meResponseSchema } from './schemas'
 
 export {
@@ -10,8 +9,6 @@ export {
   MCP_BEARER_HEADER,
   MCP_BEARER_PREFIX,
   MCP_ENV_KEYS,
-  MCP_TOOL_NAMES,
-  type McpToolName,
   PUBLIC_TOOL_ERROR_CODES,
   PUBLIC_TOOL_ERROR_MESSAGES,
   type PublicToolErrorCode,
@@ -44,23 +41,6 @@ export {
   type WhoamiResultParsed,
   whoamiResultSchema,
 } from './schemas'
-
-/**
- * @deprecated Use {@link assertToolsMatchAllowlist} with an app-local allowlist.
- * Kept as thin alias so older call sites keep compiling during migrate.
- */
-export function assertExactKitTools(names: string[]): void {
-  assertToolsMatchAllowlist(names, [...DEFAULT_EXAMPLE_TOOL_NAMES])
-}
-
-/** @deprecated Prefer banlist script + app allowlist; no product tokens in kit package. */
-export function assertNoShareTools(names: string[]): void {
-  for (const n of names) {
-    if (!n || !/^[a-z][a-z0-9_]*$/i.test(n)) {
-      throw new Error(`invalid MCP tool name: ${n}`)
-    }
-  }
-}
 
 function asSkKey(token: string | null | undefined): string | null {
   if (!token?.startsWith('sk_')) return null

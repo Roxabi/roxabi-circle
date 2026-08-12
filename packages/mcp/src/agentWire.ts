@@ -64,7 +64,3 @@ export const INPUT_BUDGET = {
  */
 export const DEFAULT_EXAMPLE_TOOL_NAMES = ['ping', 'whoami'] as const
 export type DefaultExampleToolName = (typeof DEFAULT_EXAMPLE_TOOL_NAMES)[number]
-
-/** @deprecated Prefer DEFAULT_EXAMPLE_TOOL_NAMES — same values. */
-export const MCP_TOOL_NAMES = DEFAULT_EXAMPLE_TOOL_NAMES
-export type McpToolName = DefaultExampleToolName

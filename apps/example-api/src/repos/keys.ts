@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull } from 'drizzle-orm'
+import { and, desc, eq } from 'drizzle-orm'
 import type { DrizzleD1Database } from 'drizzle-orm/d1'
 import { apiKeys, type schema } from '../db/schema'
 
@@ -35,16 +35,6 @@ export async function insertApiKey(
 /** Active key by prefix (may return revoked/expired — caller filters). */
 export async function findApiKeyByPrefix(db: Db, keyPrefix: string) {
   const rows = await db.select().from(apiKeys).where(eq(apiKeys.keyPrefix, keyPrefix)).all()
-  return rows[0] ?? null
-}
-
-/** @deprecated prefer findApiKeyByPrefix + hash verify */
-export async function findApiKeyByHash(db: Db, keyHash: string) {
-  const rows = await db
-    .select()
-    .from(apiKeys)
-    .where(and(eq(apiKeys.keyHash, keyHash), isNull(apiKeys.revokedAt)))
-    .all()
   return rows[0] ?? null
 }
 

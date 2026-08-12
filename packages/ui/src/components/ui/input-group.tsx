@@ -45,7 +45,7 @@ function InputGroupAddon({
   ...props
 }: React.ComponentProps<'div'> & VariantProps<typeof inputGroupAddonVariants>) {
   return (
-    // biome-ignore lint/a11y/useKeyWithClickEvents: shadcn InputGroupAddon focuses sibling input; keyboard users focus the input directly
+    // biome-ignore lint/a11y/useKeyWithClickEvents: shadcn InputGroupAddon focuses sibling input; keyboard users focus the input directly — DEBT:shadcn-input-group-click
     <div
       role="group"
       data-slot="input-group-addon"

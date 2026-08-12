@@ -41,11 +41,6 @@ export function PlatformGate({ children }: { children: ReactNode }) {
   return children
 }
 
-/** @deprecated Use PlatformGate for BO. Alias kept for older imports. */
-export function AdminGate({ children }: { children: ReactNode }) {
-  return <PlatformGate>{children}</PlatformGate>
-}
-
 export function AuthGate({ children, mode = 'app' }: { children: ReactNode; mode?: ShellMode }) {
   const me = useMe()
   const navigate = useNavigate()

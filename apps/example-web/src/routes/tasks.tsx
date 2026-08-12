@@ -156,6 +156,22 @@ export function TasksPage() {
 
       {tasks.isLoading ? (
         <Skeleton className="h-40 w-full" />
+      ) : tasks.isError ? (
+        <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-destructive/40 py-12 text-center">
+          <p className="text-sm font-medium text-destructive">{m.loadFailed}</p>
+          <p className="max-w-sm text-xs text-muted-foreground">
+            {apiErrorToMessage(tasks.error, m)}
+          </p>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              void tasks.refetch()
+            }}
+          >
+            {m.retry}
+          </Button>
+        </div>
       ) : (tasks.data?.tasks.length ?? 0) === 0 ? (
         <Empty>
           <EmptyHeader>
@@ -208,6 +224,11 @@ export function TasksPage() {
             selectedId={selectedId}
             comments={comments.data?.comments}
             loading={comments.isLoading}
+            isError={comments.isError}
+            error={comments.error}
+            onRetry={() => {
+              void comments.refetch()
+            }}
             commentBody={commentBody}
             onCommentBodyChange={setCommentBody}
             onAddComment={() => addComment.mutate(commentBody.trim())}

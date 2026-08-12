@@ -37,6 +37,7 @@ run_pkg apps/example-api
 run_pkg packages/storage
 run_pkg packages/db
 run_pkg packages/types
+run_pkg packages/api-client
 run_pkg packages/mcp
 run_pkg packages/email
 run_pkg packages/i18n

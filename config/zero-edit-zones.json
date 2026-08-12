@@ -8,6 +8,7 @@
     "apps/mcp-example/",
     "scripts/",
     "tooling/",
+    "tools/",
     "config/"
   ],
   "protected_files": [

@@ -1,4 +1,5 @@
 import { Button, Card, CardContent, CardHeader, CardTitle, Textarea } from '@kit/ui'
+import { apiErrorToMessage } from '../lib/api'
 import type { Messages } from '../messages/fr'
 
 export type CommentRow = { id: string; body: string; visibility: string; createdAt: number }
@@ -8,6 +9,9 @@ type Props = {
   selectedId: string | null
   comments: CommentRow[] | undefined
   loading: boolean
+  isError?: boolean
+  error?: unknown
+  onRetry?: () => void
   commentBody: string
   onCommentBodyChange: (v: string) => void
   onAddComment: () => void
@@ -19,6 +23,9 @@ export function TaskCommentsPanel({
   selectedId,
   comments,
   loading,
+  isError = false,
+  error,
+  onRetry,
   commentBody,
   onCommentBodyChange,
   onAddComment,
@@ -32,6 +39,16 @@ export function TaskCommentsPanel({
       <CardContent className="space-y-3">
         {!selectedId ? (
           <p className="text-sm text-muted-foreground">{m.taskSelectForComments}</p>
+        ) : isError ? (
+          <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-destructive/40 py-8 text-center">
+            <p className="text-sm font-medium text-destructive">{m.loadFailed}</p>
+            <p className="max-w-sm text-xs text-muted-foreground">{apiErrorToMessage(error, m)}</p>
+            {onRetry ? (
+              <Button variant="secondary" size="sm" onClick={onRetry}>
+                {m.retry}
+              </Button>
+            ) : null}
+          </div>
         ) : (
           <>
             <ul className="space-y-2 text-sm">

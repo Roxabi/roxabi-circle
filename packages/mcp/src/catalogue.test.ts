@@ -67,6 +67,57 @@ describe('createToolCatalogue', () => {
     expect(execute).not.toHaveBeenCalled()
   })
 
+  it('invalid input schema → INVALID_ARGUMENTS (not INTERNAL) and skips execute', async () => {
+    const execute = vi.fn(async () => ({ ok: true }))
+    const catalogue = createToolCatalogue([
+      {
+        name: 'need_n',
+        description: 'n',
+        input: z.object({ n: z.number().int() }),
+        execute,
+      },
+    ] as const)
+
+    let handler: ((args: unknown) => Promise<unknown>) | undefined
+    catalogue.registerAll({
+      addTool(t) {
+        handler = t.execute
+      },
+    })
+
+    await expect(handler?.({ n: 'not-a-number' })).rejects.toBeInstanceOf(PublicToolError)
+    await expect(handler?.({ n: 'not-a-number' })).rejects.toMatchObject({
+      code: 'INVALID_ARGUMENTS',
+    })
+    await expect(handler?.({})).rejects.toMatchObject({ code: 'INVALID_ARGUMENTS' })
+    await expect(handler?.(null)).rejects.toMatchObject({ code: 'INVALID_ARGUMENTS' })
+    expect(execute).not.toHaveBeenCalled()
+  })
+
+  it('valid input is passed as parsed.data to execute', async () => {
+    const execute = vi.fn(async (input: unknown) => ({ got: input }))
+    const catalogue = createToolCatalogue([
+      {
+        name: 'echo_n',
+        description: 'e',
+        input: z.object({ n: z.coerce.number() }),
+        execute,
+      },
+    ] as const)
+
+    let handler: ((args: unknown) => Promise<unknown>) | undefined
+    catalogue.registerAll({
+      addTool(t) {
+        handler = t.execute
+      },
+    })
+
+    const out = await handler?.({ n: '42' })
+    expect(execute).toHaveBeenCalledOnce()
+    expect(execute).toHaveBeenCalledWith({ n: 42 }, expect.any(Object))
+    expect(String(out)).toContain('42')
+  })
+
   it('registerAll wrap maps throw with sk_ to INTERNAL_ERROR without secret leak', async () => {
     const secret = 'sk_test_high_entropy_leak_probe_xyz'
     const catalogue = createToolCatalogue([

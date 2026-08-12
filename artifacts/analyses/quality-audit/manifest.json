@@ -1,0 +1,72 @@
+{
+  "status": "completed",
+  "repo": "roxabi-boilerplate-cf",
+  "playbook": "multi-agent-audit-playbook.md adapted Chemin A",
+  "started": "2026-08-12T05:50:36Z",
+  "completed": "2026-08-12T06:20:00Z",
+  "scale": {
+    "source_ts_files": 317,
+    "test_files": 63,
+    "planned_agents": 28,
+    "completed_agents": 28
+  },
+  "wave0_machine": {
+    "import_boundary": "ok",
+    "banlist": "ok",
+    "extract_dry_run": "ok",
+    "debt_check": "warn_1_untagged",
+    "agents_adr": "warn_7_bare_refs"
+  },
+  "synthesis": {
+    "report": "artifacts/analyses/quality-audit/AUDIT-SUMMARY.md",
+    "p0": 0,
+    "unique_p1": 12,
+    "unique_p2_est": 28,
+    "unique_p3_est": 45,
+    "tech_debt_score": 73,
+    "narrative_grade": "B / shippable kit"
+  },
+  "completed_agents": [
+    "machine-baseline",
+    "axial-structural",
+    "axial-semantic",
+    "arch-P1P2",
+    "arch-P3P4",
+    "arch-P5P6",
+    "arch-P7P8",
+    "sec-auth",
+    "sec-storage-email",
+    "sec-example-api",
+    "sec-web-mcp",
+    "smells-saas",
+    "smells-incubating",
+    "smells-apps",
+    "types-packages",
+    "types-api",
+    "types-web",
+    "workers-async",
+    "errors-packages",
+    "errors-apps",
+    "test-T1T2",
+    "test-T3",
+    "test-T4-strategy",
+    "debt-scan",
+    "kit-extractibility",
+    "debt-ci-hygiene",
+    "synthesis"
+  ],
+  "pending_agents": [],
+  "current_wave": 9,
+  "waves": {
+    "0": ["machine-baseline"],
+    "1": ["axial-structural", "axial-semantic"],
+    "2": ["arch-P1P2", "arch-P3P4", "arch-P5P6", "arch-P7P8"],
+    "3": ["sec-auth", "sec-storage-email", "sec-example-api", "sec-web-mcp"],
+    "4": ["smells-saas", "smells-incubating", "smells-apps"],
+    "5": ["types-packages", "types-api", "types-web"],
+    "6": ["workers-async", "errors-packages", "errors-apps"],
+    "7": ["test-T1T2", "test-T3", "test-T4-strategy"],
+    "8": ["debt-scan", "kit-extractibility", "debt-ci-hygiene"],
+    "9": ["synthesis"]
+  }
+}

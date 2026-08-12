@@ -23,17 +23,11 @@ import {
   type KitRole,
   roleForSubject,
 } from '../seed/demo-data'
-import { ensureDemoUsers } from '../seed/seed-db'
 
 type Db = DrizzleD1Database<typeof schema>
 
 export type { KitRole }
 export { roleForSubject }
-
-/** @deprecated prefer ensureDemoUsers from seed — kept name for call sites */
-export async function ensureDemoUser(db: Db, opts?: { environment?: string | null }) {
-  await ensureDemoUsers(db, opts)
-}
 
 export function cookieNameFromEnv(env: Env): string {
   return sessionCookieName({ name: env.SESSION_COOKIE_NAME })
