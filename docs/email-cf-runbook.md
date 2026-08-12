@@ -136,4 +136,5 @@ Invite E2E: `docs/testing.md` § org invites.
 | Password reset | BA `sendResetPassword` in `lib/better-auth.ts` |
 | Org invite | `services/invitations.ts` + route injects port |
 
-Package: `@kit/email` — `createEmailPort`, `build*EmailText`, `redactEmailBody` (transport leaves are not public).
+Package: `@kit/email` — Workers path: `createEmailPort` + `build*EmailText` + `redactEmailBody`.
+Node scripts may use `@kit/email/server` (`sendSmtp` / `sendLog`); not the Worker default.

@@ -339,6 +339,7 @@ describe('createEmailPort (product path — leaves not public)', () => {
       from: 'noreply@example.com',
       allowDomains: ['example.com'],
     })
+    // Spoof / invalid shapes must hit the mailbox gate (not only domain mismatch).
     const spoofs = [
       'leak@evil.com @example.com',
       'leak@evil.com\r\n@example.com',
@@ -348,10 +349,62 @@ describe('createEmailPort (product path — leaves not public)', () => {
     ]
     for (const to of spoofs) {
       await expect(port.send({ to, subject: 'x', text: 'y' })).rejects.toThrow(
-        /EMAIL_RECIPIENT_ADDRESS_INVALID|EMAIL_RECIPIENT_DOMAIN_NOT_ALLOWED|EMAIL_ADDRESS_INVALID/i,
+        /EMAIL_RECIPIENT_ADDRESS_INVALID/i,
       )
     }
     expect(send).not.toHaveBeenCalled()
+  })
+
+  it('resend factory fails closed without API key', () => {
+    expect(() =>
+      createEmailPort({
+        transport: 'resend',
+        environment: 'production',
+        from: 'noreply@example.com',
+      }),
+    ).toThrow(/RESEND_API_KEY/i)
+  })
+
+  it('resend port scrubs headers and fails closed on multi-token to (fetch never called)', async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(new Response(JSON.stringify({ id: 're_1' }), { status: 200 }))
+    try {
+      const port = createEmailPort({
+        transport: 'resend',
+        environment: 'production',
+        from: { email: 'noreply@example.com', name: 'Kit' },
+        resendApiKey: 're_test_key',
+      })
+
+      await expect(
+        port.send({
+          to: 'leak@evil.com @example.com',
+          subject: 'Hi\r\nX-Injected: yes',
+          text: 'body',
+        }),
+      ).rejects.toThrow(/EMAIL_ADDRESS_INVALID/i)
+      expect(fetchSpy).not.toHaveBeenCalled()
+
+      await port.send({
+        to: 'user@example.com',
+        subject: 'Hi\r\nX-Injected: yes\u2028more',
+        text: 'body',
+      })
+      expect(fetchSpy).toHaveBeenCalledTimes(1)
+      const init = fetchSpy.mock.calls[0]?.[1] as RequestInit
+      const body = JSON.parse(String(init.body)) as {
+        to: string[]
+        subject: string
+        from: string
+      }
+      expect(body.to).toEqual(['user@example.com'])
+      expect(body.subject).toBe('Hi X-Injected: yes more')
+      expect(body.subject).not.toMatch(/[\r\n\u0085\u2028\u2029]/)
+      expect(body.from).toContain('noreply@example.com')
+    } finally {
+      fetchSpy.mockRestore()
+    }
   })
 
   it('staging prefixes subject with [TEST STAGING]', async () => {

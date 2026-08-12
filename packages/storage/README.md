@@ -12,8 +12,9 @@ R2 helpers for Chemin A kit apps: safe keys, prefix-enforced client, light **PUT
 | `createPresignedUrl(signer, input)` | Advanced: path-safe sign only — **no** prefix; full trusted keys |
 | `createMockPresignSigner` | Local/CI mock (no CF account / secrets) |
 
-There are **no** free `putObject` / `getObject` / `deleteObject` helpers. Every I/O goes through
-`StorageClient` so writes stay under `basePrefix`.
+There are **no** free `putObject` / `getObject` / `deleteObject` helpers. Product object I/O
+goes through `StorageClient` so keys stay under `basePrefix`. Advanced free-key
+`createPresignedUrl` remains for trusted full keys only (no prefix enforcement).
 
 ## Presign (kit v1)
 
