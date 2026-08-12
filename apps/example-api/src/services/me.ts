@@ -21,7 +21,8 @@ export type MeProfile = {
 
 /**
  * Profile payload for the authenticated subject.
- * When `authMethod === 'api_key'` and `keyOrganizationId` is set, `orgs` is filtered to that org (D11).
+ * D11: when `authMethod === 'api_key'`, `orgs` is filtered to `keyOrganizationId`
+ * if set, otherwise **empty** (fail-closed — never the full membership catalogue).
  */
 export async function getMeProfile(
   db: Db,
