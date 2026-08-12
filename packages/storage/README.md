@@ -7,25 +7,20 @@ R2 helpers for Chemin A kit apps: safe keys, prefix-enforced client, light **PUT
 | Export | Role |
 |--------|------|
 | `joinObjectKey` / `assertObjectKey` | Path join; reject `..` / empty |
-| `putObject` / `getObject` / `deleteObject` | Free helpers (key must be safe) — **escape hatch**, `@deprecated` |
-| `StorageClient` | Prefix-enforced put/get/delete/head/list/**presign** — **prefer this** |
-| `StorageClient.presign(signer, { parts, … })` | **Preferred** product presign (prefix-safe key + sign) |
-| `createPresignedUrl(signer, input)` | Advanced: path-safe sign only — **no** prefix; custom full keys |
+| `StorageClient` | Prefix-enforced put/get/delete/head/list/**presign** — **product path** |
+| `StorageClient.presign(signer, { parts, … })` | Preferred product presign (prefix-safe key + sign) |
+| `createPresignedUrl(signer, input)` | Advanced: path-safe sign only — **no** prefix; full trusted keys |
 | `createMockPresignSigner` | Local/CI mock (no CF account / secrets) |
 
-## Free helpers = escape hatch
-
-`putObject` / `getObject` / `deleteObject` only reject empty/`..` keys — they do
-**not** scope writes under a product prefix (marked `@deprecated`).
-
-**Products should use `StorageClient`** so every key is joined under `basePrefix`.
+There are **no** free `putObject` / `getObject` / `deleteObject` helpers. Every I/O goes through
+`StorageClient` so writes stay under `basePrefix`.
 
 ## Presign (kit v1)
 
 - **Preferred path:** `client.presign(signer, { parts })` — builds the key under
   `basePrefix`, asserts prefix, then signs. Returns `{ url, method, headers?, expiresAt, key }`.
-- **Advanced:** `createPresignedUrl(signer, { key, … })` — not deprecated; validates
-  path safety only (no product prefix). Use when you already hold a full trusted key.
+- **Advanced:** `createPresignedUrl(signer, { key, … })` — validates path safety only
+  (no product prefix). Use when you already hold a full trusted key (e.g. from `client.key`).
 - **PUT only** (A25 light helper — no video multipart).
 - Package **never** holds R2 secrets — apps inject a `PresignSigner` (mock or future S3/aws4fetch).
 - Example app: `PRESIGN_MODE=mock` (default) · `s3` **fail-closed** until a real signer is wired.

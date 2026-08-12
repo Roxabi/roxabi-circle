@@ -111,7 +111,7 @@ EMAIL_TRANSPORT=log
 | `EMAIL_ALLOW_DOMAINS is required when ENVIRONMENT=staging` | Real send on staging without recipient allowlist |
 | `EMAIL_FROM must be @example.com` | Staging From on non-Kit domain |
 | `EMAIL_RECIPIENT_DOMAIN_NOT_ALLOWED` | `to` not in allowlist (expected if DB has non-client domains) |
-| Tokens visible in logs | Use kit `sendLog` only (redacts); never custom `console.log` of URL |
+| Tokens visible in logs | Use `createLogEmailPort` / `createEmailPort` only (redacts body); never custom `console.log` of URL |
 
 ---
 
@@ -136,4 +136,4 @@ Invite E2E: `docs/testing.md` § org invites.
 | Password reset | BA `sendResetPassword` in `lib/better-auth.ts` |
 | Org invite | `services/invitations.ts` + route injects port |
 
-Package: `@kit/email` — `createEmailPort`, `sendCf`, `redactEmailBody`.
+Package: `@kit/email` — `createEmailPort`, `build*EmailText`, `redactEmailBody` (transport leaves are not public).

@@ -1,7 +1,13 @@
 /**
  * Cloudflare Email Sending — Workers binding adapter (ADR-0004).
  * Binding shape matches CF Workers Email Service `env.EMAIL.send(...)`.
+ *
+ * Transport leaf: scrub headers + fail-closed single mailbox (parity SMTP envelope).
+ * Prefer {@link createEmailPort} / EmailPort for product code — not a raw leave export.
  */
+
+import { isValidMailboxAddress } from './domain'
+import { scrubHeaderLine } from './scrub'
 
 export type CfEmailAddress = string | { email: string; name?: string }
 
@@ -25,18 +31,39 @@ export type SendCfInput = {
   html?: string
 }
 
+function scrubCfAddress(from: CfEmailAddress): CfEmailAddress {
+  if (typeof from === 'string') return scrubHeaderLine(from).trim()
+  return {
+    email: scrubHeaderLine(from.email).trim(),
+    ...(from.name != null ? { name: scrubHeaderLine(from.name).trim() } : {}),
+  }
+}
+
+/**
+ * CF transport leaf — scrubs headers and validates to/from mailbox before binding.send.
+ * Package-internal; product path = EmailPort via createEmailPort / createCfEmailPort.
+ */
 export async function sendCf(
   binding: SendEmailBinding,
   input: SendCfInput,
 ): Promise<{ ok: true; transport: 'cf'; messageId?: string }> {
+  const to = scrubHeaderLine(input.to).trim()
+  const subject = scrubHeaderLine(input.subject).trimEnd()
+  const safeFrom = scrubCfAddress(input.from)
+  const fromEmail = typeof safeFrom === 'string' ? safeFrom : safeFrom.email
+  if (!isValidMailboxAddress(to) || !isValidMailboxAddress(fromEmail)) {
+    throw new Error(
+      'EMAIL_ADDRESS_INVALID: to/from must be a single printable-ASCII mailbox (exactly one @)',
+    )
+  }
   const from =
-    typeof input.from === 'string'
-      ? { email: input.from }
-      : { email: input.from.email, name: input.from.name }
+    typeof safeFrom === 'string'
+      ? { email: safeFrom }
+      : { email: safeFrom.email, name: safeFrom.name }
   const res = await binding.send({
-    to: input.to,
+    to,
     from,
-    subject: input.subject,
+    subject,
     text: input.text,
     html: input.html,
   })

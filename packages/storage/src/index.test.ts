@@ -2,11 +2,8 @@ import { describe, expect, it } from 'vitest'
 import {
   createMockPresignSigner,
   createPresignedUrl,
-  deleteObject,
-  getObject,
   joinObjectKey,
   type KitR2Bucket,
-  putObject,
   StorageClient,
   StorageError,
 } from './index'
@@ -65,37 +62,8 @@ describe('joinObjectKey', () => {
   })
 })
 
-describe('free helpers reject unsafe keys', () => {
-  it('rejects path traversal on putObject/getObject/deleteObject', async () => {
-    const bucket = memoryBucket()
-    await expect(putObject(bucket, 'demo/../secret', 'x')).rejects.toThrow(/traversal/)
-    await expect(getObject(bucket, '../escape')).rejects.toThrow(/traversal/)
-    await expect(deleteObject(bucket, 'a/../../b')).rejects.toThrow(/traversal/)
-  })
-})
-
-describe('R2 put/get/delete round-trip under demo/', () => {
-  it('writes and reads attachment via putObject/getObject', async () => {
-    const bucket = memoryBucket()
-    const key = joinObjectKey('demo', 'note-xyz', 'attachment.txt')
-    expect(key.startsWith('demo/')).toBe(true)
-    expect(key.startsWith('share/')).toBe(false)
-
-    await putObject(bucket, key, 'payload-bytes', {
-      httpMetadata: { contentType: 'text/plain' },
-    })
-    const obj = await getObject(bucket, key)
-    expect(obj).not.toBeNull()
-    expect(await obj!.text()).toBe('payload-bytes')
-    expect(bucket.keys()).toEqual([key])
-
-    await deleteObject(bucket, key)
-    expect(await getObject(bucket, key)).toBeNull()
-  })
-})
-
 describe('StorageClient', () => {
-  it('forces base prefix on put/get/list/head', async () => {
+  it('forces base prefix on put/get/list/head/delete', async () => {
     const bucket = memoryBucket()
     const client = new StorageClient(bucket, 'demo')
     const key = await client.put(['n1', 'a.txt'], 'hello')
@@ -104,6 +72,35 @@ describe('StorageClient', () => {
     expect(await client.head(['n1', 'a.txt'])).toEqual({ key: 'demo/n1/a.txt' })
     const listed = await client.list({ subPrefix: 'n1' })
     expect(listed.some((o) => o.key === 'demo/n1/a.txt')).toBe(true)
+    await client.delete(['n1', 'a.txt'])
+    expect(await client.get(['n1', 'a.txt'])).toBeNull()
+    expect(bucket.keys()).toEqual([])
+  })
+
+  it('rejects path traversal in parts (put/get/delete)', async () => {
+    const client = new StorageClient(memoryBucket(), 'demo')
+    await expect(client.put(['../secret'], 'x')).rejects.toThrow(/traversal/)
+    await expect(client.get(['../escape'])).rejects.toThrow(/traversal/)
+    await expect(client.delete(['a/../../b'])).rejects.toThrow(/traversal/)
+  })
+
+  it('round-trips attachment under demo/ via client only', async () => {
+    const bucket = memoryBucket()
+    const client = new StorageClient(bucket, 'demo')
+    const key = await client.put(['note-xyz', 'attachment.txt'], 'payload-bytes', {
+      httpMetadata: { contentType: 'text/plain' },
+    })
+    expect(key).toBe('demo/note-xyz/attachment.txt')
+    expect(key.startsWith('demo/')).toBe(true)
+    expect(key.startsWith('share/')).toBe(false)
+
+    const obj = await client.get(['note-xyz', 'attachment.txt'])
+    expect(obj).not.toBeNull()
+    expect(await obj!.text()).toBe('payload-bytes')
+    expect(bucket.keys()).toEqual([key])
+
+    await client.delete(['note-xyz', 'attachment.txt'])
+    expect(await client.get(['note-xyz', 'attachment.txt'])).toBeNull()
   })
 
   it('rejects invalid base prefix', () => {
@@ -147,7 +144,7 @@ describe('StorageClient', () => {
   })
 })
 
-describe('createPresignedUrl', () => {
+describe('createPresignedUrl (advanced — path-safe only, no prefix)', () => {
   it('rejects unsafe keys before sign', async () => {
     const signer = createMockPresignSigner()
     await expect(

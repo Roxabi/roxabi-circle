@@ -5,6 +5,7 @@
  * Usage: scripts / Node CLIs with SMTP_HOST/SMTP_PORT (Mailpit 1025).
  */
 
+import { isValidMailboxAddress } from './domain'
 import { scrubHeaderLine } from './scrub'
 
 export type SmtpSendInput = {
@@ -95,35 +96,11 @@ export async function sendSmtp(
     }
   }
 
-  // Header scrub at transport boundary (shared choke point — see scrub.ts).
+  // Header scrub + shared mailbox gate (same rules as CF/Resend/allowlist).
   const from = scrubHeaderLine(input.from).trim()
   const to = scrubHeaderLine(input.to).trim()
   const subject = scrubHeaderLine(input.subject).trimEnd()
-  // Fail-closed envelope: printable ASCII, exactly one @, no SMTP/header delimiters.
-  const isValidEnvelopeAddr = (addr: string) => {
-    if (addr.length === 0 || addr.length > 254) return false
-    const at = addr.indexOf('@')
-    if (at <= 0 || at !== addr.lastIndexOf('@') || at === addr.length - 1) return false
-    for (let i = 0; i < addr.length; i++) {
-      const c = addr.charCodeAt(i)
-      // printable ASCII only (0x21–0x7e), exclude common SMTP/header delimiters
-      if (c < 0x21 || c > 0x7e) return false
-      if (
-        c === 0x22 ||
-        c === 0x2c ||
-        c === 0x3a ||
-        c === 0x3b ||
-        c === 0x3c ||
-        c === 0x3e ||
-        c === 0x5c
-      ) {
-        // " , : ; < > \
-        return false
-      }
-    }
-    return true
-  }
-  if (!isValidEnvelopeAddr(from) || !isValidEnvelopeAddr(to)) {
+  if (!isValidMailboxAddress(from) || !isValidMailboxAddress(to)) {
     return {
       ok: false,
       transport: 'smtp',
@@ -216,5 +193,5 @@ export async function sendSmtp(
   }
 }
 
-/** Re-export edge-safe log transport for Node consumers of `/server`. */
-export { sendLog } from './index'
+/** Re-export edge-safe log transport for Node consumers of `/server` (leaf scrubs headers). */
+export { sendLog } from './ports'
