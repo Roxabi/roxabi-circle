@@ -34,10 +34,10 @@ export async function getMeProfile(
   const platformRole = await platformRolesRepo.getPlatformRole(db, subject)
   let orgs = await orgsService.listMembershipOrgsForSubject(db, subject)
 
-  // D11 — org-bound sk_ only sees its org in me.orgs
+  // D11 — api_key is fail-closed: unbound / missing key org → empty orgs (never full catalogue)
   const keyOrg = opts?.keyOrganizationId
-  if (opts?.authMethod === 'api_key' && keyOrg) {
-    orgs = orgs.filter((o) => o.id === keyOrg)
+  if (opts?.authMethod === 'api_key') {
+    orgs = keyOrg ? orgs.filter((o) => o.id === keyOrg) : []
   }
 
   const baUser = await usersRepo.findBaUserById(db, subject)

@@ -1,4 +1,4 @@
-import { desc, eq, like, or } from 'drizzle-orm'
+import { and, desc, eq, inArray, like, or } from 'drizzle-orm'
 import type { DrizzleD1Database } from 'drizzle-orm/d1'
 import { baAccount, baMember, baUser, baVerification } from '../db/better-auth-schema'
 import { demoUsers, type schema, userPlatformRoles } from '../db/schema'
@@ -54,28 +54,37 @@ export async function insertBaUserWithCredential(
   })
 }
 
-/** List BA users (newest first). Optional email/name `q` substring filter. */
-export async function listBaUsers(db: Db, opts?: { q?: string; limit?: number; offset?: number }) {
+export type ListBaUsersOpts = {
+  q?: string
+  limit?: number
+  offset?: number
+  /** When set (incl. empty), only these user ids — scope **before** limit/offset. */
+  userIds?: string[]
+}
+
+/** List BA users (newest first). Optional email/name `q` and/or id allowlist. */
+export async function listBaUsers(db: Db, opts?: ListBaUsersOpts) {
   const limit = Math.min(Math.max(opts?.limit ?? 50, 1), 100)
   const offset = Math.max(opts?.offset ?? 0, 0)
   const q = opts?.q?.trim()
+  const userIds = opts?.userIds
+
+  if (userIds && userIds.length === 0) {
+    return []
+  }
+
+  const filters = []
+  if (userIds) {
+    filters.push(inArray(baUser.id, userIds))
+  }
   if (q) {
     const pattern = `%${q}%`
-    return db
-      .select({
-        id: baUser.id,
-        email: baUser.email,
-        name: baUser.name,
-        emailVerified: baUser.emailVerified,
-        createdAt: baUser.createdAt,
-      })
-      .from(baUser)
-      .where(or(like(baUser.email, pattern), like(baUser.name, pattern)))
-      .orderBy(desc(baUser.createdAt))
-      .limit(limit)
-      .offset(offset)
+    filters.push(or(like(baUser.email, pattern), like(baUser.name, pattern)))
   }
-  return db
+  const where =
+    filters.length === 0 ? undefined : filters.length === 1 ? filters[0] : and(...filters)
+
+  const base = db
     .select({
       id: baUser.id,
       email: baUser.email,
@@ -84,9 +93,12 @@ export async function listBaUsers(db: Db, opts?: { q?: string; limit?: number; o
       createdAt: baUser.createdAt,
     })
     .from(baUser)
-    .orderBy(desc(baUser.createdAt))
-    .limit(limit)
-    .offset(offset)
+
+  const ordered = where
+    ? base.where(where).orderBy(desc(baUser.createdAt))
+    : base.orderBy(desc(baUser.createdAt))
+
+  return ordered.limit(limit).offset(offset)
 }
 
 /** Mint BA-compatible reset-password verification token. Returns raw token. */

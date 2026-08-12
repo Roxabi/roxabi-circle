@@ -132,19 +132,18 @@ describe('email server transport', () => {
     )
     expect(r).toEqual({ ok: true, transport: 'smtp' })
     const written = connect.getWritten()
-    // Envelope commands must be single-line; CR/LF only as SMTP line terminators we append.
+    // Envelope: single MAIL FROM / RCPT TO lines after scrub (no second command from CR/LF).
     const mailFrom = written.split('\r\n').find((l) => l.startsWith('MAIL FROM:'))
     const rcptTo = written.split('\r\n').find((l) => l.startsWith('RCPT TO:'))
-    expect(mailFrom).toBeDefined()
-    expect(rcptTo).toBeDefined()
-    expect(mailFrom).not.toMatch(/[\r\n]/)
-    expect(rcptTo).not.toMatch(/[\r\n]/)
     expect(mailFrom).toBe('MAIL FROM:<kit@kit.local BCC: evil@evil.com>')
     expect(rcptTo).toBe('RCPT TO:<demo@kit.local RCPT TO:<other@evil.com>>')
-    // Must not write a second RCPT from injected payload as its own command line.
     const rcptLines = written.split('\r\n').filter((l) => l.startsWith('RCPT TO:'))
     expect(rcptLines).toHaveLength(1)
     expect(written).not.toContain('\r\nBCC:')
+    // Subject header injection must not become a separate DATA header line.
+    expect(written).not.toContain('\r\nX-Injected:')
+    const subjectLine = written.split('\r\n').find((l) => l.startsWith('Subject:'))
+    expect(subjectLine).toBe('Subject: hi X-Injected: yes')
   })
 
   it('sendSmtp fails closed when from/to empty after CR/LF scrub', async () => {

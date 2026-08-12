@@ -370,7 +370,24 @@ describe('createRequireAuth', () => {
     expect(store.keyOrganizationId).toBe('org_x')
   })
 
-  it('D11: requireApiKeyOrganization rejects unbound keys (null organizationId)', async () => {
+  it('D11: default (omit flag) rejects unbound keys (null organizationId)', async () => {
+    const key = generateApiKey()
+    const hash = await hashApiKey(key)
+    await expect(
+      resolveDualAuth(`Bearer ${key}`, null, {
+        sessions: baPort(null),
+        findApiKeyByPrefix: async () => ({
+          subject: 'legacy',
+          keyHash: hash,
+          revokedAt: null,
+          expiresAt: null,
+          organizationId: null,
+        }),
+      }),
+    ).rejects.toMatchObject({ code: 'UNAUTHORIZED' })
+  })
+
+  it('D11: requireApiKeyOrganization: true rejects unbound keys', async () => {
     const key = generateApiKey()
     const hash = await hashApiKey(key)
     await expect(
@@ -388,7 +405,7 @@ describe('createRequireAuth', () => {
     ).rejects.toMatchObject({ code: 'UNAUTHORIZED' })
   })
 
-  it('D11: requireApiKeyOrganization off still accepts unbound keys (legacy escape)', async () => {
+  it('D11: requireApiKeyOrganization: false accepts unbound keys (legacy escape)', async () => {
     const key = generateApiKey()
     const hash = await hashApiKey(key)
     const r = await resolveDualAuth(`Bearer ${key}`, null, {

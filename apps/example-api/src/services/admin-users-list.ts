@@ -1,5 +1,6 @@
 /**
  * Admin user directory list — staff-scoped (shared orgs) vs super_admin full catalogue.
+ * Staff scope is applied **before** limit/offset (not filter-after-page).
  */
 import type { PlatformRole } from '@kit/auth'
 import { AppError } from '@kit/core'
@@ -29,23 +30,25 @@ export async function listAdminUsers(db: Db, input: ListAdminUsersInput) {
     throw AppError.forbidden('Platform role required')
   }
 
+  let userIds: string[] | undefined
+  if (input.actorPlatformRole === 'staff') {
+    const actorOrgs = await orgsRepo.listMembershipsForUser(db, input.actorUserId)
+    const allowed = new Set<string>()
+    for (const m of actorOrgs) {
+      const members = await orgsRepo.listMembers(db, m.organizationId)
+      for (const mem of members) {
+        allowed.add(mem.userId)
+      }
+    }
+    userIds = [...allowed]
+  }
+
   const rows = await usersRepo.listBaUsers(db, {
     q: input.q,
     limit: input.limit,
     offset: input.offset,
+    userIds,
   })
-
-  let allowedUserIds: Set<string> | null = null
-  if (input.actorPlatformRole === 'staff') {
-    const actorOrgs = await orgsRepo.listMembershipsForUser(db, input.actorUserId)
-    allowedUserIds = new Set<string>()
-    for (const m of actorOrgs) {
-      const members = await orgsRepo.listMembers(db, m.organizationId)
-      for (const mem of members) {
-        allowedUserIds.add(mem.userId)
-      }
-    }
-  }
 
   const out: {
     id: string
@@ -55,7 +58,6 @@ export async function listAdminUsers(db: Db, input: ListAdminUsersInput) {
     createdAt: string
   }[] = []
   for (const r of rows) {
-    if (allowedUserIds && !allowedUserIds.has(r.id)) continue
     const platformRole = await platformRolesRepo.getPlatformRole(db, r.id)
     out.push({
       id: r.id,

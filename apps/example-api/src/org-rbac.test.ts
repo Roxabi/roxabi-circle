@@ -389,5 +389,17 @@ describe('org RBAC (ADR-0003 Phase A) — IDOR matrix', () => {
     expect(orgs.status).toBe(200)
     const orgsBody = (await orgs.json()) as { orgs: { id: string }[] }
     expect(orgsBody.orgs.every((o) => o.id === 'org_acme')).toBe(true)
+    expect(orgsBody.orgs.map((o) => o.id)).toEqual(['org_acme'])
+
+    // D11 me.orgs: multi-membership staff key bound to acme must not list beta
+    const me = await app.request(
+      '/api/me',
+      { headers: { authorization: `Bearer ${key}`, Origin: ORIGIN } },
+      env,
+    )
+    expect(me.status).toBe(200)
+    const meBody = (await me.json()) as { orgs: { id: string }[]; authMethod: string }
+    expect(meBody.authMethod).toBe('api_key')
+    expect(meBody.orgs.map((o) => o.id).sort()).toEqual(['org_acme'])
   })
 })

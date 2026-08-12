@@ -372,11 +372,56 @@ describe('admin users (B-users #58)', () => {
     expect(res.status).toBe(200)
     const body = (await res.json()) as { users: { email: string }[] }
     const emails = body.users.map((u) => u.email)
-    // staff is on org_acme + org_beta (with team-owner), not org_solo
+    // staff is on org_acme + org_beta (with team-owner), not org_solo / org_team
     expect(emails).toContain('staff@kit.local')
     expect(emails).toContain('team-owner@kit.local')
     expect(emails).not.toContain('solo@kit.local')
-    // super may not share staff orgs in seed — must not appear in staff directory
     expect(emails).not.toContain('super@kit.local')
+    expect(emails).not.toContain('team-reader@kit.local')
+  })
+
+  it('GET /api/admin/users — staff pagination scopes before limit', async () => {
+    const { app, env } = await seedEnv()
+    const cookie = await signIn(app, env, 'staff@kit.local')
+    const res = await app.request(
+      '/api/admin/users?limit=1',
+      {
+        headers: sessionMutation(cookie),
+      },
+      env,
+    )
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as { users: { email: string }[] }
+    expect(body.users).toHaveLength(1)
+    // Must be a shared-org member, not a global-newest out-of-scope user
+    expect(['staff@kit.local', 'team-owner@kit.local']).toContain(body.users[0]!.email)
+  })
+
+  it('GET /api/admin/users — super_admin still sees solo client', async () => {
+    const { app, env } = await seedEnv()
+    const cookie = await signIn(app, env, 'super@kit.local')
+    const res = await app.request('/api/admin/users', { headers: sessionMutation(cookie) }, env)
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as { users: { email: string }[] }
+    expect(body.users.some((u) => u.email === 'solo@kit.local')).toBe(true)
+  })
+
+  it('POST /api/admin/users — staff cannot probe out-of-scope existing email (no 409)', async () => {
+    const { app, env } = await seedEnv()
+    const cookie = await signIn(app, env, 'staff@kit.local')
+    const res = await app.request(
+      '/api/admin/users',
+      {
+        method: 'POST',
+        headers: sessionMutation(cookie),
+        body: JSON.stringify({
+          email: 'solo@kit.local',
+          memberships: [{ orgId: 'org_acme', role: 'member' }],
+        }),
+      },
+      env,
+    )
+    // notFound (not conflict) — avoids platform-wide existence oracle matching list privacy
+    expect(res.status).toBe(404)
   })
 })

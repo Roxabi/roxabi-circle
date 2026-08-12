@@ -65,10 +65,10 @@ orgsRoutes.get('/api/orgs', async (c) => {
   const db = c.get('db')!
   const subject = c.get('subject')!
   let orgs = await orgsService.listOrgsForSubject(db, subject)
-  // D11 — org-bound sk_ only sees its org in the list
+  // D11 — api_key fail-closed: missing key org → empty list (never full membership catalogue)
   const keyOrg = c.get('keyOrganizationId')
-  if (c.get('authMethod') === 'api_key' && keyOrg) {
-    orgs = orgs.filter((o) => o.id === keyOrg)
+  if (c.get('authMethod') === 'api_key') {
+    orgs = keyOrg ? orgs.filter((o) => o.id === keyOrg) : []
   }
   return c.json({ orgs, requestId: c.get('requestId') })
 })

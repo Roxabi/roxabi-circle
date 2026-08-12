@@ -30,12 +30,9 @@ export type DualAuthPorts = {
   sessions: SessionPort
   findApiKeyByPrefix: (prefix: string) => Promise<ApiKeyRecord | null>
   /**
-   * Multi-tenant (ADR-0003 D11): when true, Bearer keys without `organizationId` → 401.
-   * Prefer true in product injects; example-api sets it. Default false only for legacy
-   * single-tenant / migration escape — do not leave off on multi-tenant products.
-   *
-   * Note: `findApiKeyByPrefix` may still enforce membership recheck; this flag is the
-   * package-level fail-closed for unbound rows that a naïve inject would otherwise accept.
+   * Multi-tenant (ADR-0003 D11): Bearer keys without `organizationId` → 401.
+   * **Default true** (fail-closed). Set `false` only for a named legacy/single-tenant escape.
+   * example-api also rechecks membership in `findKeyRecord` (defense in depth).
    */
   requireApiKeyOrganization?: boolean
 }
@@ -65,8 +62,9 @@ export async function resolveDualAuth(
     const ok = await verifyApiKey(bearer, row.keyHash)
     if (!ok) throw AppError.unauthorized()
     const organizationId = row.organizationId ?? null
-    // ADR-0003 D11 — unbound keys must not authenticate when multi-tenant gate is on.
-    if (ports.requireApiKeyOrganization && !organizationId) {
+    // ADR-0003 D11 — default fail-closed; opt out only with requireApiKeyOrganization: false.
+    const requireOrg = ports.requireApiKeyOrganization !== false
+    if (requireOrg && !organizationId) {
       throw AppError.unauthorized()
     }
     return {

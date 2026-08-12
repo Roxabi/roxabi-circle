@@ -68,6 +68,15 @@ export async function createAdminUser(db: Db, input: CreateAdminUserInput) {
 
   const existing = await usersRepo.findBaUserByEmail(db, email)
   if (existing) {
+    // Staff: only conflict when target shares an org (match list privacy). Out-of-scope
+    // existing emails → notFound so staff cannot probe the full platform directory.
+    if (input.actorPlatformRole === 'staff') {
+      const actorOrgs = await orgsRepo.listMembershipsForUser(db, input.actorUserId)
+      const targetOrgs = await orgsRepo.listMembershipsForUser(db, existing.id)
+      const actorSet = new Set(actorOrgs.map((m) => m.organizationId))
+      const shared = targetOrgs.some((m) => actorSet.has(m.organizationId))
+      if (!shared) throw AppError.notFound('User not found')
+    }
     throw AppError.conflict('User already exists')
   }
 
