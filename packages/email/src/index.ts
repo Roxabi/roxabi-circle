@@ -1,10 +1,20 @@
+/**
+ * @kit/email public surface (Workers-safe).
+ *
+ * Product path:
+ * - `createEmailPort` / `createLogEmailPort` → EmailPort.send
+ * - `build*EmailText` templates (one shape only; raw *Email not exported)
+ *
+ * Not exported here (by design):
+ * - `sendCf` / `sendLog` leaves — use ports; Node may import sendLog via `@kit/email/server`
+ * - raw template constructors — use build*EmailText
+ */
 import type { CfEmailAddress, SendEmailBinding } from './cf'
 import { emailDomain } from './domain'
 import {
   createCfEmailPort,
   createLogEmailPort,
   createResendEmailPort,
-  sendLog,
   withRecipientAllowlist,
   withStagingSubjectPrefix,
 } from './ports'
@@ -17,7 +27,7 @@ import { WelcomeSetPasswordEmail } from './templates/welcome-set-password'
 import type { EmailPort, EmailTransport } from './types'
 
 export type { EmailPort, EmailTransport }
-export { createLogEmailPort, sendLog }
+export { createLogEmailPort }
 
 /** Build a plain-text demo email body (React Email-style template). */
 export function buildDemoEmailText(params: { to: string; subjectId: string }): {
@@ -172,7 +182,7 @@ export function parseAllowDomains(raw?: string | null): string[] {
   return [...out]
 }
 
-export { emailDomain, isRecipientDomainAllowed } from './domain'
+export { emailDomain, isRecipientDomainAllowed, isValidMailboxAddress } from './domain'
 
 export function fromEmailString(from: CfEmailAddress): string {
   return typeof from === 'string' ? from : from.email
@@ -315,10 +325,7 @@ export function resolveEmailTransport(
   throw new Error(`Invalid EMAIL_TRANSPORT: ${raw}`)
 }
 
-export { type CfEmailAddress, type SendEmailBinding, sendCf } from './cf'
+export type { CfEmailAddress, SendEmailBinding } from './cf'
 export { redactEmailBody } from './redact'
 export { scrubHeaderLine } from './scrub'
-export { DemoEmail } from './templates/demo'
-export { InviteEmail } from './templates/invite'
-export { ResetPasswordEmail } from './templates/reset-password'
-export { WelcomeSetPasswordEmail } from './templates/welcome-set-password'
+// Templates: build*EmailText only (raw *Email constructors stay package-private).

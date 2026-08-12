@@ -3,10 +3,12 @@ import {
   assertEmailTransportAllowed,
   assertStagingEmailPolicy,
   buildDemoEmailText,
+  buildInviteEmailText,
   buildMagicLinkEmailText,
   createEmailPort,
   createLogEmailPort,
   isRecipientDomainAllowed,
+  isValidMailboxAddress,
   parseAllowDomains,
   prefixStagingSubject,
   redactEmailBody,
@@ -14,8 +16,6 @@ import {
   type SendEmailBinding,
   STAGING_SUBJECT_PREFIX,
   scrubHeaderLine,
-  sendCf,
-  sendLog,
 } from './index'
 
 describe('scrubHeaderLine', () => {
@@ -34,6 +34,19 @@ describe('buildDemoEmailText', () => {
     expect(m.to).toBe('a@b.c')
     expect(m.subject).toContain('u1')
     expect(m.text.length).toBeGreaterThan(0)
+  })
+})
+
+describe('buildInviteEmailText', () => {
+  it('builds subject with org name (header scrub is EmailPort responsibility)', () => {
+    const m = buildInviteEmailText({
+      to: 'a@b.c',
+      orgName: 'Acme',
+      acceptUrl: 'http://localhost:5173/invite/accept?invitationId=inv_x',
+      expiresAt: new Date('2030-01-01T00:00:00.000Z'),
+    })
+    expect(m.subject).toContain('Acme')
+    expect(m.html).toContain('Accept invitation')
   })
 })
 
@@ -66,10 +79,11 @@ describe('redactEmailBody', () => {
   })
 })
 
-describe('sendLog (edge-safe)', () => {
-  it('returns ok log transport and redacts body in console', () => {
+describe('createLogEmailPort (public product path — leaf redacts body)', () => {
+  it('returns ok log transport and redacts body in console', async () => {
     const spy = vi.spyOn(console, 'log').mockImplementation(() => {})
-    const r = sendLog({
+    const port = createLogEmailPort()
+    const r = await port.send({
       to: 'a@b.c',
       subject: 'hi',
       text: 'token=supersecrettokenvalue12345',
@@ -105,7 +119,7 @@ describe('assertEmailTransportAllowed / resolveEmailTransport', () => {
   })
 })
 
-describe('parseAllowDomains / isRecipientDomainAllowed', () => {
+describe('parseAllowDomains / isRecipientDomainAllowed / isValidMailboxAddress', () => {
   it('parses comma list', () => {
     expect(parseAllowDomains('example.com, Client.example ,')).toEqual([
       'example.com',
@@ -114,11 +128,21 @@ describe('parseAllowDomains / isRecipientDomainAllowed', () => {
     expect(parseAllowDomains('')).toEqual([])
   })
 
-  it('exact domain match only', () => {
+  it('exact domain match only on a single valid mailbox', () => {
     expect(isRecipientDomainAllowed('a@example.com', ['example.com'])).toBe(true)
     expect(isRecipientDomainAllowed('a@evil-example.com', ['example.com'])).toBe(false)
     expect(isRecipientDomainAllowed('a@mail.example.com', ['example.com'])).toBe(false)
     expect(isRecipientDomainAllowed('a@client.io', ['example.com', 'client.io'])).toBe(true)
+  })
+
+  it('rejects multi-token / multi-@ / spaced tails (no last-@ spoof)', () => {
+    expect(isValidMailboxAddress('a@example.com')).toBe(true)
+    expect(isValidMailboxAddress('leak@evil.com @example.com')).toBe(false)
+    expect(isValidMailboxAddress('a@evil.com,b@example.com')).toBe(false)
+    expect(isValidMailboxAddress('a@b@example.com')).toBe(false)
+    expect(isValidMailboxAddress('not-an-email')).toBe(false)
+    expect(isRecipientDomainAllowed('leak@evil.com @example.com', ['example.com'])).toBe(false)
+    expect(isRecipientDomainAllowed('a@evil.com,b@example.com', ['example.com'])).toBe(false)
   })
 })
 
@@ -164,7 +188,7 @@ describe('assertStagingEmailPolicy', () => {
   })
 })
 
-describe('createEmailPort / sendCf', () => {
+describe('createEmailPort (product path — leaves not public)', () => {
   it('log port scrubs subject Unicode line terminators before console', async () => {
     const spy = vi.spyOn(console, 'log').mockImplementation(() => {})
     const port = createLogEmailPort()
@@ -199,6 +223,46 @@ describe('createEmailPort / sendCf', () => {
     )
     const arg = send.mock.calls[0]?.[0] as { subject: string }
     expect(arg.subject).not.toMatch(/[\r\n\u0085\u2028\u2029]/)
+  })
+
+  it('cf port fails closed on multi-token to after scrub (no last-@ spoof to binding)', async () => {
+    const send = vi.fn(async () => ({ messageId: 'mid_1' }))
+    const port = createEmailPort({
+      transport: 'cf',
+      environment: 'production',
+      email: { send },
+      from: 'noreply@example.com',
+    })
+    await expect(
+      port.send({
+        to: 'user@example.com\r\nBcc: evil@x',
+        subject: 'Hi',
+        text: 'hello',
+      }),
+    ).rejects.toThrow(/EMAIL_ADDRESS_INVALID/i)
+    expect(send).not.toHaveBeenCalled()
+  })
+
+  it('cf port scrubs display name and keeps valid mailbox from/to', async () => {
+    const send = vi.fn(async () => ({ messageId: 'mid_1' }))
+    const port = createEmailPort({
+      transport: 'cf',
+      environment: 'production',
+      email: { send },
+      from: { email: 'noreply@example.com', name: 'Kit\u2028Bcc' },
+    })
+    await port.send({
+      to: 'user@example.com',
+      subject: 'Hi\r\nX:1',
+      text: 'hello',
+    })
+    expect(send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: 'user@example.com',
+        from: { email: 'noreply@example.com', name: 'Kit Bcc' },
+        subject: 'Hi X:1',
+      }),
+    )
   })
 
   it('cf port calls binding with from.email shape', async () => {
@@ -245,6 +309,104 @@ describe('createEmailPort / sendCf', () => {
     expect(send).toHaveBeenCalledTimes(1)
   })
 
+  it('allowlist runs on scrubbed to (trailing LS still matches allowlist domain)', async () => {
+    const send = vi.fn(async () => ({ messageId: 'mid_1' }))
+    const port = createEmailPort({
+      transport: 'cf',
+      environment: 'staging',
+      email: { send },
+      from: 'noreply@example.com',
+      allowDomains: ['example.com'],
+    })
+    // Without scrub-before-allowlist, domain would be "example.com\u2028" → denied.
+    // Scrub collapses LS → trim → domain example.com → allowed; leaf sends clean to.
+    await port.send({ to: 'qa@example.com\u2028', subject: 'x', text: 'y' })
+    expect(send).toHaveBeenCalledTimes(1)
+    expect(send.mock.calls[0]?.[0]).toEqual(expect.objectContaining({ to: 'qa@example.com' }))
+
+    await expect(port.send({ to: 'leak@random.org', subject: 'x', text: 'y' })).rejects.toThrow(
+      /EMAIL_RECIPIENT_DOMAIN_NOT_ALLOWED/i,
+    )
+    expect(send).toHaveBeenCalledTimes(1)
+  })
+
+  it('allowlist fails closed on multi-@ / spoof tails (binding never called)', async () => {
+    const send = vi.fn(async () => ({ messageId: 'mid_1' }))
+    const port = createEmailPort({
+      transport: 'cf',
+      environment: 'staging',
+      email: { send },
+      from: 'noreply@example.com',
+      allowDomains: ['example.com'],
+    })
+    // Spoof / invalid shapes must hit the mailbox gate (not only domain mismatch).
+    const spoofs = [
+      'leak@evil.com @example.com',
+      'leak@evil.com\r\n@example.com',
+      'a@evil.com,b@example.com',
+      'a@b@example.com',
+      'not-an-email',
+    ]
+    for (const to of spoofs) {
+      await expect(port.send({ to, subject: 'x', text: 'y' })).rejects.toThrow(
+        /EMAIL_RECIPIENT_ADDRESS_INVALID/i,
+      )
+    }
+    expect(send).not.toHaveBeenCalled()
+  })
+
+  it('resend factory fails closed without API key', () => {
+    expect(() =>
+      createEmailPort({
+        transport: 'resend',
+        environment: 'production',
+        from: 'noreply@example.com',
+      }),
+    ).toThrow(/RESEND_API_KEY/i)
+  })
+
+  it('resend port scrubs headers and fails closed on multi-token to (fetch never called)', async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(new Response(JSON.stringify({ id: 're_1' }), { status: 200 }))
+    try {
+      const port = createEmailPort({
+        transport: 'resend',
+        environment: 'production',
+        from: { email: 'noreply@example.com', name: 'Kit' },
+        resendApiKey: 're_test_key',
+      })
+
+      await expect(
+        port.send({
+          to: 'leak@evil.com @example.com',
+          subject: 'Hi\r\nX-Injected: yes',
+          text: 'body',
+        }),
+      ).rejects.toThrow(/EMAIL_ADDRESS_INVALID/i)
+      expect(fetchSpy).not.toHaveBeenCalled()
+
+      await port.send({
+        to: 'user@example.com',
+        subject: 'Hi\r\nX-Injected: yes\u2028more',
+        text: 'body',
+      })
+      expect(fetchSpy).toHaveBeenCalledTimes(1)
+      const init = fetchSpy.mock.calls[0]?.[1] as RequestInit
+      const body = JSON.parse(String(init.body)) as {
+        to: string[]
+        subject: string
+        from: string
+      }
+      expect(body.to).toEqual(['user@example.com'])
+      expect(body.subject).toBe('Hi X-Injected: yes more')
+      expect(body.subject).not.toMatch(/[\r\n\u0085\u2028\u2029]/)
+      expect(body.from).toContain('noreply@example.com')
+    } finally {
+      fetchSpy.mockRestore()
+    }
+  })
+
   it('staging prefixes subject with [TEST STAGING]', async () => {
     expect(prefixStagingSubject('Reset password')).toBe(`${STAGING_SUBJECT_PREFIX} Reset password`)
     expect(prefixStagingSubject('[TEST STAGING] already')).toBe('[TEST STAGING] already')
@@ -273,18 +435,5 @@ describe('createEmailPort / sendCf', () => {
         from: 'noreply@example.com',
       }),
     ).toThrow(/binding/i)
-  })
-
-  it('sendCf returns transport cf', async () => {
-    const binding: SendEmailBinding = {
-      send: async () => ({ messageId: 'x' }),
-    }
-    const r = await sendCf(binding, {
-      to: 'a@b.c',
-      from: 'from@b.c',
-      subject: 's',
-      text: 't',
-    })
-    expect(r).toMatchObject({ ok: true, transport: 'cf', messageId: 'x' })
   })
 })

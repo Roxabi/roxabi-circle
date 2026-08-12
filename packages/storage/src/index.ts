@@ -54,8 +54,8 @@ export function joinObjectKey(prefix: string, ...parts: string[]): string {
 }
 
 /**
- * Reject empty keys and `..` segments on free helpers.
- * Prefer {@link StorageClient} for prefix-enforced product keys.
+ * Reject empty keys and `..` segments (used by advanced {@link createPresignedUrl}).
+ * Product I/O: use {@link StorageClient} so keys stay under a base prefix.
  */
 export function assertObjectKey(key: string): void {
   if (!key?.trim()) {
@@ -65,40 +65,8 @@ export function assertObjectKey(key: string): void {
 }
 
 /**
- * @deprecated Prefer {@link StorageClient} (prefix-enforced). Free helper —
- * no base-prefix isolation; escape hatch for demos / low-level wiring only.
- */
-export async function putObject(
-  bucket: KitR2Bucket,
-  key: string,
-  body: KitR2Body,
-  options?: { httpMetadata?: { contentType?: string } },
-): Promise<unknown> {
-  assertObjectKey(key)
-  return bucket.put(key, body, options)
-}
-
-/**
- * @deprecated Prefer {@link StorageClient} (prefix-enforced). Free helper —
- * no base-prefix isolation; escape hatch for demos / low-level wiring only.
- */
-export async function getObject(bucket: KitR2Bucket, key: string): Promise<KitR2ObjectBody | null> {
-  assertObjectKey(key)
-  return bucket.get(key)
-}
-
-/**
- * @deprecated Prefer {@link StorageClient} (prefix-enforced). Free helper —
- * no base-prefix isolation; escape hatch for demos / low-level wiring only.
- */
-export async function deleteObject(bucket: KitR2Bucket, key: string): Promise<void> {
-  assertObjectKey(key)
-  await bucket.delete(key)
-}
-
-/**
  * Prefix-enforced R2 client — every key is joined under `basePrefix`.
- * Prefer this over free put/get/delete to avoid accidental cross-prefix writes.
+ * **Product path** for put/get/delete/head/list/presign (no free put/get/delete helpers).
  */
 export class StorageClient {
   constructor(

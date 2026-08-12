@@ -58,11 +58,13 @@ describe('parseSmtpReply', () => {
 })
 
 describe('email server transport', () => {
-  it('sendLog returns ok log transport', () => {
+  it('sendLog returns ok log transport and scrubs subject at leaf', () => {
     const spy = vi.spyOn(console, 'log').mockImplementation(() => {})
-    const r = sendLog({ to: 'a@b.c', subject: 'hi', text: 'body' })
+    const r = sendLog({ to: 'a@b.c', subject: 'hi\r\nX-Injected: yes', text: 'body' })
     expect(r).toEqual({ ok: true, transport: 'log' })
-    expect(spy).toHaveBeenCalled()
+    const logged = JSON.parse(String(spy.mock.calls[0]?.[0] ?? '{}')) as { subject: string }
+    expect(logged.subject).toBe('hi X-Injected: yes')
+    expect(logged.subject).not.toMatch(/[\r\n]/)
     spy.mockRestore()
   })
 
