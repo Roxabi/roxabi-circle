@@ -5,9 +5,10 @@ import { createMemoryEnv } from '../test/memory-env'
 import * as keysRepo from './keys'
 
 /**
- * Explicit list paths (no triple-semantics opts bag):
+ * Explicit list paths (no dual blank semantics):
  * - listApiKeysForSubject → all keys for subject (session)
- * - listApiKeysForOrg → D11 scoped; blank org → [] without empty-string SQL
+ * - listApiKeysForOrg → D11 scoped; blank org is a programming error (throw)
+ * HTTP missing-org → [] is owned by GET /api/keys route short-circuit only.
  */
 describe('listApiKeysForSubject / listApiKeysForOrg', () => {
   async function seedStaffKeys() {
@@ -49,13 +50,17 @@ describe('listApiKeysForSubject / listApiKeysForOrg', () => {
     expect(scoped.map((k) => k.id)).toEqual(['key_1'])
   })
 
-  it('listApiKeysForOrg with empty string returns [] (fail-closed)', async () => {
+  it('listApiKeysForOrg with empty string throws (not silent [])', async () => {
     const db = await seedStaffKeys()
-    expect(await keysRepo.listApiKeysForOrg(db, 'user_staff', '')).toEqual([])
+    await expect(keysRepo.listApiKeysForOrg(db, 'user_staff', '')).rejects.toThrow(
+      /organizationId must be non-empty/,
+    )
   })
 
-  it('listApiKeysForOrg with whitespace returns [] (fail-closed)', async () => {
+  it('listApiKeysForOrg with whitespace throws (not silent [])', async () => {
     const db = await seedStaffKeys()
-    expect(await keysRepo.listApiKeysForOrg(db, 'user_staff', '   ')).toEqual([])
+    await expect(keysRepo.listApiKeysForOrg(db, 'user_staff', '   ')).rejects.toThrow(
+      /organizationId must be non-empty/,
+    )
   })
 })

@@ -61,12 +61,15 @@ export async function listApiKeysForSubject(db: Db, subject: string) {
 
 /**
  * D11 scoped list: keys for subject within one organization.
- * Blank / whitespace `organizationId` → `[]` (fail-closed; never unscoped list, never `eq('', …)` SQL).
- * Callers that already know org is missing should short-circuit before calling.
+ * Single semantic: `organizationId` must be non-empty after trim.
+ * Blank/whitespace is a programming error here — the HTTP route owns missing-org → `[]`
+ * (`GET /api/keys` short-circuits) and must not call this with a blank id.
  */
 export async function listApiKeysForOrg(db: Db, subject: string, organizationId: string) {
   const org = organizationId.trim()
-  if (!org) return []
+  if (!org) {
+    throw new Error('listApiKeysForOrg: organizationId must be non-empty')
+  }
   return db
     .select(apiKeyPublicColumns)
     .from(apiKeys)

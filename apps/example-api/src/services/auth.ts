@@ -89,7 +89,8 @@ export async function listApiKeysForSubject(db: Db, subject: string) {
 
 /**
  * D11 scoped list for api_key auth.
- * Blank/whitespace org → `[]` fail-closed (repo); prefer short-circuiting in the route when org is missing.
+ * Requires non-empty `organizationId` (repo throws if blank). HTTP missing-org → `[]` is owned by
+ * `GET /api/keys` short-circuit — do not call this when key org is absent.
  */
 export async function listApiKeysForOrg(db: Db, subject: string, organizationId: string) {
   return keysRepo.listApiKeysForOrg(db, subject, organizationId)
