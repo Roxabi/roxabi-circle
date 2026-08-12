@@ -40,16 +40,34 @@ export async function findApiKeyByPrefix(db: Db, keyPrefix: string) {
 
 /**
  * Public key metadata (never returns keyHash).
- * When `organizationId` is set, only keys bound to that org are returned (D11 api_key path).
+ * - omit `organizationId` / leave opts undefined → all subject keys (session path)
+ * - non-empty `organizationId` → D11 scoped list
+ * - empty string `organizationId` → **fail-closed `[]`** (never “list all”)
  */
 export async function listApiKeysForSubject(
   db: Db,
   subject: string,
   opts?: { organizationId?: string },
 ) {
-  const where = opts?.organizationId
-    ? and(eq(apiKeys.subject, subject), eq(apiKeys.organizationId, opts.organizationId))
-    : eq(apiKeys.subject, subject)
+  if (opts && 'organizationId' in opts) {
+    const org = opts.organizationId?.trim()
+    if (!org) return []
+    return db
+      .select({
+        id: apiKeys.id,
+        subject: apiKeys.subject,
+        keyPrefix: apiKeys.keyPrefix,
+        organizationId: apiKeys.organizationId,
+        name: apiKeys.name,
+        createdAt: apiKeys.createdAt,
+        expiresAt: apiKeys.expiresAt,
+        revokedAt: apiKeys.revokedAt,
+      })
+      .from(apiKeys)
+      .where(and(eq(apiKeys.subject, subject), eq(apiKeys.organizationId, org)))
+      .orderBy(desc(apiKeys.createdAt))
+      .all()
+  }
   return db
     .select({
       id: apiKeys.id,
@@ -62,7 +80,7 @@ export async function listApiKeysForSubject(
       revokedAt: apiKeys.revokedAt,
     })
     .from(apiKeys)
-    .where(where)
+    .where(eq(apiKeys.subject, subject))
     .orderBy(desc(apiKeys.createdAt))
     .all()
 }

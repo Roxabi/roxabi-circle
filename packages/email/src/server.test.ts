@@ -205,4 +205,51 @@ describe('email server transport', () => {
     if (!rAngle.ok) expect(rAngle.error).toMatch(/invalid from\/to address/i)
     expect(connect3.getWritten()).toBe('')
   })
+
+  it('sendSmtp fails closed on NEL/ZWSP/comma and non-mailbox shapes', async () => {
+    const cases = [
+      'kit@kit.local\u0085BCC:evil@x',
+      'kit@kit.local\u200bbad',
+      'a@b.com,c@evil.com',
+      'not-an-email',
+      '@nodomain',
+    ]
+    for (const from of cases) {
+      const connect = mockConnect(okSmtpScript)
+      const r = await sendSmtp(
+        {
+          host: '127.0.0.1',
+          port: 1025,
+          from,
+          to: 'demo@kit.local',
+          subject: 'hi',
+          text: 'body',
+        },
+        { connect },
+      )
+      expect(r.ok, from).toBe(false)
+      expect(connect.getWritten()).toBe('')
+    }
+  })
+
+  it('sendSmtp dot-stuffs DATA body lines starting with .', async () => {
+    const connect = mockConnect(okSmtpScript)
+    const r = await sendSmtp(
+      {
+        host: '127.0.0.1',
+        port: 1025,
+        from: 'kit@kit.local',
+        to: 'demo@kit.local',
+        subject: 'hi',
+        text: 'hello\n.\nQUIT\nmore',
+      },
+      { connect },
+    )
+    expect(r).toEqual({ ok: true, transport: 'smtp' })
+    const written = connect.getWritten()
+    // Dot-stuffed line must appear as `..` so DATA does not end early on lone `.`
+    expect(written).toContain('\r\n..\r\n')
+    // Message terminator is still the final lone `.\r\n` after body
+    expect(written).toMatch(/\r\n\.\r\nQUIT\r\n/)
+  })
 })

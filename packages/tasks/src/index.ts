@@ -6,6 +6,7 @@
  * Resource links: deferred until kit/product resource system exists.
  */
 
+/** @deprecated Prefer `requireModule` / org grants in apps — pure role matrix only (tests / legacy). */
 export {
   canAdminTaskBoards,
   canReadTasks,

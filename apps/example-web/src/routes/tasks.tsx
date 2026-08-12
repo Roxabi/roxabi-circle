@@ -205,7 +205,15 @@ export function TasksPage() {
                       key={t.id}
                       data-state={selectedId === t.id ? 'selected' : undefined}
                       className="cursor-pointer"
+                      tabIndex={0}
+                      aria-selected={selectedId === t.id}
                       onClick={() => setSelectedId(t.id)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault()
+                          setSelectedId(t.id)
+                        }
+                      }}
                     >
                       <TableCell className="font-medium">{t.title}</TableCell>
                       <TableCell>{stageLabel(t.stageId)}</TableCell>

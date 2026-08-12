@@ -83,7 +83,7 @@ export async function mintApiKey(
 /**
  * List API keys for subject.
  * D11: pass `{ organizationId }` for api_key auth (scope to key org);
- * omit for session (all subject keys).
+ * empty/whitespace org → `[]` fail-closed; omit opts for session (all subject keys).
  */
 export async function listApiKeys(db: Db, subject: string, opts?: { organizationId?: string }) {
   return keysRepo.listApiKeysForSubject(db, subject, opts)

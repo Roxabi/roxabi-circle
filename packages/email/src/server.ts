@@ -99,13 +99,28 @@ export async function sendSmtp(
   const from = scrub(input.from).trim()
   const to = scrub(input.to).trim()
   const subject = scrub(input.subject).trimEnd()
-  // Fail-closed: envelope addr-spec must be non-empty, no whitespace, no `<>` (control/delimiter).
-  // Garbage left after scrub (e.g. "user@x BCC: evil") must not reach MAIL FROM / RCPT TO.
+  // Fail-closed envelope: printable ASCII only, one @, no delimiters that re-open injection.
+  // Rejects whitespace, <>, comma, C0/DEL, and non-ASCII (NEL/ZWSP etc.).
   const isValidEnvelopeAddr = (addr: string) => {
-    if (addr.length === 0 || /[\s<>]/.test(addr)) return false
+    if (addr.length === 0 || addr.length > 254) return false
+    if (!addr.includes('@')) return false
+    if (addr.startsWith('@') || addr.endsWith('@')) return false
     for (let i = 0; i < addr.length; i++) {
       const c = addr.charCodeAt(i)
-      if (c <= 0x1f || c === 0x7f) return false
+      // printable ASCII only (0x21–0x7e), exclude common SMTP/header delimiters
+      if (c < 0x21 || c > 0x7e) return false
+      if (
+        c === 0x22 ||
+        c === 0x2c ||
+        c === 0x3a ||
+        c === 0x3b ||
+        c === 0x3c ||
+        c === 0x3e ||
+        c === 0x5c
+      ) {
+        // " , : ; < > \
+        return false
+      }
     }
     return true
   }
@@ -113,9 +128,16 @@ export async function sendSmtp(
     return {
       ok: false,
       transport: 'smtp',
-      error: 'invalid from/to address (empty, whitespace, or control chars after CR/LF scrub)',
+      error: 'invalid from/to address (need printable ASCII mailbox after CR/LF scrub)',
     }
   }
+
+  // RFC 5321: dot-stuff body lines that start with '.' so DATA cannot end early.
+  const dotStuffedText = input.text
+    .replace(/\r\n/g, '\n')
+    .split('\n')
+    .map((line) => (line.startsWith('.') ? `.${line}` : line))
+    .join('\r\n')
 
   const body = [
     `From: ${from}`,
@@ -124,7 +146,7 @@ export async function sendSmtp(
     `Date: ${new Date().toUTCString()}`,
     `Message-ID: <${crypto.randomUUID()}@kit.local>`,
     ``,
-    input.text,
+    dotStuffedText,
     ``,
   ].join('\r\n')
 

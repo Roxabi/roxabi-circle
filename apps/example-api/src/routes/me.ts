@@ -42,13 +42,14 @@ meRoutes.get('/api/me', async (c) => {
 meRoutes.get('/api/keys', async (c) => {
   const db = c.get('db')!
   const subject = c.get('subject')!
-  // D11: api_key path scopes to key org (empty if unbound); session lists all subject keys.
-  const keyOrg =
-    c.get('authMethod') === 'api_key' ? (c.get('keyOrganizationId') ?? undefined) : undefined
-  const keys =
-    c.get('authMethod') === 'api_key' && !keyOrg
-      ? []
-      : await authService.listApiKeys(db, subject, keyOrg ? { organizationId: keyOrg } : undefined)
+  // D11: api_key always passes organizationId (empty → repo fail-closed []); session omits opts.
+  const keys = await authService.listApiKeys(
+    db,
+    subject,
+    c.get('authMethod') === 'api_key'
+      ? { organizationId: c.get('keyOrganizationId') ?? '' }
+      : undefined,
+  )
   return c.json({ keys, requestId: c.get('requestId') })
 })
 

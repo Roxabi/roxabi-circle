@@ -66,4 +66,9 @@ describe('safePostAuthPath', () => {
     expect(safePostAuthPath(null)).toBeNull()
     expect(safePostAuthPath(42)).toBeNull()
   })
+
+  it('rejects double-encoded traversal', () => {
+    expect(safePostAuthPath('/app/%252e%252e/admin')).toBeNull()
+    expect(safePostAuthPath('/app/%25252e%25252e/x')).toBeNull()
+  })
 })

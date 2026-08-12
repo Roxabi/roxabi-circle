@@ -61,11 +61,17 @@ Historical interim code may remain briefly behind a private/test-only flag **onl
 
 ### D3 — SessionPort (normative)
 
+Live surface (BA-only — HMAC `sign` / `verify` / `secret` **removed** from the port):
+
 ```ts
-resolveSession({ cookieHeader?, headers?, secret?, cookieName }) → SessionPayload | null
+type SessionPort = {
+  resolveSession({ cookieHeader?, headers?, cookieName? }): Promise<SessionPayload | null>
+  cookieHeader(token, opts?): string
+  clearCookieHeader(opts?): string
+}
 ```
 
-BA implements `auth.api.getSession({ headers })`.  
+BA implements `auth.api.getSession({ headers })` inside `createBetterAuthSessionPort`.  
 `resolveDualAuth` / `originGuard` use **cookie name SSoT** (`sessionCookieName` / `SESSION_COOKIE_NAME`) — never hardcode.
 
 `SessionPort` remains the boundary so products do not fork session parsing — it is **not** a multi-adapter plug forever.
