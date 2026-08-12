@@ -136,7 +136,7 @@ describe('email server transport', () => {
     expect(connect.getWritten()).toBe('')
   })
 
-  it('sendSmtp scrubs subject CR/LF only when envelope addrs are clean', async () => {
+  it('sendSmtp scrubs subject CR/LF and Unicode line breaks when envelope is clean', async () => {
     const connect = mockConnect(okSmtpScript)
     const r = await sendSmtp(
       {
@@ -154,6 +154,26 @@ describe('email server transport', () => {
     expect(written).not.toContain('\r\nX-Injected:')
     const subjectLine = written.split('\r\n').find((l) => l.startsWith('Subject:'))
     expect(subjectLine).toBe('Subject: hi X-Injected: yes')
+
+    const connect2 = mockConnect(okSmtpScript)
+    const r2 = await sendSmtp(
+      {
+        host: '127.0.0.1',
+        port: 1025,
+        from: 'kit@kit.local',
+        to: 'demo@kit.local',
+        subject: 'Acme\u2028Bcc: evil@x',
+        text: 'body',
+      },
+      { connect: connect2 },
+    )
+    expect(r2).toEqual({ ok: true, transport: 'smtp' })
+    const w2 = connect2.getWritten()
+    expect(w2).not.toMatch(/\u2028/)
+    const sub2 = w2.split('\r\n').find((l) => l.startsWith('Subject:'))
+    expect(sub2).toBe('Subject: Acme Bcc: evil@x')
+    // Single Subject line only (no header split from LS)
+    expect(w2.split('\r\n').filter((l) => l.startsWith('Subject:'))).toHaveLength(1)
   })
 
   it('sendSmtp fails closed when from/to empty, whitespace, or control after CR/LF scrub', async () => {
@@ -213,6 +233,8 @@ describe('email server transport', () => {
       'a@b.com,c@evil.com',
       'not-an-email',
       '@nodomain',
+      'a@@b.com',
+      'a@b@c.com',
     ]
     for (const from of cases) {
       const connect = mockConnect(okSmtpScript)

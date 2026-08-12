@@ -65,28 +65,32 @@ describe('profileErrorMessage', () => {
 })
 
 describe('loginErrorMessage', () => {
-  it('maps 401 / UNAUTHORIZED → loginFailed (not session-expired copy)', () => {
+  it('maps 400/401/403 → same loginFailed (non-enumerating)', () => {
     expect(loginErrorMessage(apiErr(401, 'UNAUTHORIZED'), en)).toBe(en.loginFailed)
     expect(loginErrorMessage(new Error('HTTP 401'), en)).toBe(en.loginFailed)
+    expect(loginErrorMessage(apiErr(400, 'VALIDATION_ERROR'), en)).toBe(en.loginFailed)
+    expect(loginErrorMessage(new Error('HTTP 400'), en)).toBe(en.loginFailed)
+    expect(loginErrorMessage(new Error('HTTP 403'), en)).toBe(en.loginFailed)
     expect(loginErrorMessage(apiErr(401, 'UNAUTHORIZED'), en)).not.toBe(en.errUnauthorized)
   })
 
-  it('maps 400 → validation, 429 → rate limited', () => {
-    expect(loginErrorMessage(apiErr(400, 'VALIDATION_ERROR'), en)).toBe(en.errValidation)
-    expect(loginErrorMessage(new Error('HTTP 400'), en)).toBe(en.errValidation)
+  it('maps 429 → rate limited only', () => {
     expect(loginErrorMessage(apiErr(429, 'RATE_LIMITED'), en)).toBe(en.errRateLimited)
   })
 
-  it('never returns change-password copy', () => {
+  it('never returns change-password or session-expired copy on failed sign-in', () => {
     const cases: unknown[] = [
       apiErr(400, 'VALIDATION_ERROR'),
       apiErr(401, 'UNAUTHORIZED'),
       new Error('HTTP 401'),
+      new Error('HTTP 403'),
     ]
     for (const err of cases) {
       const msg = loginErrorMessage(err, en)
+      expect(msg).toBe(en.loginFailed)
       expect(msg).not.toBe(en.changePasswordWrong)
       expect(msg).not.toBe(en.changePasswordReauth)
+      expect(msg).not.toBe(en.errUnauthorized)
     }
   })
 })

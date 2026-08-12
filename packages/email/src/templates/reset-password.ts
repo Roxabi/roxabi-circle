@@ -12,7 +12,9 @@ function escapeHtml(s: string): string {
 export function ResetPasswordEmail(props: { to: string; resetUrl: string; expiresHint?: string }) {
   const safeUrl = escapeHtml(props.resetUrl)
   const subject = 'Reset your password — Kit kit'
-  const exp = props.expiresHint ? props.expiresHint.replace(/[\r\n]/g, '') : 'about 1 hour'
+  const exp = props.expiresHint
+    ? props.expiresHint.replace(/[\r\n\u0085\u2028\u2029]+/g, ' ')
+    : 'about 1 hour'
   const text = [
     'You requested a password reset for Kit Kit.',
     `Reset link: ${props.resetUrl}`,

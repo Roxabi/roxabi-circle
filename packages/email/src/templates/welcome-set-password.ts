@@ -16,9 +16,10 @@ export function WelcomeSetPasswordEmail(props: {
   name?: string
 }) {
   const safeUrl = escapeHtml(props.setPasswordUrl)
-  const who = props.name?.trim() ? props.name.trim().replace(/[\r\n]/g, '') : 'there'
+  const scrub = (s: string) => s.replace(/[\r\n\u0085\u2028\u2029]+/g, ' ')
+  const who = props.name?.trim() ? scrub(props.name.trim()) : 'there'
   const subject = 'Welcome — set your password — Kit kit'
-  const exp = props.expiresHint ? props.expiresHint.replace(/[\r\n]/g, '') : 'about 1 hour'
+  const exp = props.expiresHint ? scrub(props.expiresHint) : 'about 1 hour'
   const text = [
     `Hi ${who},`,
     'An account was created for you on Kit Kit.',

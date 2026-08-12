@@ -14,7 +14,7 @@ export function DemoEmail(props: { subjectId: string; to: string }) {
   const safeId = escapeHtml(props.subjectId)
   return {
     to: props.to,
-    subject: `Kit kit demo (${props.subjectId.replace(/[\r\n]/g, '')})`,
+    subject: `Kit kit demo (${props.subjectId.replace(/[\r\n\u0085\u2028\u2029]+/g, ' ')})`,
     html: `<p>Hello from <strong>@kit/email</strong> demo template.</p><p>Subject: ${safeId}</p>`,
     text: 'Hello from @kit/email demo template.',
   }

@@ -122,7 +122,7 @@ export async function createCustomRole(
   const key = slugRoleKey(input.key)
   if (!key || isOrgRoleKey(key)) {
     throw AppError.validation('Invalid custom role key', {
-      key: ['Use a non-system key (a-z, 0-9, _)'],
+      fieldErrors: { key: ['Use a non-system key (a-z, 0-9, _)'] },
     })
   }
   const name = input.name.trim()
@@ -135,10 +135,14 @@ export async function createCustomRole(
     input.grants ?? KIT_MODULE_IDS.map((moduleId) => ({ moduleId, access: 'read' as const }))
   for (const g of grants) {
     if (!KIT_MODULE_IDS.includes(g.moduleId as (typeof KIT_MODULE_IDS)[number])) {
-      throw AppError.validation('Unknown module in grants', { moduleId: [g.moduleId] })
+      throw AppError.validation('Unknown module in grants', {
+        fieldErrors: { moduleId: [g.moduleId] },
+      })
     }
     if (!isModuleAccess(g.access)) {
-      throw AppError.validation('Invalid access level', { access: [g.access] })
+      throw AppError.validation('Invalid access level', {
+        fieldErrors: { access: [g.access] },
+      })
     }
   }
 
@@ -187,7 +191,9 @@ export async function setRoleGrant(
     throw AppError.notFound('Unknown module')
   }
   if (!isModuleAccess(input.access)) {
-    throw AppError.validation('Invalid access', { access: [input.access] })
+    throw AppError.validation('Invalid access', {
+      fieldErrors: { access: [input.access] },
+    })
   }
 
   const actorMap = await grantsMapForRoleKey(db, input.organizationId, input.actorRoleKey)
@@ -299,7 +305,9 @@ export async function assertAssignableRole(
   await ensureSystemRoles(db, organizationId)
   const custom = await customRoleKeys(db, organizationId)
   if (!isAssignableRoleKey(roleKey, custom)) {
-    throw AppError.validation('Unknown role', { role: [roleKey] })
+    throw AppError.validation('Unknown role', {
+      fieldErrors: { role: [roleKey] },
+    })
   }
   if (roleKey === 'owner') {
     throw AppError.forbidden('Cannot assign owner via this path')

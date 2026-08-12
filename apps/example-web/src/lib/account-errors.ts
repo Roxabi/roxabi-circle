@@ -56,18 +56,27 @@ export function profileErrorMessage(err: unknown, m: Messages): string {
 
 /**
  * Map errors for **password sign-in** only.
- * 401 / UNAUTHORIZED → non-enumerating `loginFailed` (not session-expired copy).
+ * 400 / 401 / 403 / UNAUTHORIZED / FORBIDDEN / VALIDATION → same non-enumerating
+ * `loginFailed` (unknown email vs wrong password must not differ in UI copy).
+ * 429 stays rate-limited.
  */
 export function loginErrorMessage(err: unknown, m: Messages): string {
   if (err instanceof ApiError) {
-    if (err.status === 401 || err.code === 'UNAUTHORIZED') return m.loginFailed
     if (err.status === 429 || err.code === 'RATE_LIMITED') return m.errRateLimited
-    if (err.status === 400 || err.code === 'VALIDATION_ERROR') return m.errValidation
+    if (
+      err.status === 400 ||
+      err.status === 401 ||
+      err.status === 403 ||
+      err.code === 'UNAUTHORIZED' ||
+      err.code === 'FORBIDDEN' ||
+      err.code === 'VALIDATION_ERROR'
+    ) {
+      return m.loginFailed
+    }
     return apiErrorToMessage(err, m)
   }
   const status = httpStatus(err)
-  if (status === 401) return m.loginFailed
   if (status === 429) return m.errRateLimited
-  if (status === 400) return m.errValidation
+  if (status === 400 || status === 401 || status === 403) return m.loginFailed
   return apiErrorToMessage(err, m)
 }

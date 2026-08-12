@@ -63,7 +63,9 @@ export async function createAdminUser(db: Db, input: CreateAdminUserInput) {
 
   const email = normalizeEmail(input.email)
   if (!email?.includes('@')) {
-    throw AppError.validation('Invalid email', { email: ['Valid email required'] })
+    throw AppError.validation('Invalid email', {
+      fieldErrors: { email: ['Valid email required'] },
+    })
   }
 
   const existing = await usersRepo.findBaUserByEmail(db, email)

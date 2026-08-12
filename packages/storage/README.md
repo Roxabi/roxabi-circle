@@ -14,15 +14,13 @@ R2 helpers for Chemin A kit apps: safe keys, prefix-enforced client, light **PUT
 
 ## Free helpers = escape hatch
 
-`putObject` / `getObject` / `deleteObject` / unprefixed `createPresignedUrl` only
-reject empty/`..` keys — they do **not** scope writes under a product prefix.
+`putObject` / `getObject` / `deleteObject` only reject empty/`..` keys — they do
+**not** scope writes under a product prefix (marked `@deprecated`).
 
-**Products should use `StorageClient`** so every key is joined under `basePrefix`
-and cannot stray outside it. Free helpers remain for demos, tests, and rare
-low-level wiring; they are marked `@deprecated` in favor of the client.
+**Products should use `StorageClient`** so every key is joined under `basePrefix`.
 
-For presign, pass keys from `client.key(...parts)` (not raw strings) so signed
-URLs stay under the same prefix as put/get/delete.
+`createPresignedUrl` is the **canonical** presign entrypoint (not deprecated).
+Pass keys from `client.key(...parts)` so signed URLs stay under the product prefix.
 
 ## Presign (kit v1)
 

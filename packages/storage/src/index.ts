@@ -199,11 +199,9 @@ function clampExpiresIn(seconds: number): number {
  * Validate key safety then delegate to an app-provided signer (S3 or mock).
  * Package never holds R2 secrets.
  *
- * @deprecated Prefer building keys via {@link StorageClient.key} (or
- * `client.put`/`get`) so presigned URLs stay under the product prefix.
- * Free helper only asserts path safety — it does **not** enforce a prefix.
- *
- * Keys should come from `StorageClient.key(...parts)`, not raw strings.
+ * **Canonical presign entrypoint** (not deprecated). Build `input.key` via
+ * {@link StorageClient.key} so URLs stay under the product prefix — this helper
+ * only asserts path safety, it does **not** enforce a prefix.
  */
 export async function createPresignedUrl(
   signer: PresignSigner,

@@ -93,18 +93,17 @@ export async function sendSmtp(
     }
   }
 
-  // Strip CR/LF from header fields and SMTP envelope (command injection if user input).
-  // Collapse any CR/LF run to a single space so `\r\n` does not become two spaces.
-  const scrub = (s: string) => s.replace(/[\r\n]+/g, ' ')
-  const from = scrub(input.from).trim()
-  const to = scrub(input.to).trim()
-  const subject = scrub(input.subject).trimEnd()
-  // Fail-closed envelope: printable ASCII only, one @, no delimiters that re-open injection.
-  // Rejects whitespace, <>, comma, C0/DEL, and non-ASCII (NEL/ZWSP etc.).
+  // All Unicode line terminators → space (CR/LF, NEL U+0085, LS U+2028, PS U+2029).
+  const scrubHeader = (s: string) =>
+    s.replace(/[\r\n\u0085\u2028\u2029]+/g, ' ').replace(/ +/g, ' ')
+  const from = scrubHeader(input.from).trim()
+  const to = scrubHeader(input.to).trim()
+  const subject = scrubHeader(input.subject).trimEnd()
+  // Fail-closed envelope: printable ASCII, exactly one @, no SMTP/header delimiters.
   const isValidEnvelopeAddr = (addr: string) => {
     if (addr.length === 0 || addr.length > 254) return false
-    if (!addr.includes('@')) return false
-    if (addr.startsWith('@') || addr.endsWith('@')) return false
+    const at = addr.indexOf('@')
+    if (at <= 0 || at !== addr.lastIndexOf('@') || at === addr.length - 1) return false
     for (let i = 0; i < addr.length; i++) {
       const c = addr.charCodeAt(i)
       // printable ASCII only (0x21–0x7e), exclude common SMTP/header delimiters
