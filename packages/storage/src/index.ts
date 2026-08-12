@@ -64,6 +64,10 @@ export function assertObjectKey(key: string): void {
   pushPathSegments([], key)
 }
 
+/**
+ * @deprecated Prefer {@link StorageClient} (prefix-enforced). Free helper —
+ * no base-prefix isolation; escape hatch for demos / low-level wiring only.
+ */
 export async function putObject(
   bucket: KitR2Bucket,
   key: string,
@@ -74,11 +78,19 @@ export async function putObject(
   return bucket.put(key, body, options)
 }
 
+/**
+ * @deprecated Prefer {@link StorageClient} (prefix-enforced). Free helper —
+ * no base-prefix isolation; escape hatch for demos / low-level wiring only.
+ */
 export async function getObject(bucket: KitR2Bucket, key: string): Promise<KitR2ObjectBody | null> {
   assertObjectKey(key)
   return bucket.get(key)
 }
 
+/**
+ * @deprecated Prefer {@link StorageClient} (prefix-enforced). Free helper —
+ * no base-prefix isolation; escape hatch for demos / low-level wiring only.
+ */
 export async function deleteObject(bucket: KitR2Bucket, key: string): Promise<void> {
   assertObjectKey(key)
   await bucket.delete(key)
@@ -186,6 +198,12 @@ function clampExpiresIn(seconds: number): number {
 /**
  * Validate key safety then delegate to an app-provided signer (S3 or mock).
  * Package never holds R2 secrets.
+ *
+ * @deprecated Prefer building keys via {@link StorageClient.key} (or
+ * `client.put`/`get`) so presigned URLs stay under the product prefix.
+ * Free helper only asserts path safety — it does **not** enforce a prefix.
+ *
+ * Keys should come from `StorageClient.key(...parts)`, not raw strings.
  */
 export async function createPresignedUrl(
   signer: PresignSigner,

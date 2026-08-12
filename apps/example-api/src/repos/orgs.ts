@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm'
+import { and, eq, inArray } from 'drizzle-orm'
 import type { DrizzleD1Database } from 'drizzle-orm/d1'
 import { baMember, baOrganization } from '../db/better-auth-schema'
 import type { schema } from '../db/schema'
@@ -42,6 +42,12 @@ export async function findMembership(db: Db, orgId: string, userId: string) {
 
 export async function listMembers(db: Db, orgId: string) {
   return db.select().from(baMember).where(eq(baMember.organizationId, orgId))
+}
+
+/** Batch members across orgs (avoids N+1 when scoping staff admin directory). */
+export async function listMembersInOrgs(db: Db, orgIds: string[]) {
+  if (orgIds.length === 0) return []
+  return db.select().from(baMember).where(inArray(baMember.organizationId, orgIds))
 }
 
 export async function listAllOrgs(db: Db) {

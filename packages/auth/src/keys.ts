@@ -67,6 +67,10 @@ export const PBKDF2_MAX_ITERS = 600_000
 /**
  * Password KDF (PBKDF2-SHA-256). Format: `pbkdf2$iterations$saltHex$hashHex`
  * Do not reuse for API keys — use `hashApiKey` for high-entropy sk_ values.
+ *
+ * @deprecated For session/login credentials — Better Auth crypto owns real passwords.
+ * Kit PBKDF2 remains for legacy `demo_users` rows and offline tools only.
+ * Prefer `better-auth/crypto` `hashPassword` for BA credential accounts.
  */
 export async function hashPassword(password: string, salt?: Uint8Array): Promise<string> {
   const saltBytes = salt ?? crypto.getRandomValues(new Uint8Array(16))
@@ -87,6 +91,12 @@ export async function hashPassword(password: string, salt?: Uint8Array): Promise
   return `pbkdf2$${PBKDF2_ITERS}$${saltHex}$${hashHex}`
 }
 
+/**
+ * Verify a kit PBKDF2 password hash (`pbkdf2$…` format from {@link hashPassword}).
+ *
+ * @deprecated For session/login credentials — Better Auth crypto owns real passwords.
+ * Kit PBKDF2 remains for legacy `demo_users` / tools only; do not use for BA accounts.
+ */
 export async function verifyPassword(password: string, stored: string): Promise<boolean> {
   const parts = stored.split('$')
   if (parts.length !== 4 || parts[0] !== 'pbkdf2') return false

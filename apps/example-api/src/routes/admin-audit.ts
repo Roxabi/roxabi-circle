@@ -22,7 +22,9 @@ adminAuditRoutes.get('/api/admin/audit-events', requirePlatformRole('super_admin
     cursor: c.req.query('cursor') ?? undefined,
   })
   if (!parsed.success) {
-    throw AppError.validation('Invalid query', parsed.error.flatten().fieldErrors)
+    throw AppError.validation('Invalid query', {
+      fieldErrors: parsed.error.flatten().fieldErrors,
+    })
   }
   const db = c.get('db')
   if (!db) throw AppError.internal('db not bound')

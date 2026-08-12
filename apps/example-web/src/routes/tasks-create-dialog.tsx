@@ -7,6 +7,7 @@ import {
   DialogHeader,
   DialogTitle,
   Field,
+  FieldError,
   FieldLabel,
   Input,
   Select,
@@ -18,6 +19,7 @@ import {
   Textarea,
 } from '@kit/ui'
 import { useForm } from '@tanstack/react-form'
+import { createTaskSchema } from '../lib/schemas'
 import type { Messages } from '../messages/fr'
 
 type Props = {
@@ -40,10 +42,27 @@ export function TaskCreateDialog({ open, onOpenChange, m, pending, onSubmit }: P
       description: '',
       visibility: 'shared' as 'internal' | 'shared',
     },
+    validators: {
+      onSubmit: ({ value }) => {
+        const parsed = createTaskSchema.safeParse(value)
+        if (parsed.success) return undefined
+        const flat = parsed.error.flatten().fieldErrors
+        return {
+          form: m.errValidation,
+          fields: {
+            title: flat.title?.[0] ? m.errTitleRequired : undefined,
+            description: flat.description?.[0] ? m.errValidation : undefined,
+            visibility: flat.visibility?.[0] ? m.errValidation : undefined,
+          },
+        }
+      },
+    },
     onSubmit: async ({ value }) => {
+      const title = value.title.trim()
+      const description = value.description.trim()
       await onSubmit({
-        title: value.title.trim(),
-        description: value.description.trim() || undefined,
+        title,
+        description: description || undefined,
         visibility: value.visibility,
         boardKey: 'main',
       })
@@ -66,16 +85,22 @@ export function TaskCreateDialog({ open, onOpenChange, m, pending, onSubmit }: P
           }}
         >
           <form.Field name="title">
-            {(field) => (
-              <Field>
-                <FieldLabel>{m.taskTitle}</FieldLabel>
-                <Input
-                  value={field.state.value}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                  required
-                />
-              </Field>
-            )}
+            {(field) => {
+              const err = field.state.meta.errors[0]
+              const invalid = Boolean(err)
+              return (
+                <Field>
+                  <FieldLabel>{m.taskTitle}</FieldLabel>
+                  <Input
+                    value={field.state.value}
+                    onChange={(e) => field.handleChange(e.target.value)}
+                    onBlur={field.handleBlur}
+                    aria-invalid={invalid || undefined}
+                  />
+                  {invalid ? <FieldError>{String(err)}</FieldError> : null}
+                </Field>
+              )
+            }}
           </form.Field>
           <form.Field name="description">
             {(field) => (

@@ -221,6 +221,7 @@ export const en: Messages = {
   forbiddenPlatform: 'Back-office access denied',
   forbiddenPlatformDesc: 'Back-office is limited to platform staff and super admins.',
   errUnauthorized: 'Session expired or not signed in',
+  loginFailed: 'Invalid email or password',
   errForbidden: 'Action not allowed',
   errNotFound: 'Resource not found',
   errValidation: 'Invalid data',

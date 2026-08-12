@@ -62,7 +62,9 @@ adminUsersRoutes.get('/api/admin/users', requirePlatformRole('super_admin', 'sta
     offset: c.req.query('offset') ?? undefined,
   })
   if (!parsed.success) {
-    throw AppError.validation('Invalid query', parsed.error.flatten().fieldErrors)
+    throw AppError.validation('Invalid query', {
+      fieldErrors: parsed.error.flatten().fieldErrors,
+    })
   }
   const db = c.get('db')!
   const platformRole = c.get('platformRole')
@@ -84,7 +86,9 @@ adminUsersRoutes.post(
     requireSession(c)
     const parsed = createSchema.safeParse(await c.req.json().catch(() => null))
     if (!parsed.success) {
-      throw AppError.validation('Invalid create user payload', parsed.error.flatten().fieldErrors)
+      throw AppError.validation('Invalid create user payload', {
+        fieldErrors: parsed.error.flatten().fieldErrors,
+      })
     }
     const platformRole = c.get('platformRole')
     if (platformRole !== 'super_admin' && platformRole !== 'staff') {

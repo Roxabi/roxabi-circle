@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { en } from '../messages/en'
-import { changePasswordErrorMessage, profileErrorMessage } from './account-errors'
+import {
+  changePasswordErrorMessage,
+  loginErrorMessage,
+  profileErrorMessage,
+} from './account-errors'
 import { ApiError } from './api'
 
 function apiErr(status: number, code: string): ApiError {
@@ -57,5 +61,32 @@ describe('profileErrorMessage', () => {
     expect(profileErrorMessage(new Error('HTTP 400'), en)).toBe(en.errValidation)
     expect(profileErrorMessage(apiErr(401, 'UNAUTHORIZED'), en)).toBe(en.errUnauthorized)
     expect(profileErrorMessage(apiErr(429, 'RATE_LIMITED'), en)).toBe(en.errRateLimited)
+  })
+})
+
+describe('loginErrorMessage', () => {
+  it('maps 401 / UNAUTHORIZED → loginFailed (not session-expired copy)', () => {
+    expect(loginErrorMessage(apiErr(401, 'UNAUTHORIZED'), en)).toBe(en.loginFailed)
+    expect(loginErrorMessage(new Error('HTTP 401'), en)).toBe(en.loginFailed)
+    expect(loginErrorMessage(apiErr(401, 'UNAUTHORIZED'), en)).not.toBe(en.errUnauthorized)
+  })
+
+  it('maps 400 → validation, 429 → rate limited', () => {
+    expect(loginErrorMessage(apiErr(400, 'VALIDATION_ERROR'), en)).toBe(en.errValidation)
+    expect(loginErrorMessage(new Error('HTTP 400'), en)).toBe(en.errValidation)
+    expect(loginErrorMessage(apiErr(429, 'RATE_LIMITED'), en)).toBe(en.errRateLimited)
+  })
+
+  it('never returns change-password copy', () => {
+    const cases: unknown[] = [
+      apiErr(400, 'VALIDATION_ERROR'),
+      apiErr(401, 'UNAUTHORIZED'),
+      new Error('HTTP 401'),
+    ]
+    for (const err of cases) {
+      const msg = loginErrorMessage(err, en)
+      expect(msg).not.toBe(en.changePasswordWrong)
+      expect(msg).not.toBe(en.changePasswordReauth)
+    }
   })
 })

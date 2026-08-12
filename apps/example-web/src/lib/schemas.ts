@@ -42,6 +42,25 @@ export const createNoteSchema = z.object({
   body: z.string().max(10_000),
 })
 
+/** Task create dialog — aligns with kit task title/description ceilings. */
+export const createTaskSchema = z.object({
+  title: z.string().trim().min(1).max(500),
+  description: z.string().max(20_000),
+  visibility: z.enum(['internal', 'shared']),
+})
+
+/** Org create (org-switcher) — mirrors example-api POST /api/orgs. */
+export const createOrgSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  slug: z.string().trim().max(48).optional(),
+})
+
+/** Admin user create — email required; name optional. */
+export const createAdminUserSchema = z.object({
+  email: z.string().trim().email().max(254),
+  name: z.string().trim().max(120).optional(),
+})
+
 export type LoginValues = z.infer<typeof loginSchema>
 export type ForgotPasswordValues = z.infer<typeof forgotPasswordSchema>
 export type MagicLinkValues = z.infer<typeof magicLinkSchema>
@@ -49,3 +68,6 @@ export type ResetPasswordValues = z.infer<typeof resetPasswordSchema>
 export type ChangePasswordValues = z.infer<typeof changePasswordSchema>
 export type ProfileNameValues = z.infer<typeof profileNameSchema>
 export type CreateNoteValues = z.infer<typeof createNoteSchema>
+export type CreateTaskValues = z.infer<typeof createTaskSchema>
+export type CreateOrgValues = z.infer<typeof createOrgSchema>
+export type CreateAdminUserValues = z.infer<typeof createAdminUserSchema>

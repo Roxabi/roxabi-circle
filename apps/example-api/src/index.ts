@@ -20,7 +20,9 @@ export default {
             error: err instanceof Error ? err.message : String(err),
           }),
         )
-        // still ack to avoid poison loops on demo handler — product may retry
+        // Demo-only always-ack: drops poison messages so local/CI queue never loops.
+        // Product handlers MUST NOT copy this — use msg.retry() / dead-letter policy
+        // (max retries + DLQ) so failed work is retried or parked, not silently lost.
         msg.ack()
       }
     }

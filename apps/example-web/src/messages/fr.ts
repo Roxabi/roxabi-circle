@@ -219,6 +219,11 @@ export type Messages = {
   forbiddenPlatformDesc: string
   /** Stable ErrorCode → UI copy (API codes stay English; FE translates). */
   errUnauthorized: string
+  /**
+   * Wrong credentials on password sign-in — non-enumerating
+   * (never “unknown email” vs “bad password”).
+   */
+  loginFailed: string
   errForbidden: string
   errNotFound: string
   errValidation: string
@@ -501,6 +506,7 @@ export const fr: Messages = {
   forbiddenPlatform: 'Accès back-office refusé',
   forbiddenPlatformDesc: 'Le back-office est réservé au staff et super admin plateforme.',
   errUnauthorized: 'Session expirée ou non authentifié',
+  loginFailed: 'E-mail ou mot de passe incorrect',
   errForbidden: 'Action non autorisée',
   errNotFound: 'Ressource introuvable',
   errValidation: 'Données invalides',

@@ -17,6 +17,7 @@ import { PageHeader } from '../../components/app-shell'
 import { apiErrorToMessage, apiFetch } from '../../lib/api'
 import { hasPlatformRole, useMe } from '../../lib/auth'
 import { useLocale } from '../../lib/locale'
+import { createAdminUserSchema } from '../../lib/schemas'
 
 type AdminUser = {
   id: string
@@ -110,7 +111,19 @@ export function AdminUsersPage() {
             className="grid gap-3 sm:grid-cols-2"
             onSubmit={(e) => {
               e.preventDefault()
-              if (email.trim()) create.mutate()
+              const parsed = createAdminUserSchema.safeParse({
+                email,
+                name: name.trim() || undefined,
+              })
+              if (!parsed.success) {
+                toast.error(m.error, {
+                  description: parsed.error.flatten().fieldErrors.email?.[0]
+                    ? m.errEmailInvalid
+                    : m.errValidation,
+                })
+                return
+              }
+              create.mutate()
             }}
           >
             <div className="space-y-1.5">

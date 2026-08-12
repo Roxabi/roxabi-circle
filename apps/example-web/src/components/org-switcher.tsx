@@ -32,6 +32,7 @@ import { type MeResponse, meQueryKey } from '../lib/auth'
 import { useLocale } from '../lib/locale'
 import { useOrgContext } from '../lib/org-context'
 import { orgRoleLabel } from '../lib/org-role'
+import { createOrgSchema } from '../lib/schemas'
 
 /**
  * Sidebar org switcher — same structure as sidebar-07 `TeamSwitcher`
@@ -95,14 +96,16 @@ export function OrgSwitcher() {
 
   const submitCreate = (e: FormEvent) => {
     e.preventDefault()
-    const trimmed = name.trim()
-    if (!trimmed) {
+    const parsed = createOrgSchema.safeParse({ name, slug })
+    if (!parsed.success) {
       setNameError(m.orgNameRequired)
       return
     }
     setNameError(null)
-    const slugTrim = slug.trim()
-    createOrg.mutate(slugTrim ? { name: trimmed, slug: slugTrim } : { name: trimmed })
+    const slugTrim = parsed.data.slug?.trim() ?? ''
+    createOrg.mutate(
+      slugTrim.length > 0 ? { name: parsed.data.name, slug: slugTrim } : { name: parsed.data.name },
+    )
   }
 
   const current = activeOrg ?? orgs[0]

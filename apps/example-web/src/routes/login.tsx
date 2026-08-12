@@ -6,7 +6,7 @@ import { GalleryVerticalEnd } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { LoginMagicForm } from '../components/login-magic-form'
-import { profileErrorMessage } from '../lib/account-errors'
+import { loginErrorMessage } from '../lib/account-errors'
 import { apiFetch } from '../lib/api'
 import { defaultHomePath, type MeResponse, meQueryKey, useMe } from '../lib/auth'
 import { useLocale } from '../lib/locale'
@@ -75,8 +75,8 @@ export function LoginPage() {
         const target = postLoginTarget(meAfter, search.next)
         await navigate({ href: target })
       } catch (e) {
-        // BA non-kit envelopes → Error('HTTP {status}'); map via account helper
-        const msg = profileErrorMessage(e, m)
+        // BA non-kit envelopes → Error('HTTP {status}'); wrong creds ≠ session expired
+        const msg = loginErrorMessage(e, m)
         setError(msg)
         toast.error(m.error, { description: msg })
       }

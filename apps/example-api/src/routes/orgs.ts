@@ -79,7 +79,9 @@ orgsRoutes.post('/api/orgs', async (c) => {
   }
   const parsed = createSchema.safeParse(await c.req.json().catch(() => null))
   if (!parsed.success) {
-    throw AppError.validation('Invalid organization payload', parsed.error.flatten().fieldErrors)
+    throw AppError.validation('Invalid organization payload', {
+      fieldErrors: parsed.error.flatten().fieldErrors,
+    })
   }
   const db = c.get('db')!
   const org = await orgsService.createOrganization(db, {
@@ -123,7 +125,9 @@ orgsRoutes.post(
     }
     const parsed = inviteCreateSchema.safeParse(await c.req.json().catch(() => null))
     if (!parsed.success) {
-      throw AppError.validation('Invalid invitation payload', parsed.error.flatten().fieldErrors)
+      throw AppError.validation('Invalid invitation payload', {
+        fieldErrors: parsed.error.flatten().fieldErrors,
+      })
     }
     const acceptBaseUrl = corsAllowlist(c.env)[0] ?? 'http://localhost:5173'
     const invitation = await invitationsService.createInvitation(c.get('db')!, {
@@ -197,7 +201,9 @@ orgsRoutes.patch(
     }
     const parsed = patchModuleSchema.safeParse(await c.req.json().catch(() => null))
     if (!parsed.success) {
-      throw AppError.validation('Invalid module payload', parsed.error.flatten().fieldErrors)
+      throw AppError.validation('Invalid module payload', {
+        fieldErrors: parsed.error.flatten().fieldErrors,
+      })
     }
     const db = c.get('db')!
     await platformModulesService.setOrgModuleEnabled(
@@ -235,7 +241,9 @@ orgsRoutes.post(
     if (!orgRole) throw AppError.forbidden('Organization role required')
     const parsed = createRoleSchema.safeParse(await c.req.json().catch(() => null))
     if (!parsed.success) {
-      throw AppError.validation('Invalid role payload', parsed.error.flatten().fieldErrors)
+      throw AppError.validation('Invalid role payload', {
+        fieldErrors: parsed.error.flatten().fieldErrors,
+      })
     }
     const db = c.get('db')!
     const role = await orgRolesService.createCustomRole(db, {
@@ -261,7 +269,9 @@ orgsRoutes.patch(
     if (!orgRole) throw AppError.forbidden('Organization role required')
     const parsed = patchGrantSchema.safeParse(await c.req.json().catch(() => null))
     if (!parsed.success) {
-      throw AppError.validation('Invalid grant payload', parsed.error.flatten().fieldErrors)
+      throw AppError.validation('Invalid grant payload', {
+        fieldErrors: parsed.error.flatten().fieldErrors,
+      })
     }
     const db = c.get('db')!
     const role = await orgRolesService.setRoleGrant(db, {
@@ -306,7 +316,9 @@ orgsRoutes.patch(
       .object({ available: z.boolean() })
       .safeParse(await c.req.json().catch(() => null))
     if (!body.success) {
-      throw AppError.validation('Invalid platform module payload', body.error.flatten().fieldErrors)
+      throw AppError.validation('Invalid platform module payload', {
+        fieldErrors: body.error.flatten().fieldErrors,
+      })
     }
     const db = c.get('db')!
     await platformModulesService.setPlatformAvailable(

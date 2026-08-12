@@ -31,7 +31,9 @@ modulesRoutes.patch('/api/modules/:id', requirePlatformRole('super_admin'), asyn
 
   const parsed = patchSchema.safeParse(await c.req.json().catch(() => null))
   if (!parsed.success) {
-    throw AppError.validation('Invalid module payload', parsed.error.flatten().fieldErrors)
+    throw AppError.validation('Invalid module payload', {
+      fieldErrors: parsed.error.flatten().fieldErrors,
+    })
   }
 
   const db = c.get('db')!

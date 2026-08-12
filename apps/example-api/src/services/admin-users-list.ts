@@ -33,12 +33,11 @@ export async function listAdminUsers(db: Db, input: ListAdminUsersInput) {
   let userIds: string[] | undefined
   if (input.actorPlatformRole === 'staff') {
     const actorOrgs = await orgsRepo.listMembershipsForUser(db, input.actorUserId)
+    const orgIds = actorOrgs.map((m) => m.organizationId)
+    const members = await orgsRepo.listMembersInOrgs(db, orgIds)
     const allowed = new Set<string>()
-    for (const m of actorOrgs) {
-      const members = await orgsRepo.listMembers(db, m.organizationId)
-      for (const mem of members) {
-        allowed.add(mem.userId)
-      }
+    for (const mem of members) {
+      allowed.add(mem.userId)
     }
     userIds = [...allowed]
   }
@@ -50,22 +49,16 @@ export async function listAdminUsers(db: Db, input: ListAdminUsersInput) {
     userIds,
   })
 
-  const out: {
-    id: string
-    email: string
-    name: string
-    platformRole: PlatformRole | null
-    createdAt: string
-  }[] = []
-  for (const r of rows) {
-    const platformRole = await platformRolesRepo.getPlatformRole(db, r.id)
-    out.push({
-      id: r.id,
-      email: r.email,
-      name: r.name,
-      platformRole,
-      createdAt: r.createdAt instanceof Date ? r.createdAt.toISOString() : String(r.createdAt),
-    })
-  }
-  return out
+  const rolesByUser = await platformRolesRepo.getPlatformRolesForUsers(
+    db,
+    rows.map((r) => r.id),
+  )
+
+  return rows.map((r) => ({
+    id: r.id,
+    email: r.email,
+    name: r.name,
+    platformRole: rolesByUser.get(r.id) ?? null,
+    createdAt: r.createdAt instanceof Date ? r.createdAt.toISOString() : String(r.createdAt),
+  }))
 }

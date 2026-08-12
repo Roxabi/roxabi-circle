@@ -69,7 +69,9 @@ meRoutes.post('/api/keys', async (c) => {
     })
     .safeParse(await c.req.json().catch(() => ({})))
   if (!body.success) {
-    throw AppError.validation('Invalid key mint payload', body.error.flatten().fieldErrors)
+    throw AppError.validation('Invalid key mint payload', {
+      fieldErrors: body.error.flatten().fieldErrors,
+    })
   }
 
   const orgFromHeader = c.req.header('x-org-id')?.trim()
