@@ -157,12 +157,16 @@ export function TasksPage() {
       {tasks.isLoading ? (
         <Skeleton className="h-40 w-full" />
       ) : tasks.isError ? (
-        <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-destructive/40 py-12 text-center">
+        <div
+          role="alert"
+          className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-destructive/40 py-12 text-center"
+        >
           <p className="text-sm font-medium text-destructive">{m.loadFailed}</p>
           <p className="max-w-sm text-xs text-muted-foreground">
             {apiErrorToMessage(tasks.error, m)}
           </p>
           <Button
+            type="button"
             variant="secondary"
             size="sm"
             onClick={() => {

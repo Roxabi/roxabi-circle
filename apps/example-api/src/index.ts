@@ -1,4 +1,5 @@
 import { createApp } from './app'
+import type { Env } from './env'
 import { handleDemoJob, handleScheduledTick } from './jobs/demo-handler'
 
 const app = createApp()
@@ -6,11 +7,7 @@ const app = createApp()
 export default {
   fetch: app.fetch,
 
-  async queue(
-    batch: { messages: { body: unknown; ack: () => void; retry: () => void }[] },
-    _env: unknown,
-    _ctx: unknown,
-  ) {
+  async queue(batch: MessageBatch<unknown>, _env: Env, _ctx: ExecutionContext) {
     for (const msg of batch.messages) {
       try {
         handleDemoJob(msg.body)
@@ -29,11 +26,7 @@ export default {
     }
   },
 
-  async scheduled(
-    controller: { cron: string; scheduledTime: number },
-    _env: unknown,
-    _ctx: unknown,
-  ) {
+  async scheduled(controller: ScheduledController, _env: Env, _ctx: ExecutionContext) {
     handleScheduledTick({
       cron: controller.cron,
       scheduledTime: controller.scheduledTime,

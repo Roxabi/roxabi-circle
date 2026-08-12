@@ -17,11 +17,7 @@ import { resetPasswordSchema } from '../lib/schemas'
 export function ResetPasswordPage() {
   const { m, locale, setLocale } = useLocale()
   const navigate = useNavigate()
-  const search = useSearch({ strict: false }) as {
-    token?: string
-    error?: string
-    next?: string
-  }
+  const search = useSearch({ from: '/reset-password' })
   const stripped = useRef(false)
   // Seed from search on first paint so strip replace does not flash "missing token".
   const [token, setToken] = useState(() => search.token?.trim() ?? '')

@@ -22,7 +22,6 @@ export type ApiKeyRecord = {
 }
 
 export type DualAuthPorts = {
-  secret?: string
   cookieName?: string
   /** Full request headers for BA getSession (preferred over cookie-only). */
   headers?: Headers
@@ -77,7 +76,6 @@ export async function resolveDualAuth(
   const payload = await sessions.resolveSession({
     cookieHeader,
     headers: ports.headers,
-    secret: ports.secret,
     cookieName,
   })
   if (payload) return { subject: payload.sub, method: 'session' }

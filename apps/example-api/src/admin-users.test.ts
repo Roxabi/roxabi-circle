@@ -381,7 +381,10 @@ describe('admin users (B-users #58)', () => {
   })
 
   it('GET /api/admin/users — staff pagination scopes before limit', async () => {
-    const { app, env } = await seedEnv()
+    const { app, env, db } = await seedEnv()
+    // Make an out-of-scope user the global newest so a naive limit-then-filter would return them
+    const farFuture = new Date('2099-06-01T00:00:00.000Z')
+    await db.update(baUser).set({ createdAt: farFuture }).where(eq(baUser.id, 'user_solo'))
     const cookie = await signIn(app, env, 'staff@kit.local')
     const res = await app.request(
       '/api/admin/users?limit=1',
@@ -393,8 +396,28 @@ describe('admin users (B-users #58)', () => {
     expect(res.status).toBe(200)
     const body = (await res.json()) as { users: { email: string }[] }
     expect(body.users).toHaveLength(1)
-    // Must be a shared-org member, not a global-newest out-of-scope user
+    // Must be a shared-org member — never the OOS global-newest (solo@kit.local)
+    expect(body.users[0]!.email).not.toBe('solo@kit.local')
     expect(['staff@kit.local', 'team-owner@kit.local']).toContain(body.users[0]!.email)
+  })
+
+  it('POST /api/admin/users — staff create with shared-org existing email → 409', async () => {
+    const { app, env } = await seedEnv()
+    const cookie = await signIn(app, env, 'staff@kit.local')
+    // team-owner shares org_acme with staff — existence is visible; conflict not 404 oracle
+    const res = await app.request(
+      '/api/admin/users',
+      {
+        method: 'POST',
+        headers: sessionMutation(cookie),
+        body: JSON.stringify({
+          email: 'team-owner@kit.local',
+          memberships: [{ orgId: 'org_acme', role: 'member' }],
+        }),
+      },
+      env,
+    )
+    expect(res.status).toBe(409)
   })
 
   it('GET /api/admin/users — super_admin still sees solo client', async () => {

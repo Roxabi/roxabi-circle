@@ -28,6 +28,12 @@ export function safePostAuthPath(candidate: unknown): string | null {
   if (!t.startsWith('/') || t.startsWith('//')) return null
   if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(t)) return null
   if (t.includes('..')) return null
+  // Percent-encoded traversal (%2e%2e) must fail-closed before allowlist prefix match
+  try {
+    if (decodeURIComponent(t).includes('..')) return null
+  } catch {
+    return null
+  }
   try {
     const u = new URL(t, 'http://local.invalid')
     const p = u.pathname

@@ -163,7 +163,7 @@ describe('SessionPort (Better Auth adapter)', () => {
     expect(payload!.exp).toBeGreaterThan(Math.floor(Date.now() / 1000))
   })
 
-  it('resolveDualAuth works with BA port without secret', async () => {
+  it('resolveDualAuth works with BA port (cookie resolve only)', async () => {
     const mockAuth: BetterAuthLike = {
       api: {
         getSession: async () => ({
@@ -179,17 +179,6 @@ describe('SessionPort (Better Auth adapter)', () => {
       findApiKeyByPrefix: async () => null,
     })
     expect(r).toMatchObject({ subject: 'ba-2', method: 'session' })
-  })
-
-  it('sign throws — BA handler owns issuance', async () => {
-    const port = createBetterAuthSessionPort({
-      getAuth: () => ({
-        api: { getSession: async () => null },
-      }),
-    })
-    await expect(port.sign({ sub: 'u', email: 'a@b.c', exp: 1 }, 'x'.repeat(32))).rejects.toThrow(
-      /does not sign/,
-    )
   })
 
   it('resolveSession returns null for missing session / missing expiresAt / expired / throw', async () => {

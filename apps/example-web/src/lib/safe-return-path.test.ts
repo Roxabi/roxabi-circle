@@ -41,13 +41,29 @@ describe('safePostAuthPath', () => {
     expect(safePostAuthPath('/invite/accept?invitationId=z')).toBe('/invite/accept?invitationId=z')
   })
 
-  it('rejects open redirects and traversal', () => {
+  it('strips query on /app (open-redirect bait in search)', () => {
+    // pathname-only allowlist — // in query must not open a host redirect
+    expect(safePostAuthPath('/app?x=//evil')).toBe('/app')
+    expect(safePostAuthPath('/app?next=https://evil.com')).toBe('/app')
+  })
+
+  it('rejects open redirects and path traversal', () => {
     expect(safePostAuthPath('//evil.com')).toBeNull()
     expect(safePostAuthPath('https://evil.com')).toBeNull()
     expect(safePostAuthPath('/app/../admin')).toBeNull()
+    expect(safePostAuthPath('/admin/..%2f..%2f')).toBeNull()
+    expect(safePostAuthPath('/app/%2e%2e/admin')).toBeNull()
+    expect(safePostAuthPath('/app/%2e%2e')).toBeNull()
+    expect(safePostAuthPath('/app/foo%2f%2e%2e%2fadmin')).toBeNull()
     expect(safePostAuthPath('/reset-password')).toBeNull()
     expect(safePostAuthPath('/api/me')).toBeNull()
+  })
+
+  it('rejects empty / non-string (parity with invite suite)', () => {
     expect(safePostAuthPath('')).toBeNull()
+    expect(safePostAuthPath('   ')).toBeNull()
+    expect(safePostAuthPath(undefined)).toBeNull()
     expect(safePostAuthPath(null)).toBeNull()
+    expect(safePostAuthPath(42)).toBeNull()
   })
 })

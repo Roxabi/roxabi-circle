@@ -40,11 +40,14 @@ export function TaskCommentsPanel({
         {!selectedId ? (
           <p className="text-sm text-muted-foreground">{m.taskSelectForComments}</p>
         ) : isError ? (
-          <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-destructive/40 py-8 text-center">
+          <div
+            role="alert"
+            className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-destructive/40 py-8 text-center"
+          >
             <p className="text-sm font-medium text-destructive">{m.loadFailed}</p>
             <p className="max-w-sm text-xs text-muted-foreground">{apiErrorToMessage(error, m)}</p>
             {onRetry ? (
-              <Button variant="secondary" size="sm" onClick={onRetry}>
+              <Button type="button" variant="secondary" size="sm" onClick={onRetry}>
                 {m.retry}
               </Button>
             ) : null}
@@ -65,6 +68,7 @@ export function TaskCommentsPanel({
               value={commentBody}
               onChange={(e) => onCommentBodyChange(e.target.value)}
               placeholder={m.taskCommentPlaceholder}
+              aria-label={m.taskCommentPlaceholder}
               rows={3}
             />
             <Button

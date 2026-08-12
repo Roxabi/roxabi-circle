@@ -51,11 +51,12 @@ Installed via `bunx --bun shadcn@latest add sidebar-07` into `packages/ui`:
 
 | Export | Role |
 |--------|------|
-| `AppSidebar` | Demo composition (`collapsible="icon"`) |
 | `NavUser` | Footer user menu — pass `user`, optional `children` items, `onLogout` |
 | `TeamSwitcher` | Header team switcher |
 | `NavMain` / `NavProjects` | Collapsible nav groups |
 | `Breadcrumb*` / `Collapsible*` | Supporting primitives |
+
+`AppSidebar` (Acme sample composition) lives under `packages/ui` but is **not** public barrel API — compose the pieces above like `example-web` shell.
 
 `example-web` shell uses `Sidebar collapsible="icon"` + `NavUser` for the real session menu.
 

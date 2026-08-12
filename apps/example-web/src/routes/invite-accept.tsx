@@ -15,7 +15,7 @@ export function InviteAcceptPage() {
   const { m } = useLocale()
   const navigate = useNavigate()
   const me = useMe()
-  const search = useSearch({ strict: false }) as { invitationId?: string }
+  const search = useSearch({ from: '/invite/accept' })
   const invitationId = search.invitationId?.trim() ?? ''
   const [done, setDone] = useState(false)
 

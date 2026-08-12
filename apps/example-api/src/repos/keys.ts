@@ -38,8 +38,18 @@ export async function findApiKeyByPrefix(db: Db, keyPrefix: string) {
   return rows[0] ?? null
 }
 
-/** Public key metadata (never returns keyHash). */
-export async function listApiKeysForSubject(db: Db, subject: string) {
+/**
+ * Public key metadata (never returns keyHash).
+ * When `organizationId` is set, only keys bound to that org are returned (D11 api_key path).
+ */
+export async function listApiKeysForSubject(
+  db: Db,
+  subject: string,
+  opts?: { organizationId?: string },
+) {
+  const where = opts?.organizationId
+    ? and(eq(apiKeys.subject, subject), eq(apiKeys.organizationId, opts.organizationId))
+    : eq(apiKeys.subject, subject)
   return db
     .select({
       id: apiKeys.id,
@@ -52,7 +62,7 @@ export async function listApiKeysForSubject(db: Db, subject: string) {
       revokedAt: apiKeys.revokedAt,
     })
     .from(apiKeys)
-    .where(eq(apiKeys.subject, subject))
+    .where(where)
     .orderBy(desc(apiKeys.createdAt))
     .all()
 }

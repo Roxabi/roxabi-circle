@@ -45,7 +45,7 @@ Machine gates here only care: product does not dual-edit kit paths; `upstream` i
 | `package.json` root scripts (validate:full, build:kit, …) | **kit** | **Do not edit.** Product scripts → `apps/<product>-*/package.json` or `scripts/product/*.sh` called from product workflow. |
 | `biome.json` · `turbo.jsonc` · `tsconfig.json` · `commitlint*` | **kit** | **Do not edit** unless promoting a kit-wide change upstream first. |
 | `AGENTS.md` · root `README.md` · `docs/*` kit | **kit** | **Do not edit.** Product narrative → `docs/product/*` or `apps/<product>-*/README.md`. |
-| `scripts/deny-upstream-push.sh` · extract · banlist | **kit** | **Do not edit.** |
+| `scripts/` · `tooling/` · `tools/` (incl. deny-upstream, extract, banlist) | **kit** | **Do not edit.** Product helpers → `scripts/product/` only. |
 | `.dev.vars` · `.env` · CF secrets | product / env | **Never commit.** Copy from `*.example`. |
 | Wrangler product worker names / DB ids | product app | Only under **`apps/<product>-*/wrangler.toml`** (new file). |
 

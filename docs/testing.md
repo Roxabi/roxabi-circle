@@ -140,7 +140,7 @@ Floors are enforced by Vitest (`packages/config/vitest-coverage.mjs` + per-packa
 | Tier | Scope | Floor (stmts/lines, approx.) | Policy |
 |---|---|---|---|
 | **T0** | `@kit/auth`, `@kit/example-api` (guards, dual auth, paths), FE **auth client** contracts | **auth 80%** · **example-api** machine floors **78/80/65/75** (stmts/lines/branches/funcs) · pin named web contract files | **Auth: never lower without ADR.** example-api: Vitest 4 v8 remapping exception (#21) — see inventory before/after; do not lower further without ADR |
-| **T1** | `core`, `storage`, `db`, `types`, `mcp` | **core ~68/69/66** (stmts/lines/branches) · others **70–75%** typical | Raise when surface grows; core floors recalibrated under Vitest 4 remapping (#21) |
+| **T1** | `core`, `storage`, `db`, `types`, `@kit/api-client`, `mcp` | **core ~68/69/66** (stmts/lines/branches) · others **70–75%** typical | Raise when surface grows; core floors recalibrated under Vitest 4 remapping (#21) |
 | **T2** | `@kit/ui`, `example-web` (page chrome) | **ui ~17/17/16/23** · **web 10/10/20/12** | Low % OK **iff** contract suites green; do not chase Button coverage; Vitest 4 remapping (#21) |
 | **T3** | `email` thin, mcp-example smoke | soft / special (e.g. funcs 0% mcp-example) | Document, don’t pretend product security |
 

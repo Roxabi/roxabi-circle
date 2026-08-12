@@ -3,7 +3,7 @@ import { Hono } from 'hono'
 import { assertRateLimit, clientIp } from '../lib/rate-limit'
 import type { AppEnv } from '../types'
 
-/** 20 auth attempts / IP / 15 min (demo in-memory). */
+/** 20 auth attempts / IP / 15 min (D1 fixed-window). */
 const LOGIN_LIMIT = 20
 const LOGIN_WINDOW_MS = 15 * 60 * 1000
 

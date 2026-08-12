@@ -117,7 +117,7 @@ describe('email server transport', () => {
     }
   })
 
-  it('sendSmtp scrubs CR/LF from envelope MAIL FROM / RCPT TO (no command injection)', async () => {
+  it('sendSmtp fails closed on CR/LF injection that leaves garbage in envelope addr', async () => {
     const connect = mockConnect(okSmtpScript)
     const r = await sendSmtp(
       {
@@ -130,23 +130,33 @@ describe('email server transport', () => {
       },
       { connect },
     )
+    // Fail-closed: scrub leaves whitespace / `<>` in addr-spec → never connect.
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.error).toMatch(/invalid from\/to address/i)
+    expect(connect.getWritten()).toBe('')
+  })
+
+  it('sendSmtp scrubs subject CR/LF only when envelope addrs are clean', async () => {
+    const connect = mockConnect(okSmtpScript)
+    const r = await sendSmtp(
+      {
+        host: '127.0.0.1',
+        port: 1025,
+        from: 'kit@kit.local',
+        to: 'demo@kit.local',
+        subject: 'hi\r\nX-Injected: yes',
+        text: 'body',
+      },
+      { connect },
+    )
     expect(r).toEqual({ ok: true, transport: 'smtp' })
     const written = connect.getWritten()
-    // Envelope: single MAIL FROM / RCPT TO lines after scrub (no second command from CR/LF).
-    const mailFrom = written.split('\r\n').find((l) => l.startsWith('MAIL FROM:'))
-    const rcptTo = written.split('\r\n').find((l) => l.startsWith('RCPT TO:'))
-    expect(mailFrom).toBe('MAIL FROM:<kit@kit.local BCC: evil@evil.com>')
-    expect(rcptTo).toBe('RCPT TO:<demo@kit.local RCPT TO:<other@evil.com>>')
-    const rcptLines = written.split('\r\n').filter((l) => l.startsWith('RCPT TO:'))
-    expect(rcptLines).toHaveLength(1)
-    expect(written).not.toContain('\r\nBCC:')
-    // Subject header injection must not become a separate DATA header line.
     expect(written).not.toContain('\r\nX-Injected:')
     const subjectLine = written.split('\r\n').find((l) => l.startsWith('Subject:'))
     expect(subjectLine).toBe('Subject: hi X-Injected: yes')
   })
 
-  it('sendSmtp fails closed when from/to empty after CR/LF scrub', async () => {
+  it('sendSmtp fails closed when from/to empty, whitespace, or control after CR/LF scrub', async () => {
     const connect = mockConnect(okSmtpScript)
     const rFrom = await sendSmtp(
       {
@@ -160,7 +170,7 @@ describe('email server transport', () => {
       { connect },
     )
     expect(rFrom.ok).toBe(false)
-    if (!rFrom.ok) expect(rFrom.error).toMatch(/empty after CR\/LF scrub/i)
+    if (!rFrom.ok) expect(rFrom.error).toMatch(/invalid from\/to address/i)
     expect(connect.getWritten()).toBe('')
 
     const connect2 = mockConnect(okSmtpScript)
@@ -176,7 +186,23 @@ describe('email server transport', () => {
       { connect: connect2 },
     )
     expect(rTo.ok).toBe(false)
-    if (!rTo.ok) expect(rTo.error).toMatch(/empty after CR\/LF scrub/i)
+    if (!rTo.ok) expect(rTo.error).toMatch(/invalid from\/to address/i)
     expect(connect2.getWritten()).toBe('')
+
+    const connect3 = mockConnect(okSmtpScript)
+    const rAngle = await sendSmtp(
+      {
+        host: '127.0.0.1',
+        port: 1025,
+        from: 'kit@kit.local',
+        to: 'user@x.local>',
+        subject: 'hi',
+        text: 'body',
+      },
+      { connect: connect3 },
+    )
+    expect(rAngle.ok).toBe(false)
+    if (!rAngle.ok) expect(rAngle.error).toMatch(/invalid from\/to address/i)
+    expect(connect3.getWritten()).toBe('')
   })
 })

@@ -12,7 +12,6 @@
     "context7@context7-marketplace": true,
     "frontend-design@claude-plugins-official": true,
     "security-guidance@claude-plugins-official": true,
-    "cloudflare@claude-plugins-official": true,
     "mcp-server-dev@claude-plugins-official": true,
     "playwright@claude-plugins-official": true
   },

@@ -6,7 +6,8 @@ import { GalleryVerticalEnd } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { LoginMagicForm } from '../components/login-magic-form'
-import { apiErrorToMessage, apiFetch } from '../lib/api'
+import { profileErrorMessage } from '../lib/account-errors'
+import { apiFetch } from '../lib/api'
 import { defaultHomePath, type MeResponse, meQueryKey, useMe } from '../lib/auth'
 import { useLocale } from '../lib/locale'
 import { safeInviteReturnPath } from '../lib/safe-return-path'
@@ -74,7 +75,8 @@ export function LoginPage() {
         const target = postLoginTarget(meAfter, search.next)
         await navigate({ href: target })
       } catch (e) {
-        const msg = apiErrorToMessage(e, m)
+        // BA non-kit envelopes → Error('HTTP {status}'); map via account helper
+        const msg = profileErrorMessage(e, m)
         setError(msg)
         toast.error(m.error, { description: msg })
       }

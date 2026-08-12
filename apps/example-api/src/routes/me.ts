@@ -7,7 +7,7 @@ import * as authService from '../services/auth'
 import * as meService from '../services/me'
 import type { AppEnv } from '../types'
 
-/** 30 key mints / subject / hour (demo in-memory). */
+/** 30 key mints / subject / hour (D1 fixed-window). */
 const MINT_LIMIT = 30
 const MINT_WINDOW_MS = 60 * 60 * 1000
 
@@ -42,7 +42,13 @@ meRoutes.get('/api/me', async (c) => {
 meRoutes.get('/api/keys', async (c) => {
   const db = c.get('db')!
   const subject = c.get('subject')!
-  const keys = await authService.listApiKeys(db, subject)
+  // D11: api_key path scopes to key org (empty if unbound); session lists all subject keys.
+  const keyOrg =
+    c.get('authMethod') === 'api_key' ? (c.get('keyOrganizationId') ?? undefined) : undefined
+  const keys =
+    c.get('authMethod') === 'api_key' && !keyOrg
+      ? []
+      : await authService.listApiKeys(db, subject, keyOrg ? { organizationId: keyOrg } : undefined)
   return c.json({ keys, requestId: c.get('requestId') })
 })
 

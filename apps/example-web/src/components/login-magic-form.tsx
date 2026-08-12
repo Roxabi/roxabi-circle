@@ -1,7 +1,8 @@
 import { Button, Field, FieldDescription, FieldError, FieldGroup, FieldLabel, Input } from '@kit/ui'
 import { useForm } from '@tanstack/react-form'
 import { toast } from 'sonner'
-import { apiErrorToMessage, apiFetch } from '../lib/api'
+import { profileErrorMessage } from '../lib/account-errors'
+import { apiFetch } from '../lib/api'
 import { useLocale } from '../lib/locale'
 import { safeInviteReturnPath, safePostAuthPath } from '../lib/safe-return-path'
 import { magicLinkSchema } from '../lib/schemas'
@@ -52,7 +53,8 @@ export function LoginMagicForm({ next, onSent }: LoginMagicFormProps) {
         })
       } catch (e) {
         if (e instanceof Error && 'status' in e && (e as { status: number }).status === 429) {
-          toast.error(m.error, { description: apiErrorToMessage(e, m) })
+          // BA non-kit envelopes → Error('HTTP 429'); map via account helper
+          toast.error(m.error, { description: profileErrorMessage(e, m) })
           return
         }
         // Other failures: still show generic success when possible (no enumeration)

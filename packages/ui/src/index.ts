@@ -1,5 +1,5 @@
 /** sidebar-07 block pieces (collapsible icon rail + user/team menus) */
-export { AppSidebar } from './components/app-sidebar'
+// AppSidebar (Acme sample composition) is intentionally unexported — use Nav* / TeamSwitcher.
 export { NavMain } from './components/nav-main'
 export { NavProjects } from './components/nav-projects'
 export { NavUser, type NavUserData } from './components/nav-user'

@@ -99,11 +99,21 @@ export async function sendSmtp(
   const from = scrub(input.from).trim()
   const to = scrub(input.to).trim()
   const subject = scrub(input.subject).trimEnd()
-  if (!from || !to) {
+  // Fail-closed: envelope addr-spec must be non-empty, no whitespace, no `<>` (control/delimiter).
+  // Garbage left after scrub (e.g. "user@x BCC: evil") must not reach MAIL FROM / RCPT TO.
+  const isValidEnvelopeAddr = (addr: string) => {
+    if (addr.length === 0 || /[\s<>]/.test(addr)) return false
+    for (let i = 0; i < addr.length; i++) {
+      const c = addr.charCodeAt(i)
+      if (c <= 0x1f || c === 0x7f) return false
+    }
+    return true
+  }
+  if (!isValidEnvelopeAddr(from) || !isValidEnvelopeAddr(to)) {
     return {
       ok: false,
       transport: 'smtp',
-      error: 'invalid from/to address (empty after CR/LF scrub)',
+      error: 'invalid from/to address (empty, whitespace, or control chars after CR/LF scrub)',
     }
   }
 

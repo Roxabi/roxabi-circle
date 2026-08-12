@@ -26,6 +26,7 @@ describe('TaskCommentsPanel', () => {
       />,
     )
     expect(screen.queryByText(fr.taskCommentsEmpty)).toBeNull()
+    expect(screen.getByRole('alert')).toBeTruthy()
     expect(screen.getByText(fr.loadFailed)).toBeTruthy()
     screen.getByRole('button', { name: fr.retry }).click()
     expect(onRetry).toHaveBeenCalledTimes(1)

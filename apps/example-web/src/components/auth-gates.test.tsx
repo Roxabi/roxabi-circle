@@ -158,6 +158,13 @@ describe('PlatformGate', () => {
     platformRole: 'staff',
   }
 
+  const superMe: MeResponse = {
+    ...okMe,
+    subject: 'user_super',
+    email: 'super@kit.local',
+    platformRole: 'super_admin',
+  }
+
   it('renders children for platform staff', () => {
     useMeMock.mockReturnValue({
       isLoading: false,
@@ -172,6 +179,41 @@ describe('PlatformGate', () => {
       </PlatformGate>,
     )
     expect(screen.getByText('bo-child')).toBeTruthy()
+    expect(navigate).not.toHaveBeenCalled()
+  })
+
+  it('renders children for super_admin', () => {
+    useMeMock.mockReturnValue({
+      isLoading: false,
+      isError: false,
+      data: superMe,
+      error: null,
+      refetch: vi.fn(),
+    })
+    wrap(
+      <PlatformGate>
+        <div>bo-child</div>
+      </PlatformGate>,
+    )
+    expect(screen.getByText('bo-child')).toBeTruthy()
+    expect(navigate).not.toHaveBeenCalled()
+  })
+
+  it('shows loading and no children while me is loading', () => {
+    useMeMock.mockReturnValue({
+      isLoading: true,
+      isError: false,
+      data: undefined,
+      error: null,
+      refetch: vi.fn(),
+    })
+    wrap(
+      <PlatformGate>
+        <div>bo-child</div>
+      </PlatformGate>,
+    )
+    expect(screen.queryByText('bo-child')).toBeNull()
+    expect(screen.getByText(/Chargement|Loading/i)).toBeTruthy()
     expect(navigate).not.toHaveBeenCalled()
   })
 
@@ -190,6 +232,7 @@ describe('PlatformGate', () => {
     )
     expect(screen.queryByText('bo-child')).toBeNull()
     expect(navigate).toHaveBeenCalledWith({ to: '/app' })
-    expect(screen.getByText(/Espace réservé|Platform|BO|staff/i)).toBeTruthy()
+    // Default locale FR — pin catalog title (see messages/fr.ts forbiddenPlatform)
+    expect(screen.getByText('Accès back-office refusé')).toBeTruthy()
   })
 })

@@ -13,7 +13,8 @@ import { Link } from '@tanstack/react-router'
 import { GalleryVerticalEnd } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
-import { apiErrorToMessage, apiFetch } from '../lib/api'
+import { profileErrorMessage } from '../lib/account-errors'
+import { apiFetch } from '../lib/api'
 import { useLocale } from '../lib/locale'
 import { forgotPasswordSchema } from '../lib/schemas'
 
@@ -48,7 +49,8 @@ export function ForgotPasswordPage() {
       } catch (e) {
         // Rate limit / network: surface; still do not reveal account existence
         if (e instanceof Error && 'status' in e && (e as { status: number }).status === 429) {
-          toast.error(m.error, { description: apiErrorToMessage(e, m) })
+          // BA non-kit envelopes → Error('HTTP 429'); map via account helper
+          toast.error(m.error, { description: profileErrorMessage(e, m) })
           return
         }
         // Other failures: still show generic success for enumeration safety when possible
