@@ -7,7 +7,10 @@ SESSION_SECRET=dev-session-secret-change-me-32chars!!
 BETTER_AUTH_SECRET=dev-better-auth-secret-change-me-32c!!
 BETTER_AUTH_URL=http://localhost:8787
 # SESSION_COOKIE_NAME=kit_session
-# ALLOW_PUBLIC_SIGNUP=true   # default off — open registration is a security risk
+# Public email sign-up (SPA /sign-up + BA). Unset / false = invite + admin only.
+# Product forks: leave off unless you want open registration.
+# Kit showcase prod already sets true in wrangler [env.production].
+# ALLOW_PUBLIC_SIGNUP=true
 CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 # Prefer tenancy BA users after seed (staff@ / solo@ …) — see README / tenancy-data.ts
 DEMO_USER_EMAIL=staff@kit.local

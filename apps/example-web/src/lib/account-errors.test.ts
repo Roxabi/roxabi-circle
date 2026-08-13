@@ -5,6 +5,7 @@ import {
   isRateLimited,
   loginErrorMessage,
   profileErrorMessage,
+  signupErrorMessage,
 } from './account-errors'
 import { ApiError } from './api'
 
@@ -110,5 +111,31 @@ describe('loginErrorMessage', () => {
       expect(msg).not.toBe(en.changePasswordReauth)
       expect(msg).not.toBe(en.errUnauthorized)
     }
+  })
+})
+
+describe('signupErrorMessage', () => {
+  it('collapses 400/401/409/422 to the same signUpFailed copy', () => {
+    expect(signupErrorMessage(apiErr(400, 'VALIDATION_ERROR'), en)).toBe(en.signUpFailed)
+    expect(signupErrorMessage(new Error('HTTP 400'), en)).toBe(en.signUpFailed)
+    expect(signupErrorMessage(apiErr(409, 'CONFLICT'), en)).toBe(en.signUpFailed)
+    expect(signupErrorMessage(new Error('HTTP 409'), en)).toBe(en.signUpFailed)
+    expect(signupErrorMessage(apiErr(422, 'VALIDATION_ERROR'), en)).toBe(en.signUpFailed)
+    expect(signupErrorMessage(new Error('HTTP 422'), en)).toBe(en.signUpFailed)
+    expect(signupErrorMessage(apiErr(401, 'UNAUTHORIZED'), en)).toBe(en.signUpFailed)
+  })
+
+  it('maps 403 → signUpDisabled and 429 → rate limited', () => {
+    expect(signupErrorMessage(apiErr(403, 'FORBIDDEN'), en)).toBe(en.signUpDisabled)
+    expect(signupErrorMessage(new Error('HTTP 403'), en)).toBe(en.signUpDisabled)
+    expect(signupErrorMessage(apiErr(429, 'RATE_LIMITED'), en)).toBe(en.errRateLimited)
+    expect(signupErrorMessage(new Error('HTTP 429'), en)).toBe(en.errRateLimited)
+  })
+
+  it('never uses login or change-password copy', () => {
+    const msg = signupErrorMessage(apiErr(400, 'VALIDATION_ERROR'), en)
+    expect(msg).not.toBe(en.loginFailed)
+    expect(msg).not.toBe(en.changePasswordWrong)
+    expect(msg).not.toBe(en.errUnauthorized)
   })
 })

@@ -57,6 +57,7 @@ Machine gates here only care: product does not dual-edit kit paths; `upstream` i
 |------|---------|----------|
 | CI auto-merge | Org/repo **vars/secrets** **`CI_APP_ID`** (var) + **`CI_APP_PRIVATE_KEY`** (secret) | Edit `merge-on-green.yml`; invent other secret names |
 | Session / CORS / SMTP / CF | `apps/<product>-api/.dev.vars` + CF dashboard secrets | Commit secrets; edit kit examples permanently |
+| Public self-serve sign-up | Set `ALLOW_PUBLIC_SIGNUP=true` on the **product** Worker in `apps/<product>-api/wrangler.toml` `[env.<name>].vars` (durable). Unset / `false` = invite + admin only. SPA `/sign-up` follows `GET /health.allowPublicSignup` (UX only — BA `disableSignUp` is the gate) | Patch `example-web`; copy kit `[env.production]` (showcase hosts + open signup); rely on `.dev.vars` for remote |
 | Product Worker name / D1 / R2 | `apps/<product>-api/wrangler.toml` (**new**) | Edit `apps/example-api/wrangler.toml` |
 | Product UI routes | `apps/<product>-web/**` | Patch `example-web` into a product |
 | Product AGENTS / frame | `docs/product/AGENTS.md` or app-level AGENTS | Rewrite root `AGENTS.md` |

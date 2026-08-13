@@ -175,7 +175,15 @@ Mitigations: **expand/contract** migrations (old code tolerates new schema); wat
 
 ## 5c. Public signup + rate limits
 
-Showcase production sets `ALLOW_PUBLIC_SIGNUP=true` (intentional dogfood).
+Public email sign-up is **opt-in** (`ALLOW_PUBLIC_SIGNUP=true`):
+
+| Layer | Off (default) | On |
+|---|---|---|
+| Better Auth | `disableSignUp: true` | `POST /api/auth/sign-up/email` accepted |
+| `GET /health` | `allowPublicSignup: false` | `true` |
+| SPA | no CTA · `/sign-up` redirects to `/login` | `/sign-up` + link from `/login` |
+
+Showcase production sets `ALLOW_PUBLIC_SIGNUP=true` (intentional dogfood). Product forks leave the var **unset or false** unless they want open registration — do not copy the showcase block.
 
 Auth-sensitive BA paths already hit **D1 fixed-window rate limit** (e.g. **20 / IP / 15 min** on sign-in / sign-up / magic-link / reset — see `apps/example-api/src/routes/auth.ts` + `lib/rate-limit.ts`). Enough for dogfood; not a full WAF.
 

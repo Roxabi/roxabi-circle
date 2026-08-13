@@ -320,6 +320,7 @@ Escape hatch : Postgres/Hyperdrive si un app dépasse D1 — documenté, pas def
 | Mode | Surface | Credential | Notes |
 |------|---------|------------|--------|
 | **Password** | `POST /api/auth/sign-in/email` · `/login` | email + password → **cookie** | default login tab |
+| **Sign-up (opt-in)** | `POST /api/auth/sign-up/email` · `/sign-up` | email + password + name → **cookie** | SPA + BA only when `ALLOW_PUBLIC_SIGNUP=true` (`GET /health.allowPublicSignup` is UX); **default off** — forks opt in via product wrangler vars; CTA hidden + `/sign-up` → `/login` when off; failed sign-up 4xx → kit envelope (disabled 403, else generic 400, no existence leak) |
 | **Magic link** | `POST /api/auth/sign-in/magic-link` · verify `GET /api/auth/magic-link/verify` · `/login` tab | one-shot email link (TTL **5 min**) → **cookie** | EmailPort template; `disableSignUp` = `!ALLOW_PUBLIC_SIGNUP` (default **off**); no user enumeration |
 | **Forgot / reset** | request-password-reset · reset-password | email link → set password | EmailPort |
 | **API key** | `Authorization: Bearer sk_…` | **no cookie** | MCP / machine; mint after session |

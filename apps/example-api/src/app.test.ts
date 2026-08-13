@@ -54,10 +54,12 @@ describe('createApp shipped entry — health & errors', () => {
       ok: boolean
       requestId: string
       environment: string
+      allowPublicSignup?: boolean
       demoLogin?: { email: string; password: string; role: string }
     }
     expect(body.ok).toBe(true)
     expect(body.environment).toBe('test')
+    expect(body.allowPublicSignup).toBe(false)
     expect(body.demoLogin).toEqual({
       email: 'staff@kit.local',
       password: 'demo-password-change-me',
@@ -522,9 +524,29 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     const env = createMemoryEnv({ ALLOW_PUBLIC_SIGNUP: 'false' })
     const health = await app.request('/health', {}, env)
     expect(health.status).toBe(200)
-    const h = (await health.json()) as { authAdapter?: string; demoLogin?: { email: string } }
+    const h = (await health.json()) as {
+      authAdapter?: string
+      allowPublicSignup?: boolean
+      demoLogin?: { email: string }
+    }
     expect(h.authAdapter).toBe('better-auth')
+    expect(h.allowPublicSignup).toBe(false)
     expect(h.demoLogin?.email).toMatch(/@kit\.local/)
+  })
+
+  it('GET /health allowPublicSignup follows ALLOW_PUBLIC_SIGNUP (default off)', async () => {
+    const app = createApp()
+    const off = await app.request('/health', {}, createMemoryEnv())
+    expect(((await off.json()) as { allowPublicSignup: boolean }).allowPublicSignup).toBe(false)
+
+    const on = await app.request(
+      '/health',
+      {},
+      createMemoryEnv({ ALLOW_PUBLIC_SIGNUP: 'true', ENVIRONMENT: 'production' }),
+    )
+    const onBody = (await on.json()) as { allowPublicSignup: boolean; demoLogin?: unknown }
+    expect(onBody.allowPublicSignup).toBe(true)
+    expect(onBody.demoLogin).toBeUndefined()
   })
 
   it('better-auth sign-up disabled by default; dual-path works after signup when allowed', async () => {
@@ -547,7 +569,9 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
       },
       createMemoryEnv({ ...baseEnv, ALLOW_PUBLIC_SIGNUP: 'false' }),
     )
-    expect(denied.status).toBeGreaterThanOrEqual(400)
+    expect(denied.status).toBe(403)
+    const deniedBody = (await denied.json()) as { error?: { code?: string } }
+    expect(deniedBody.error?.code).toBe('FORBIDDEN')
 
     // Sign-up allowed — exercise BA handler + session cookie + dual-path sk_
     const env = createMemoryEnv({ ...baseEnv, ALLOW_PUBLIC_SIGNUP: 'true' })

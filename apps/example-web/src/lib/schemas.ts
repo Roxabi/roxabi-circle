@@ -6,6 +6,16 @@ export const loginSchema = z.object({
   password: z.string().min(1),
 })
 
+/** Public email sign-up — BA min password 8; confirm must match. */
+export const signupSchema = z
+  .object({
+    name: z.string().trim().min(1).max(80),
+    email: z.string().email(),
+    password: z.string().min(8).max(128),
+    confirm: z.string().min(1),
+  })
+  .refine((v) => v.password === v.confirm, { path: ['confirm'], message: 'mismatch' })
+
 export const forgotPasswordSchema = z.object({
   email: z.string().email(),
 })
@@ -62,6 +72,7 @@ export const createAdminUserSchema = z.object({
 })
 
 export type LoginValues = z.infer<typeof loginSchema>
+export type SignupValues = z.infer<typeof signupSchema>
 export type ForgotPasswordValues = z.infer<typeof forgotPasswordSchema>
 export type MagicLinkValues = z.infer<typeof magicLinkSchema>
 export type ResetPasswordValues = z.infer<typeof resetPasswordSchema>
