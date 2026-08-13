@@ -668,7 +668,7 @@ Quand la CI app existera : l’ajouter dans `workflow_run.workflows` de `merge-o
 - [ ] Sentry + Better Stack (prod) — B7 A3 **parked** (revisit later)  
 - [ ] CodeRabbit (ou équiv.) sur PR — B7 A4 **parked** (revisit later)  
 - [x] Playwright e2e — **local only** (`test:e2e:design-system` / `test:e2e:ci`; no default GHA job · PR #96)  
-- [ ] Consumer dogfood zero-edit (B5 · GH #17) — playbook + harness shipped; **live product-mode evidence not filled** ([`docs/product-consumer-dogfood-evidence.md`](docs/product-consumer-dogfood-evidence.md) status: pending)
+- [x] Consumer dogfood zero-edit (B5 · GH #71) — playbook + harness shipped; **live product-mode evidence filled** 2026-08-13 (`roxabi-circle` @ kit `628d942`, [`docs/product-consumer-dogfood-evidence.md`](docs/product-consumer-dogfood-evidence.md))
 - [ ] Extract dry-run « suite green after drop product » (aujourd’hui structure + banlist)
 
 **Critère extractible :** supprimer `apps/share-*` → examples + packages verts, 0 string métier share.
