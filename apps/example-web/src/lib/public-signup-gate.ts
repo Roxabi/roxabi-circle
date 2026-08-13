@@ -9,12 +9,13 @@ export function optionalNextSearch(search: Record<string, unknown>): { next?: st
   return {}
 }
 
-/** Fail-closed: health down or flag off → no public sign-up. */
+/** Fail-closed: health down or flag off → no public sign-up. BA env remains the API gate. */
 export async function isPublicSignupAllowed(queryClient: QueryClient): Promise<boolean> {
   try {
-    const health = await queryClient.ensureQueryData({
+    const health = await queryClient.fetchQuery({
       queryKey: healthQueryKey,
       queryFn: () => apiFetch<HealthResponse>('/health'),
+      staleTime: 0,
     })
     return isPublicSignupEnabled(health)
   } catch {

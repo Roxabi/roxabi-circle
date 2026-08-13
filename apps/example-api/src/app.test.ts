@@ -569,7 +569,9 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
       },
       createMemoryEnv({ ...baseEnv, ALLOW_PUBLIC_SIGNUP: 'false' }),
     )
-    expect(denied.status).toBeGreaterThanOrEqual(400)
+    expect(denied.status).toBe(403)
+    const deniedBody = (await denied.json()) as { error?: { code?: string } }
+    expect(deniedBody.error?.code).toBe('FORBIDDEN')
 
     // Sign-up allowed — exercise BA handler + session cookie + dual-path sk_
     const env = createMemoryEnv({ ...baseEnv, ALLOW_PUBLIC_SIGNUP: 'true' })

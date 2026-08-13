@@ -47,6 +47,11 @@ describe('signupSchema', () => {
       false,
     )
     expect(signupSchema.safeParse({ ...base, confirm: '87654321' }).success).toBe(false)
+    expect(signupSchema.safeParse({ ...base, name: 'x'.repeat(81) }).success).toBe(false)
+    expect(
+      signupSchema.safeParse({ ...base, password: 'x'.repeat(129), confirm: 'x'.repeat(129) })
+        .success,
+    ).toBe(false)
   })
 })
 

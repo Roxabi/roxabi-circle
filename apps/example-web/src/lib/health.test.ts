@@ -7,6 +7,8 @@ describe('isPublicSignupEnabled', () => {
     expect(isPublicSignupEnabled({})).toBe(false)
     expect(isPublicSignupEnabled({ allowPublicSignup: false })).toBe(false)
     expect(isPublicSignupEnabled({ allowPublicSignup: true })).toBe(true)
+    expect(isPublicSignupEnabled({ allowPublicSignup: 'true' as never })).toBe(false)
+    expect(isPublicSignupEnabled({ allowPublicSignup: 1 as never })).toBe(false)
   })
 })
 

@@ -7,7 +7,7 @@ import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { profileErrorMessage, signupErrorMessage } from '../lib/account-errors'
 import { apiFetch } from '../lib/api'
-import { type MeResponse, meQueryKey, postAuthTarget, useMe } from '../lib/auth'
+import { isUnauthorized, type MeResponse, meQueryKey, postAuthTarget, useMe } from '../lib/auth'
 import { useLocale } from '../lib/locale'
 import { signupSchema } from '../lib/schemas'
 
@@ -26,7 +26,7 @@ export function SignupPage() {
   useEffect(() => {
     if (!me.data) return
     const target = postAuthTarget(me.data, search.next)
-    void navigate({ href: target })
+    void navigate({ href: target, replace: true })
   }, [me.data, navigate, search.next])
 
   const form = useForm({
@@ -54,14 +54,13 @@ export function SignupPage() {
     },
     onSubmit: async ({ value }) => {
       setError(null)
+      const parsed = signupSchema.safeParse(value)
+      if (!parsed.success) return
+      const { email, password, name } = parsed.data
       try {
         await apiFetch('/api/auth/sign-up/email', {
           method: 'POST',
-          body: JSON.stringify({
-            email: value.email,
-            password: value.password,
-            name: value.name,
-          }),
+          body: JSON.stringify({ email, password, name }),
         })
       } catch (e) {
         const msg = signupErrorMessage(e, m)
@@ -77,11 +76,11 @@ export function SignupPage() {
             queryKey: meQueryKey,
             queryFn: () => apiFetch<MeResponse>('/api/me'),
           })
-        } catch {
-          // Some BA versions do not mint a session on sign-up — sign in once.
+        } catch (e) {
+          if (!isUnauthorized(e)) throw e
           await apiFetch('/api/auth/sign-in/email', {
             method: 'POST',
-            body: JSON.stringify({ email: value.email, password: value.password }),
+            body: JSON.stringify({ email, password }),
           })
           await qc.invalidateQueries({ queryKey: meQueryKey })
           meAfter = await qc.fetchQuery({
@@ -89,9 +88,9 @@ export function SignupPage() {
             queryFn: () => apiFetch<MeResponse>('/api/me'),
           })
         }
-        toast.success(m.signUp, { description: value.email })
+        toast.success(m.signUp, { description: email })
         const target = postAuthTarget(meAfter, search.next)
-        await navigate({ href: target })
+        await navigate({ href: target, replace: true })
       } catch (e) {
         const msg = profileErrorMessage(e, m)
         setError(msg)
@@ -173,7 +172,7 @@ export function SignupPage() {
                     <Input
                       id={field.name}
                       type="email"
-                      autoComplete="username"
+                      autoComplete="email"
                       placeholder="m@example.com"
                       value={field.state.value}
                       onBlur={field.handleBlur}
