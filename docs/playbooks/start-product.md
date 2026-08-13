@@ -13,6 +13,7 @@
    ```
 3. `bun install` · ensure lefthook hooks.
 4. Copy env examples → gitignored local files only (`.dev.vars`, etc.).
+   Public sign-up is **off** unless you set `ALLOW_PUBLIC_SIGNUP=true` (then SPA `/sign-up` appears). Leave unset for invite/admin-only.
 5. Configure CI App vars/secrets on the **product** repo if you want merge-on-green (`CI_APP_ID` / `CI_APP_PRIVATE_KEY`) — see [`docs/ci-app-setup.md`](../ci-app-setup.md).
 6. Add product apps only under `apps/<product>-*`.
 7. Keep `bun run validate:full` green (kit bar). Wire product-validate when product apps exist ([`docs/templates/`](../templates/)).

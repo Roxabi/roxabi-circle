@@ -25,6 +25,16 @@ export type Messages = {
   resetPasswordMismatch: string
   backToLogin: string
   loginLegal: string
+  /** Public sign-up (only when `/health.allowPublicSignup`). */
+  signUp: string
+  signUpTitle: string
+  signUpDesc: string
+  signUpSubmit: string
+  signUpName: string
+  signUpHasAccount: string
+  signUpFailed: string
+  signUpDisabled: string
+  signUpNameRequired: string
   /** Login mode: password vs magic link (B-magic #59). */
   loginModePassword: string
   loginModeMagic: string
@@ -311,6 +321,15 @@ export const fr: Messages = {
   resetPasswordMismatch: 'Les mots de passe ne correspondent pas',
   backToLogin: 'Retour à la connexion',
   loginLegal: 'En continuant, vous acceptez les conditions d’utilisation du kit démo.',
+  signUp: 'Créer un compte',
+  signUpTitle: 'Créer un compte',
+  signUpDesc: 'Inscription e-mail — session cookie HttpOnly.',
+  signUpSubmit: 'Créer le compte',
+  signUpName: 'Nom',
+  signUpHasAccount: 'Déjà un compte ? Connexion',
+  signUpFailed: 'Impossible de créer le compte. Essayez de vous connecter.',
+  signUpDisabled: 'L’inscription publique est désactivée.',
+  signUpNameRequired: 'Le nom est requis',
   loginModePassword: 'Mot de passe',
   loginModeMagic: 'Lien magique',
   magicSubmit: 'Envoyer le lien',

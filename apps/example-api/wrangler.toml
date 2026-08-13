@@ -24,6 +24,8 @@ bucket_name = "example-api-local"
 name = "EMAIL"
 
 # Non-secret defaults for local/dev tooling. Secrets stay in .dev.vars / CF secrets.
+# ALLOW_PUBLIC_SIGNUP unset here (fail-closed). Products opt in via .dev.vars / CF vars.
+# Showcase production sets true below — do not copy that block into a product Worker.
 [vars]
 DEMO_USER_EMAIL = "demo@kit.local"
 CORS_ORIGINS = "http://localhost:5173,http://127.0.0.1:5173"

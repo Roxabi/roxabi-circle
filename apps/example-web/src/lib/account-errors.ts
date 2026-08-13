@@ -73,3 +73,26 @@ export function loginErrorMessage(err: unknown, m: Messages): string {
   }
   return apiErrorToMessage(err, m)
 }
+
+/**
+ * Map errors for **public sign-up** only.
+ * Collapse existence / validation residuals to one copy (no account enumeration).
+ * 403 = signup disabled on the API (flag off) — distinct so the user can go to login.
+ */
+export function signupErrorMessage(err: unknown, m: Messages): string {
+  const { status, code } = resolveStatusCode(err)
+  if (status === 429 || code === 'RATE_LIMITED') return m.errRateLimited
+  if (status === 403 || code === 'FORBIDDEN') return m.signUpDisabled
+  if (
+    status === 400 ||
+    status === 401 ||
+    status === 409 ||
+    status === 422 ||
+    code === 'UNAUTHORIZED' ||
+    code === 'VALIDATION_ERROR' ||
+    code === 'CONFLICT'
+  ) {
+    return m.signUpFailed
+  }
+  return apiErrorToMessage(err, m)
+}

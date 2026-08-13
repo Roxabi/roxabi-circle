@@ -320,6 +320,7 @@ Escape hatch : Postgres/Hyperdrive si un app dépasse D1 — documenté, pas def
 | Mode | Surface | Credential | Notes |
 |------|---------|------------|--------|
 | **Password** | `POST /api/auth/sign-in/email` · `/login` | email + password → **cookie** | default login tab |
+| **Sign-up (opt-in)** | `POST /api/auth/sign-up/email` · `/sign-up` | email + password + name → **cookie** | SPA + BA only when `ALLOW_PUBLIC_SIGNUP=true` (exposed on `GET /health`); **default off** — forks opt in via env; CTA hidden + `/sign-up` → `/login` when off |
 | **Magic link** | `POST /api/auth/sign-in/magic-link` · verify `GET /api/auth/magic-link/verify` · `/login` tab | one-shot email link (TTL **5 min**) → **cookie** | EmailPort template; `disableSignUp` = `!ALLOW_PUBLIC_SIGNUP` (default **off**); no user enumeration |
 | **Forgot / reset** | request-password-reset · reset-password | email link → set password | EmailPort |
 | **API key** | `Authorization: Bearer sk_…` | **no cookie** | MCP / machine; mint after session |
@@ -667,7 +668,7 @@ Quand la CI app existera : l’ajouter dans `workflow_run.workflows` de `merge-o
 - [ ] Sentry + Better Stack (prod) — B7 A3 **parked** (revisit later)  
 - [ ] CodeRabbit (ou équiv.) sur PR — B7 A4 **parked** (revisit later)  
 - [x] Playwright e2e — **local only** (`test:e2e:design-system` / `test:e2e:ci`; no default GHA job · PR #96)  
-- [ ] Consumer dogfood zero-edit (B5 · GH #17) — playbook + harness shipped; **live product-mode evidence not filled** ([`docs/product-consumer-dogfood-evidence.md`](docs/product-consumer-dogfood-evidence.md) status: pending)
+- [x] Consumer dogfood zero-edit (B5 · GH #71) — playbook + harness shipped; **live product-mode evidence filled** 2026-08-13 (`roxabi-circle` @ kit `628d942`, [`docs/product-consumer-dogfood-evidence.md`](docs/product-consumer-dogfood-evidence.md))
 - [ ] Extract dry-run « suite green after drop product » (aujourd’hui structure + banlist)
 
 **Critère extractible :** supprimer `apps/share-*` → examples + packages verts, 0 string métier share.

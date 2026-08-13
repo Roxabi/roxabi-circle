@@ -1,6 +1,6 @@
 import { Button, cn, Field, FieldError, FieldGroup, FieldLabel, Input } from '@kit/ui'
 import { useForm } from '@tanstack/react-form'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useSearch } from '@tanstack/react-router'
 import { GalleryVerticalEnd } from 'lucide-react'
 import { useEffect, useState } from 'react'
@@ -8,19 +8,15 @@ import { toast } from 'sonner'
 import { LoginMagicForm } from '../components/login-magic-form'
 import { loginErrorMessage, profileErrorMessage } from '../lib/account-errors'
 import { apiFetch } from '../lib/api'
-import { defaultHomePath, type MeResponse, meQueryKey, useMe } from '../lib/auth'
+import { type MeResponse, meQueryKey, postAuthTarget, useMe } from '../lib/auth'
+import { type HealthResponse, healthQueryKey, isPublicSignupEnabled } from '../lib/health'
 import { useLocale } from '../lib/locale'
-import { safeInviteReturnPath } from '../lib/safe-return-path'
 import { loginSchema } from '../lib/schemas'
 
 /** Dev-only email prefill — BA tenancy staff (see seed tenancy-data). */
 const DEV_DEMO_EMAIL = import.meta.env.DEV ? 'staff@kit.local' : ''
 
 type LoginMode = 'password' | 'magic'
-
-function postLoginTarget(me: MeResponse, next: string | undefined): string {
-  return safeInviteReturnPath(next) ?? defaultHomePath(me)
-}
 
 /** login-05 chrome: centered brand + Password | Magic link modes. */
 export function LoginPage() {
@@ -32,10 +28,16 @@ export function LoginPage() {
   const [mode, setMode] = useState<LoginMode>('password')
   const [magicSent, setMagicSent] = useState(false)
   const me = useMe()
+  const health = useQuery({
+    queryKey: healthQueryKey,
+    queryFn: () => apiFetch<HealthResponse>('/health'),
+    staleTime: 60_000,
+  })
+  const publicSignup = isPublicSignupEnabled(health.data)
 
   useEffect(() => {
     if (!me.data) return
-    const target = postLoginTarget(me.data, search.next)
+    const target = postAuthTarget(me.data, search.next)
     void navigate({ href: target })
   }, [me.data, navigate, search.next])
 
@@ -81,7 +83,7 @@ export function LoginPage() {
           queryFn: () => apiFetch<MeResponse>('/api/me'),
         })
         toast.success(m.login, { description: value.email })
-        const target = postLoginTarget(meAfter, search.next)
+        const target = postAuthTarget(meAfter, search.next)
         await navigate({ href: target })
       } catch (e) {
         const msg = profileErrorMessage(e, m)
@@ -242,6 +244,18 @@ export function LoginPage() {
         ) : (
           <LoginMagicForm next={search.next} onSent={() => setMagicSent(true)} />
         )}
+
+        {publicSignup ? (
+          <p className="text-center text-sm">
+            <Link
+              to="/sign-up"
+              search={search.next ? { next: search.next } : {}}
+              className="underline-offset-4 hover:underline"
+            >
+              {m.signUp}
+            </Link>
+          </p>
+        ) : null}
 
         <p className="text-center text-xs text-balance text-muted-foreground">{m.loginLegal}</p>
       </div>

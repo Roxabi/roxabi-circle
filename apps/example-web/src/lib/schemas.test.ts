@@ -8,6 +8,7 @@ import {
   loginSchema,
   profileNameSchema,
   resetPasswordSchema,
+  signupSchema,
 } from './schemas'
 
 describe('loginSchema', () => {
@@ -18,6 +19,34 @@ describe('loginSchema', () => {
   it('rejects bad email / empty password', () => {
     expect(loginSchema.safeParse({ email: 'not-an-email', password: 'x' }).success).toBe(false)
     expect(loginSchema.safeParse({ email: 'a@b.co', password: '' }).success).toBe(false)
+  })
+})
+
+describe('signupSchema', () => {
+  it('accepts name + email + matching password ≥8', () => {
+    expect(
+      signupSchema.safeParse({
+        name: 'Ada',
+        email: 'ada@kit.local',
+        password: '12345678',
+        confirm: '12345678',
+      }).success,
+    ).toBe(true)
+  })
+
+  it('rejects empty name, bad email, short password, mismatch', () => {
+    const base = {
+      name: 'Ada',
+      email: 'ada@kit.local',
+      password: '12345678',
+      confirm: '12345678',
+    }
+    expect(signupSchema.safeParse({ ...base, name: '  ' }).success).toBe(false)
+    expect(signupSchema.safeParse({ ...base, email: 'nope' }).success).toBe(false)
+    expect(signupSchema.safeParse({ ...base, password: 'short', confirm: 'short' }).success).toBe(
+      false,
+    )
+    expect(signupSchema.safeParse({ ...base, confirm: '87654321' }).success).toBe(false)
   })
 })
 

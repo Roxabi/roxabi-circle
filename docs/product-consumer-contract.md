@@ -57,6 +57,7 @@ Machine gates here only care: product does not dual-edit kit paths; `upstream` i
 |------|---------|----------|
 | CI auto-merge | Org/repo **vars/secrets** **`CI_APP_ID`** (var) + **`CI_APP_PRIVATE_KEY`** (secret) | Edit `merge-on-green.yml`; invent other secret names |
 | Session / CORS / SMTP / CF | `apps/<product>-api/.dev.vars` + CF dashboard secrets | Commit secrets; edit kit examples permanently |
+| Public self-serve sign-up | Set `ALLOW_PUBLIC_SIGNUP=true` on the **product** Worker (`.dev.vars` / CF vars). Unset / `false` = invite + admin provision only (kit default). SPA `/sign-up` follows `GET /health.allowPublicSignup` | Patch `example-web` to hardcode a register page; flip kit `wrangler.toml` `[vars]` |
 | Product Worker name / D1 / R2 | `apps/<product>-api/wrangler.toml` (**new**) | Edit `apps/example-api/wrangler.toml` |
 | Product UI routes | `apps/<product>-web/**` | Patch `example-web` into a product |
 | Product AGENTS / frame | `docs/product/AGENTS.md` or app-level AGENTS | Rewrite root `AGENTS.md` |

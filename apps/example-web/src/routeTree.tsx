@@ -3,14 +3,14 @@ import { createRootRouteWithContext, createRoute, Outlet, redirect } from '@tans
 import { AuthGate, PlatformGate } from './components/auth-gates'
 import { EnvBanner } from './components/env-banner'
 import { RouteErrorComponent } from './components/route-error'
-import { apiFetch } from './lib/api'
 import {
   defaultHomePath,
+  ensureMe,
   isPlatformActor,
   isUnauthorized,
   type MeResponse,
-  meQueryKey,
 } from './lib/auth'
+import { isPublicSignupAllowed, optionalNextSearch } from './lib/public-signup-gate'
 import { AdminHomePage } from './routes/admin/home'
 import { AdminModulesPage } from './routes/admin/modules'
 import { AdminOrgsPage } from './routes/admin/orgs'
@@ -27,17 +27,11 @@ import { NotesPage } from './routes/notes'
 import { OrgMembersPage } from './routes/org-members'
 import { ResetPasswordPage } from './routes/reset-password'
 import { SettingsPage } from './routes/settings'
+import { SignupPage } from './routes/sign-up'
 import { TasksPage } from './routes/tasks'
 
 export type RouterContext = {
   queryClient: QueryClient
-}
-
-async function ensureMe(queryClient: QueryClient): Promise<MeResponse> {
-  return queryClient.ensureQueryData({
-    queryKey: meQueryKey,
-    queryFn: () => apiFetch<MeResponse>('/api/me'),
-  })
 }
 
 const rootRoute = createRootRouteWithContext<RouterContext>()({
@@ -55,13 +49,23 @@ const rootRoute = createRootRouteWithContext<RouterContext>()({
 const loginRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/login',
-  validateSearch: (search: Record<string, unknown>): { next?: string } => {
-    if (typeof search.next === 'string' && search.next.length > 0) {
-      return { next: search.next }
-    }
-    return {}
-  },
+  validateSearch: optionalNextSearch,
   component: LoginPage,
+})
+
+const signupRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/sign-up',
+  validateSearch: optionalNextSearch,
+  beforeLoad: async ({ context, search }) => {
+    if (!(await isPublicSignupAllowed(context.queryClient))) {
+      throw redirect({
+        to: '/login',
+        search: search.next ? { next: search.next } : {},
+      })
+    }
+  },
+  component: SignupPage,
 })
 
 const forgotPasswordRoute = createRoute({
@@ -266,6 +270,7 @@ const legacyDesignSystem = legacyRedirect('/design-system', '/admin/design-syste
 
 export const routeTree = rootRoute.addChildren([
   loginRoute,
+  signupRoute,
   forgotPasswordRoute,
   resetPasswordRoute,
   inviteAcceptRoute,

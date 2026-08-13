@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { isLocalBannerEnvironment, shouldShowEnvBanner } from './health'
+import { isLocalBannerEnvironment, isPublicSignupEnabled, shouldShowEnvBanner } from './health'
+
+describe('isPublicSignupEnabled', () => {
+  it('is fail-closed unless health.allowPublicSignup === true', () => {
+    expect(isPublicSignupEnabled(undefined)).toBe(false)
+    expect(isPublicSignupEnabled({})).toBe(false)
+    expect(isPublicSignupEnabled({ allowPublicSignup: false })).toBe(false)
+    expect(isPublicSignupEnabled({ allowPublicSignup: true })).toBe(true)
+  })
+})
 
 describe('env banner helpers', () => {
   it('shows banner for local and staging only', () => {

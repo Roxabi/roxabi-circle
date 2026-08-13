@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { environmentName, isDevLikeEnvironment } from '../lib/session-env'
+import { allowPublicSignup, environmentName, isDevLikeEnvironment } from '../lib/session-env'
 import { TENANCY_PASSWORD, TENANCY_PERSONAS } from '../seed/tenancy-data'
 import type { AppEnv } from '../types'
 
@@ -18,6 +18,11 @@ healthRoutes.get('/health', (c) => {
     environment: string
     /** Session stack — always Better Auth (ADR-0002). */
     authAdapter: 'better-auth'
+    /**
+     * Public BA email sign-up (SPA `/sign-up`). Fail-closed unless
+     * `ALLOW_PUBLIC_SIGNUP=true` — products opt in via env, not a kit default.
+     */
+    allowPublicSignup: boolean
     demoLogin?: { email: string; password: string; role: string }
   } = {
     ok: true,
@@ -25,6 +30,7 @@ healthRoutes.get('/health', (c) => {
     requestId: c.get('requestId'),
     environment,
     authAdapter: 'better-auth',
+    allowPublicSignup: allowPublicSignup(c.env),
   }
 
   // Kit local DX only — public /health; never returned in staging/production.
