@@ -7,7 +7,7 @@
  */
 import { type CfEmailAddress, type SendEmailBinding, sendCf } from './cf'
 import { emailDomain, isRecipientDomainAllowed, isValidMailboxAddress } from './domain'
-import { redactEmailBody } from './redact'
+import { redactEmailAddress, redactEmailBody } from './redact'
 import { scrubEmailAddress, scrubHeaderLine } from './scrub'
 import type { EmailPort } from './types'
 
@@ -45,7 +45,8 @@ export function sendLog(input: { to: string; subject: string; text: string; html
     JSON.stringify({
       level: 'info',
       transport: 'log',
-      to: scrubbed.to,
+      // Never log full recipient — domain kept for ops, local-part masked
+      to: redactEmailAddress(scrubbed.to),
       subject: scrubbed.subject,
       body: redactEmailBody(scrubbed.text),
     }),

@@ -1,6 +1,7 @@
 import { AppError } from '@kit/core'
 import { Hono } from 'hono'
 import { assertRateLimit, clientIp } from '../lib/rate-limit'
+import { normalizePasswordSignInResponse } from '../lib/sign-in-anti-enum'
 import type { AppEnv } from '../types'
 
 /** 20 auth attempts / IP / 15 min (D1 fixed-window). */
@@ -36,5 +37,6 @@ authRoutes.all('/api/auth/*', async (c) => {
     if (!db) throw AppError.internal('db not bound — withDb middleware required')
     await assertRateLimit(db, `ba-auth:${clientIp(c.req)}`, LOGIN_LIMIT, LOGIN_WINDOW_MS)
   }
-  return auth.handler(c.req.raw)
+  const res = await auth.handler(c.req.raw)
+  return normalizePasswordSignInResponse(c.req.raw, res, c.get('requestId'))
 })

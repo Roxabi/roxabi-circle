@@ -51,13 +51,12 @@ export function profileErrorMessage(err: unknown, m: Messages): string {
 /**
  * Map errors for **password sign-in** only.
  *
- * **UI copy only** — 400 / 401 / 403 / UNAUTHORIZED / FORBIDDEN / VALIDATION_ERROR
- * collapse to the same `loginFailed` string so the toast does not differ for
- * unknown email vs wrong password. HTTP status (and BA body) may still differ
- * on the wire (Network tab). Full anti-enumeration requires BA/Worker response
- * normalization — not this helper.
+ * Wire: example-api normalizes failed POST `/api/auth/sign-in/email` to
+ * **401 + UNAUTHORIZED** kit envelope (anti-enumeration) — see
+ * `sign-in-anti-enum.ts`. 429 remains rate-limited.
  *
- * 429 stays rate-limited.
+ * UI: still collapse residual 400/403 / VALIDATION / FORBIDDEN to `loginFailed`
+ * so client-side validators and legacy BA envelopes never leak distinct copy.
  */
 export function loginErrorMessage(err: unknown, m: Messages): string {
   const { status, code } = resolveStatusCode(err)

@@ -61,7 +61,12 @@ import { ArrowDown, ArrowUp, ArrowUpDown, Plus, Trash2 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { PageHeader } from '../components/app-shell'
-import { apiErrorToMessage, apiFetch } from '../lib/api'
+import {
+  apiErrorFieldErrors,
+  apiErrorToMessage,
+  apiFetch,
+  fieldErrorsFirstMessages,
+} from '../lib/api'
 import { useLocale } from '../lib/locale'
 import { createNoteSchema } from '../lib/schemas'
 
@@ -93,7 +98,8 @@ export function NotesPage() {
       await qc.invalidateQueries({ queryKey: ['notes'] })
       toast.success(m.noteCreated)
     },
-    onError: (e) => toast.error(m.error, { description: apiErrorToMessage(e, m) }),
+    // Field-level errors handled in form onSubmit via apiErrorFieldErrors; toast only non-field.
+    onError: () => {},
   })
 
   const deleteNote = useMutation({
@@ -128,9 +134,32 @@ export function NotesPage() {
     },
     onSubmit: async ({ value }) => {
       // Reset/close only after success — keep draft if the API rejects.
-      await createNote.mutateAsync(value)
-      form.reset()
-      setOpen(false)
+      try {
+        await createNote.mutateAsync(value)
+        form.reset()
+        setOpen(false)
+      } catch (e) {
+        // Wire fieldErrors (kit ValidationDetails) → form field state; toast if no mapped fields.
+        const fe = apiErrorFieldErrors(e)
+        if (fe) {
+          const fields = fieldErrorsFirstMessages(fe)
+          const titleMsg = fields.title
+          const bodyMsg = fields.body
+          if (titleMsg || bodyMsg) {
+            form.setErrorMap({
+              onSubmit: {
+                form: apiErrorToMessage(e, m),
+                fields: {
+                  title: titleMsg,
+                  body: bodyMsg,
+                },
+              },
+            })
+            return
+          }
+        }
+        toast.error(m.error, { description: apiErrorToMessage(e, m) })
+      }
     },
   })
 
