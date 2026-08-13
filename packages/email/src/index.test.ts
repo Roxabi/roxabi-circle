@@ -11,6 +11,7 @@ import {
   isValidMailboxAddress,
   parseAllowDomains,
   prefixStagingSubject,
+  redactEmailAddress,
   redactEmailBody,
   resolveEmailTransport,
   type SendEmailBinding,
@@ -61,6 +62,14 @@ describe('buildMagicLinkEmailText', () => {
     expect(m.subject).toMatch(/sign in/i)
     expect(m.text).toContain('magic-link/verify')
     expect(m.html).toContain('href=')
+  })
+})
+
+describe('redactEmailAddress', () => {
+  it('masks local-part and keeps domain', () => {
+    expect(redactEmailAddress('jane.doe@example.com')).toBe('j***@example.com')
+    expect(redactEmailAddress('a@b.c')).toBe('*@b.c')
+    expect(redactEmailAddress('not-an-email')).toBe('[redacted]')
   })
 })
 
@@ -197,9 +206,29 @@ describe('createEmailPort (product path — leaves not public)', () => {
       subject: 'Hi\u2028Bcc: evil@x',
       text: 'body',
     })
-    const logged = JSON.parse(String(spy.mock.calls[0]?.[0] ?? '{}')) as { subject: string }
+    const logged = JSON.parse(String(spy.mock.calls[0]?.[0] ?? '{}')) as {
+      subject: string
+      to: string
+    }
     expect(logged.subject).toBe('Hi Bcc: evil@x')
     expect(logged.subject).not.toMatch(/\u2028/)
+    // Recipient local-part redacted in log drain
+    expect(logged.to).toBe('*@b.c')
+    expect(logged.to).not.toBe('a@b.c')
+    spy.mockRestore()
+  })
+
+  it('log port redacts full mailbox local-part (PII)', async () => {
+    const spy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const port = createLogEmailPort()
+    await port.send({
+      to: 'jane.doe@example.com',
+      subject: 'Hi',
+      text: 'body',
+    })
+    const logged = JSON.parse(String(spy.mock.calls[0]?.[0] ?? '{}')) as { to: string }
+    expect(logged.to).toBe('j***@example.com')
+    expect(logged.to).not.toContain('jane.doe')
     spy.mockRestore()
   })
 

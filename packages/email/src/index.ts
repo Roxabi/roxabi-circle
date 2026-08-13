@@ -326,6 +326,6 @@ export function resolveEmailTransport(
 }
 
 export type { CfEmailAddress, SendEmailBinding } from './cf'
-export { redactEmailBody } from './redact'
+export { redactEmailAddress, redactEmailBody } from './redact'
 export { scrubHeaderLine } from './scrub'
 // Templates: build*EmailText only (raw *Email constructors stay package-private).

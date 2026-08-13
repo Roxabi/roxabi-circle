@@ -245,7 +245,7 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     expect(listBody.orgs.length).toBeGreaterThan(0)
   })
 
-  it('login with wrong password returns UNAUTHORIZED', async () => {
+  it('login with wrong password returns UNAUTHORIZED kit anti-enum envelope', async () => {
     const app = createApp()
     const env = createMemoryEnv()
     await loginAs(app, env, DEMO_EMAIL, DEMO_PASSWORD)
@@ -258,7 +258,49 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
       },
       env,
     )
-    expect(bad.status).toBeGreaterThanOrEqual(400)
+    expect(bad.status).toBe(401)
+    const body = (await bad.json()) as {
+      error: { code: string; message: string }
+      requestId: string
+    }
+    expect(body.error.code).toBe('UNAUTHORIZED')
+    expect(body.error.message).toBe('Invalid email or password')
+    expect(body.requestId).toMatch(/^req_/)
+    expect(bad.headers.get('set-cookie')).toBeNull()
+  })
+
+  it('login unknown email matches wrong-password wire envelope (anti-enum)', async () => {
+    const app = createApp()
+    const env = createMemoryEnv()
+    // Seed demo so wrong-password hits INVALID_PASSWORD (not USER_NOT_FOUND) at BA layer.
+    await loginAs(app, env, DEMO_EMAIL, DEMO_PASSWORD)
+    const unknown = await app.request(
+      '/api/auth/sign-in/email',
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', Origin: ORIGIN },
+        body: JSON.stringify({
+          email: 'nobody-anti-enum@kit.local',
+          password: 'any-password-here',
+        }),
+      },
+      env,
+    )
+    const wrong = await app.request(
+      '/api/auth/sign-in/email',
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', Origin: ORIGIN },
+        body: JSON.stringify({ email: DEMO_EMAIL, password: 'wrong-password' }),
+      },
+      env,
+    )
+    expect(unknown.status).toBe(401)
+    expect(wrong.status).toBe(401)
+    const u = (await unknown.json()) as { error: { code: string; message: string } }
+    const w = (await wrong.json()) as { error: { code: string; message: string } }
+    expect(u.error).toEqual(w.error)
+    expect(u.error).toEqual({ code: 'UNAUTHORIZED', message: 'Invalid email or password' })
   })
 
   it('mint sk_ → Bearer GET /api/me succeeds; bad key 401; revoke works', async () => {

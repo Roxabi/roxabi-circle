@@ -67,7 +67,7 @@ export function LoginPage() {
           body: JSON.stringify({ email: value.email, password: value.password }),
         })
       } catch (e) {
-        // UI copy only via loginErrorMessage — wire status may still differ (see helper).
+        // Wire anti-enum (401 UNAUTHORIZED kit) + UI copy collapse via loginErrorMessage.
         const msg = loginErrorMessage(e, m)
         setError(msg)
         toast.error(m.error, { description: msg })

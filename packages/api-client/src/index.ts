@@ -1,4 +1,4 @@
-import type { ApiErrorBody, ErrorCodeName } from '@kit/types'
+import type { ApiErrorBody, ErrorCodeName, FieldErrors, ValidationDetails } from '@kit/types'
 
 export class ApiError extends Error {
   readonly code: string
@@ -14,6 +14,39 @@ export class ApiError extends Error {
     this.requestId = body.requestId
     this.details = body.error.details
   }
+}
+
+/** True when `details` is kit {@link ValidationDetails} (`{ fieldErrors }`). */
+export function isValidationDetails(details: unknown): details is ValidationDetails {
+  if (!details || typeof details !== 'object') return false
+  if (!('fieldErrors' in details)) return false
+  const fe = (details as ValidationDetails).fieldErrors
+  return fe != null && typeof fe === 'object' && !Array.isArray(fe)
+}
+
+/**
+ * Extract wire `details.fieldErrors` from a kit {@link ApiError}.
+ * Returns null when absent / wrong shape (message-only or free-form details).
+ */
+export function apiErrorFieldErrors(err: unknown): FieldErrors | null {
+  if (!(err instanceof ApiError)) return null
+  if (!isValidationDetails(err.details)) return null
+  return err.details.fieldErrors
+}
+
+/**
+ * First message per field — handy for TanStack Form `fields: { name: string }`.
+ * Skips empty arrays / undefined lists.
+ */
+export function fieldErrorsFirstMessages(
+  fieldErrors: FieldErrors,
+): Record<string, string | undefined> {
+  const out: Record<string, string | undefined> = {}
+  for (const [key, msgs] of Object.entries(fieldErrors)) {
+    const first = msgs?.find((m) => typeof m === 'string' && m.length > 0)
+    if (first) out[key] = first
+  }
+  return out
 }
 
 export type ApiClientOptions = {

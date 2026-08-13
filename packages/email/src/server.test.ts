@@ -62,9 +62,13 @@ describe('email server transport', () => {
     const spy = vi.spyOn(console, 'log').mockImplementation(() => {})
     const r = sendLog({ to: 'a@b.c', subject: 'hi\r\nX-Injected: yes', text: 'body' })
     expect(r).toEqual({ ok: true, transport: 'log' })
-    const logged = JSON.parse(String(spy.mock.calls[0]?.[0] ?? '{}')) as { subject: string }
+    const logged = JSON.parse(String(spy.mock.calls[0]?.[0] ?? '{}')) as {
+      subject: string
+      to: string
+    }
     expect(logged.subject).toBe('hi X-Injected: yes')
     expect(logged.subject).not.toMatch(/[\r\n]/)
+    expect(logged.to).toBe('*@b.c')
     spy.mockRestore()
   })
 
