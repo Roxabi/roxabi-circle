@@ -93,6 +93,24 @@ describe('completeUpload', () => {
     expect(bucket.keys()).toHaveLength(0)
   })
 
+  it('rejects uploadId that joinObjectKey would elide (dot / empty binding)', async () => {
+    const bucket = memoryBucket()
+    await expect(
+      completeUpload({
+        bucket,
+        subject,
+        uploadId: '.',
+        key: `demo/${subject}/any-suffix/${filename}`,
+        mockMode: true,
+      }),
+    ).rejects.toMatchObject({
+      name: 'AppError',
+      code: 'VALIDATION_ERROR',
+      message: 'invalid uploadId',
+    })
+    expect(bucket.keys()).toHaveLength(0)
+  })
+
   it('mockMode put goes through StorageClient under demo prefix', async () => {
     const bucket = memoryBucket()
     const key = expectedKey(bucket)

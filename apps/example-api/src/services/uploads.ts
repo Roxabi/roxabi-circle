@@ -5,6 +5,13 @@ import { presignDemoUpload } from '../lib/presign'
 
 const MAX_BYTES = 5_000_000
 
+/** Single path segment for subject/uploadId — reject `.` / `..` / empty / multi-segment so joinObjectKey cannot elide the binding. */
+function assertUploadPathSegment(value: string, label: string): void {
+  if (!value || value.includes('/') || value === '.' || value === '..') {
+    throw AppError.validation(`invalid ${label}`)
+  }
+}
+
 export async function createUploadPresign(opts: {
   signer: PresignSigner
   subject: string
@@ -47,6 +54,8 @@ export async function completeUpload(opts: {
   mockMode: boolean
 }) {
   try {
+    assertUploadPathSegment(opts.subject, 'subject')
+    assertUploadPathSegment(opts.uploadId, 'uploadId')
     assertObjectKey(opts.key)
     const client = new StorageClient(opts.bucket, 'demo')
     const expectedPrefix = client.key(opts.subject, opts.uploadId)

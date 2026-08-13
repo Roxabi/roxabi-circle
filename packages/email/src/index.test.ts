@@ -373,7 +373,7 @@ describe('createEmailPort (product path — leaves not public)', () => {
       const port = createEmailPort({
         transport: 'resend',
         environment: 'production',
-        from: { email: 'noreply@example.com', name: 'Kit' },
+        from: { email: 'noreply@example.com', name: 'Kit\u2028Bcc' },
         resendApiKey: 're_test_key',
       })
 
@@ -401,7 +401,9 @@ describe('createEmailPort (product path — leaves not public)', () => {
       expect(body.to).toEqual(['user@example.com'])
       expect(body.subject).toBe('Hi X-Injected: yes more')
       expect(body.subject).not.toMatch(/[\r\n\u0085\u2028\u2029]/)
-      expect(body.from).toContain('noreply@example.com')
+      // From display name must go through scrubEmailAddress (fails if Resend drops scrub)
+      expect(body.from).toBe('Kit Bcc <noreply@example.com>')
+      expect(body.from).not.toMatch(/[\r\n\u0085\u2028\u2029]/)
     } finally {
       fetchSpy.mockRestore()
     }
