@@ -7,7 +7,7 @@
  */
 
 import { isValidMailboxAddress } from './domain'
-import { scrubHeaderLine } from './scrub'
+import { scrubEmailAddress, scrubHeaderLine } from './scrub'
 
 export type CfEmailAddress = string | { email: string; name?: string }
 
@@ -31,14 +31,6 @@ export type SendCfInput = {
   html?: string
 }
 
-function scrubCfAddress(from: CfEmailAddress): CfEmailAddress {
-  if (typeof from === 'string') return scrubHeaderLine(from).trim()
-  return {
-    email: scrubHeaderLine(from.email).trim(),
-    ...(from.name != null ? { name: scrubHeaderLine(from.name).trim() } : {}),
-  }
-}
-
 /**
  * CF transport leaf — scrubs headers and validates to/from mailbox before binding.send.
  * Package-internal; product path = EmailPort via createEmailPort / createCfEmailPort.
@@ -49,7 +41,7 @@ export async function sendCf(
 ): Promise<{ ok: true; transport: 'cf'; messageId?: string }> {
   const to = scrubHeaderLine(input.to).trim()
   const subject = scrubHeaderLine(input.subject).trimEnd()
-  const safeFrom = scrubCfAddress(input.from)
+  const safeFrom = scrubEmailAddress(input.from) as CfEmailAddress
   const fromEmail = typeof safeFrom === 'string' ? safeFrom : safeFrom.email
   if (!isValidMailboxAddress(to) || !isValidMailboxAddress(fromEmail)) {
     throw new Error(
