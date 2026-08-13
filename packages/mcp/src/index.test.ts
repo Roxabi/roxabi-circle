@@ -1,34 +1,24 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
-  assertExactKitTools,
-  assertNoShareTools,
   assertToolsMatchAllowlist,
+  DEFAULT_EXAMPLE_TOOL_NAMES,
   extractBearerFromEnv,
   handlePing,
   handleWhoami,
-  MCP_TOOL_NAMES,
   type WhoamiFetch,
 } from './index'
 
 describe('mcp kit', () => {
   it('assertToolsMatchAllowlist is app-driven (not fixed product set)', () => {
-    expect(() => assertToolsMatchAllowlist(['ping', 'whoami'], MCP_TOOL_NAMES)).not.toThrow()
+    expect(() =>
+      assertToolsMatchAllowlist(['ping', 'whoami'], DEFAULT_EXAMPLE_TOOL_NAMES),
+    ).not.toThrow()
     expect(() => assertToolsMatchAllowlist(['whoami', 'ping'], ['ping', 'whoami'])).not.toThrow()
-    expect(() => assertToolsMatchAllowlist(['ping', 'whoami', 'extra'], MCP_TOOL_NAMES)).toThrow(
-      /exactly/,
-    )
+    expect(() =>
+      assertToolsMatchAllowlist(['ping', 'whoami', 'extra'], DEFAULT_EXAMPLE_TOOL_NAMES),
+    ).toThrow(/exactly/)
     // Product apps may register their own allowlist without package forbidding the names.
     expect(() => assertToolsMatchAllowlist(['alpha', 'beta'], ['alpha', 'beta'])).not.toThrow()
-  })
-
-  it('deprecated assertExactKitTools still matches example allowlist', () => {
-    expect(() => assertExactKitTools(['ping', 'whoami'])).not.toThrow()
-    expect(() => assertExactKitTools(['ping'])).toThrow(/exactly/)
-  })
-
-  it('assertNoShareTools only validates identifier shape', () => {
-    expect(() => assertNoShareTools(['ping', 'whoami'])).not.toThrow()
-    expect(() => assertNoShareTools(['bad name'])).toThrow(/invalid/)
   })
 
   it('ping works', async () => {

@@ -2,6 +2,7 @@
 title: "chore(deps): wave 4 — fastmcp 4"
 issue: 22
 status: approved
+normative: false
 tier: F-lite
 date: 2026-08-07
 ---

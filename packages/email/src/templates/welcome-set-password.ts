@@ -1,13 +1,8 @@
 /**
  * Kit welcome / first-login set-password email (string-rendered). No product-domain copy.
+ * Header scrub is at EmailPort boundary (scrubHeaderLine).
  */
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-}
+import { escapeHtml } from '../escape-html'
 
 export function WelcomeSetPasswordEmail(props: {
   to: string
@@ -16,9 +11,9 @@ export function WelcomeSetPasswordEmail(props: {
   name?: string
 }) {
   const safeUrl = escapeHtml(props.setPasswordUrl)
-  const who = props.name?.trim() ? props.name.trim().replace(/[\r\n]/g, '') : 'there'
+  const who = props.name?.trim() ? props.name.trim() : 'there'
   const subject = 'Welcome — set your password — Kit kit'
-  const exp = props.expiresHint ? props.expiresHint.replace(/[\r\n]/g, '') : 'about 1 hour'
+  const exp = props.expiresHint ?? 'about 1 hour'
   const text = [
     `Hi ${who},`,
     'An account was created for you on Kit Kit.',

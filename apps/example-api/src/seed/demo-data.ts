@@ -1,5 +1,5 @@
 /**
- * SSoT for kit demo fixtures (local seed + lazy ensureDemoUser + docs).
+ * SSoT for kit demo fixtures (local seed + ensureDemoUsers + docs).
  * No product/share domain — examples only.
  */
 

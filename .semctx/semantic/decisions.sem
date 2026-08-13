@@ -1,0 +1,6 @@
+# Decisions — recorded choices (why the system is shaped as it is).
+#
+# Example syntax (commented out; never part of the active model):
+#   decision decision.<project>.<slug>
+#     statement: <choice and rationale>
+#     status: declared

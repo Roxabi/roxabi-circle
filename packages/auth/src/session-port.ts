@@ -3,18 +3,16 @@
  *
  * Apps inject `createBetterAuthSessionPort`. Cookie helpers stay on the port
  * for clear-cookie / name overrides; session issuance is owned by BA HTTP handler.
+ * HMAC-era `sign` / `verify` / `secret` are intentionally absent.
  */
 export type ResolveSessionInput = {
   cookieHeader?: string | null
   /** Full request headers when available (Better Auth getSession). */
   headers?: Headers
-  secret?: string
   cookieName: string
 }
 
 export type SessionPort = {
-  sign(payload: import('./session').SessionPayload, secret: string): Promise<string>
-  verify(token: string, secret: string): Promise<import('./session').SessionPayload | null>
   /**
    * Preferred session resolve for dual-auth (cookie \| Bearer).
    * BA: getSession({ headers }).

@@ -17,7 +17,7 @@
 
 Ce monorepo est le **boilerplate Chemin A** : conventions + CI + auth + UI kit + MCP + libs SaaS.
 
-**Règle de conflit (normative) :** quand kit extractibility vs direction plateforme vs product frame divergent → **JTBD-dev + bar machine + ADR-0001 gagnent**. La direction n’est **pas** un backlog d’implémentation sans issue/ADR.
+**Règle de conflit (normative) :** quand kit extractibility vs direction plateforme vs product frame divergent → **JTBD-dev + bar machine + [ADR-0001](docs/architecture/adr/0001-primary-axis-packages-compose-apps.md) gagnent**. La direction n’est **pas** un backlog d’implémentation sans issue/ADR.
 
 ### Direction — multi-tenant capability kernel
 
@@ -30,14 +30,14 @@ Ce monorepo est le **boilerplate Chemin A** : conventions + CI + auth + UI kit +
 
 | Pile | Kit (`@kit/*`) | App (example / product) | Promote gate |
 |---|---|---|---|
-| **SaaS** | auth, core, db, ui, storage, email, i18n, types | `MODULE_IDS`, routes, seed, domain | ADR-0001 + [0003](docs/architecture/adr/0003-multi-tenant-rbac-modules.md) |
+| **SaaS** | auth, core, db, ui, storage, email, i18n, types | `MODULE_IDS`, routes, seed, domain | [ADR-0001](docs/architecture/adr/0001-primary-axis-packages-compose-apps.md) + [ADR-0003](docs/architecture/adr/0003-multi-tenant-rbac-modules.md) |
 | **Workflow** | `@kit/flows` (+ later `flows-ui`) | plans YAML, tools, Workflows bind, D1 wire | [ADR-0005](docs/architecture/adr/0005-flows-platform-agentic-workflows.md) **D6** |
 | **Agents** | `@kit/mcp` conventions ; shared tool registry / agent loop **only if ≥2 call sites** | product tools, MCP server ; code-mode **product-opt-in only** | **same D6 class · after flows runner proven** — no `@kit/agents` before evidence |
 
 ```text
 Phase (normative order — not aspiration):
   1. SaaS kernel     (now)
-  2. Workflows       (P0 incubating — ADR-0005 children)
+  2. Workflows       (P0 incubating — [ADR-0005](docs/architecture/adr/0005-flows-platform-agentic-workflows.md) children)
   3. Agents org-aware (after durable create-run + meter + dogfood)
      code-mode = product footnote only · never kit default
 ```
@@ -123,12 +123,13 @@ Phase (normative order — not aspiration):
 | Priorité | Livrable | Intention |
 |---|---|---|
 | **P0** | **Kit Chemin A** | `packages/*` + `apps/example-*` verts · 0 string métier · bar machine — **gagne toujours** vs platform growth |
-| **P0 incubating** | **Flows** | `@kit/flows` + ADR-0005 children (#29–#31…) — promote D6 only |
+| **P0 incubating** | **Flows** | `@kit/flows` + [ADR-0005](docs/architecture/adr/0005-flows-platform-agentic-workflows.md) children (#29–#31…) — promote D6 only |
+| **P0 incubating** | **Tasks + comments** | `@kit/tasks` + `@kit/comments` ([ADR-0007](docs/architecture/adr/0007-tasks-comments-kernel.md)) — pure shipped; example dogfood next · promote after first product compose |
 | **After flows evidence** | **Agents org-aware** | Same grant∩ + registryVersion as flows · no new agent package without second call site |
 | **Hors scope** | Apps métier (`apps/share-*`, etc.) | Repos product |
 | **Hors scope** | Cloudflare OS as kit · code-mode kit default | Product opt-in or external deploy |
 
-**P2 later (not day-1) :** shared tool-registry SSOT types MCP∩flows when second consumer needs it · module catalogue ids `flows` / later `agents` under ADR-0003 · optional **ADR-0006** only when agent loop / code-mode becomes real scope with evidence.
+**P2 later (not day-1) :** shared tool-registry SSOT types MCP∩flows when second consumer needs it · module catalogue ids `flows` / later `agents` under [ADR-0003](docs/architecture/adr/0003-multi-tenant-rbac-modules.md) · optional **future agents ADR** only when agent loop / code-mode becomes real scope with evidence.
 
 ### Downstream product apps
 
@@ -411,7 +412,9 @@ Ref pattern : `kit-boilerplate` (`errorCodes`, `errorUtils`, `ApiError`).
 | `@kit/i18n` | Locale engine only; catalogs app-owned (FR/EN live) | **P0** |
 | `@kit/mcp` | FastMCP/SDK conventions (ping/whoami) · tools under grants when wired · **parity grant∩ with flows** | **P0** example |
 | `@kit/flows` | Pure plan engine: YAML MVP · `check` · grant∩permits · snapshot helpers ([ADR-0005](docs/architecture/adr/0005-flows-platform-agentic-workflows.md) · #16 · #27–#28); Workflows/D1/API = children #29–#31 · promote **D6 only** | **P0** incubating |
-| *(no `@kit/agents` yet)* | Agent loop / code-mode → **after** flows runner evidence · optional ADR-0006 · product code-mode only | blocked until D6 |
+| `@kit/tasks` | Pure task engine: stages · visibility · links · opaque scope · AudiencePort helpers ([ADR-0007](docs/architecture/adr/0007-tasks-comments-kernel.md)); D1/API dogfood later · **no resource links until resource system** | **P0** incubating |
+| `@kit/comments` | Pure multi-target comments (`target_type`+`target_id`, visibility) — compose with tasks + product entities ([ADR-0007](docs/architecture/adr/0007-tasks-comments-kernel.md)) | **P0** incubating |
+| *(no `@kit/agents` yet)* | Agent loop / code-mode → **after** flows runner evidence · optional future agents ADR · product code-mode only | blocked until D6 |
 | `@kit/rate-limit` | D1/KV / CF binding | P1 |
 | `@kit/audit` | append-only events | P1 |
 | `@kit/jobs` | Queues/cron helpers | P1 |
@@ -658,13 +661,13 @@ Quand la CI app existera : l’ajouter dans `workflow_run.workflows` de `merge-o
 - [x] **Email CF prod transport** — `@kit/email` `log`\|`smtp`\|`cf`\|`resend` + staging allowlist ([ADR-0004](docs/architecture/adr/0004-email-transport-cf-default.md) · GH #21)  
 - [x] **RBAC Phase B (API + tests + minimal UI)** — custom org roles + module grants (GH #22 · )  
 - [ ] FastMCP product tools + skill (hors kit strings)  
-- [ ] **Flows platform** — epic [#16](https://github.com/Roxabi/roxabi-boilerplate-cf/issues/16) · ADR-0005 · children #27–#36  
+- [ ] **Flows platform** — epic [#16](https://github.com/Roxabi/roxabi-boilerplate-cf/issues/16) · [ADR-0005](docs/architecture/adr/0005-flows-platform-agentic-workflows.md) · children #27–#36  
 - [x] **B8 park decisions** — Paraglide / Plausible / TanStack Start-as-default park · **patchlog L1 shipping** (GH #107 · [`docs/recipes/changelog-l1.md`](docs/recipes/changelog-l1.md)) · L2 package still park ([`docs/park-decisions-b8.md`](docs/park-decisions-b8.md) · GH #20)  
 - [ ] **Plausible** SPA recipe — hub `analytics.example.com` multi-sites (**park** DR-B8-05 — unpark when public SPA needs it)  
 - [ ] Sentry + Better Stack (prod) — B7 A3 **parked** (revisit later)  
 - [ ] CodeRabbit (ou équiv.) sur PR — B7 A4 **parked** (revisit later)  
 - [x] Playwright e2e — **local only** (`test:e2e:design-system` / `test:e2e:ci`; no default GHA job · PR #96)  
-- [x] Consumer dogfood zero-edit (B5 · GH #17) — playbook + harness + **permanent greenfield** [`product-dogfood`](https://example.com/product-dogfood) (recreated + kept 2026-08-04) · evidence [`docs/product-consumer-dogfood-evidence.md`](docs/product-consumer-dogfood-evidence.md)
+- [ ] Consumer dogfood zero-edit (B5 · GH #17) — playbook + harness shipped; **live product-mode evidence not filled** ([`docs/product-consumer-dogfood-evidence.md`](docs/product-consumer-dogfood-evidence.md) status: pending)
 - [ ] Extract dry-run « suite green after drop product » (aujourd’hui structure + banlist)
 
 **Critère extractible :** supprimer `apps/share-*` → examples + packages verts, 0 string métier share.

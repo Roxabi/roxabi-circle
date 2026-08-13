@@ -1,3 +1,8 @@
+---
+status: reference
+normative: false
+---
+
 # #22 FastMCP inventory (pre → post)
 
 | Path | Field / API | Today | Target |

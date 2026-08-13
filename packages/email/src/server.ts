@@ -5,6 +5,9 @@
  * Usage: scripts / Node CLIs with SMTP_HOST/SMTP_PORT (Mailpit 1025).
  */
 
+import { isValidMailboxAddress } from './domain'
+import { scrubHeaderLine } from './scrub'
+
 export type SmtpSendInput = {
   host: string
   port: number
@@ -93,16 +96,33 @@ export async function sendSmtp(
     }
   }
 
-  // Strip CR/LF from header fields (header injection if caller passes user input).
-  const scrub = (s: string) => s.replace(/[\r\n]/g, ' ')
+  // Header scrub + shared mailbox gate (same rules as CF/Resend/allowlist).
+  const from = scrubHeaderLine(input.from).trim()
+  const to = scrubHeaderLine(input.to).trim()
+  const subject = scrubHeaderLine(input.subject).trimEnd()
+  if (!isValidMailboxAddress(from) || !isValidMailboxAddress(to)) {
+    return {
+      ok: false,
+      transport: 'smtp',
+      error: 'invalid from/to address (need printable ASCII mailbox after CR/LF scrub)',
+    }
+  }
+
+  // RFC 5321: dot-stuff body lines that start with '.' so DATA cannot end early.
+  const dotStuffedText = input.text
+    .replace(/\r\n/g, '\n')
+    .split('\n')
+    .map((line) => (line.startsWith('.') ? `.${line}` : line))
+    .join('\r\n')
+
   const body = [
-    `From: ${scrub(input.from)}`,
-    `To: ${scrub(input.to)}`,
-    `Subject: ${scrub(input.subject)}`,
+    `From: ${from}`,
+    `To: ${to}`,
+    `Subject: ${subject}`,
     `Date: ${new Date().toUTCString()}`,
     `Message-ID: <${crypto.randomUUID()}@kit.local>`,
     ``,
-    input.text,
+    dotStuffedText,
     ``,
   ].join('\r\n')
 
@@ -132,9 +152,9 @@ export async function sendSmtp(
     await expect('banner')
     await write('EHLO localhost')
     await expect('EHLO')
-    await write(`MAIL FROM:<${input.from}>`)
+    await write(`MAIL FROM:<${from}>`)
     await expect('MAIL FROM')
-    await write(`RCPT TO:<${input.to}>`)
+    await write(`RCPT TO:<${to}>`)
     await expect('RCPT TO')
     await write('DATA')
     await expect('DATA')
@@ -173,5 +193,5 @@ export async function sendSmtp(
   }
 }
 
-/** Re-export edge-safe log transport for Node consumers of `/server`. */
-export { sendLog } from './index'
+/** Re-export edge-safe log transport for Node consumers of `/server` (leaf scrubs headers). */
+export { sendLog } from './ports'

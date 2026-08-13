@@ -1,13 +1,8 @@
 /**
  * Kit org-invite email (string-rendered). No product-domain copy.
+ * Header injection defense for subject/to is at EmailPort boundary (scrubHeaderLine).
  */
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-}
+import { escapeHtml } from '../escape-html'
 
 export function InviteEmail(props: {
   to: string
@@ -16,11 +11,11 @@ export function InviteEmail(props: {
   expiresAt: Date
   inviterLabel?: string
 }) {
-  const org = props.orgName.replace(/[\r\n]/g, '')
+  const org = props.orgName
   const safeOrg = escapeHtml(org)
   const safeUrl = escapeHtml(props.acceptUrl)
   const exp = props.expiresAt.toISOString()
-  const inviter = props.inviterLabel ? props.inviterLabel.replace(/[\r\n]/g, '') : undefined
+  const inviter = props.inviterLabel
   const subject = `Invitation — ${org} (Kit kit)`
   const text = [
     `You have been invited to join "${org}" on Kit Kit.`,

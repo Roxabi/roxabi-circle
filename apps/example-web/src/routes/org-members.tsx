@@ -56,7 +56,7 @@ export function OrgMembersPage() {
   const { m } = useLocale()
   const me = useMe()
   const qc = useQueryClient()
-  const { orgId } = useParams({ strict: false }) as { orgId: string }
+  const { orgId } = useParams({ from: '/app/orgs/$orgId/members' })
   const canManage = canManageMembers(me.data, orgId)
   const org = me.data?.orgs?.find((o) => o.id === orgId)
 

@@ -54,8 +54,8 @@ export function joinObjectKey(prefix: string, ...parts: string[]): string {
 }
 
 /**
- * Reject empty keys and `..` segments on free helpers.
- * Prefer {@link StorageClient} for prefix-enforced product keys.
+ * Reject empty keys and `..` segments (used by advanced {@link createPresignedUrl}).
+ * Product I/O: use {@link StorageClient} so keys stay under a base prefix.
  */
 export function assertObjectKey(key: string): void {
   if (!key?.trim()) {
@@ -64,29 +64,9 @@ export function assertObjectKey(key: string): void {
   pushPathSegments([], key)
 }
 
-export async function putObject(
-  bucket: KitR2Bucket,
-  key: string,
-  body: KitR2Body,
-  options?: { httpMetadata?: { contentType?: string } },
-): Promise<unknown> {
-  assertObjectKey(key)
-  return bucket.put(key, body, options)
-}
-
-export async function getObject(bucket: KitR2Bucket, key: string): Promise<KitR2ObjectBody | null> {
-  assertObjectKey(key)
-  return bucket.get(key)
-}
-
-export async function deleteObject(bucket: KitR2Bucket, key: string): Promise<void> {
-  assertObjectKey(key)
-  await bucket.delete(key)
-}
-
 /**
  * Prefix-enforced R2 client — every key is joined under `basePrefix`.
- * Prefer this over free put/get/delete to avoid accidental cross-prefix writes.
+ * **Product path** for put/get/delete/head/list/presign (no free put/get/delete helpers).
  */
 export class StorageClient {
   constructor(
@@ -153,6 +133,32 @@ export class StorageClient {
     }
     return []
   }
+
+  /**
+   * Preferred product presign path: join `parts` under `basePrefix`, assert prefix,
+   * then sign via {@link createPresignedUrl}. Prefer this over free-form keys +
+   * `createPresignedUrl` so signed URLs cannot escape the product prefix.
+   */
+  async presign(
+    signer: PresignSigner,
+    input: {
+      parts: string[]
+      method?: PresignMethod
+      /** seconds — clamped to [60, 3600]; default 300 */
+      expiresIn?: number
+      contentType?: string
+    },
+  ): Promise<PresignResult & { key: string }> {
+    const key = this.key(...input.parts)
+    this.assertUnderPrefix(key)
+    const result = await createPresignedUrl(signer, {
+      key,
+      method: input.method ?? 'PUT',
+      expiresIn: input.expiresIn ?? 300,
+      contentType: input.contentType,
+    })
+    return { ...result, key }
+  }
 }
 
 // ── Light presign (A25 kit — PUT only; secrets never in package) ─────────────
@@ -184,8 +190,13 @@ function clampExpiresIn(seconds: number): number {
 }
 
 /**
- * Validate key safety then delegate to an app-provided signer (S3 or mock).
- * Package never holds R2 secrets.
+ * Low-level presign: validate key safety then delegate to an app-provided signer
+ * (S3 or mock). Package never holds R2 secrets.
+ *
+ * **Advanced / custom keys** (not deprecated). Path-safe only — does **not**
+ * enforce a product prefix. Prefer {@link StorageClient.presign} so keys are
+ * joined under `basePrefix`; use this only when you already have a full key
+ * (e.g. from `client.key` or a trusted store).
  */
 export async function createPresignedUrl(
   signer: PresignSigner,

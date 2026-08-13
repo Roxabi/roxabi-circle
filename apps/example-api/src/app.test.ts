@@ -245,7 +245,7 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     expect(listBody.orgs.length).toBeGreaterThan(0)
   })
 
-  it('login with wrong password returns UNAUTHORIZED', async () => {
+  it('login with wrong password returns UNAUTHORIZED kit anti-enum envelope', async () => {
     const app = createApp()
     const env = createMemoryEnv()
     await loginAs(app, env, DEMO_EMAIL, DEMO_PASSWORD)
@@ -258,7 +258,59 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
       },
       env,
     )
-    expect(bad.status).toBeGreaterThanOrEqual(400)
+    expect(bad.status).toBe(401)
+    const body = (await bad.json()) as {
+      error: { code: string; message: string }
+      requestId: string
+    }
+    expect(body.error.code).toBe('UNAUTHORIZED')
+    expect(body.error.message).toBe('Invalid email or password')
+    expect(body.requestId).toMatch(/^req_/)
+    expect(bad.headers.get('set-cookie')).toBeNull()
+  })
+
+  it('login unknown email matches wrong-password wire envelope (anti-enum)', async () => {
+    const app = createApp()
+    const env = createMemoryEnv()
+    // Seed demo so wrong-password hits INVALID_PASSWORD (not USER_NOT_FOUND) at BA layer.
+    await loginAs(app, env, DEMO_EMAIL, DEMO_PASSWORD)
+    const unknown = await app.request(
+      '/api/auth/sign-in/email',
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', Origin: ORIGIN },
+        body: JSON.stringify({
+          email: 'nobody-anti-enum@kit.local',
+          password: 'any-password-here',
+        }),
+      },
+      env,
+    )
+    const wrong = await app.request(
+      '/api/auth/sign-in/email',
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', Origin: ORIGIN },
+        body: JSON.stringify({ email: DEMO_EMAIL, password: 'wrong-password' }),
+      },
+      env,
+    )
+    expect(unknown.status).toBe(401)
+    expect(wrong.status).toBe(401)
+    expect(unknown.headers.get('set-cookie')).toBeNull()
+    expect(wrong.headers.get('set-cookie')).toBeNull()
+    const u = (await unknown.json()) as {
+      error: { code: string; message: string }
+      requestId: string
+    }
+    const w = (await wrong.json()) as {
+      error: { code: string; message: string }
+      requestId: string
+    }
+    expect(u.error).toEqual(w.error)
+    expect(u.error).toEqual({ code: 'UNAUTHORIZED', message: 'Invalid email or password' })
+    expect(u.requestId).toMatch(/^req_/)
+    expect(w.requestId).toMatch(/^req_/)
   })
 
   it('mint sk_ → Bearer GET /api/me succeeds; bad key 401; revoke works', async () => {
@@ -363,22 +415,59 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     expect(badBody.requestId).toMatch(/^req_/)
   })
 
+  /**
+   * The key must be **org-bound and otherwise valid**, so that the 401 can only come from
+   * expiry. Minting without an organization used to be possible and this test did exactly
+   * that — once `findKeyRecord` started denying NULL-org rows, the assertion still passed but
+   * for the wrong reason and the expiry path stopped being exercised at all. Tenancy is seeded
+   * so the org/membership re-check succeeds and expiry is the single remaining variable.
+   */
   it('rejects expired API keys', async () => {
     const app = createApp()
     const env = createMemoryEnv()
-    // Seed demo users via login (session cookie unused — we mint expired key directly)
-    await loginAs(app, env, DEMO_EMAIL, DEMO_PASSWORD)
     const { createDb } = await import('@kit/db')
     const { schema } = await import('./db/schema')
     const { mintApiKey } = await import('./services/auth')
+    const { seedTenancyDemo } = await import('./seed/seed-tenancy')
     const db = createDb(env.DB, schema)
-    const minted = await mintApiKey(db, 'user_demo', { expiresAt: Date.now() - 1000, name: 'old' })
+    await seedTenancyDemo(db, { environment: 'test', force: true })
+
+    // positive control: the same key, unexpired, authenticates
+    const live = await mintApiKey(db, 'user_staff', { organizationId: 'org_acme', name: 'live' })
+    const okRes = await app.request(
+      '/api/me',
+      { headers: { authorization: `Bearer ${live.key}` } },
+      env,
+    )
+    expect(okRes.status, 'org-bound key must authenticate before expiry is tested').toBe(200)
+
+    const minted = await mintApiKey(db, 'user_staff', {
+      organizationId: 'org_acme',
+      expiresAt: Date.now() - 1000,
+      name: 'old',
+    })
     const res = await app.request(
       '/api/me',
       { headers: { authorization: `Bearer ${minted.key}` } },
       env,
     )
-    expect(res.status).toBe(401)
+    expect(res.status, 'expired key must be rejected').toBe(401)
+  })
+
+  it('mint refuses a missing organization (ADR-0003 D11, fail-closed)', async () => {
+    const env = createMemoryEnv()
+    const { createDb } = await import('@kit/db')
+    const { schema } = await import('./db/schema')
+    const { mintApiKey } = await import('./services/auth')
+    const { seedTenancyDemo } = await import('./seed/seed-tenancy')
+    const db = createDb(env.DB, schema)
+    await seedTenancyDemo(db, { environment: 'test', force: true })
+
+    // No opt-in flag: omitting the organization is refused by the service itself, so a new
+    // call site cannot recreate the subject-global key state D11 forbids.
+    await expect(mintApiKey(db, 'user_staff', { name: 'no-org' })).rejects.toThrow(
+      /organizationId is required/i,
+    )
   })
 
   it('cookie mutations require trusted Origin', async () => {

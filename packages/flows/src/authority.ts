@@ -42,6 +42,9 @@ function uniqueSorted(names: readonly string[]): string[] {
 /**
  * Set intersection only — **not** an authz gate (no registry pin / schema).
  * Prefer `checkPlan` / `createRunSnapshot`. Kept package-internal.
+ *
+ * @capability flows-effective-authority
+ * @invariant grants-are-sole-max-power: effective.tools = grants.allowedTools ∩ plan.permits.tools ∩ registry — ADR-0005 D4 § Authority split
  */
 export function resolveEffectiveAuthority(
   plan: PlanDocument,

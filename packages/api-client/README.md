@@ -27,6 +27,7 @@ try {
       fallback: 'Error',
       messages: { UNAUTHORIZED: 'Please sign in' },
     }))
+    // Field-level VALIDATION_ERROR: apiErrorFieldErrors(e) → details.fieldErrors
   }
 }
 ```

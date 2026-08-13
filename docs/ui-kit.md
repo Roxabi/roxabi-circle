@@ -33,17 +33,30 @@ SSoT: [`docs/product-consumer-contract.md`](product-consumer-contract.md) (desig
 
 See `packages/ui/src/index.ts` for the current export map (Button, Dialog, Sheet, Sidebar, AlertDialog, Select, Empty, …). Prefer the living design-system page over duplicating a long inventory here.
 
+### Tasks-related primitives (shadcn, 2026-08)
+
+| Export | Source | Use |
+|--------|--------|-----|
+| `Calendar` | `shadcn add calendar` | Day grid (`react-day-picker`) |
+| `DatePicker` | Kit composition (Popover + Calendar) — no base-nova registry item | Due dates; pass `placeholder` from app i18n |
+| `Popover*` | `shadcn add popover` | Anchored overlays |
+| `Combobox*` (+ `ComboboxChips` multi) | `shadcn add combobox` | Assignees / multi-select |
+| `InputGroup*` | pulled in by combobox | Input chrome |
+
+Add more via `bun run --filter @kit/ui ui:add <name>`.
+
 ### Sidebar 07 block (shadcn)
 
 Installed via `bunx --bun shadcn@latest add sidebar-07` into `packages/ui`:
 
 | Export | Role |
 |--------|------|
-| `AppSidebar` | Demo composition (`collapsible="icon"`) |
 | `NavUser` | Footer user menu — pass `user`, optional `children` items, `onLogout` |
 | `TeamSwitcher` | Header team switcher |
 | `NavMain` / `NavProjects` | Collapsible nav groups |
 | `Breadcrumb*` / `Collapsible*` | Supporting primitives |
+
+`AppSidebar` (Acme sample composition) lives under `packages/ui` but is **not** public barrel API — compose the pieces above like `example-web` shell.
 
 `example-web` shell uses `Sidebar collapsible="icon"` + `NavUser` for the real session menu.
 

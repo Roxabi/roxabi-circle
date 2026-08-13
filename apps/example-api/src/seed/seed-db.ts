@@ -1,3 +1,10 @@
+/**
+ * Seed dual-KDF note (M-01 hygiene):
+ * - `demo_users` is a **legacy demo table** (notes ownership / roleForSubject ids).
+ *   It is **not** the Better Auth login path. Hashes use kit `@kit/auth` PBKDF2.
+ * - Real session login is BA-only: `seedBaDemoUsers` writes `ba_user` + `ba_account`
+ *   with `better-auth/crypto` `hashPassword` (scrypt). Do not mix KDFs across tables.
+ */
 import { hashPassword } from '@kit/auth'
 import { hashPassword as baHashPassword } from 'better-auth/crypto'
 import { eq } from 'drizzle-orm'
@@ -33,6 +40,9 @@ export async function resetDemoTables(db: Db): Promise<void> {
 /**
  * BA credential accounts for SEED_USERS (ADR-0002 BA-only login).
  * Idempotent — same ids as demo_users for roleForSubject / notes ownership.
+ *
+ * **Login path:** uses Better Auth `hashPassword` (not kit PBKDF2).
+ * Kit `demo_users` rows below are legacy demo data only — not checked at sign-in.
  */
 export async function seedBaDemoUsers(
   db: Db,
@@ -86,6 +96,7 @@ export async function seedDemoDatabase(
     await resetDemoTables(db)
   }
 
+  // Legacy `demo_users` only (kit PBKDF2). Not BA login — see seedBaDemoUsers.
   const existingUsers = await db.select().from(demoUsers).all()
   const userIds = new Set(existingUsers.map((u) => u.id))
   const users: SeedResult['users'] = []
@@ -100,6 +111,7 @@ export async function seedDemoDatabase(
       .values({
         id: u.id,
         email: u.email,
+        // @kit/auth PBKDF2 — legacy demo_users table; BA login uses baHashPassword
         passwordHash: await hashPassword(u.password),
         createdAt: now,
       })

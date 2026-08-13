@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull } from 'drizzle-orm'
+import { and, desc, eq } from 'drizzle-orm'
 import type { DrizzleD1Database } from 'drizzle-orm/d1'
 import { apiKeys, type schema } from '../db/schema'
 
@@ -38,31 +38,42 @@ export async function findApiKeyByPrefix(db: Db, keyPrefix: string) {
   return rows[0] ?? null
 }
 
-/** @deprecated prefer findApiKeyByPrefix + hash verify */
-export async function findApiKeyByHash(db: Db, keyHash: string) {
-  const rows = await db
-    .select()
-    .from(apiKeys)
-    .where(and(eq(apiKeys.keyHash, keyHash), isNull(apiKeys.revokedAt)))
-    .all()
-  return rows[0] ?? null
+const apiKeyPublicColumns = {
+  id: apiKeys.id,
+  subject: apiKeys.subject,
+  keyPrefix: apiKeys.keyPrefix,
+  organizationId: apiKeys.organizationId,
+  name: apiKeys.name,
+  createdAt: apiKeys.createdAt,
+  expiresAt: apiKeys.expiresAt,
+  revokedAt: apiKeys.revokedAt,
 }
 
-/** Public key metadata (never returns keyHash). */
+/** Session path: all API key metadata for subject (never returns keyHash). No org filter. */
 export async function listApiKeysForSubject(db: Db, subject: string) {
   return db
-    .select({
-      id: apiKeys.id,
-      subject: apiKeys.subject,
-      keyPrefix: apiKeys.keyPrefix,
-      organizationId: apiKeys.organizationId,
-      name: apiKeys.name,
-      createdAt: apiKeys.createdAt,
-      expiresAt: apiKeys.expiresAt,
-      revokedAt: apiKeys.revokedAt,
-    })
+    .select(apiKeyPublicColumns)
     .from(apiKeys)
     .where(eq(apiKeys.subject, subject))
+    .orderBy(desc(apiKeys.createdAt))
+    .all()
+}
+
+/**
+ * D11 scoped list: keys for subject within one organization.
+ * Single semantic: `organizationId` must be non-empty after trim.
+ * Blank/whitespace is a programming error here — the HTTP route owns missing-org → `[]`
+ * (`GET /api/keys` short-circuits) and must not call this with a blank id.
+ */
+export async function listApiKeysForOrg(db: Db, subject: string, organizationId: string) {
+  const org = organizationId.trim()
+  if (!org) {
+    throw new Error('listApiKeysForOrg: organizationId must be non-empty')
+  }
+  return db
+    .select(apiKeyPublicColumns)
+    .from(apiKeys)
+    .where(and(eq(apiKeys.subject, subject), eq(apiKeys.organizationId, org)))
     .orderBy(desc(apiKeys.createdAt))
     .all()
 }

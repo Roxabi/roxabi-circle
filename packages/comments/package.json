@@ -1,0 +1,27 @@
+{
+  "name": "@kit/comments",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Incubating (ADR-0007): pure multi-target comments rail (target_type + target_id). No Worker bindings. Compose with @kit/tasks and product entities.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "build": "echo ok"
+  },
+  "dependencies": {
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
+  }
+}

@@ -1,4 +1,4 @@
-import { AppError } from '@kit/core'
+import { AppError, parseOrThrow } from '@kit/core'
 import { Hono } from 'hono'
 import { z } from 'zod'
 import { requirePlatformRole } from '../middleware/org-context'
@@ -17,18 +17,19 @@ adminAuditRoutes.use('/api/admin/audit-events', requireAuth)
 adminAuditRoutes.use('/api/admin/audit-events/*', requireAuth)
 
 adminAuditRoutes.get('/api/admin/audit-events', requirePlatformRole('super_admin'), async (c) => {
-  const parsed = listSchema.safeParse({
-    limit: c.req.query('limit') ?? undefined,
-    cursor: c.req.query('cursor') ?? undefined,
-  })
-  if (!parsed.success) {
-    throw AppError.validation('Invalid query', parsed.error.flatten().fieldErrors)
-  }
+  const data = parseOrThrow(
+    listSchema,
+    {
+      limit: c.req.query('limit') ?? undefined,
+      cursor: c.req.query('cursor') ?? undefined,
+    },
+    'Invalid query',
+  )
   const db = c.get('db')
   if (!db) throw AppError.internal('db not bound')
   const { items, nextCursor } = await auditService.listRecentAuditEvents(db, {
-    limit: parsed.data.limit,
-    cursor: parsed.data.cursor,
+    limit: data.limit,
+    cursor: data.cursor,
   })
   return c.json({
     items,

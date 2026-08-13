@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
   changePasswordSchema,
+  createAdminUserSchema,
+  createOrgSchema,
+  createTaskSchema,
   forgotPasswordSchema,
   loginSchema,
   profileNameSchema,
@@ -79,5 +82,47 @@ describe('profileNameSchema', () => {
     expect(profileNameSchema.safeParse({ name: '' }).success).toBe(false)
     expect(profileNameSchema.safeParse({ name: '   ' }).success).toBe(false)
     expect(profileNameSchema.safeParse({ name: 'x'.repeat(81) }).success).toBe(false)
+  })
+})
+
+describe('createTaskSchema', () => {
+  it('requires title and accepts visibility', () => {
+    expect(
+      createTaskSchema.safeParse({
+        title: 'Ship',
+        description: '',
+        visibility: 'shared',
+      }).success,
+    ).toBe(true)
+    expect(
+      createTaskSchema.safeParse({
+        title: '   ',
+        description: '',
+        visibility: 'shared',
+      }).success,
+    ).toBe(false)
+    expect(
+      createTaskSchema.safeParse({
+        title: 'Ship',
+        description: '',
+        visibility: 'public',
+      }).success,
+    ).toBe(false)
+  })
+})
+
+describe('createOrgSchema', () => {
+  it('requires name; slug optional', () => {
+    expect(createOrgSchema.safeParse({ name: 'Acme' }).success).toBe(true)
+    expect(createOrgSchema.safeParse({ name: 'Acme', slug: 'acme' }).success).toBe(true)
+    expect(createOrgSchema.safeParse({ name: '  ' }).success).toBe(false)
+  })
+})
+
+describe('createAdminUserSchema', () => {
+  it('requires email; name optional', () => {
+    expect(createAdminUserSchema.safeParse({ email: 'a@b.co' }).success).toBe(true)
+    expect(createAdminUserSchema.safeParse({ email: 'a@b.co', name: 'Ada' }).success).toBe(true)
+    expect(createAdminUserSchema.safeParse({ email: 'not-email' }).success).toBe(false)
   })
 })

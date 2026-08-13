@@ -22,6 +22,8 @@ export type Env = WorkerStringEnv & {
   BUCKET: R2Bucket
   /** Optional send_email binding — required when EMAIL_TRANSPORT=cf. */
   EMAIL?: SendEmailBinding
+  /** Optional demo queue binding (wrangler queues) — absent locally is ok. */
+  DEMO_QUEUE?: Queue
 }
 
 export {

@@ -25,8 +25,11 @@ export type ToolDef = {
   output?: z.ZodTypeAny
   effect?: ToolEffect
   auth?: ToolAuthHint
-  // biome-ignore lint/suspicious/noExplicitAny: FastMCP + Zod infer boundary — DEBT:fastmcp-zod-boundary
-  execute: (input: any, ctx: ToolContext) => Promise<unknown>
+  /**
+   * Handler body. Catalogue always passes Zod-parsed `input` (unknown after ZodTypeAny).
+   * Prefer narrow casts / second parse inside apps if needed — DEBT:fastmcp-zod-boundary.
+   */
+  execute: (input: unknown, ctx: ToolContext) => Promise<unknown>
 }
 
 /**
@@ -98,18 +101,26 @@ export function createToolCatalogue(tools: readonly ToolDef[]): ToolCatalogue {
           description: tool.description,
           parameters: tool.input,
           execute: async (args: unknown) => {
-            const budget = checkInputBudget(args)
+            // 1) Schema validate first — clear INVALID_ARGUMENTS (not INTERNAL).
+            // Catalogue message only (no Zod issue paths / raw input leak).
+            const parsedIn = tool.input.safeParse(args)
+            if (!parsedIn.success) {
+              throw new PublicToolError('INVALID_ARGUMENTS')
+            }
+            // 2) Budget on accepted payload shape (DoS limits after schema).
+            const budget = checkInputBudget(parsedIn.data)
             if (!budget.ok) {
               throw new PublicToolError('INVALID_ARGUMENTS')
             }
             try {
-              const result = await tool.execute(args, ctx)
+              // 3) Typed-as-unknown parsed data only — never raw args.
+              const result = await tool.execute(parsedIn.data, ctx)
               if (tool.output) {
-                const parsed = tool.output.safeParse(result)
-                if (!parsed.success) {
+                const parsedOut = tool.output.safeParse(result)
+                if (!parsedOut.success) {
                   throw new PublicToolError('INTERNAL_ERROR')
                 }
-                return stableStringify(parsed.data)
+                return stableStringify(parsedOut.data)
               }
               if (typeof result === 'string') return result
               return stableStringify(result)

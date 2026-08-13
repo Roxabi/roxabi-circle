@@ -163,7 +163,7 @@ describe('SessionPort (Better Auth adapter)', () => {
     expect(payload!.exp).toBeGreaterThan(Math.floor(Date.now() / 1000))
   })
 
-  it('resolveDualAuth works with BA port without secret', async () => {
+  it('resolveDualAuth works with BA port (cookie resolve only)', async () => {
     const mockAuth: BetterAuthLike = {
       api: {
         getSession: async () => ({
@@ -179,17 +179,6 @@ describe('SessionPort (Better Auth adapter)', () => {
       findApiKeyByPrefix: async () => null,
     })
     expect(r).toMatchObject({ subject: 'ba-2', method: 'session' })
-  })
-
-  it('sign throws — BA handler owns issuance', async () => {
-    const port = createBetterAuthSessionPort({
-      getAuth: () => ({
-        api: { getSession: async () => null },
-      }),
-    })
-    await expect(port.sign({ sub: 'u', email: 'a@b.c', exp: 1 }, 'x'.repeat(32))).rejects.toThrow(
-      /does not sign/,
-    )
   })
 
   it('resolveSession returns null for missing session / missing expiresAt / expired / throw', async () => {
@@ -368,6 +357,58 @@ describe('createRequireAuth', () => {
     expect(store.subject).toBe('key-user')
     expect(store.authMethod).toBe('api_key')
     expect(store.keyOrganizationId).toBe('org_x')
+  })
+
+  it('D11: default (omit flag) rejects unbound keys (null organizationId)', async () => {
+    const key = generateApiKey()
+    const hash = await hashApiKey(key)
+    await expect(
+      resolveDualAuth(`Bearer ${key}`, null, {
+        sessions: baPort(null),
+        findApiKeyByPrefix: async () => ({
+          subject: 'legacy',
+          keyHash: hash,
+          revokedAt: null,
+          expiresAt: null,
+          organizationId: null,
+        }),
+      }),
+    ).rejects.toMatchObject({ code: 'UNAUTHORIZED' })
+  })
+
+  it('D11: requireApiKeyOrganization: true rejects unbound keys', async () => {
+    const key = generateApiKey()
+    const hash = await hashApiKey(key)
+    await expect(
+      resolveDualAuth(`Bearer ${key}`, null, {
+        sessions: baPort(null),
+        requireApiKeyOrganization: true,
+        findApiKeyByPrefix: async () => ({
+          subject: 'legacy',
+          keyHash: hash,
+          revokedAt: null,
+          expiresAt: null,
+          organizationId: null,
+        }),
+      }),
+    ).rejects.toMatchObject({ code: 'UNAUTHORIZED' })
+  })
+
+  it('D11: requireApiKeyOrganization: false accepts unbound keys (legacy escape)', async () => {
+    const key = generateApiKey()
+    const hash = await hashApiKey(key)
+    const r = await resolveDualAuth(`Bearer ${key}`, null, {
+      sessions: baPort(null),
+      requireApiKeyOrganization: false,
+      findApiKeyByPrefix: async () => ({
+        subject: 'legacy',
+        keyHash: hash,
+        revokedAt: null,
+        expiresAt: null,
+        organizationId: null,
+      }),
+    })
+    expect(r).toMatchObject({ subject: 'legacy', method: 'api_key', organizationId: null })
   })
 })
 

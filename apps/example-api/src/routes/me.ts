@@ -1,15 +1,13 @@
-import { AppError } from '@kit/core'
+import { AppError, parseOrThrow } from '@kit/core'
 import { Hono } from 'hono'
 import { z } from 'zod'
 import { assertRateLimit } from '../lib/rate-limit'
 import { requireAuth } from '../middleware/require-auth'
-import * as platformRolesRepo from '../repos/platform-roles'
-import * as usersRepo from '../repos/users'
 import * as authService from '../services/auth'
-import * as orgsService from '../services/orgs'
+import * as meService from '../services/me'
 import type { AppEnv } from '../types'
 
-/** 30 key mints / subject / hour (demo in-memory). */
+/** 30 key mints / subject / hour (D1 fixed-window). */
 const MINT_LIMIT = 30
 const MINT_WINDOW_MS = 60 * 60 * 1000
 
@@ -23,28 +21,20 @@ meRoutes.use('/api/keys/*', requireAuth)
 meRoutes.get('/api/me', async (c) => {
   const subject = c.get('subject')!
   const db = c.get('db')!
-  const platformRole = await platformRolesRepo.getPlatformRole(db, subject)
-  let orgs = await orgsService.listMembershipOrgsForSubject(db, subject)
-
-  // D11 — org-bound sk_ only sees its org in me.orgs
-  const keyOrg = c.get('keyOrganizationId')
-  if (c.get('authMethod') === 'api_key' && keyOrg) {
-    orgs = orgs.filter((o) => o.id === keyOrg)
-  }
-
-  const baUser = await usersRepo.findBaUserById(db, subject)
-  const email = baUser?.email?.trim() || undefined
-  const name = baUser?.name?.trim() || undefined
+  const profile = await meService.getMeProfile(db, subject, {
+    authMethod: c.get('authMethod'),
+    keyOrganizationId: c.get('keyOrganizationId'),
+  })
 
   return c.json({
     subject,
-    ...(email ? { email } : {}),
-    ...(name ? { name } : {}),
+    ...(profile.email ? { email: profile.email } : {}),
+    ...(profile.name ? { name: profile.name } : {}),
     authMethod: c.get('authMethod'),
     /** @deprecated kit demo KitRole — do not use for BO gates (use platformRole) */
     role: authService.roleForSubject(subject),
-    platformRole,
-    orgs,
+    platformRole: profile.platformRole,
+    orgs: profile.orgs,
     requestId: c.get('requestId'),
   })
 })
@@ -52,8 +42,16 @@ meRoutes.get('/api/me', async (c) => {
 meRoutes.get('/api/keys', async (c) => {
   const db = c.get('db')!
   const subject = c.get('subject')!
-  const keys = await authService.listApiKeys(db, subject)
-  return c.json({ keys, requestId: c.get('requestId') })
+  const requestId = c.get('requestId')
+  // D11: api_key is org-scoped. Missing/blank key org → [] owned HERE (never call listApiKeysForOrg).
+  if (c.get('authMethod') === 'api_key') {
+    const org = c.get('keyOrganizationId')
+    if (!org?.trim()) return c.json({ keys: [], requestId })
+    const keys = await authService.listApiKeysForOrg(db, subject, org)
+    return c.json({ keys, requestId })
+  }
+  const keys = await authService.listApiKeysForSubject(db, subject)
+  return c.json({ keys, requestId })
 })
 
 meRoutes.post('/api/keys', async (c) => {
@@ -65,22 +63,21 @@ meRoutes.post('/api/keys', async (c) => {
   const db = c.get('db')!
   await assertRateLimit(db, `mint:${subject}`, MINT_LIMIT, MINT_WINDOW_MS)
 
-  const body = z
-    .object({
+  const data = parseOrThrow(
+    z.object({
       name: z.string().max(80).optional(),
       organizationId: z.string().min(1).optional(),
-    })
-    .safeParse(await c.req.json().catch(() => ({})))
-  if (!body.success) {
-    throw AppError.validation('Invalid key mint payload', body.error.flatten().fieldErrors)
-  }
+    }),
+    await c.req.json().catch(() => ({})),
+    'Invalid key mint payload',
+  )
 
   const orgFromHeader = c.req.header('x-org-id')?.trim()
-  const organizationId = body.data.organizationId?.trim() || orgFromHeader || null
+  const organizationId = data.organizationId?.trim() || orgFromHeader || null
+  // `mintApiKey` refuses a missing organization itself (ADR-0003 D11) — no opt-in flag to pass.
   const minted = await authService.mintApiKey(db, subject, {
-    name: body.data.name,
+    name: data.name,
     organizationId,
-    requireOrganization: true,
   })
   return c.json({
     id: minted.id,

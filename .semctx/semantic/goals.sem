@@ -1,0 +1,6 @@
+# Goals — what the system must achieve. Versioned in Git; edit freely.
+#
+# Add an authored goal only when it is true for this repository:
+#   goal goal.<project>.<slug>
+#     statement: <observable outcome>
+#     status: declared

@@ -40,7 +40,44 @@ merge-on-green (label reviewed + checks)
 | **Lefthook pre-push** | **Primary kit bar** — `validate:full` | Accept wall-clock; fix here |
 | **CI** (`validate-full` job) | **Secondary kit bar** — same `validate:full` if hooks skipped or local env lied | Should almost always be green if pre-push ran |
 | **Product CI** (`product-validate`) | **Product bar** — typecheck/test/build for `apps/<product>-*` via **copied** templates ([`product-validate.example.sh`](./templates/product-validate.example.sh), [`product-ci.example.yml`](./templates/product-ci.example.yml)) | Product repos only; not kit CI |
-| **Secret scan** | Orthogonal security | Always |
+| **Secret scan** | Orthogonal security | Always — **two passes, see below** |
+
+**Secret scan: why it runs TruffleHog twice (do not collapse it back)**
+
+`--only-verified` keeps the generic detectors quiet by reporting only what TruffleHog could
+confirm against the issuing provider's API. A `sk_` key **this kit mints itself** has no such
+provider, so it is always an *unverified* finding — and that flag discards it **silently**.
+
+Measured on trufflehog 3.96.0 with a real-format fixture (`sk_` + 48 lowercase hex):
+
+| Invocation | Result |
+|---|---|
+| `--only-verified` (generic pass) | `unverified_secrets: 0` → **exit 0, the key passes** |
+| `--config=scripts/trufflehog-detectors.yaml`, no such flag | `unverified_secrets: 1` → exit 183 |
+| same config over the whole repo | `unverified_secrets: 0` → no false positives |
+
+So: generic detectors keep `--only-verified`; kit-issued secrets get a **separate** pass
+without it. Adding the detector while keeping the flag yields a green scan and zero coverage —
+the failure mode is invisible, which is why this is written down rather than left to the diff.
+Do **not** merge the two invocations, and do **not** add `--only-verified` to the custom pass.
+
+Scope: both passes are **diff-scoped** (PR base…head; locally, commits after the origin base),
+so neither sees a secret that was force-pushed out of the window or predates the gates.
+[`secret-scan-history.yml`](../.github/workflows/secret-scan-history.yml) covers full history on
+a weekly schedule. Rationale + regex: [`scripts/trufflehog-detectors.yaml`](../scripts/trufflehog-detectors.yaml).
+
+**Where local-first does not reach.** The scan is the one gate whose local and CI forms are not
+the same command: locally `scripts/trufflehog-check.sh` invokes the binary directly, while CI goes
+through the TruffleHog **action**, which prepends `--fail --no-update --github-actions` of its own.
+An argument that is valid locally can therefore be rejected in CI — measured: adding `--fail` to
+`extra_args` duplicates the injected one and TruffleHog exits **1** with
+`error: flag 'fail' cannot be repeated`, before scanning anything. A green `validate:full`
+cannot cover this, so changes to the scan workflows are verified by replaying the action's exact
+argument vector against a fixture, not by the local gate.
+
+Note the consequence for reading failures: on this job **exit 183 means findings**, exit 1 means
+the scan did not run. A step that fails identically on every commit is not a strict gate, it is
+noise that gets muted — which is the same fail-open ending by a different route.
 
 **Kit bar vs product bar**
 
@@ -103,7 +140,7 @@ Floors are enforced by Vitest (`packages/config/vitest-coverage.mjs` + per-packa
 | Tier | Scope | Floor (stmts/lines, approx.) | Policy |
 |---|---|---|---|
 | **T0** | `@kit/auth`, `@kit/example-api` (guards, dual auth, paths), FE **auth client** contracts | **auth 80%** · **example-api** machine floors **78/80/65/75** (stmts/lines/branches/funcs) · pin named web contract files | **Auth: never lower without ADR.** example-api: Vitest 4 v8 remapping exception (#21) — see inventory before/after; do not lower further without ADR |
-| **T1** | `core`, `storage`, `db`, `types`, `mcp` | **core ~68/69/66** (stmts/lines/branches) · others **70–75%** typical | Raise when surface grows; core floors recalibrated under Vitest 4 remapping (#21) |
+| **T1** | `core`, `storage`, `db`, `types`, `@kit/api-client`, `mcp` | **core ~68/69/66** (stmts/lines/branches) · others **70–75%** typical | Raise when surface grows; core floors recalibrated under Vitest 4 remapping (#21) |
 | **T2** | `@kit/ui`, `example-web` (page chrome) | **ui ~17/17/16/23** · **web 10/10/20/12** | Low % OK **iff** contract suites green; do not chase Button coverage; Vitest 4 remapping (#21) |
 | **T3** | `email` thin, mcp-example smoke | soft / special (e.g. funcs 0% mcp-example) | Document, don’t pretend product security |
 

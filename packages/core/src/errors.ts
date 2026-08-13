@@ -1,4 +1,4 @@
-import type { ApiErrorBody, ErrorCodeName } from '@kit/types'
+import type { ApiErrorBody, ErrorCodeName, FieldErrors, ValidationDetails } from '@kit/types'
 import { ErrorCode } from '@kit/types'
 
 const CODE_STATUS: Record<ErrorCodeName, number> = {
@@ -37,8 +37,19 @@ export class AppError extends Error {
     return new AppError(ErrorCode.NOT_FOUND, message)
   }
 
+  /**
+   * Validation failure.
+   * - Field-level (forms): prefer {@link AppError.fieldErrors} so clients read `details.fieldErrors`.
+   * - Non-field (cursor, size max, issue lists): message only, or structured non-field details OK.
+   */
   static validation(message: string, details?: unknown): AppError {
     return new AppError(ErrorCode.VALIDATION_ERROR, message, undefined, details)
+  }
+
+  /** Field-level validation — `details` is always `{ fieldErrors }`. */
+  static fieldErrors(message: string, fieldErrors: FieldErrors): AppError {
+    const details: ValidationDetails = { fieldErrors }
+    return AppError.validation(message, details)
   }
 
   static conflict(message: string, details?: unknown): AppError {

@@ -1,5 +1,7 @@
 # Product consumer dogfood evidence
 
+> **status: not filled — AGENTS B5 claim pending evidence**
+
 Record live product-mode proof of zero-edit / deny-upstream for a greenfield consumer.
 
 | Field | Value |

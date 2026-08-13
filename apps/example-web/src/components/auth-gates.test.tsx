@@ -6,7 +6,7 @@ import { ApiError } from '../lib/api'
 import type { MeResponse } from '../lib/auth'
 import { LocaleProvider } from '../lib/locale'
 import { ThemeProvider } from '../lib/theme'
-import { AuthGate } from './auth-gates'
+import { AuthGate, PlatformGate } from './auth-gates'
 
 const navigate = vi.fn()
 
@@ -147,5 +147,92 @@ describe('AuthGate', () => {
       </AuthGate>,
     )
     expect(screen.getByText('secret-child')).toBeTruthy()
+  })
+})
+
+describe('PlatformGate', () => {
+  const staffMe: MeResponse = {
+    ...okMe,
+    subject: 'user_staff',
+    email: 'staff@kit.local',
+    platformRole: 'staff',
+  }
+
+  const superMe: MeResponse = {
+    ...okMe,
+    subject: 'user_super',
+    email: 'super@kit.local',
+    platformRole: 'super_admin',
+  }
+
+  it('renders children for platform staff', () => {
+    useMeMock.mockReturnValue({
+      isLoading: false,
+      isError: false,
+      data: staffMe,
+      error: null,
+      refetch: vi.fn(),
+    })
+    wrap(
+      <PlatformGate>
+        <div>bo-child</div>
+      </PlatformGate>,
+    )
+    expect(screen.getByText('bo-child')).toBeTruthy()
+    expect(navigate).not.toHaveBeenCalled()
+  })
+
+  it('renders children for super_admin', () => {
+    useMeMock.mockReturnValue({
+      isLoading: false,
+      isError: false,
+      data: superMe,
+      error: null,
+      refetch: vi.fn(),
+    })
+    wrap(
+      <PlatformGate>
+        <div>bo-child</div>
+      </PlatformGate>,
+    )
+    expect(screen.getByText('bo-child')).toBeTruthy()
+    expect(navigate).not.toHaveBeenCalled()
+  })
+
+  it('shows loading and no children while me is loading', () => {
+    useMeMock.mockReturnValue({
+      isLoading: true,
+      isError: false,
+      data: undefined,
+      error: null,
+      refetch: vi.fn(),
+    })
+    wrap(
+      <PlatformGate>
+        <div>bo-child</div>
+      </PlatformGate>,
+    )
+    expect(screen.queryByText('bo-child')).toBeNull()
+    expect(screen.getByText(/Chargement|Loading/i)).toBeTruthy()
+    expect(navigate).not.toHaveBeenCalled()
+  })
+
+  it('blocks non-platform users and navigates to /app', () => {
+    useMeMock.mockReturnValue({
+      isLoading: false,
+      isError: false,
+      data: okMe,
+      error: null,
+      refetch: vi.fn(),
+    })
+    wrap(
+      <PlatformGate>
+        <div>bo-child</div>
+      </PlatformGate>,
+    )
+    expect(screen.queryByText('bo-child')).toBeNull()
+    expect(navigate).toHaveBeenCalledWith({ to: '/app' })
+    // Default locale FR — pin catalog title (see messages/fr.ts forbiddenPlatform)
+    expect(screen.getByText('Accès back-office refusé')).toBeTruthy()
   })
 })

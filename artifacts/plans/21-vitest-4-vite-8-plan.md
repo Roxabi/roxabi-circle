@@ -5,6 +5,8 @@ spec: artifacts/specs/21-vitest-4-vite-8-spec.md
 complexity: 5/10
 tier: F-lite
 generated: "2026-08-06T15:00:00Z"
+status: approved
+normative: false
 ---
 
 ## Summary

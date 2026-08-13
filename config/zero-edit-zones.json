@@ -8,6 +8,7 @@
     "apps/mcp-example/",
     "scripts/",
     "tooling/",
+    "tools/",
     "config/"
   ],
   "protected_files": [
@@ -22,6 +23,7 @@
     "commitlint.config.mjs",
     "commitlint.config.ts",
     ".github/workflows/ci.yml",
+    ".github/workflows/deploy-main.yml",
     ".github/workflows/secret-scan.yml",
     ".github/workflows/merge-on-green.yml",
     ".github/workflows/pr-title.yml",

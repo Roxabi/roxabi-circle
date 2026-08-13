@@ -1,0 +1,10 @@
+# Invariants — business rules a change must preserve. Link to code once indexed:
+#   link: inv:<invariant-slug>                    (a repo invariant id from @invariant markers)
+#   link: sym:function:src/path/to/file.ts:name:12
+# Run 'semctx semantic check' to validate links against the indexed graph.
+#
+# Add an authored invariant only after replacing every placeholder:
+#   invariant invariant.<project>.<slug>
+#     statement: <rule that must remain true>
+#     status: declared
+#     serves: goal.<project>.<slug>

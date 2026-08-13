@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 import { AppError, newRequestId, toApiErrorBody } from './errors'
 import { createLogger } from './logger'
-import { parseOrThrow } from './parse'
+import { parseOrThrow, zodFieldErrors } from './parse'
 
 describe('AppError', () => {
   it('builds nested API error body without stack', () => {
@@ -46,6 +46,23 @@ describe('AppError', () => {
     expect(status).toBe(400)
     expect(body.error.message).toBe('bad field')
     expect(body.error.details).toEqual({ fieldErrors: { title: ['Required'] } })
+  })
+
+  it('AppError.fieldErrors → toApiErrorBody has details.fieldErrors', () => {
+    const err = AppError.fieldErrors('Invalid form', {
+      email: ['Valid email required'],
+      name: ['Required'],
+    })
+    const { body, status } = toApiErrorBody(err, 'req_fe')
+    expect(status).toBe(400)
+    expect(body.error.code).toBe('VALIDATION_ERROR')
+    expect(body.error.message).toBe('Invalid form')
+    expect(body.error.details).toEqual({
+      fieldErrors: {
+        email: ['Valid email required'],
+        name: ['Required'],
+      },
+    })
   })
 
   it('maps integrationNotConfigured to 400 with details', () => {
@@ -115,5 +132,14 @@ describe('parseOrThrow', () => {
         fieldErrors: { title: expect.arrayContaining([expect.any(String)]) },
       })
     }
+  })
+})
+
+describe('zodFieldErrors', () => {
+  it('maps flatten fieldErrors into FieldErrors', () => {
+    const err = {
+      flatten: () => ({ fieldErrors: { email: ['Required'] } }),
+    }
+    expect(zodFieldErrors(err)).toEqual({ email: ['Required'] })
   })
 })

@@ -22,13 +22,18 @@ export type ApiKeyRecord = {
 }
 
 export type DualAuthPorts = {
-  secret?: string
   cookieName?: string
   /** Full request headers for BA getSession (preferred over cookie-only). */
   headers?: Headers
   /** Required — apps inject createBetterAuthSessionPort (ADR-0002 BA-only). */
   sessions: SessionPort
   findApiKeyByPrefix: (prefix: string) => Promise<ApiKeyRecord | null>
+  /**
+   * Multi-tenant (ADR-0003 D11): Bearer keys without `organizationId` → 401.
+   * **Default true** (fail-closed). Set `false` only for a named legacy/single-tenant escape.
+   * example-api also rechecks membership in `findKeyRecord` (defense in depth).
+   */
+  requireApiKeyOrganization?: boolean
 }
 
 /**
@@ -55,17 +60,22 @@ export async function resolveDualAuth(
     if (row.expiresAt != null && row.expiresAt <= Date.now()) throw AppError.unauthorized()
     const ok = await verifyApiKey(bearer, row.keyHash)
     if (!ok) throw AppError.unauthorized()
+    const organizationId = row.organizationId ?? null
+    // ADR-0003 D11 — default fail-closed; opt out only with requireApiKeyOrganization: false.
+    const requireOrg = ports.requireApiKeyOrganization !== false
+    if (requireOrg && !organizationId) {
+      throw AppError.unauthorized()
+    }
     return {
       subject: row.subject,
       method: 'api_key',
-      organizationId: row.organizationId ?? null,
+      organizationId,
     }
   }
 
   const payload = await sessions.resolveSession({
     cookieHeader,
     headers: ports.headers,
-    secret: ports.secret,
     cookieName,
   })
   if (payload) return { subject: payload.sub, method: 'session' }

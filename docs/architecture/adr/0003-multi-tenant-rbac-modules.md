@@ -1,6 +1,7 @@
 ---
 title: 'ADR-0003 — Multi-tenant organization, platform RBAC, dual-level modules'
 status: accepted
+normative: true
 date: 2026-07-17
 amended: 2026-07-30
 axial: false

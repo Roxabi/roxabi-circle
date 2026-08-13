@@ -44,20 +44,12 @@ function expFromSession(expiresAt: Date | string | null | undefined): number | n
  * SessionPort adapter for Better Auth.
  * - `resolveSession` → `auth.api.getSession({ headers })`
  * - missing/unparseable expiresAt → null (fail closed)
- * - `sign` throws — session issuance owned by BA HTTP handler
+ * - no sign/verify — session issuance owned by BA HTTP handler
  */
 export function createBetterAuthSessionPort(opts: CreateBetterAuthSessionPortOpts): SessionPort {
   const cookieName = opts.cookieName ?? SESSION_COOKIE
 
   return {
-    async sign() {
-      throw new Error(
-        'Better Auth SessionPort does not sign tokens — use BA handler /api/auth/* for session issuance',
-      )
-    },
-    async verify() {
-      return null
-    },
     async resolveSession(input) {
       try {
         const auth = await opts.getAuth()

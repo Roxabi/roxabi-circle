@@ -27,10 +27,24 @@ export function safePostAuthPath(candidate: unknown): string | null {
   const t = candidate.trim()
   if (!t.startsWith('/') || t.startsWith('//')) return null
   if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(t)) return null
-  if (t.includes('..')) return null
+  // Iterative percent-decode until stable — kill %2e%2e and %252e%252e traversal
+  let decoded = t
+  for (let i = 0; i < 8; i++) {
+    if (decoded.includes('..')) return null
+    let next: string
+    try {
+      next = decodeURIComponent(decoded)
+    } catch {
+      return null
+    }
+    if (next === decoded) break
+    decoded = next
+  }
+  if (decoded.includes('..')) return null
   try {
     const u = new URL(t, 'http://local.invalid')
     const p = u.pathname
+    if (p.includes('..')) return null
     if (p === '/invite/accept') return `${p}${u.search}`
     if (p === '/app' || p.startsWith('/app/')) return p
     if (p === '/admin' || p.startsWith('/admin/')) return p

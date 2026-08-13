@@ -33,6 +33,8 @@ shared:
   i18n: packages/i18n
   mcp: packages/mcp
   flows: packages/flows
+  tasks: packages/tasks
+  comments: packages/comments
 build:
   orchestrator: turbo
   formatter: biome

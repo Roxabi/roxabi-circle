@@ -40,3 +40,38 @@ max_batch_timeout = 5
 
 [triggers]
 crons = ["0 * * * *"]
+
+# ── production (kit showcase — resource ids are not secrets) ─────────
+# Account / zone: operator local config (config/deploy.cf.local.toml).
+# CD: Cloudflare Workers Builds (git pull) — scripts/cf-builds/ + docs/deploy-cloudflare.md
+# Do NOT set ENVIRONMENT=development here.
+
+[env.production]
+name = "boilerplate-api"
+vars = { ENVIRONMENT = "production", DEMO_USER_EMAIL = "demo@kit.local", CORS_ORIGINS = "https://boilerplate.roxabi.dev", BETTER_AUTH_URL = "https://api.boilerplate.roxabi.dev", EMAIL_TRANSPORT = "cf", EMAIL_FROM = "noreply@roxabi.dev", EMAIL_FROM_NAME = "Kit Showcase", ALLOW_PUBLIC_SIGNUP = "true" }
+routes = [{ pattern = "api.boilerplate.roxabi.dev", custom_domain = true }]
+
+[[env.production.d1_databases]]
+binding = "DB"
+database_name = "boilerplate-api"
+database_id = "c656d2d4-bcef-4327-b176-c752445bcd76"
+migrations_dir = "migrations"
+
+[[env.production.r2_buckets]]
+binding = "BUCKET"
+bucket_name = "boilerplate-api"
+
+[[env.production.send_email]]
+name = "EMAIL"
+
+[[env.production.queues.producers]]
+binding = "DEMO_QUEUE"
+queue = "boilerplate-api-demo"
+
+[[env.production.queues.consumers]]
+queue = "boilerplate-api-demo"
+max_batch_size = 10
+max_batch_timeout = 5
+
+[env.production.triggers]
+crons = ["0 * * * *"]

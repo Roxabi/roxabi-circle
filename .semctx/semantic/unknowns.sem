@@ -1,0 +1,6 @@
+# Unknowns — open questions that must survive while the system is changed.
+#
+# Example syntax (commented out; never part of the active model):
+#   unknown unknown.<project>.<slug>
+#     statement: <question that remains unresolved>
+#     status: declared

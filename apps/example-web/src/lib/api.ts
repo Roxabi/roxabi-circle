@@ -1,13 +1,15 @@
 import {
   ApiError,
+  apiErrorFieldErrors,
   createApiClient,
+  fieldErrorsFirstMessages,
   apiErrorToMessage as kitApiErrorToMessage,
   apiFetch as kitApiFetch,
 } from '@kit/api-client'
 import type { ErrorCodeName } from '@kit/types'
 import type { Messages } from '../messages/fr'
 
-export { ApiError, createApiClient }
+export { ApiError, apiErrorFieldErrors, createApiClient, fieldErrorsFirstMessages }
 
 const API_BASE = import.meta.env.VITE_API_URL ?? ''
 

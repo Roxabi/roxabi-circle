@@ -1,18 +1,13 @@
 /**
  * Kit magic-link sign-in email (string-rendered). No product-domain copy.
+ * Header scrub is at EmailPort boundary (scrubHeaderLine).
  */
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-}
+import { escapeHtml } from '../escape-html'
 
 export function MagicLinkEmail(props: { to: string; magicUrl: string; expiresHint?: string }) {
   const safeUrl = escapeHtml(props.magicUrl)
   const subject = 'Sign in — Kit kit'
-  const exp = props.expiresHint ? props.expiresHint.replace(/[\r\n]/g, '') : 'about 5 minutes'
+  const exp = props.expiresHint ?? 'about 5 minutes'
   const text = [
     'You requested a sign-in link for Kit Kit.',
     `Sign-in link: ${props.magicUrl}`,

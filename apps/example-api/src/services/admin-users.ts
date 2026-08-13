@@ -63,11 +63,22 @@ export async function createAdminUser(db: Db, input: CreateAdminUserInput) {
 
   const email = normalizeEmail(input.email)
   if (!email?.includes('@')) {
-    throw AppError.validation('Invalid email', { email: ['Valid email required'] })
+    throw AppError.fieldErrors('Invalid email', {
+      email: ['Valid email required'],
+    })
   }
 
   const existing = await usersRepo.findBaUserByEmail(db, email)
   if (existing) {
+    // Staff: only conflict when target shares an org (match list privacy). Out-of-scope
+    // existing emails → notFound so staff cannot probe the full platform directory.
+    if (input.actorPlatformRole === 'staff') {
+      const actorOrgs = await orgsRepo.listMembershipsForUser(db, input.actorUserId)
+      const targetOrgs = await orgsRepo.listMembershipsForUser(db, existing.id)
+      const actorSet = new Set(actorOrgs.map((m) => m.organizationId))
+      const shared = targetOrgs.some((m) => actorSet.has(m.organizationId))
+      if (!shared) throw AppError.notFound('User not found')
+    }
     throw AppError.conflict('User already exists')
   }
 
@@ -75,7 +86,9 @@ export async function createAdminUser(db: Db, input: CreateAdminUserInput) {
   let platformRole: PlatformRole | null = null
   if (input.platformRole != null && input.platformRole !== undefined) {
     if (!isPlatformRole(input.platformRole)) {
-      throw AppError.validation('Invalid platformRole')
+      throw AppError.fieldErrors('Invalid platformRole', {
+        platformRole: ['Invalid platform role'],
+      })
     }
     if (input.actorPlatformRole !== 'super_admin') {
       throw AppError.forbidden('Only super_admin may assign platform roles')
@@ -203,30 +216,7 @@ export async function createAdminUser(db: Db, input: CreateAdminUserInput) {
   }
 }
 
-export async function listAdminUsers(
-  db: Db,
-  opts?: { q?: string; limit?: number; offset?: number },
-) {
-  const rows = await usersRepo.listBaUsers(db, opts)
-  const out: {
-    id: string
-    email: string
-    name: string
-    platformRole: PlatformRole | null
-    createdAt: string
-  }[] = []
-  for (const r of rows) {
-    const platformRole = await platformRolesRepo.getPlatformRole(db, r.id)
-    out.push({
-      id: r.id,
-      email: r.email,
-      name: r.name,
-      platformRole,
-      createdAt: r.createdAt instanceof Date ? r.createdAt.toISOString() : String(r.createdAt),
-    })
-  }
-  return out
-}
+export { type ListAdminUsersInput, listAdminUsers } from './admin-users-list'
 
 export async function resendWelcome(
   db: Db,

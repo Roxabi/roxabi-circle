@@ -4,7 +4,7 @@ import { requireAuth } from '../middleware/require-auth'
 import { sendDemoEmail } from '../services/email'
 import type { AppEnv } from '../types'
 
-/** 10 demo emails / subject / hour (demo in-memory). */
+/** 10 demo emails / subject / hour (D1 fixed-window). */
 const EMAIL_LIMIT = 10
 const EMAIL_WINDOW_MS = 60 * 60 * 1000
 

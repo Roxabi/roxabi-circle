@@ -54,11 +54,6 @@ export function isUnauthorized(err: unknown): boolean {
   return err instanceof ApiError && err.status === 401
 }
 
-/** @deprecated Prefer hasPlatformRole for BO. Kept for kit-demo KitRole surfaces if any. */
-export function isAdmin(me: MeResponse | undefined): boolean {
-  return me?.role === 'admin'
-}
-
 export function hasPlatformRole(me: MeResponse | undefined, ...roles: PlatformRole[]): boolean {
   if (!me?.platformRole) return false
   if (roles.length === 0) return true

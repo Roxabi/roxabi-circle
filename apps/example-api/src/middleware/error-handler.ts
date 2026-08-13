@@ -1,4 +1,5 @@
 import { AppError, createLogger, toApiErrorBody } from '@kit/core'
+import { StorageError } from '@kit/storage'
 import type { Context } from 'hono'
 import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import type { Env } from '../env'
@@ -7,10 +8,24 @@ import { applySecurityHeaders } from './security-headers'
 
 const rootLog = createLogger({ service: 'example-api' })
 
+/**
+ * Map `@kit/storage` StorageError → AppError before generic toApiErrorBody.
+ * Client path bugs → 400 with a safe message; IO → scrubbed 500.
+ */
+export function mapStorageError(err: unknown): AppError | null {
+  if (!(err instanceof StorageError)) return null
+  if (err.code === 'PATH_TRAVERSAL' || err.code === 'OUTSIDE_PREFIX') {
+    return AppError.validation('Invalid storage path')
+  }
+  // IO and any future codes — never leak provider messages
+  return AppError.internal()
+}
+
 export function onError(err: Error, c: Context<{ Bindings: Env; Variables: AppVariables }>) {
   const requestId = c.get('requestId') || 'req_unknown'
-  const { body, status } = toApiErrorBody(err, requestId)
-  const code = err instanceof AppError ? err.code : 'INTERNAL_ERROR'
+  const mapped = mapStorageError(err) ?? err
+  const { body, status } = toApiErrorBody(mapped, requestId)
+  const code = mapped instanceof AppError ? mapped.code : 'INTERNAL_ERROR'
   const log = rootLog.child({ requestId })
   if (status >= 500) {
     log.error(err.message, { code, stack: err.stack })
@@ -21,8 +36,8 @@ export function onError(err: Error, c: Context<{ Bindings: Env; Variables: AppVa
   applySecurityHeaders(c)
   if (status === 429) {
     const details =
-      err instanceof AppError && err.details && typeof err.details === 'object'
-        ? (err.details as { retryAfterSeconds?: number })
+      mapped instanceof AppError && mapped.details && typeof mapped.details === 'object'
+        ? (mapped.details as { retryAfterSeconds?: number })
         : undefined
     const sec =
       typeof details?.retryAfterSeconds === 'number' && details.retryAfterSeconds > 0

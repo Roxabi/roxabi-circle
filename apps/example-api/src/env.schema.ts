@@ -9,8 +9,8 @@
  */
 import { z } from 'zod'
 
-/** D1 / R2 / Email / future resource bindings — wrangler only, never .dev.vars. */
-export const WORKER_BINDINGS = ['DB', 'BUCKET', 'EMAIL'] as const
+/** D1 / R2 / Email / Queues / future resource bindings — wrangler only, never .dev.vars. */
+export const WORKER_BINDINGS = ['DB', 'BUCKET', 'EMAIL', 'DEMO_QUEUE'] as const
 export type WorkerBindingName = (typeof WORKER_BINDINGS)[number]
 
 /**

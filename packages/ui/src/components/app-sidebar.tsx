@@ -1,5 +1,10 @@
 'use client'
 
+/**
+ * Internal sample composition (sidebar-07 / Acme demo data).
+ * Not exported from `@kit/ui` public barrel — apps compose NavMain / NavUser / TeamSwitcher.
+ */
+
 import {
   AudioLinesIcon,
   BookOpenIcon,
@@ -19,7 +24,7 @@ import { NavUser } from './nav-user'
 import { TeamSwitcher } from './team-switcher'
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarRail } from './ui/sidebar'
 
-// This is sample data.
+/** Sample nav/teams only — module-private, not public kit API. */
 const data = {
   user: {
     name: 'shadcn',

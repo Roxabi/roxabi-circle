@@ -5,6 +5,8 @@ spec: artifacts/specs/22-fastmcp-4-spec.md
 complexity: 4/10
 tier: F-lite
 generated: "2026-08-07T12:00:00Z"
+status: approved
+normative: false
 ---
 
 ## Summary

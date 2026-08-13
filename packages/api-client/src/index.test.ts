@@ -1,5 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { ApiError, apiErrorToMessage, apiFetch, createApiClient } from './index'
+import {
+  ApiError,
+  apiErrorFieldErrors,
+  apiErrorToMessage,
+  apiFetch,
+  createApiClient,
+  fieldErrorsFirstMessages,
+  isValidationDetails,
+} from './index'
 
 describe('ApiError', () => {
   it('maps nested envelope', () => {
@@ -11,6 +19,69 @@ describe('ApiError', () => {
     expect(err.requestId).toBe('req_abc')
     expect(err.status).toBe(401)
     expect(err.name).toBe('ApiError')
+  })
+})
+
+describe('apiErrorFieldErrors', () => {
+  it('reads details.fieldErrors from kit envelope', () => {
+    const err = new ApiError(400, {
+      error: {
+        code: 'VALIDATION_ERROR',
+        message: 'Invalid note',
+        details: { fieldErrors: { title: ['Required'], body: ['Too long'] } },
+      },
+      requestId: 'req_fe',
+    })
+    expect(isValidationDetails(err.details)).toBe(true)
+    expect(apiErrorFieldErrors(err)).toEqual({ title: ['Required'], body: ['Too long'] })
+    expect(fieldErrorsFirstMessages(apiErrorFieldErrors(err)!)).toEqual({
+      title: 'Required',
+      body: 'Too long',
+    })
+  })
+
+  it('returns null for non-ApiError, free-form details, or missing fieldErrors', () => {
+    expect(apiErrorFieldErrors(new Error('x'))).toBeNull()
+    expect(
+      apiErrorFieldErrors(
+        new ApiError(400, {
+          error: { code: 'VALIDATION_ERROR', message: 'bad', details: { max: 5 } },
+          requestId: 'req_x',
+        }),
+      ),
+    ).toBeNull()
+    expect(
+      apiErrorFieldErrors(
+        new ApiError(400, {
+          error: { code: 'VALIDATION_ERROR', message: 'bad' },
+          requestId: 'req_x',
+        }),
+      ),
+    ).toBeNull()
+  })
+
+  it('rejects fieldErrors null and array (guards are polar)', () => {
+    const nullFe = new ApiError(400, {
+      error: {
+        code: 'VALIDATION_ERROR',
+        message: 'bad',
+        details: { fieldErrors: null as unknown as Record<string, string[]> },
+      },
+      requestId: 'req_null_fe',
+    })
+    expect(isValidationDetails(nullFe.details)).toBe(false)
+    expect(apiErrorFieldErrors(nullFe)).toBeNull()
+
+    const arrFe = new ApiError(400, {
+      error: {
+        code: 'VALIDATION_ERROR',
+        message: 'bad',
+        details: { fieldErrors: [] as unknown as Record<string, string[]> },
+      },
+      requestId: 'req_arr_fe',
+    })
+    expect(isValidationDetails(arrFe.details)).toBe(false)
+    expect(apiErrorFieldErrors(arrFe)).toBeNull()
   })
 })
 

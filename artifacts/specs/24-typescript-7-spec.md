@@ -3,6 +3,7 @@ title: "chore(deps): wave 5b — TypeScript → 7"
 description: "Bump monorepo typescript 5.9→7 (native tsc); fix 6/7 hard deprecations; permanent ts-major gate; green typecheck · build:kit · validate:full."
 type: spec
 status: approved
+normative: false
 issue: 24
 tier: F-lite
 ---

@@ -1,12 +1,33 @@
-import { type CfEmailAddress, type SendEmailBinding, sendCf } from './cf'
-import { redactEmailBody } from './redact'
+/**
+ * @kit/email public surface (Workers-safe).
+ *
+ * Product path:
+ * - `createEmailPort` / `createLogEmailPort` → EmailPort.send
+ * - `build*EmailText` templates (one shape only; raw *Email not exported)
+ *
+ * Not exported here (by design):
+ * - `sendCf` / `sendLog` leaves — use ports; Node may import sendLog via `@kit/email/server`
+ * - raw template constructors — use build*EmailText
+ */
+import type { CfEmailAddress, SendEmailBinding } from './cf'
+import { emailDomain } from './domain'
+import {
+  createCfEmailPort,
+  createLogEmailPort,
+  createResendEmailPort,
+  withRecipientAllowlist,
+  withStagingSubjectPrefix,
+} from './ports'
+import { scrubHeaderLine } from './scrub'
 import { DemoEmail } from './templates/demo'
 import { InviteEmail } from './templates/invite'
 import { MagicLinkEmail } from './templates/magic-link'
 import { ResetPasswordEmail } from './templates/reset-password'
 import { WelcomeSetPasswordEmail } from './templates/welcome-set-password'
+import type { EmailPort, EmailTransport } from './types'
 
-export type EmailTransport = 'log' | 'smtp' | 'cf' | 'resend'
+export type { EmailPort, EmailTransport }
+export { createLogEmailPort }
 
 /** Build a plain-text demo email body (React Email-style template). */
 export function buildDemoEmailText(params: { to: string; subjectId: string }): {
@@ -107,16 +128,6 @@ export function buildMagicLinkEmailText(params: {
   }
 }
 
-/** Minimal port for transactional mail (edge-safe implementations only on Workers). */
-export type EmailPort = {
-  send(input: {
-    to: string
-    subject: string
-    text: string
-    html?: string
-  }): Promise<{ ok: boolean; transport: string }>
-}
-
 /** Kit kit: staging From must be this domain (overridable via EMAIL_FROM_DOMAIN). */
 export const DEFAULT_STAGING_FROM_DOMAIN = 'example.com'
 
@@ -171,25 +182,10 @@ export function parseAllowDomains(raw?: string | null): string[] {
   return [...out]
 }
 
-/** Extract domain from an email address (after last @). */
-export function emailDomain(address: string): string | null {
-  const s = address.trim().toLowerCase()
-  const at = s.lastIndexOf('@')
-  if (at <= 0 || at === s.length - 1) return null
-  return s.slice(at + 1)
-}
+export { emailDomain, isRecipientDomainAllowed, isValidMailboxAddress } from './domain'
 
 export function fromEmailString(from: CfEmailAddress): string {
   return typeof from === 'string' ? from : from.email
-}
-
-/** Exact domain match (no parent-domain wildcard). */
-export function isRecipientDomainAllowed(to: string, allowDomains: string[]): boolean {
-  if (allowDomains.length === 0) return true
-  const domain = emailDomain(to)
-  if (domain == null) return false
-  const allow = new Set(allowDomains.map((d) => d.trim().toLowerCase()).filter(Boolean))
-  return allow.has(domain)
 }
 
 export function assertFromDomain(from: CfEmailAddress, fromDomain: string): void {
@@ -252,109 +248,14 @@ export function assertStagingEmailPolicy(opts: {
 
 /**
  * Ensure subject starts with `[TEST STAGING]` (idempotent if already present).
+ * Scrubs Unicode line terminators before concat so the prefix path cannot re-arm injection.
  */
 export function prefixStagingSubject(subject: string): string {
-  const s = subject.trimStart()
+  const s = scrubHeaderLine(subject).trimStart()
   const upper = s.toUpperCase()
   const prefixUpper = STAGING_SUBJECT_PREFIX.toUpperCase()
   if (upper.startsWith(prefixUpper)) return s
-  return `${STAGING_SUBJECT_PREFIX} ${s}`
-}
-
-function withRecipientAllowlist(port: EmailPort, allowDomains: string[]): EmailPort {
-  if (allowDomains.length === 0) return port
-  return {
-    async send(input) {
-      if (!isRecipientDomainAllowed(input.to, allowDomains)) {
-        const d = emailDomain(input.to) ?? '(invalid)'
-        throw new Error(`EMAIL_RECIPIENT_DOMAIN_NOT_ALLOWED: ${d} not in EMAIL_ALLOW_DOMAINS`)
-      }
-      return port.send(input)
-    },
-  }
-}
-
-function withStagingSubjectPrefix(port: EmailPort): EmailPort {
-  return {
-    async send(input) {
-      return port.send({
-        ...input,
-        subject: prefixStagingSubject(input.subject),
-      })
-    },
-  }
-}
-
-/** Log transport — edge-safe; body is redacted (tokens stripped). */
-export function sendLog(input: { to: string; subject: string; text: string; html?: string }): {
-  ok: true
-  transport: 'log'
-} {
-  console.log(
-    JSON.stringify({
-      level: 'info',
-      transport: 'log',
-      to: input.to,
-      subject: input.subject,
-      body: redactEmailBody(input.text),
-    }),
-  )
-  return { ok: true, transport: 'log' }
-}
-
-/** Default EmailPort for Workers / tests (log only). */
-export function createLogEmailPort(): EmailPort {
-  return {
-    async send(input) {
-      return sendLog(input)
-    },
-  }
-}
-
-function createCfEmailPort(binding: SendEmailBinding, from: CfEmailAddress): EmailPort {
-  return {
-    async send(input) {
-      return sendCf(binding, {
-        to: input.to,
-        from,
-        subject: input.subject,
-        text: input.text,
-        html: input.html,
-      })
-    },
-  }
-}
-
-/**
- * Resend escape hatch (HTTP). Requires RESEND_API_KEY.
- * Not the kit default — use CF Email Sending on Workers.
- */
-function createResendEmailPort(apiKey: string, from: CfEmailAddress): EmailPort {
-  const fromEmail = typeof from === 'string' ? from : from.email
-  const fromName = typeof from === 'string' ? undefined : from.name
-  return {
-    async send(input) {
-      const res = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-          authorization: `Bearer ${apiKey}`,
-          'content-type': 'application/json',
-        },
-        body: JSON.stringify({
-          from: fromName ? `${fromName} <${fromEmail}>` : fromEmail,
-          to: [input.to],
-          subject: input.subject,
-          text: input.text,
-          html: input.html,
-        }),
-      })
-      if (!res.ok) {
-        const detail = await res.text().catch(() => '')
-        throw new Error(`Resend send failed: ${res.status} ${detail.slice(0, 200)}`)
-      }
-      return { ok: true, transport: 'resend' }
-    },
-  }
+  return scrubHeaderLine(`${STAGING_SUBJECT_PREFIX} ${s}`)
 }
 
 /**
@@ -400,7 +301,7 @@ export function createEmailPort(opts: CreateEmailPortOpts): EmailPort {
 
   port = withRecipientAllowlist(port, allow)
   if (isStaging(opts.environment)) {
-    port = withStagingSubjectPrefix(port)
+    port = withStagingSubjectPrefix(port, prefixStagingSubject)
   }
   return port
 }
@@ -424,9 +325,7 @@ export function resolveEmailTransport(
   throw new Error(`Invalid EMAIL_TRANSPORT: ${raw}`)
 }
 
-export { type CfEmailAddress, type SendEmailBinding, sendCf } from './cf'
-export { redactEmailBody } from './redact'
-export { DemoEmail } from './templates/demo'
-export { InviteEmail } from './templates/invite'
-export { ResetPasswordEmail } from './templates/reset-password'
-export { WelcomeSetPasswordEmail } from './templates/welcome-set-password'
+export type { CfEmailAddress, SendEmailBinding } from './cf'
+export { redactEmailAddress, redactEmailBody } from './redact'
+export { scrubHeaderLine } from './scrub'
+// Templates: build*EmailText only (raw *Email constructors stay package-private).

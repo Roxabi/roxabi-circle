@@ -3,7 +3,7 @@ import { eq } from 'drizzle-orm'
 import { describe, expect, it } from 'vitest'
 import { createApp } from './app'
 import { baMember, baOrganization } from './db/better-auth-schema'
-import { schema } from './db/schema'
+import { apiKeys, schema } from './db/schema'
 import { seedTenancyDemo } from './seed/seed-tenancy'
 import { createMemoryEnv } from './test/memory-env'
 
@@ -233,6 +233,37 @@ describe('org RBAC (ADR-0003 Phase A) — IDOR matrix', () => {
     expect(dead.status).toBe(401)
   })
 
+  /**
+   * ADR-0003 D11 forbids subject-global keys. No current path can create one — mint requires
+   * an organization — so the only way to reach this state is a pre-`0008` legacy row, which
+   * migration `0008` left nullable and never revoked. The binding is therefore stripped
+   * directly in the DB: same key, same hash, only `organization_id` differs.
+   */
+  it('key with no organization binding never authenticates (D11 legacy row)', async () => {
+    const { app, env, db } = await seedEnv()
+    const cookie = await signIn(app, env, 'staff@kit.local')
+    const mint = await app.request(
+      '/api/keys',
+      {
+        method: 'POST',
+        headers: { cookie, 'content-type': 'application/json', Origin: ORIGIN },
+        body: JSON.stringify({ organizationId: 'org_acme' }),
+      },
+      env,
+    )
+    expect(mint.status).toBe(200)
+    const { key, keyPrefix } = (await mint.json()) as { key: string; keyPrefix: string }
+
+    // positive control — the org-bound key authenticates before the binding is stripped
+    const ok = await app.request('/api/me', { headers: { authorization: `Bearer ${key}` } }, env)
+    expect(ok.status).toBe(200)
+
+    await db.update(apiKeys).set({ organizationId: null }).where(eq(apiKeys.keyPrefix, keyPrefix))
+
+    const dead = await app.request('/api/me', { headers: { authorization: `Bearer ${key}` } }, env)
+    expect(dead.status, 'null-org key must not authenticate').toBe(401)
+  })
+
   it('suspended org is denied', async () => {
     const { app, env, db } = await seedEnv()
     await db
@@ -358,5 +389,70 @@ describe('org RBAC (ADR-0003 Phase A) — IDOR matrix', () => {
     expect(orgs.status).toBe(200)
     const orgsBody = (await orgs.json()) as { orgs: { id: string }[] }
     expect(orgsBody.orgs.every((o) => o.id === 'org_acme')).toBe(true)
+    expect(orgsBody.orgs.map((o) => o.id)).toEqual(['org_acme'])
+
+    // D11 me.orgs: multi-membership staff key bound to acme must not list beta
+    const me = await app.request(
+      '/api/me',
+      { headers: { authorization: `Bearer ${key}`, Origin: ORIGIN } },
+      env,
+    )
+    expect(me.status).toBe(200)
+    const meBody = (await me.json()) as { orgs: { id: string }[]; authMethod: string }
+    expect(meBody.authMethod).toBe('api_key')
+    expect(meBody.orgs.map((o) => o.id).sort()).toEqual(['org_acme'])
+  })
+
+  it('D11: Bearer listApiKeys scopes to key org (staff multi-org)', async () => {
+    const { app, env } = await seedEnv()
+    const cookie = await signIn(app, env, 'staff@kit.local')
+
+    const mintAcme = await app.request(
+      '/api/keys',
+      {
+        method: 'POST',
+        headers: { cookie, 'content-type': 'application/json', Origin: ORIGIN },
+        body: JSON.stringify({ organizationId: 'org_acme', name: 'acme-only' }),
+      },
+      env,
+    )
+    expect(mintAcme.status).toBe(200)
+    const { key: acmeKey } = (await mintAcme.json()) as { key: string }
+
+    const mintBeta = await app.request(
+      '/api/keys',
+      {
+        method: 'POST',
+        headers: { cookie, 'content-type': 'application/json', Origin: ORIGIN },
+        body: JSON.stringify({ organizationId: 'org_beta', name: 'beta-only' }),
+      },
+      env,
+    )
+    expect(mintBeta.status).toBe(200)
+
+    // Session still sees all subject keys
+    const sessionList = await app.request('/api/keys', { headers: { cookie, Origin: ORIGIN } }, env)
+    expect(sessionList.status).toBe(200)
+    const sessionBody = (await sessionList.json()) as {
+      keys: { organizationId: string | null; name: string | null }[]
+    }
+    const orgsOnSession = new Set(sessionBody.keys.map((k) => k.organizationId))
+    expect(orgsOnSession.has('org_acme')).toBe(true)
+    expect(orgsOnSession.has('org_beta')).toBe(true)
+
+    // Bearer acme key: only acme keys, never beta
+    const bearerList = await app.request(
+      '/api/keys',
+      { headers: { authorization: `Bearer ${acmeKey}`, Origin: ORIGIN } },
+      env,
+    )
+    expect(bearerList.status).toBe(200)
+    const bearerBody = (await bearerList.json()) as {
+      keys: { organizationId: string | null; name: string | null }[]
+    }
+    expect(bearerBody.keys.length).toBeGreaterThan(0)
+    expect(bearerBody.keys.every((k) => k.organizationId === 'org_acme')).toBe(true)
+    expect(bearerBody.keys.some((k) => k.name === 'acme-only')).toBe(true)
+    expect(bearerBody.keys.some((k) => k.organizationId === 'org_beta')).toBe(false)
   })
 })
