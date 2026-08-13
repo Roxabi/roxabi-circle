@@ -139,20 +139,24 @@ export function NotesPage() {
         form.reset()
         setOpen(false)
       } catch (e) {
-        // Wire fieldErrors (kit ValidationDetails) → form field state; toast for non-field.
+        // Wire fieldErrors (kit ValidationDetails) → form field state; toast if no mapped fields.
         const fe = apiErrorFieldErrors(e)
         if (fe) {
           const fields = fieldErrorsFirstMessages(fe)
-          form.setErrorMap({
-            onSubmit: {
-              form: apiErrorToMessage(e, m),
-              fields: {
-                title: fields.title,
-                body: fields.body,
+          const titleMsg = fields.title
+          const bodyMsg = fields.body
+          if (titleMsg || bodyMsg) {
+            form.setErrorMap({
+              onSubmit: {
+                form: apiErrorToMessage(e, m),
+                fields: {
+                  title: titleMsg,
+                  body: bodyMsg,
+                },
               },
-            },
-          })
-          return
+            })
+            return
+          }
         }
         toast.error(m.error, { description: apiErrorToMessage(e, m) })
       }

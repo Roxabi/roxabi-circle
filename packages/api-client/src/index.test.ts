@@ -59,6 +59,30 @@ describe('apiErrorFieldErrors', () => {
       ),
     ).toBeNull()
   })
+
+  it('rejects fieldErrors null and array (guards are polar)', () => {
+    const nullFe = new ApiError(400, {
+      error: {
+        code: 'VALIDATION_ERROR',
+        message: 'bad',
+        details: { fieldErrors: null as unknown as Record<string, string[]> },
+      },
+      requestId: 'req_null_fe',
+    })
+    expect(isValidationDetails(nullFe.details)).toBe(false)
+    expect(apiErrorFieldErrors(nullFe)).toBeNull()
+
+    const arrFe = new ApiError(400, {
+      error: {
+        code: 'VALIDATION_ERROR',
+        message: 'bad',
+        details: { fieldErrors: [] as unknown as Record<string, string[]> },
+      },
+      requestId: 'req_arr_fe',
+    })
+    expect(isValidationDetails(arrFe.details)).toBe(false)
+    expect(apiErrorFieldErrors(arrFe)).toBeNull()
+  })
 })
 
 describe('apiErrorToMessage', () => {

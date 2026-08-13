@@ -79,8 +79,7 @@ describe('profileErrorMessage', () => {
 })
 
 describe('loginErrorMessage', () => {
-  // Intentional: UI toast collapse only. Wire HTTP status may still differ
-  // (Network tab). Full anti-enum needs BA/Worker normalization — not this helper.
+  // UI residual collapse for non-kit envelopes; wire anti-enum = example-api sign-in-anti-enum.
   it('maps 400/401/403 ApiError + raw HTTP → same loginFailed (wire + UI anti-enum)', () => {
     expect(loginErrorMessage(apiErr(401, 'UNAUTHORIZED'), en)).toBe(en.loginFailed)
     expect(loginErrorMessage(new Error('HTTP 401'), en)).toBe(en.loginFailed)

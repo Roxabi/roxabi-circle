@@ -297,10 +297,20 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     )
     expect(unknown.status).toBe(401)
     expect(wrong.status).toBe(401)
-    const u = (await unknown.json()) as { error: { code: string; message: string } }
-    const w = (await wrong.json()) as { error: { code: string; message: string } }
+    expect(unknown.headers.get('set-cookie')).toBeNull()
+    expect(wrong.headers.get('set-cookie')).toBeNull()
+    const u = (await unknown.json()) as {
+      error: { code: string; message: string }
+      requestId: string
+    }
+    const w = (await wrong.json()) as {
+      error: { code: string; message: string }
+      requestId: string
+    }
     expect(u.error).toEqual(w.error)
     expect(u.error).toEqual({ code: 'UNAUTHORIZED', message: 'Invalid email or password' })
+    expect(u.requestId).toMatch(/^req_/)
+    expect(w.requestId).toMatch(/^req_/)
   })
 
   it('mint sk_ → Bearer GET /api/me succeeds; bad key 401; revoke works', async () => {
