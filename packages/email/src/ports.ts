@@ -8,7 +8,7 @@
 import { type CfEmailAddress, type SendEmailBinding, sendCf } from './cf'
 import { emailDomain, isRecipientDomainAllowed, isValidMailboxAddress } from './domain'
 import { redactEmailBody } from './redact'
-import { scrubHeaderLine } from './scrub'
+import { scrubEmailAddress, scrubHeaderLine } from './scrub'
 import type { EmailPort } from './types'
 
 export type { EmailPort }
@@ -29,14 +29,6 @@ export function scrubPortInput(input: {
     ...input,
     to: scrubHeaderLine(input.to).trim(),
     subject: scrubHeaderLine(input.subject).trimEnd(),
-  }
-}
-
-export function scrubCfFrom(from: CfEmailAddress): CfEmailAddress {
-  if (typeof from === 'string') return scrubHeaderLine(from).trim()
-  return {
-    email: scrubHeaderLine(from.email).trim(),
-    ...(from.name != null ? { name: scrubHeaderLine(from.name).trim() } : {}),
   }
 }
 
@@ -73,7 +65,7 @@ export function createLogEmailPort(): EmailPort {
 
 export function createCfEmailPort(binding: SendEmailBinding, from: CfEmailAddress): EmailPort {
   // From scrubbed once at port construction; sendCf also scrubs per-send fields.
-  const safeFrom = scrubCfFrom(from)
+  const safeFrom = scrubEmailAddress(from) as CfEmailAddress
   return {
     async send(input) {
       return sendCf(binding, {
@@ -93,7 +85,7 @@ export function createCfEmailPort(binding: SendEmailBinding, from: CfEmailAddres
  * Scrubs headers before provider call (same choke as CF/log).
  */
 export function createResendEmailPort(apiKey: string, from: CfEmailAddress): EmailPort {
-  const safeFrom = scrubCfFrom(from)
+  const safeFrom = scrubEmailAddress(from) as CfEmailAddress
   const fromEmail = typeof safeFrom === 'string' ? safeFrom : safeFrom.email
   const fromName = typeof safeFrom === 'string' ? undefined : safeFrom.name
   return {

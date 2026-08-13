@@ -1,9 +1,16 @@
 import { AppError } from '@kit/core'
 import type { KitR2Bucket, PresignSigner } from '@kit/storage'
-import { StorageClient } from '@kit/storage'
+import { assertObjectKey, StorageClient, StorageError } from '@kit/storage'
 import { presignDemoUpload } from '../lib/presign'
 
 const MAX_BYTES = 5_000_000
+
+/** Single path segment for subject/uploadId — reject `.` / `..` / empty / multi-segment so joinObjectKey cannot elide the binding. */
+function assertUploadPathSegment(value: string, label: string): void {
+  if (!value || value.includes('/') || value === '.' || value === '..') {
+    throw AppError.validation(`invalid ${label}`)
+  }
+}
 
 export async function createUploadPresign(opts: {
   signer: PresignSigner
@@ -46,22 +53,41 @@ export async function completeUpload(opts: {
   /** When mock, allow complete if key matches demo prefix without object (or put marker). */
   mockMode: boolean
 }) {
-  const client = new StorageClient(opts.bucket, 'demo')
-  const expectedPrefix = client.key(opts.subject, opts.uploadId)
-  if (!opts.key.startsWith(`${expectedPrefix}/`) && opts.key !== expectedPrefix) {
-    throw AppError.validation('key does not match upload')
-  }
-  // re-join via client to assert prefix
-  const head = await opts.bucket.head?.(opts.key)
-  if (head) {
-    return { ok: true as const, key: opts.key, exists: true }
-  }
-  if (opts.mockMode) {
-    // mock PUT never hit R2 — record marker so complete can succeed in CI
-    await opts.bucket.put(opts.key, 'mock-upload-complete', {
-      httpMetadata: { contentType: 'application/octet-stream' },
-    })
-    return { ok: true as const, key: opts.key, exists: true, mock: true }
+  try {
+    assertUploadPathSegment(opts.subject, 'subject')
+    assertUploadPathSegment(opts.uploadId, 'uploadId')
+    assertObjectKey(opts.key)
+    const client = new StorageClient(opts.bucket, 'demo')
+    const expectedPrefix = client.key(opts.subject, opts.uploadId)
+    if (!opts.key.startsWith(`${expectedPrefix}/`) && opts.key !== expectedPrefix) {
+      throw AppError.validation('key does not match upload')
+    }
+    // Rebuild parts under StorageClient so head/put assert prefix (no raw bucket key).
+    const suffix =
+      opts.key === expectedPrefix
+        ? []
+        : opts.key
+            .slice(expectedPrefix.length + 1)
+            .split('/')
+            .filter(Boolean)
+    const parts = [opts.subject, opts.uploadId, ...suffix]
+    const head = await client.head(parts)
+    if (head) {
+      return { ok: true as const, key: opts.key, exists: true }
+    }
+    if (opts.mockMode) {
+      // mock PUT never hit real R2 — record marker so complete can succeed in CI
+      await client.put(parts, 'mock-upload-complete', {
+        httpMetadata: { contentType: 'application/octet-stream' },
+      })
+      return { ok: true as const, key: opts.key, exists: true, mock: true }
+    }
+  } catch (err) {
+    if (err instanceof AppError) throw err
+    if (err instanceof StorageError) {
+      throw AppError.validation('invalid object key')
+    }
+    throw err
   }
   throw AppError.notFound('Upload object missing')
 }
