@@ -1,11 +1,11 @@
 {
   "enabledPlugins": {
-    "dev-core@kit-marketplace": true,
-    "dev-init@kit-marketplace": true,
-    "kit-issues@kit-live-marketplace": true,
+    "dev-core@roxabi-marketplace": true,
+    "dev-init@roxabi-marketplace": true,
+    "roxabi-issues@roxabi-live-marketplace": true,
     "improve@improve": true,
     "impeccable@impeccable": true,
-    "forge@kit-forge": true,
+    "forge@roxabi-forge": true,
     "typescript-lsp@claude-plugins-official": true,
     "cocoindex-code@cocoindex-code": true,
     "semctx@semctx-stable": true,
@@ -17,17 +17,17 @@
     "playwright@claude-plugins-official": true
   },
   "extraKnownMarketplaces": {
-    "kit-marketplace": {
+    "roxabi-marketplace": {
       "source": {
         "source": "github",
-        "repo": "operator/kit-plugins"
+        "repo": "Roxabi/roxabi-plugins"
       },
       "autoUpdate": true
     },
-    "kit-live-marketplace": {
+    "roxabi-live-marketplace": {
       "source": {
         "source": "github",
-        "repo": "kit/kit-live"
+        "repo": "roxabi/roxabi-live"
       }
     },
     "improve": {
@@ -42,10 +42,10 @@
         "repo": "pbakaus/impeccable"
       }
     },
-    "kit-forge": {
+    "roxabi-forge": {
       "source": {
         "source": "github",
-        "repo": "operator/kit-forge"
+        "repo": "Roxabi/roxabi-forge"
       }
     },
     "claude-plugins-official": {
