@@ -136,6 +136,22 @@ describe('interpretRun', () => {
       expect(result.readyTaskIds).toEqual([])
     })
 
+    it('sets stuck UNKNOWN_TASK_EDGE when after names a prototype key and does not dispatch the root', () => {
+      const view = withAfter(mustView({ pwn: {}, victim: {} }), { victim: ['toString'] })
+      const result = interpretRun(view, emptyReceipts)
+      expect(result.stuck).toBe('UNKNOWN_TASK_EDGE')
+      expect(result.rollup).toBe('failed')
+      expect(result.readyTaskIds).toEqual([])
+    })
+
+    it('treats a constructor task id as a real ready root', () => {
+      const view = mustView({ constructor: {} })
+      const result = interpretRun(view, emptyReceipts)
+      expect(result.readyTaskIds).toEqual(['constructor'])
+      expect(result.rollup).toBe('running')
+      expect(result.stuck).toBeUndefined()
+    })
+
     it('sets stuck CYCLE when a remaining subgraph is cyclic after progress', () => {
       const view = withAfter(mustView({ a: {}, b: { after: ['a'] }, c: { after: ['b'] } }), {
         b: ['c'],

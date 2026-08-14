@@ -202,15 +202,20 @@ describe('driveFlowRun success', () => {
       snapshotJson: JSON.stringify(snap.runnerView),
       planDigest: snap.runnerView.planDigest,
     })
+    let invokeCount = 0
     await driveFlowRun({
       step: immediateStep,
       db: env.DB as unknown as D1Database,
-      invoke: async (task) => ({ output: String(task.args?.text ?? '') }),
+      invoke: async (task) => {
+        invokeCount += 1
+        return { output: String(task.args?.text ?? '') }
+      },
       payload: { runId: 'run_siblings', orgId: 'org_a' },
       instanceId: INSTANCE_ID,
     })
     const row = await loadRun(env.DB, 'run_siblings', 'org_a')
     const tasks = receiptTasks(row?.receipt_json ?? null)
+    expect(invokeCount).toBe(2)
     expect(row?.status).toBe('succeeded')
     expect(tasks?.echo_a?.outcome).toBe('ok')
     expect(tasks?.echo_b?.outcome).toBe('ok')

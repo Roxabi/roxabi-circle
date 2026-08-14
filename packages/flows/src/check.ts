@@ -138,7 +138,7 @@ export function checkPlan(
 
   for (const [taskId, task] of Object.entries(plan.tasks)) {
     for (const dep of task.after ?? []) {
-      if (!(dep in plan.tasks)) {
+      if (!Object.hasOwn(plan.tasks, dep)) {
         issues.push({
           code: 'UNKNOWN_TASK_EDGE',
           message: `task ${taskId} after: unknown task ${dep}`,

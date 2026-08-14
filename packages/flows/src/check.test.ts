@@ -205,6 +205,20 @@ describe('checkPlan authority (grant ∩ permits)', () => {
     }
   })
 
+  it('fails UNKNOWN_TASK_EDGE when after names a prototype key', () => {
+    const plan = parsePlanDocument({
+      flows: 'v0',
+      plan: { id: 'p' },
+      permits: { tools: ['echo'] },
+      tasks: { t1: { after: ['toString'], invoke: { tool: 'echo' } } },
+    })
+    const result = checkPlan(plan, grant(['echo']), registry)
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(result.issues.some((i) => i.code === 'UNKNOWN_TASK_EDGE')).toBe(true)
+    }
+  })
+
   it('fails TOKEN_CEILING when multi-infer static sum exceeds plan total', () => {
     // per-task default 4096 * 2 = 8192 > plan.max_tokens 5000
     const plan = parsePlanDocument({
