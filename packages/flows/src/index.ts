@@ -54,6 +54,24 @@ export {
 export { DEMO_ECHO_PLAN_YAML } from './fixtures/demo-echo'
 export { capabilityGrantSchema, parseCapabilityGrant } from './grant'
 export {
+  type InterpretRollup,
+  type InterpretRunResult,
+  type InterpretStuckCode,
+  interpretRun,
+} from './interpret'
+export {
+  FLOW_RUN_STATUSES,
+  type FlowRunStatus,
+  type ParseReceiptsResult,
+  parseReceipts,
+  type ReceiptBundle,
+  readRunRollup,
+  receiptBundleSchema,
+  TASK_RECEIPT_OUTCOMES,
+  type TaskReceipt,
+  type TaskReceiptOutcome,
+} from './receipts'
+export {
   type CreateSnapshotInput,
   type CreateSnapshotResult,
   createRunSnapshot,

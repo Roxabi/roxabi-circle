@@ -96,6 +96,8 @@ printf '%s' "$(openssl rand -hex 32)" | bunx wrangler secret put BETTER_AUTH_SEC
 printf '%s' "$(openssl rand -hex 32)" | bunx wrangler secret put SESSION_SECRET --env production
 ```
 
+First production deploy creates Workflow **`boilerplate-api-flow-run`** (`[[env.production.workflows]]` name) — no separate `wrangler` create. Showcase / this Workflow must run on **Workers Paid** (Free = 10 ms CPU/step). Cloudflare **Workflows ≠ Workers for Platforms** (WfP unsupported here).
+
 Domains: API custom domain on Worker; SPA custom domain on Pages (already used for showcase).
 
 Optional **first** laptop deploy (showcase only):
