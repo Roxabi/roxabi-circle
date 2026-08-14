@@ -1,6 +1,13 @@
-/** Sequential InferPort dispatch + actual-token meter (spec §8). */
+/** Sequential InferPort + actual-token meter. Persist inside step; return stays small. */
 
-import { DEFAULT_INFER_MAX_TOKENS, type RunnerView, type TaskReceipt } from '@kit/flows'
+import {
+  DEFAULT_INFER_MAX_TOKENS,
+  type ReceiptBundle,
+  type RunnerView,
+  type TaskReceipt,
+} from '@kit/flows'
+import { DriveNonRetryableError } from './errors'
+import type { persistBundle } from './persist'
 
 const OUTPUT_MAX = 4096
 const noRetry = { retries: { limit: 0 } } as const
@@ -18,16 +25,18 @@ type InferPort = (task: {
   model?: string
 }) => Promise<{ text: string; tokens: number }>
 
-type InferResult =
-  | { outcome: 'ok'; text: string; tokens: number }
-  | { outcome: 'fail'; errorCode: string }
+type StepResult = { outcome: 'ok'; tokens: number } | { outcome: 'fail'; errorCode: string }
 
-function failed(
-  taskId: string,
-  errorCode: string,
-  tokensUsed: number,
-): { rec: TaskReceipt; tokensUsed: number } {
-  return { rec: { taskId, outcome: 'fail', errorCode }, tokensUsed }
+function withTask(bundle: ReceiptBundle, rec: TaskReceipt): ReceiptBundle {
+  return {
+    receiptVersion: 1,
+    tokensUsed: bundle.tokensUsed,
+    tasks: { ...bundle.tasks, [rec.taskId]: rec },
+  }
+}
+
+function failed(taskId: string, errorCode: string, bundle: ReceiptBundle): ReceiptBundle {
+  return withTask(bundle, { taskId, outcome: 'fail', errorCode })
 }
 
 export async function runInferStep(input: {
@@ -36,41 +45,74 @@ export async function runInferStep(input: {
   view: RunnerView
   taskId: string
   body: { prompt: string; max_tokens?: number; model?: string }
-  tokensUsed: number
-}): Promise<{ rec: TaskReceipt; tokensUsed: number }> {
-  const { step, infer, view, taskId, body, tokensUsed } = input
+  bundle: ReceiptBundle
+  persist: typeof persistBundle
+  db: D1Database
+  ids: { runId: string; orgId: string }
+}): Promise<ReceiptBundle> {
+  const { step, infer, view, taskId, body, bundle, persist, db, ids } = input
+  const tokensUsed = bundle.tokensUsed
 
-  if (!infer) {
-    return failed(taskId, 'INFER_FAILED', tokensUsed)
-  }
-  if (!view.allowsInfer) {
-    return failed(taskId, 'INFER_FAILED', tokensUsed)
+  if (!infer || !view.allowsInfer) {
+    const next = failed(taskId, 'INFER_FAILED', bundle)
+    const changes = await persist(db, {
+      ...ids,
+      status: 'running',
+      receiptJson: JSON.stringify(next),
+      errorCode: null,
+    })
+    if (changes !== 1) throw new DriveNonRetryableError('persist lost')
+    return next
   }
 
   const declared = body.max_tokens ?? DEFAULT_INFER_MAX_TOKENS
   const hard = view.ceilings.hardMaxTokens
   if (tokensUsed + declared > hard) {
-    return failed(taskId, 'TOKEN_CEILING', tokensUsed)
+    const next = failed(taskId, 'TOKEN_CEILING', bundle)
+    const changes = await persist(db, {
+      ...ids,
+      status: 'running',
+      receiptJson: JSON.stringify(next),
+      errorCode: null,
+    })
+    if (changes !== 1) throw new DriveNonRetryableError('persist lost')
+    return next
   }
 
   const result = await step(
     `infer:${taskId}`,
-    async (): Promise<InferResult> => {
+    async (): Promise<StepResult> => {
+      let rec: TaskReceipt
+      let nextTokens = tokensUsed
       try {
         const out = await infer({ taskId, ...body })
-        return { outcome: 'ok', text: out.text, tokens: out.tokens }
+        if (typeof out.text !== 'string' || !Number.isInteger(out.tokens) || out.tokens < 0) {
+          rec = { taskId, outcome: 'fail', errorCode: 'INFER_FAILED' }
+        } else if (tokensUsed + out.tokens > hard) {
+          rec = { taskId, outcome: 'fail', errorCode: 'TOKEN_CEILING' }
+        } else {
+          const output = out.text.length > OUTPUT_MAX ? out.text.slice(0, OUTPUT_MAX) : out.text
+          rec = { taskId, outcome: 'ok', output }
+          nextTokens = tokensUsed + out.tokens
+        }
       } catch {
-        return { outcome: 'fail', errorCode: 'INFER_FAILED' }
+        rec = { taskId, outcome: 'fail', errorCode: 'INFER_FAILED' }
       }
+      const next: ReceiptBundle = { ...withTask(bundle, rec), tokensUsed: nextTokens }
+      const changes = await persist(db, {
+        ...ids,
+        status: 'running',
+        receiptJson: JSON.stringify(next),
+        errorCode: null,
+      })
+      if (changes !== 1) throw new DriveNonRetryableError('persist lost')
+      return rec.outcome === 'ok'
+        ? { outcome: 'ok', tokens: nextTokens - tokensUsed }
+        : { outcome: 'fail', errorCode: rec.errorCode ?? 'INFER_FAILED' }
     },
     noRetry,
   )
-  if (result.outcome === 'fail') {
-    return failed(taskId, result.errorCode, tokensUsed)
-  }
-  if (tokensUsed + result.tokens > hard) {
-    return failed(taskId, 'TOKEN_CEILING', tokensUsed)
-  }
-  const output = result.text.length > OUTPUT_MAX ? result.text.slice(0, OUTPUT_MAX) : result.text
-  return { rec: { taskId, outcome: 'ok', output }, tokensUsed: tokensUsed + result.tokens }
+
+  if (result.outcome === 'fail') return failed(taskId, result.errorCode, bundle)
+  return { ...withTask(bundle, { taskId, outcome: 'ok' }), tokensUsed: tokensUsed + result.tokens }
 }

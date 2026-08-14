@@ -6,6 +6,7 @@ import {
 import { hardMaxTokens, staticTokenBudget } from './budget'
 import { MAX_PLAN_TASKS, MAX_PLAN_TOTAL_TOKENS } from './constants'
 import { parseCapabilityGrant } from './grant'
+import { findCycle as findCycleInGraph } from './graph'
 import type { ToolRegistry } from './registry'
 import { type PlanDocument, safeParsePlanDocument } from './schema'
 
@@ -46,34 +47,7 @@ function invokedTools(plan: PlanDocument): Array<{ taskId: string; tool: string 
 }
 
 function findCycle(plan: PlanDocument): string | null {
-  const ids = Object.keys(plan.tasks)
-  const indeg = new Map<string, number>()
-  const adj = new Map<string, string[]>()
-  for (const id of ids) {
-    indeg.set(id, 0)
-    adj.set(id, [])
-  }
-  for (const [id, task] of Object.entries(plan.tasks)) {
-    for (const dep of task.after ?? []) {
-      if (!indeg.has(dep)) continue
-      adj.get(dep)?.push(id)
-      indeg.set(id, (indeg.get(id) ?? 0) + 1)
-    }
-  }
-  const q = ids.filter((id) => (indeg.get(id) ?? 0) === 0)
-  let seen = 0
-  while (q.length > 0) {
-    const n = q.shift()
-    if (!n) break
-    seen++
-    for (const m of adj.get(n) ?? []) {
-      const next = (indeg.get(m) ?? 0) - 1
-      indeg.set(m, next)
-      if (next === 0) q.push(m)
-    }
-  }
-  if (seen !== ids.length) return 'task graph contains a cycle'
-  return null
+  return findCycleInGraph(plan.tasks)
 }
 
 /**

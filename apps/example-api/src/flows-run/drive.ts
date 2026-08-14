@@ -1,18 +1,13 @@
 /** Snapshot-only driver. Dispatch is interpret.readyTaskIds only. */
 
-import {
-  interpretRun,
-  parseReceipts,
-  parseRunnerView,
-  type ReceiptBundle,
-  type RunnerView,
-  type TaskReceipt,
-} from '@kit/flows'
+import { interpretRun, parseReceipts, parseRunnerView, type ReceiptBundle } from '@kit/flows'
 import { z } from 'zod'
+import { DriveNonRetryableError } from './errors'
 import { runInferStep } from './infer-step'
+import { runInvokeStep } from './invoke-step'
 import { claimRun, loadRun, persistBundle } from './persist'
 
-const OUTPUT_MAX = 4096
+export { DriveNonRetryableError } from './errors'
 
 const paramsSchema = z
   .object({
@@ -21,14 +16,7 @@ const paramsSchema = z
   })
   .strict()
 
-const idsOnlySchema = z.object({ runId: z.string().min(1), orgId: z.string().min(1) })
-
-export class DriveNonRetryableError extends Error {
-  constructor(message: string) {
-    super(message)
-    this.name = 'DriveNonRetryableError'
-  }
-}
+const instanceIdSchema = z.string().min(1).max(128)
 
 export type DriveStep = <T>(
   name: string,
@@ -57,10 +45,6 @@ function emptyBundle(): ReceiptBundle {
   return { receiptVersion: 1, tokensUsed: 0, tasks: {} }
 }
 
-function truncateOutput(value: string | undefined): string | undefined {
-  return value !== undefined && value.length > OUTPUT_MAX ? value.slice(0, OUTPUT_MAX) : value
-}
-
 function parseSnapshot(raw: string) {
   try {
     return parseRunnerView(JSON.parse(raw) as unknown)
@@ -82,14 +66,6 @@ function receiptsFromRow(raw: string | null, taskIds: readonly string[]): Receip
   }
 }
 
-function withTask(bundle: ReceiptBundle, rec: TaskReceipt): ReceiptBundle {
-  return {
-    receiptVersion: 1,
-    tokensUsed: bundle.tokensUsed,
-    tasks: { ...bundle.tasks, [rec.taskId]: rec },
-  }
-}
-
 async function writeBundle(
   step: DriveStep,
   persist: PersistFn,
@@ -103,20 +79,20 @@ async function writeBundle(
     errorCode?: string | null
   },
 ): Promise<void> {
-  await step(name, async () => {
-    try {
-      await persist(db, {
+  await step(
+    name,
+    async () => {
+      const changes = await persist(db, {
         runId: input.runId,
         orgId: input.orgId,
         status: input.status,
         receiptJson: JSON.stringify(input.bundle),
         errorCode: input.errorCode,
       })
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'persist failed'
-      throw new DriveNonRetryableError(message)
-    }
-  })
+      if (changes !== 1) throw new DriveNonRetryableError('persist lost')
+    },
+    noRetry,
+  )
 }
 
 async function failClosed(
@@ -137,71 +113,39 @@ async function failClosed(
   throw new DriveNonRetryableError(errorCode)
 }
 
-type InvokeResult = { outcome: 'ok'; output?: string } | { outcome: 'fail'; errorCode: string }
-
-async function runInvoke(
-  step: DriveStep,
-  invoke: InvokePort,
-  view: RunnerView,
-  taskId: string,
-  tool: string,
-  args?: Record<string, unknown>,
-): Promise<TaskReceipt> {
-  const result = await step(
-    `invoke:${taskId}`,
-    async (): Promise<InvokeResult> => {
-      try {
-        if (!view.executionTools.includes(tool)) {
-          return { outcome: 'fail', errorCode: 'TOOL_NOT_IN_EXECUTION_TOOLS' }
-        }
-        const out = await invoke({ taskId, tool, args })
-        return { outcome: 'ok', output: truncateOutput(out.output) }
-      } catch {
-        return { outcome: 'fail', errorCode: 'INVOKE_FAILED' }
-      }
-    },
-    noRetry,
-  )
-  return result.outcome === 'ok'
-    ? { taskId, outcome: 'ok', output: result.output }
-    : { taskId, outcome: 'fail', errorCode: result.errorCode }
-}
-
 export async function driveFlowRun(input: {
   step: DriveStep
   db: D1Database
   invoke: InvokePort
   infer?: InferPort
+  hasTool?: (name: string) => boolean
   interpret?: typeof interpretRun
   persistBundle?: typeof persistBundle
   payload: unknown
   instanceId: string
 }): Promise<void> {
-  const { step, db, invoke, infer, instanceId } = input
+  const { step, db, invoke, infer, hasTool, instanceId } = input
   const persist = input.persistBundle ?? persistBundle
   const interpret = input.interpret ?? interpretRun
 
-  const parsed = paramsSchema.safeParse(input.payload)
-  if (!parsed.success) {
-    const ids = idsOnlySchema.safeParse(input.payload)
-    if (ids.success) {
-      await writeBundle(step, persist, db, 'persist:invalid-params', {
-        ...ids.data,
-        status: 'failed',
-        bundle: emptyBundle(),
-      })
-    }
+  if (!instanceIdSchema.safeParse(instanceId).success) {
     throw new DriveNonRetryableError('invalid payload')
   }
+  const parsed = paramsSchema.safeParse(input.payload)
+  if (!parsed.success) throw new DriveNonRetryableError('invalid payload')
   const { runId, orgId } = parsed.data
   const ids = { runId, orgId }
 
-  await step('claim', async () => {
-    const changes = await claimRun(db, { runId, orgId, instanceId })
-    if (changes === 0) throw new DriveNonRetryableError('claim lost')
-  })
+  await step(
+    'claim',
+    async () => {
+      const changes = await claimRun(db, { runId, orgId, instanceId })
+      if (changes === 0) throw new DriveNonRetryableError('claim lost')
+    },
+    noRetry,
+  )
 
-  const row = await step('load', () => loadRun(db, runId, orgId))
+  const row = await step('load', () => loadRun(db, runId, orgId), noRetry)
   if (!row) throw new DriveNonRetryableError('run not found')
 
   const viewParsed = parseSnapshot(row.snapshot_json)
@@ -216,7 +160,11 @@ export async function driveFlowRun(input: {
   const taskIds = Object.keys(view.sealedPlan.tasks)
   let wave = 0
   for (;;) {
-    const current = wave === 0 ? row : await step(`load:${wave}`, () => loadRun(db, runId, orgId))
+    if (wave > taskIds.length) {
+      return await failClosed(step, persist, db, 'persist:terminal', ids, 'DAG_STUCK')
+    }
+    const current =
+      wave === 0 ? row : await step(`load:${wave}`, () => loadRun(db, runId, orgId), noRetry)
     if (!current) throw new DriveNonRetryableError('run not found')
 
     const receipts = receiptsFromRow(current.receipt_json, taskIds)
@@ -235,7 +183,7 @@ export async function driveFlowRun(input: {
     if (result.readyTaskIds.length === 0) {
       const status = result.rollup === 'succeeded' ? 'succeeded' : 'failed'
       const errorCode = result.stuck ?? null
-      await writeBundle(step, persist, db, 'persist:rollup', {
+      await writeBundle(step, persist, db, 'persist:terminal', {
         ...ids,
         status,
         bundle: result.receipts,
@@ -248,31 +196,41 @@ export async function driveFlowRun(input: {
     let bundle = result.receipts
     for (const taskId of result.readyTaskIds) {
       const task = view.sealedPlan.tasks[taskId]
-      let rec: TaskReceipt
       if (task?.invoke) {
-        rec = await runInvoke(step, invoke, view, taskId, task.invoke.tool, task.invoke.args)
+        bundle = await runInvokeStep({
+          step,
+          invoke,
+          hasTool,
+          view,
+          taskId,
+          tool: task.invoke.tool,
+          args: task.invoke.args,
+          bundle,
+          persist,
+          db,
+          ids,
+        })
       } else if (task?.infer) {
-        // TOKEN_CEILING / INFER_FAILED decided in infer-step
-        const inferred = await runInferStep({
+        bundle = await runInferStep({
           step,
           infer,
           view,
           taskId,
           body: task.infer,
-          tokensUsed: bundle.tokensUsed,
+          bundle,
+          persist,
+          db,
+          ids,
         })
-        rec = inferred.rec
-        bundle = { ...bundle, tokensUsed: inferred.tokensUsed }
       } else {
-        rec = { taskId, outcome: 'fail', errorCode: 'INVOKE_FAILED' }
+        bundle = {
+          ...bundle,
+          tasks: {
+            ...bundle.tasks,
+            [taskId]: { taskId, outcome: 'fail', errorCode: 'INVOKE_FAILED' },
+          },
+        }
       }
-      bundle = withTask(bundle, rec)
-      await writeBundle(step, persist, db, `persist:${taskId}`, {
-        ...ids,
-        status: 'running',
-        bundle,
-        errorCode: null,
-      })
     }
     wave += 1
   }

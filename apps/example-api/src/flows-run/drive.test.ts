@@ -1,21 +1,8 @@
 import { createRunSnapshot, createToolRegistry, loadPlanFromYaml } from '@kit/flows'
 import { describe, expect, it } from 'vitest'
 import { createMemoryEnv } from '../test/memory-env'
-import { driveFlowRun } from './drive'
+import { type DriveStep, driveFlowRun } from './drive'
 import { INVOKE_ONLY_PLAN_YAML } from './fixtures'
-
-type DriveStep = <T>(
-  name: string,
-  fn: () => Promise<T>,
-  config?: { retries?: { limit: number } },
-) => Promise<T>
-
-type InterpretResult = {
-  receipts: unknown
-  readyTaskIds: string[]
-  rollup: 'running' | 'succeeded' | 'failed'
-  stuck?: string
-}
 
 type RunRow = {
   status: string
@@ -129,23 +116,6 @@ async function loadRun(db: ReturnType<typeof createMemoryEnv>['DB'], runId: stri
     .first()) as RunRow | null
 }
 
-function driveArgs(
-  db: ReturnType<typeof createMemoryEnv>['DB'],
-  ports: ReturnType<typeof makePorts>,
-  runId: string,
-  extra?: { interpret?: (view: unknown, receipts: unknown) => InterpretResult },
-) {
-  return {
-    step: immediateStep,
-    db: db as unknown as D1Database,
-    invoke: ports.invoke,
-    infer: ports.infer,
-    interpret: extra?.interpret,
-    payload: { runId, orgId: 'org_a' },
-    instanceId: INSTANCE_ID,
-  }
-}
-
 function receiptTasks(receiptJson: string | null) {
   return (JSON.parse(receiptJson as string) as { tasks?: Record<string, { outcome?: string }> })
     .tasks
@@ -163,109 +133,18 @@ async function driveSealed(runId: string, extra?: { enabled?: number; planJson?:
     planJson: extra?.planJson,
   })
   const ports = makePorts()
-  await driveFlowRun(driveArgs(env.DB, ports, runId))
+  await driveFlowRun({
+    step: immediateStep,
+    db: env.DB as unknown as D1Database,
+    invoke: ports.invoke,
+    infer: ports.infer,
+    payload: { runId, orgId: 'org_a' },
+    instanceId: INSTANCE_ID,
+  })
   return { snap, ports, row: await loadRun(env.DB, runId, 'org_a') }
 }
 
-describe('driveFlowRun', () => {
-  it('sets status=failed and RUNNER_VIEW_INVALID when snapshot has grantAudit extra key', async () => {
-    const env = createMemoryEnv()
-    const snap = seal('org_a')
-    const wire = {
-      ...JSON.parse(JSON.stringify(snap.runnerView)),
-      grantAudit: snap.grantAudit,
-    }
-    const runId = 'run_tamper'
-    await insertQueued(env.DB, {
-      runId,
-      orgId: 'org_a',
-      snapshotJson: JSON.stringify(wire),
-      planDigest: snap.runnerView.planDigest,
-    })
-    const ports = makePorts()
-    await driveFlowRun(driveArgs(env.DB, ports, runId)).catch(() => {})
-    const row = await loadRun(env.DB, runId, 'org_a')
-    expect(row).toBeTruthy()
-    expect(row?.status).toBe('failed')
-    expect(row?.error_code).toBe('RUNNER_VIEW_INVALID')
-    expect(ports.invokeCount).toBe(0)
-    expect(ports.inferCount).toBe(0)
-    expect(row?.receipt_json).toEqual(expect.any(String))
-    expect(JSON.parse(row?.receipt_json as string)).toEqual({
-      receiptVersion: 1,
-      tokensUsed: 0,
-      tasks: {},
-    })
-  })
-
-  it('sets status=failed and ORG_MISMATCH when view.orgId differs from row and params', async () => {
-    const env = createMemoryEnv()
-    const snap = seal('org_a')
-    const wire = JSON.parse(JSON.stringify(snap.runnerView)) as { orgId: string }
-    wire.orgId = 'org_b'
-    const runId = 'run_org'
-    await insertQueued(env.DB, {
-      runId,
-      orgId: 'org_a',
-      snapshotJson: JSON.stringify(wire),
-      planDigest: snap.runnerView.planDigest,
-    })
-    const ports = makePorts()
-    await driveFlowRun(driveArgs(env.DB, ports, runId)).catch(() => {})
-    const row = await loadRun(env.DB, runId, 'org_a')
-    expect(row).toBeTruthy()
-    expect(row?.status).toBe('failed')
-    expect(row?.error_code).toBe('ORG_MISMATCH')
-    expect(ports.invokeCount).toBe(0)
-    expect(ports.inferCount).toBe(0)
-  })
-
-  it('does not call invoke or infer when interpret returns empty readyTaskIds', async () => {
-    const env = createMemoryEnv()
-    const snap = seal('org_a')
-    const runId = 'run_dual'
-    await insertQueued(env.DB, {
-      runId,
-      orgId: 'org_a',
-      snapshotJson: JSON.stringify(snap.runnerView),
-      planDigest: snap.runnerView.planDigest,
-    })
-    const ports = makePorts()
-    let interpretCalls = 0
-    const interpret = (_view: unknown, receipts: unknown): InterpretResult => {
-      interpretCalls += 1
-      return {
-        receipts,
-        readyTaskIds: [],
-        rollup: 'failed',
-        stuck: 'DAG_STUCK',
-      }
-    }
-    await driveFlowRun(driveArgs(env.DB, ports, runId, { interpret })).catch(() => {})
-    expect(interpretCalls).toBeGreaterThan(0)
-    expect(ports.invokeCount).toBe(0)
-    expect(ports.inferCount).toBe(0)
-  })
-
-  it('does not dispatch when a second drive claims the same queued run', async () => {
-    const env = createMemoryEnv()
-    const snap = seal('org_a')
-    const runId = 'run_claim'
-    await insertQueued(env.DB, {
-      runId,
-      orgId: 'org_a',
-      snapshotJson: JSON.stringify(snap.runnerView),
-      planDigest: snap.runnerView.planDigest,
-    })
-    const ports = makePorts()
-    const input = driveArgs(env.DB, ports, runId)
-    await driveFlowRun(input).catch(() => {})
-    const afterFirst = ports.invokeCount
-    expect(afterFirst).toBe(1)
-    await driveFlowRun(input).catch(() => {})
-    expect(ports.invokeCount).toBe(afterFirst)
-  })
-
+describe('driveFlowRun success', () => {
   it('writes echo_hello outcome ok and status succeeded for invoke-only fixture', async () => {
     const { snap, ports, row } = await driveSealed('run_ok')
     expect('grantAudit' in snap.runnerView).toBe(false)

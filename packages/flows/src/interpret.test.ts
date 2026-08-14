@@ -136,19 +136,25 @@ describe('interpretRun', () => {
       expect(result.readyTaskIds).toEqual([])
     })
 
-    it('sets stuck DAG_STUCK when ready is empty, pending remain, and no fail', () => {
+    it('sets stuck CYCLE when a remaining subgraph is cyclic after progress', () => {
       const view = withAfter(mustView({ a: {}, b: { after: ['a'] }, c: { after: ['b'] } }), {
         b: ['c'],
         c: ['b'],
       })
       const result = interpretRun(view, bundle({ a: { outcome: 'ok' } }))
       expect(result.readyTaskIds).toEqual([])
-      expect(result.receipts.tasks.a?.outcome).toBe('ok')
-      expect(result.receipts.tasks.b).toBeUndefined()
-      expect(result.receipts.tasks.c).toBeUndefined()
-      const outcomes = Object.values(result.receipts.tasks).map((task) => task.outcome)
-      expect(outcomes).not.toContain('fail')
-      expect(result.stuck).toBe('DAG_STUCK')
+      expect(result.stuck).toBe('CYCLE')
+      expect(result.rollup).toBe('failed')
+    })
+
+    it('sets stuck CYCLE and does not dispatch an independent root next to a cycle', () => {
+      const view = withAfter(mustView({ pwn: {}, b: {}, c: { after: ['b'] } }), {
+        b: ['c'],
+        c: ['b'],
+      })
+      const result = interpretRun(view, emptyReceipts)
+      expect(result.stuck).toBe('CYCLE')
+      expect(result.readyTaskIds).toEqual([])
       expect(result.rollup).toBe('failed')
     })
   })
@@ -168,6 +174,51 @@ describe('interpretRun', () => {
       expect(result.rollup).not.toBe('succeeded')
       expect(result.rollup).toBe('failed')
       expect(result.readyTaskIds).toEqual([])
+    })
+
+    it('cascades skip when the only dep is skip (no fail in the bundle)', () => {
+      const view = mustView({ a: {}, b: { after: ['a'] } })
+      const result = interpretRun(view, bundle({ a: { outcome: 'skip' } }))
+      expect(result.receipts.tasks.b?.outcome).toBe('skip')
+      expect(result.rollup).toBe('failed')
+      expect(result.stuck).toBeUndefined()
+    })
+
+    it('fails rollup on a single fail with no skip to mask it', () => {
+      const view = mustView({ a: {} })
+      const result = interpretRun(
+        view,
+        bundle({ a: { outcome: 'fail', errorCode: 'INVOKE_FAILED' } }),
+      )
+      expect(result.rollup).toBe('failed')
+      expect(result.stuck).toBeUndefined()
+      expect(result.readyTaskIds).toEqual([])
+    })
+
+    it('cascades skip two hops A fail → B skip → C skip', () => {
+      const view = mustView({ c: { after: ['b'] }, b: { after: ['a'] }, a: {} })
+      const result = interpretRun(
+        view,
+        bundle({ a: { outcome: 'fail', errorCode: 'INVOKE_FAILED' } }),
+      )
+      expect(result.receipts.tasks.b?.outcome).toBe('skip')
+      expect(result.receipts.tasks.c?.outcome).toBe('skip')
+    })
+
+    it('keeps C pending when after [A,B] and only A is ok', () => {
+      const view = mustView({ a: {}, b: {}, c: { after: ['a', 'b'] } })
+      const result = interpretRun(view, bundle({ a: { outcome: 'ok' } }))
+      expect(result.readyTaskIds).toEqual(['b'])
+      expect(result.receipts.tasks.c).toBeUndefined()
+    })
+
+    it('skips C when after [A,B] and A failed even if B is ok', () => {
+      const view = mustView({ a: {}, b: {}, c: { after: ['a', 'b'] } })
+      const result = interpretRun(
+        view,
+        bundle({ a: { outcome: 'fail', errorCode: 'INVOKE_FAILED' }, b: { outcome: 'ok' } }),
+      )
+      expect(result.receipts.tasks.c?.outcome).toBe('skip')
     })
   })
 })

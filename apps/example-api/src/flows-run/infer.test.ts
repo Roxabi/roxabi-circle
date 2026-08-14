@@ -1,7 +1,13 @@
 import { createRunSnapshot, createToolRegistry, loadPlanFromYaml } from '@kit/flows'
 import { describe, expect, it } from 'vitest'
 import { createMemoryEnv } from '../test/memory-env'
-import { type DriveStep, driveFlowRun, type InferPort, type InvokePort } from './drive'
+import {
+  DriveNonRetryableError,
+  type DriveStep,
+  driveFlowRun,
+  type InferPort,
+  type InvokePort,
+} from './drive'
 
 type RunRow = {
   status: string
@@ -152,7 +158,9 @@ async function driveSealed(runId: string, ports: { invoke: InvokePort; infer?: I
     snapshotJson: JSON.stringify(snap.runnerView),
     planDigest: snap.runnerView.planDigest,
   })
-  await driveFlowRun(driveArgs(env.DB, runId, ports)).catch(() => {})
+  await expect(driveFlowRun(driveArgs(env.DB, runId, ports))).rejects.toBeInstanceOf(
+    DriveNonRetryableError,
+  )
   return { snap, row: await loadRun(env.DB, runId, ORG) }
 }
 
@@ -173,14 +181,35 @@ describe('driveFlowRun infer meter', () => {
   })
 
   it('fails first infer with INFER_FAILED when InferPort is missing', async () => {
-    const { row } = await driveSealed('run_infer_missing', {
-      invoke: async () => ({ output: 'echo' }),
+    const env = createMemoryEnv()
+    const snap = seal(ORG)
+    const runId = 'run_infer_missing'
+    await insertQueued(env.DB, {
+      runId,
+      orgId: ORG,
+      snapshotJson: JSON.stringify(snap.runnerView),
+      planDigest: snap.runnerView.planDigest,
     })
-    expect(row).toBeTruthy()
+    const stepNames: string[] = []
+    const step: DriveStep = async (name, fn) => {
+      stepNames.push(name)
+      return fn()
+    }
+    await expect(
+      driveFlowRun({
+        step,
+        db: env.DB as unknown as D1Database,
+        invoke: async () => ({ output: 'echo' }),
+        payload: { runId, orgId: ORG },
+        instanceId: INSTANCE_ID,
+      }),
+    ).rejects.toBeInstanceOf(DriveNonRetryableError)
+    const row = await loadRun(env.DB, runId, ORG)
     expect(row?.status).toBe('failed')
     const receipt = receiptOf(row?.receipt_json ?? null)
     expect(receipt.tasks.infer_a?.outcome).toBe('fail')
     expect(receipt.tasks.infer_a?.errorCode).toBe('INFER_FAILED')
+    expect(stepNames.some((name) => name.startsWith('infer:'))).toBe(false)
   })
 
   it('fails infer_a with TOKEN_CEILING when actual tokens exceed hardMaxTokens and does not keep overflow', async () => {

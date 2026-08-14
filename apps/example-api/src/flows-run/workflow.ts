@@ -1,6 +1,8 @@
 import { WorkflowEntrypoint, type WorkflowEvent, type WorkflowStep } from 'cloudflare:workers'
 import { NonRetryableError } from 'cloudflare:workflows'
+import { registryHas } from '@kit/flows'
 import type { Env } from '../env'
+import { dogfoodToolRegistry } from '../lib/flows-dogfood'
 import { DriveNonRetryableError, driveFlowRun } from './drive'
 import { invokeEcho } from './ports'
 
@@ -24,13 +26,20 @@ export class FlowRunWorkflow extends WorkflowEntrypoint<Env, FlowRunParams> {
       fn: () => Promise<T>,
       config?: { retries?: { limit: number } },
     ): Promise<T> => {
-      const callback = async () => fn()
+      const callback = async () => {
+        try {
+          return await fn()
+        } catch (err) {
+          if (err instanceof DriveNonRetryableError) {
+            throw new NonRetryableError(err.message)
+          }
+          throw err
+        }
+      }
       if (config) {
         return step.do(
           name,
-          {
-            retries: config.retries ? { limit: config.retries.limit, delay: 0 } : undefined,
-          },
+          { retries: config.retries ? { limit: config.retries.limit, delay: 0 } : undefined },
           callback as never,
         ) as Promise<T>
       }
@@ -41,6 +50,7 @@ export class FlowRunWorkflow extends WorkflowEntrypoint<Env, FlowRunParams> {
         step: driveStep,
         db: this.env.DB,
         invoke: invokeEcho,
+        hasTool: (name) => registryHas(dogfoodToolRegistry, name),
         payload: event.payload,
         instanceId: event.instanceId,
       })

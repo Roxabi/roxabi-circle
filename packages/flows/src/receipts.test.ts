@@ -48,6 +48,43 @@ describe('parseReceipts', () => {
     })
     expect(result.ok).toBe(false)
   })
+
+  it('rejects receiptVersion other than 1', () => {
+    const result = parseReceipts({ ...emptyBundle, receiptVersion: 2 })
+    expect(result.ok).toBe(false)
+  })
+
+  it('rejects taskId that does not match the record key', () => {
+    const result = parseReceipts({
+      receiptVersion: 1,
+      tokensUsed: 0,
+      tasks: { z: { taskId: 'a', outcome: 'ok' } },
+    })
+    expect(result.ok).toBe(false)
+  })
+
+  it('truncates output to 4 KiB', () => {
+    const result = parseReceipts({
+      receiptVersion: 1,
+      tokensUsed: 0,
+      tasks: { a: { taskId: 'a', outcome: 'ok', output: 'x'.repeat(4097) } },
+    })
+    expect(result.ok).toBe(true)
+    if (result.ok) expect(result.receipts.tasks.a?.output?.length).toBe(4096)
+  })
+
+  it('rejects negative or non-integer tokensUsed', () => {
+    expect(parseReceipts({ ...emptyBundle, tokensUsed: -1 }).ok).toBe(false)
+    expect(parseReceipts({ ...emptyBundle, tokensUsed: 1.5 }).ok).toBe(false)
+  })
+
+  it('allows missing task ids when taskIds is passed', () => {
+    const result = parseReceipts(
+      { receiptVersion: 1, tokensUsed: 0, tasks: { a: { taskId: 'a', outcome: 'ok' } } },
+      ['a', 'b'],
+    )
+    expect(result.ok).toBe(true)
+  })
 })
 
 describe('TASK_RECEIPT_OUTCOMES', () => {
@@ -76,6 +113,12 @@ describe('readRunRollup', () => {
     expect(result.status).not.toBe('complete')
     expect(result.receipts).toMatchObject(emptyBundle)
     expect(result.errorCode).toBe('ORG_MISMATCH')
+  })
+
+  it('returns null receipts when receiptJson is not JSON', () => {
+    const result = readRunRollup({ status: 'failed', receiptJson: '{', errorCode: 'X' })
+    expect(result.status).toBe('failed')
+    expect(result.receipts).toBeNull()
   })
 })
 

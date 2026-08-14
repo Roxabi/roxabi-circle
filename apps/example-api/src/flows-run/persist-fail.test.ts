@@ -7,7 +7,7 @@ import {
 } from '@kit/flows'
 import { describe, expect, it } from 'vitest'
 import { createMemoryEnv } from '../test/memory-env'
-import { type DriveStep, driveFlowRun } from './drive'
+import { DriveNonRetryableError, type DriveStep, driveFlowRun } from './drive'
 import { INVOKE_ONLY_PLAN_YAML } from './fixtures'
 import { persistBundle } from './persist'
 
@@ -89,7 +89,7 @@ const persistThrowOnSucceeded: typeof persistBundle = async (db, input) => {
   if (input.status === 'succeeded') {
     throw new Error('persist:succeeded blocked')
   }
-  await persistBundle(db, input)
+  return persistBundle(db, input)
 }
 
 async function drivePersistFail(runId: string) {
@@ -113,8 +113,8 @@ async function drivePersistFail(runId: string) {
     persistBundle: persistThrowOnSucceeded,
     payload: { runId, orgId: ORG },
     instanceId: INSTANCE_ID,
-  }).catch(() => {
-    threw = true
+  }).catch((err) => {
+    threw = err instanceof DriveNonRetryableError || err instanceof Error
   })
   return { row: await loadRun(env.DB, runId, ORG), invokeCount, threw }
 }

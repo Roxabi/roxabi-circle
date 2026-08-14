@@ -5,6 +5,7 @@ export async function invokeEcho(task: {
   tool: string
   args?: Record<string, unknown>
 }): Promise<{ output?: string }> {
+  if (task.tool !== 'echo') throw new Error('UNKNOWN_TOOL')
   const text = typeof task.args?.text === 'string' ? task.args.text : ''
   return { output: text.slice(0, 4096) }
 }

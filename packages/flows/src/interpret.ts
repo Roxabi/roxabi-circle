@@ -1,3 +1,4 @@
+import { type AfterGraph, graphHasCycle } from './graph'
 import type { ReceiptBundle, TaskReceipt } from './receipts'
 import type { RunnerView } from './runner-view'
 
@@ -15,8 +16,6 @@ export type InterpretRunResult = {
   rollup: InterpretRollup
   stuck?: InterpretStuckCode
 }
-
-type AfterGraph = Readonly<Record<string, { readonly after?: readonly string[] }>>
 
 function cloneWithoutWaiting(receipts: ReceiptBundle): ReceiptBundle {
   const tasks: Record<string, TaskReceipt> = {}
@@ -38,37 +37,6 @@ function hasUnknownAfter(tasks: AfterGraph): boolean {
     }
   }
   return false
-}
-
-/** Kahn leftover — same walk as `findCycle` in check.ts (unknown edges ignored). */
-function graphHasCycle(tasks: AfterGraph): boolean {
-  const ids = Object.keys(tasks)
-  const indeg = new Map<string, number>()
-  const adj = new Map<string, string[]>()
-  for (const id of ids) {
-    indeg.set(id, 0)
-    adj.set(id, [])
-  }
-  for (const [id, task] of Object.entries(tasks)) {
-    for (const dep of task.after ?? []) {
-      if (!indeg.has(dep)) continue
-      adj.get(dep)?.push(id)
-      indeg.set(id, (indeg.get(id) ?? 0) + 1)
-    }
-  }
-  const q = ids.filter((id) => (indeg.get(id) ?? 0) === 0)
-  let seen = 0
-  while (q.length > 0) {
-    const n = q.shift()
-    if (!n) break
-    seen++
-    for (const m of adj.get(n) ?? []) {
-      const next = (indeg.get(m) ?? 0) - 1
-      indeg.set(m, next)
-      if (next === 0) q.push(m)
-    }
-  }
-  return seen !== ids.length
 }
 
 function cascadeSkips(
@@ -117,8 +85,10 @@ export function interpretRun(view: RunnerView, receipts: ReceiptBundle): Interpr
   if (hasUnknownAfter(planTasks)) {
     return closed(out, 'UNKNOWN_TASK_EDGE')
   }
+  if (graphHasCycle(planTasks)) {
+    return closed(out, 'CYCLE')
+  }
 
-  const hadExisting = Object.keys(out.tasks).length > 0
   cascadeSkips(taskIds, planTasks, out.tasks)
 
   const readyTaskIds = taskIds.filter((id) => {
@@ -132,10 +102,7 @@ export function interpretRun(view: RunnerView, receipts: ReceiptBundle): Interpr
   const hasSkip = taskIds.some((id) => out.tasks[id]?.outcome === 'skip')
 
   let stuck: InterpretStuckCode | undefined
-  if (readyTaskIds.length === 0 && pendingRemain) {
-    if (graphHasCycle(planTasks) && !hadExisting) stuck = 'CYCLE'
-    else if (!hasFail) stuck = 'DAG_STUCK'
-  }
+  if (readyTaskIds.length === 0 && pendingRemain && !hasFail) stuck = 'DAG_STUCK'
 
   const allPresentOk = taskIds.every((id) => out.tasks[id]?.outcome === 'ok')
   const rollup: InterpretRollup =
