@@ -41,9 +41,9 @@ export async function runInvokeStep(input: {
   persist: typeof persistBundle
   db: D1Database
   ids: { runId: string; orgId: string }
-}): Promise<ReceiptBundle> {
+}): Promise<void> {
   const { step, invoke, hasTool, view, taskId, tool, args, bundle, persist, db, ids } = input
-  const result = await step(
+  await step(
     `invoke:${taskId}`,
     async (): Promise<StepResult> => {
       let rec: TaskReceipt
@@ -77,11 +77,5 @@ export async function runInvokeStep(input: {
         : { outcome: 'fail', errorCode: rec.errorCode ?? 'INVOKE_FAILED' }
     },
     noRetry,
-  )
-  return withTask(
-    bundle,
-    result.outcome === 'ok'
-      ? { taskId, outcome: 'ok' }
-      : { taskId, outcome: 'fail', errorCode: result.errorCode },
   )
 }

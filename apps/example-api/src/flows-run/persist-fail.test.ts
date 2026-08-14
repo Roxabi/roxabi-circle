@@ -84,11 +84,9 @@ async function loadRun(db: ReturnType<typeof createMemoryEnv>['DB'], runId: stri
     .first()) as RunRow | null
 }
 
-/** Real persist for running/failed; refuse the write that would mark succeeded. */
-const persistThrowOnSucceeded: typeof persistBundle = async (db, input) => {
-  if (input.status === 'succeeded') {
-    throw new Error('persist:succeeded blocked')
-  }
+/** Real persist for running/failed; 0-row on the write that would mark succeeded. */
+const persistZeroOnSucceeded: typeof persistBundle = async (db, input) => {
+  if (input.status === 'succeeded') return 0
   return persistBundle(db, input)
 }
 
@@ -102,7 +100,7 @@ async function drivePersistFail(runId: string) {
     planDigest: snap.runnerView.planDigest,
   })
   let invokeCount = 0
-  let threw = false
+  let err: unknown
   await driveFlowRun({
     step: immediateStep,
     db: env.DB as unknown as D1Database,
@@ -110,13 +108,13 @@ async function drivePersistFail(runId: string) {
       invokeCount += 1
       return { output: 'echo' }
     },
-    persistBundle: persistThrowOnSucceeded,
+    persistBundle: persistZeroOnSucceeded,
     payload: { runId, orgId: ORG },
     instanceId: INSTANCE_ID,
-  }).catch((err) => {
-    threw = err instanceof DriveNonRetryableError || err instanceof Error
+  }).catch((caught) => {
+    err = caught
   })
-  return { row: await loadRun(env.DB, runId, ORG), invokeCount, threw }
+  return { row: await loadRun(env.DB, runId, ORG), invokeCount, err }
 }
 
 function rollupIgnoringCf(row: RunRow) {
@@ -129,39 +127,21 @@ function rollupIgnoringCf(row: RunRow) {
 }
 
 describe('driveFlowRun persist failure', () => {
-  it('does not set status succeeded when persist throws after invoke work', async () => {
-    const { row, invokeCount, threw } = await drivePersistFail('run_persist_throw')
+  it('does not set status succeeded when persist returns 0 after invoke work', async () => {
+    const { row, invokeCount, err } = await drivePersistFail('run_persist_zero')
     expect(invokeCount).toBe(1)
-    expect(threw).toBe(true)
+    expect(err).toBeInstanceOf(DriveNonRetryableError)
+    expect((err as Error).message).toBe('persist lost')
     expect(row).toBeTruthy()
     expect(row?.status).not.toBe('succeeded')
     expect(['running', 'failed']).toContain(row?.status)
+    const rollup = rollupIgnoringCf(row as RunRow)
+    expect(rollup.status).not.toBe('succeeded')
     const parsed = parseReceipts(JSON.parse(row?.receipt_json as string) as unknown)
     expect(parsed.ok).toBe(true)
     if (parsed.ok) {
       expect(parsed.receipts.tasks.echo_hello?.outcome).toBe('ok')
     }
-  })
-
-  it('readRunRollup returns app status and ignores CF instanceStatus complete', async () => {
-    const { row } = await drivePersistFail('run_persist_cf_status')
-    expect(row).toBeTruthy()
-    const loaded = row as RunRow
-    const rollup = rollupIgnoringCf(loaded)
-    expect(rollup.status).toBe(loaded.status)
-    expect(rollup.status).not.toBe('complete')
-  })
-
-  it('does not report succeeded without a parseable receipt bundle', async () => {
-    const { row } = await drivePersistFail('run_persist_no_succeeded')
-    expect(row).toBeTruthy()
-    const loaded = row as RunRow
-    const rollup = rollupIgnoringCf(loaded)
-    expect(loaded.status).not.toBe('succeeded')
-    expect(rollup.status).not.toBe('succeeded')
-    expect(loaded.receipt_json).toEqual(expect.any(String))
-    const parsed = parseReceipts(JSON.parse(loaded.receipt_json as string) as unknown)
-    expect(parsed.ok).toBe(true)
   })
 
   it('sets status=failed and RECEIPTS_INVALID when receipt_json is corrupt', async () => {

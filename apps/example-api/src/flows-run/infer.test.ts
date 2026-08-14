@@ -209,7 +209,7 @@ describe('driveFlowRun infer meter', () => {
     const receipt = receiptOf(row?.receipt_json ?? null)
     expect(receipt.tasks.infer_a?.outcome).toBe('fail')
     expect(receipt.tasks.infer_a?.errorCode).toBe('INFER_FAILED')
-    expect(stepNames.some((name) => name.startsWith('infer:'))).toBe(false)
+    expect(stepNames.some((name) => name === 'infer:infer_a')).toBe(true)
   })
 
   it('fails infer_a with TOKEN_CEILING when actual tokens exceed hardMaxTokens and does not keep overflow', async () => {

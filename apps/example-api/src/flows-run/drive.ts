@@ -197,7 +197,7 @@ export async function driveFlowRun(input: {
     for (const taskId of result.readyTaskIds) {
       const task = view.sealedPlan.tasks[taskId]
       if (task?.invoke) {
-        bundle = await runInvokeStep({
+        await runInvokeStep({
           step,
           invoke,
           hasTool,
@@ -211,7 +211,7 @@ export async function driveFlowRun(input: {
           ids,
         })
       } else if (task?.infer) {
-        bundle = await runInferStep({
+        await runInferStep({
           step,
           infer,
           view,
@@ -230,7 +230,25 @@ export async function driveFlowRun(input: {
             [taskId]: { taskId, outcome: 'fail', errorCode: 'INVOKE_FAILED' },
           },
         }
+        await writeBundle(step, persist, db, `persist:fail:${taskId}`, {
+          ...ids,
+          status: 'running',
+          bundle,
+        })
       }
+      const latest = await loadRun(db, runId, orgId)
+      const next = latest ? receiptsFromRow(latest.receipt_json, taskIds) : null
+      if (!next) {
+        return await failClosed(
+          step,
+          persist,
+          db,
+          'persist:invalid-receipts',
+          ids,
+          'RECEIPTS_INVALID',
+        )
+      }
+      bundle = next
     }
     wave += 1
   }

@@ -2,7 +2,7 @@ import { createRunSnapshot, createToolRegistry, loadPlanFromYaml } from '@kit/fl
 import { describe, expect, it } from 'vitest'
 import { createMemoryEnv } from '../test/memory-env'
 import { type DriveStep, driveFlowRun } from './drive'
-import { INVOKE_ONLY_PLAN_YAML } from './fixtures'
+import { INVOKE_ONLY_PLAN_YAML, TWO_SIBLING_INVOKE_PLAN_YAML } from './fixtures'
 
 type RunRow = {
   status: string
@@ -117,8 +117,11 @@ async function loadRun(db: ReturnType<typeof createMemoryEnv>['DB'], runId: stri
 }
 
 function receiptTasks(receiptJson: string | null) {
-  return (JSON.parse(receiptJson as string) as { tasks?: Record<string, { outcome?: string }> })
-    .tasks
+  return (
+    JSON.parse(receiptJson as string) as {
+      tasks?: Record<string, { outcome?: string; output?: string }>
+    }
+  ).tasks
 }
 
 async function driveSealed(runId: string, extra?: { enabled?: number; planJson?: string }) {
@@ -174,5 +177,44 @@ describe('driveFlowRun success', () => {
     expect(tasks?.echo_hello?.outcome).toBe('ok')
     expect(tasks).not.toHaveProperty('mutated')
     expect(ports.invokeCount).toBe(1)
+  })
+
+  it('keeps both sibling invoke outputs after persist:terminal', async () => {
+    const env = createMemoryEnv()
+    const plan = loadPlanFromYaml(TWO_SIBLING_INVOKE_PLAN_YAML)
+    const snap = createRunSnapshot({
+      plan,
+      grant: {
+        orgId: 'org_a',
+        allowedTools: ['echo'],
+        registryVersion: registry.version,
+        allowsInfer: false,
+      },
+      registry,
+      actorId: 'actor_1',
+    })
+    if (!snap.ok) {
+      throw new Error(`sibling snapshot failed: ${snap.issues.map((i) => i.code).join(',')}`)
+    }
+    await insertQueued(env.DB, {
+      runId: 'run_siblings',
+      orgId: 'org_a',
+      snapshotJson: JSON.stringify(snap.runnerView),
+      planDigest: snap.runnerView.planDigest,
+    })
+    await driveFlowRun({
+      step: immediateStep,
+      db: env.DB as unknown as D1Database,
+      invoke: async (task) => ({ output: String(task.args?.text ?? '') }),
+      payload: { runId: 'run_siblings', orgId: 'org_a' },
+      instanceId: INSTANCE_ID,
+    })
+    const row = await loadRun(env.DB, 'run_siblings', 'org_a')
+    const tasks = receiptTasks(row?.receipt_json ?? null)
+    expect(row?.status).toBe('succeeded')
+    expect(tasks?.echo_a?.outcome).toBe('ok')
+    expect(tasks?.echo_b?.outcome).toBe('ok')
+    expect(tasks?.echo_a?.output).toBe('alpha')
+    expect(tasks?.echo_b?.output).toBe('beta')
   })
 })

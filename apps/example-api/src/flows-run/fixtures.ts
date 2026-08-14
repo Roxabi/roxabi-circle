@@ -13,3 +13,23 @@ tasks:
       args:
         text: hello-flows
 `
+
+/** Two independent invoke siblings — both ready in wave 0. */
+export const TWO_SIBLING_INVOKE_PLAN_YAML = `flows: v0
+plan:
+  id: two-echo
+permits:
+  tools:
+    - echo
+tasks:
+  echo_a:
+    invoke:
+      tool: echo
+      args:
+        text: alpha
+  echo_b:
+    invoke:
+      tool: echo
+      args:
+        text: beta
+`
