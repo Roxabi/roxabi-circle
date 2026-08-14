@@ -75,5 +75,42 @@
       },
       "autoUpdate": true
     }
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "timeout": 60,
+            "command": "bash \"${CLAUDE_PROJECT_DIR}/scripts/ccc-index-if-ready.sh\""
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit|search_replace",
+        "hooks": [
+          {
+            "type": "command",
+            "timeout": 30,
+            "command": "bash \"${CLAUDE_PROJECT_DIR}/scripts/ccc-index-if-ready.sh\""
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash|run_terminal_command",
+        "hooks": [
+          {
+            "type": "command",
+            "timeout": 10,
+            "command": "bash \"${CLAUDE_PROJECT_DIR}/scripts/semctx-guard-if-present.sh\""
+          }
+        ]
+      }
+    ]
   }
 }

@@ -86,9 +86,9 @@ effectivement annotées.
 ## Workspace
 
 `.semctx/` suit une **denylist** : seul l'état généré est ignoré (`semctx.db`, `working/`,
-`context-packs/`). Tout ce qui est *authored* se commit — `config.json` (règles bloquantes) et
-`semantic/*.sem` (plan autorisé). Une allowlist ici est un piège : `.semctx/*` plus une négation
-laisse tomber en silence ce que le prochain contributeur ajoute.
+`context-packs/`, `verification-state.json`). Tout ce qui est *authored* se commit — `config.json`
+(règles bloquantes) et `semantic/*.sem` (plan autorisé). Une allowlist ici est un piège :
+`.semctx/*` plus une négation laisse tomber en silence ce que le prochain contributeur ajoute.
 
 Contrepartie à connaître : un futur répertoire **généré** par semctx serait trackable par défaut
 et aucun gate ne rattraperait le commit — l'ajouter à la denylist au moment où il apparaît.
