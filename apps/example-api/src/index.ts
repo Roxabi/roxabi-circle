@@ -36,4 +36,5 @@ export default {
   },
 }
 
+export { FlowRunWorkflow } from './flows-run/workflow'
 export { createApp }

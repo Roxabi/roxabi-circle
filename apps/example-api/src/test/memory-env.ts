@@ -107,9 +107,15 @@ function makeR2() {
   }
 }
 
+type FlowRunParams = { runId: string; orgId: string }
+
 export type EnvLike = {
   DB: ReturnType<typeof makeD1>
   BUCKET: ReturnType<typeof makeR2>
+  /** Structural stub — Env.FLOW_RUN is required; Hono tests must still typecheck. */
+  FLOW_RUN: {
+    create: (opts?: { id?: string; params?: FlowRunParams }) => Promise<{ id: string }>
+  }
   SESSION_SECRET?: string
   ENVIRONMENT?: string
   CORS_ORIGINS?: string
@@ -131,6 +137,9 @@ export function createMemoryEnv(overrides?: Partial<EnvLike>): EnvLike {
   return {
     DB: makeD1(sqlite),
     BUCKET: makeR2(),
+    FLOW_RUN: {
+      create: async (opts) => ({ id: opts?.id ?? 'wf_test' }),
+    },
     SESSION_SECRET: 'test-session-secret-at-least-32-chars!',
     BETTER_AUTH_SECRET: 'test-better-auth-secret-at-least-32!!',
     BETTER_AUTH_URL: 'http://localhost:8787',
