@@ -53,6 +53,7 @@ export function profileErrorMessage(err: unknown, m: Messages): string {
   if (status === 401 || code === 'UNAUTHORIZED') return m.errUnauthorized
   if (status === 429 || code === 'RATE_LIMITED') return m.errRateLimited
   if (status === 400 || code === 'VALIDATION_ERROR') return m.errValidation
+  if (isServerError(err)) return m.errInternal
   return apiErrorToMessage(err, m)
 }
 

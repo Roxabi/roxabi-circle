@@ -68,7 +68,7 @@ describe('LoginMagicForm', () => {
 
     expect(onSent).not.toHaveBeenCalled()
     expect(toast.message).not.toHaveBeenCalled()
-    expect(toast.error).toHaveBeenCalled()
+    expect(toast.error).toHaveBeenCalledWith(en.error, { description: en.errInternal })
     expect(toast.message).not.toHaveBeenCalledWith('Check your email', expect.anything())
     expect(toast.message).not.toHaveBeenCalledWith(en.magicSentTitle, expect.anything())
   })

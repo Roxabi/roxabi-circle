@@ -108,6 +108,12 @@ describe('profileErrorMessage', () => {
     expect(profileErrorMessage(apiErr(429, 'RATE_LIMITED'), en)).toBe(en.errRateLimited)
     expect(profileErrorMessage(new Error('HTTP 429'), en)).toBe(en.errRateLimited)
   })
+
+  it('maps empty-body HTTP 500 and status-less failures to catalog internal copy', () => {
+    expect(profileErrorMessage(new Error('HTTP 500'), en)).toBe(en.errInternal)
+    expect(profileErrorMessage(new Error('network down'), en)).toBe(en.errInternal)
+    expect(profileErrorMessage(apiErr(500, 'INTERNAL_ERROR'), en)).toBe(en.errInternal)
+  })
 })
 
 describe('loginErrorMessage', () => {
