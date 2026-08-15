@@ -1018,7 +1018,7 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     expect(ok.headers.get('access-control-allow-origin')).toBe('http://localhost:5173')
   })
 
-  it('GET /api/modules returns demo disabled by default (configured without remote)', async () => {
+  it('GET /api/modules returns demo enabled after dogfood seed (configured without remote)', async () => {
     const app = createApp()
     const env = createMemoryEnv()
     const cookie = await loginAs(app, env, DEMO_EMAIL, DEMO_PASSWORD)
@@ -1027,8 +1027,9 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     const body = (await res.json()) as {
       modules: { demo: { enabled: boolean; configured: boolean; configPath: string } }
     }
+    // /api/modules.enabled ← platform.available; N0 seed makes demo available.
     expect(body.modules.demo).toMatchObject({
-      enabled: false,
+      enabled: true,
       configured: true,
       configPath: '/admin/modules',
     })

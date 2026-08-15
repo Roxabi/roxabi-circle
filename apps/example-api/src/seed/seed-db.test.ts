@@ -17,7 +17,8 @@ describe('seedDemoDatabase', () => {
     expect(first.notes.every((n) => n.created)).toBe(true)
     expect(first.notes).toHaveLength(SEED_NOTES.length)
 
-    expect(first.modules.find((m) => m.id === 'demo')?.enabled).toBe(false)
+    // N0: tenancy seed makes demo platform-available; /api/modules.enabled maps that flag.
+    expect(first.modules.find((m) => m.id === 'demo')?.enabled).toBe(true)
     // demo module needs no remote credentials
     expect(first.modules.find((m) => m.id === 'demo')?.configured).toBe(true)
 
