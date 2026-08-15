@@ -195,15 +195,8 @@ export async function seedDemoDatabase(
   await modulesService.ensureKitModules(db)
   // ADR-0003 dual-level catalogue (migrated from kit_modules via SQL + ensure)
   await platformModulesService.ensurePlatformModules(db)
-  const modulesAfter = await modulesService.getModulesState(db)
-  const modules = Object.entries(modulesAfter).map(([id, state]) => ({
-    id,
-    enabled: state.enabled,
-    configured: state.configured,
-    created: !beforeIds.has(id),
-  }))
 
-  // Multi-tenant BA personas/orgs (dev|test only)
+  // Multi-tenant BA personas/orgs (dev|test only) — may flip platform.available (N0 demo)
   let tenancy: TenancySeedResult | undefined
   try {
     tenancy = await seedTenancyDemo(db, { environment: opts?.environment ?? 'test' })
@@ -211,6 +204,14 @@ export async function seedDemoDatabase(
     // Pre-migration or incomplete BA schema — skip tenancy seed
     tenancy = undefined
   }
+
+  const modulesAfter = await modulesService.getModulesState(db)
+  const modules = Object.entries(modulesAfter).map(([id, state]) => ({
+    id,
+    enabled: state.enabled,
+    configured: state.configured,
+    created: !beforeIds.has(id),
+  }))
 
   return { reset, users, notes, items, modules, tenancy }
 }

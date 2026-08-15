@@ -1,6 +1,7 @@
 import { parseOrThrow } from '@kit/core'
 import { Hono } from 'hono'
 import { z } from 'zod'
+import { requireModule, requireOrgContext } from '../middleware/org-context'
 import { requireAuth } from '../middleware/require-auth'
 import * as itemsService from '../services/items'
 import type { AppEnv } from '../types'
@@ -24,6 +25,9 @@ const updateItemSchema = z.object({
 
 export const itemsRoutes = new Hono<AppEnv>()
 
+const orgMw = requireOrgContext()
+const demoWrite = requireModule('demo', 'write')
+
 itemsRoutes.use('/api/items', requireAuth)
 itemsRoutes.use('/api/items/*', requireAuth)
 
@@ -34,7 +38,7 @@ itemsRoutes.get('/api/items', async (c) => {
   return c.json({ items, requestId: c.get('requestId') })
 })
 
-itemsRoutes.post('/api/items', async (c) => {
+itemsRoutes.post('/api/items', orgMw, demoWrite, async (c) => {
   const raw = await c.req.json().catch(() => null)
   const data = parseOrThrow(createItemSchema, raw, 'Invalid item')
   const db = c.get('db')!
@@ -48,7 +52,7 @@ itemsRoutes.get('/api/items/:id', async (c) => {
   return c.json({ item, requestId: c.get('requestId') })
 })
 
-itemsRoutes.patch('/api/items/:id', async (c) => {
+itemsRoutes.patch('/api/items/:id', orgMw, demoWrite, async (c) => {
   const raw = await c.req.json().catch(() => null)
   const data = parseOrThrow(updateItemSchema, raw, 'Invalid item patch')
   const db = c.get('db')!
@@ -56,7 +60,7 @@ itemsRoutes.patch('/api/items/:id', async (c) => {
   return c.json({ item, requestId: c.get('requestId') })
 })
 
-itemsRoutes.delete('/api/items/:id', async (c) => {
+itemsRoutes.delete('/api/items/:id', orgMw, demoWrite, async (c) => {
   const db = c.get('db')!
   await itemsService.removeItem(db, c.req.param('id'), c.get('subject')!)
   return c.json({ ok: true, requestId: c.get('requestId') })

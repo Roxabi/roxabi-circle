@@ -14,6 +14,8 @@ BETTER_AUTH_URL=http://localhost:8787
 CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 # Prefer tenancy BA users after seed (staff@ / solo@ …) — see README / tenancy-data.ts
 DEMO_USER_EMAIL=staff@kit.local
+# SMTP_* — Node @kit/email/server (Mailpit) only. Unused by wrangler Worker.
+# EMAIL_TRANSPORT=smtp throws on Worker (assertEmailTransportAllowed).
 SMTP_HOST=127.0.0.1
 SMTP_PORT=1025
 # Email (ADR-0004) — Worker path: log (local) | cf (staging/prod binding) | resend (escape hatch)

@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>#75 D1 residuals — file × function map</title>
+  <style>
+    :root { color-scheme: dark; --bg:#0b0f14; --card:#141a22; --line:#3d8bfd; --text:#e7ecf3; --muted:#8b98a8; --ok:#3ecf8e; }
+    * { box-sizing: border-box; }
+    body { margin:0; font:14px/1.45 system-ui,sans-serif; background:var(--bg); color:var(--text); padding:2rem; }
+    h1 { font-size:1.15rem; margin:0 0 1.5rem; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:1rem; }
+    .node { background:var(--card); border:1px solid #243041; border-radius:12px; padding:1rem 1.15rem; }
+    .node.hub { border-color:var(--line); box-shadow:0 0 24px rgba(61,139,253,.28); }
+    .node h2 { margin:0 0 .4rem; font-size:.82rem; color:var(--line); }
+    .node ul { margin:0; padding-left:1.1rem; font-size:.78rem; color:var(--muted); }
+    code { color:var(--ok); }
+    .legend { margin-top:1.5rem; color:var(--muted); font-size:.8rem; }
+  </style>
+</head>
+<body>
+  <h1>#75 — files and call sites</h1>
+  <div class="grid">
+    <div class="node">
+      <h2>docs (V1)</h2>
+      <ul>
+        <li><code>README.md</code></li>
+        <li><code>AGENTS.md</code></li>
+        <li><code>docs/staging-examples.md</code></li>
+        <li><code>docs/observability.md</code></li>
+        <li><code>.dev.vars.example</code></li>
+      </ul>
+    </div>
+    <div class="node hub">
+      <h2>example-web auth (V2)</h2>
+      <ul>
+        <li><code>account-errors.ts</code> → <code>isServerError</code></li>
+        <li><code>login-magic-form.tsx</code> catch</li>
+        <li><code>messages/{fr,en}.ts</code></li>
+        <li>tests: account-errors + form</li>
+      </ul>
+    </div>
+    <div class="node hub">
+      <h2>example-api items (V3)</h2>
+      <ul>
+        <li><code>seed-tenancy.ts</code> N0</li>
+        <li><code>routes/items.ts</code> write grant</li>
+        <li><code>items.test.ts</code> 403 pin</li>
+      </ul>
+    </div>
+    <div class="node">
+      <h2>example-web items (V3)</h2>
+      <ul>
+        <li><code>routes/items.tsx</code></li>
+        <li><code>X-Org-Id</code> on mutations</li>
+        <li>hide write if <code>reader</code></li>
+      </ul>
+    </div>
+    <div class="node">
+      <h2>reuse (no new pkg)</h2>
+      <ul>
+        <li><code>requireModule</code> / <code>requireOrgContext</code></li>
+        <li><code>resolveStatusCode</code> (private → export helper)</li>
+        <li>tasks.ts as middleware pattern</li>
+      </ul>
+    </div>
+  </div>
+  <p class="legend">No <code>packages/*</code> product strings. GET items stays subject-scoped.</p>
+</body>
+</html>

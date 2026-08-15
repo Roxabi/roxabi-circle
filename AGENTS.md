@@ -431,8 +431,8 @@ Ref pattern : `kit-boilerplate` (`errorCodes`, `errorUtils`, `ApiError`).
 
 | Env | Transport | UI / inspection |
 |---|---|---|
-| **local** | `log` (default dev) **ou** SMTP → **Mailpit** (`docker compose`) | Console redacted · UI Mailpit `http://127.0.0.1:8025` |
-| **staging** | `cf` (preferred) **ou** SMTP catcher ; allowlist + subject `[TEST STAGING]` + From `@example.com` | Pas de spam client réel |
+| **local** | Worker = `log` (console redacted). SMTP → **Mailpit** = Node `@kit/email/server` only — **jamais** Worker (`assertEmailTransportAllowed`) | Console Worker · Mailpit `http://127.0.0.1:8025` (Node only) |
+| **staging** | Worker = `cf` (preferred) **ou** `resend` ; allowlist + subject `[TEST STAGING]` + From `@example.com`. SMTP catcher = Node `@kit/email/server` only — **jamais** var Worker | Pas de spam client réel |
 | **prod** | **`cf`** Cloudflare Email Sending binding (default) · `resend` escape hatch | Logs CF / provider — **pas** de catcher |
 
 **Décision kit** (`@kit/email`, shipped #21) :
@@ -441,13 +441,13 @@ Ref pattern : `kit-boilerplate` (`errorCodes`, `errorUtils`, `ApiError`).
 EMAIL_TRANSPORT=log | smtp | cf | resend
 # log  → development|test only (fail-closed elsewhere)
 # cf   → Workers EMAIL binding (prod default)
-# smtp → Mailpit local/staging
+# smtp → Mailpit — Node @kit/email/server only, never Worker (local or staging)
 # resend → optional escape (RESEND_API_KEY)
 ```
 
 - Templates kit : invite, reset-password, demo (copy FR-first).  
 - **Jamais** `EMAIL_TRANSPORT=log` en staging/prod.  
-- Compose local : service `mailpit` dans `docker-compose.yml` (SMTP 1025 · UI 8025).
+- Compose local : service `mailpit` dans `docker-compose.yml` (SMTP 1025 · UI 8025) — **Node** `@kit/email/server` only, pas le path Worker / `wrangler`.
 
 ---
 
@@ -571,7 +571,7 @@ kit/
 | **B2** | `packages/db`+`storage` generic · R2 helper demo · migrations pattern |
 | **B3** | `packages/auth` Better Auth SessionPort + cookies · key hash demo · **not** share domain |
 | **B4** | `example-web` TanStack+shadcn Base UI · i18n FR/EN · ApiError client |
-| **B5** | FastMCP `mcp-example` · email + Mailpit compose · rate-limit/audit stubs |
+| **B5** | FastMCP `mcp-example` · email + Mailpit compose (Node `@kit/email/server` only) · rate-limit/audit stubs |
 | **B6** | Extract dry-run CI · docs kit · Sentry/Better Stack hooks · Playwright smoke examples |
 | **P1 later** | `apps/share-*` product slices M0–M6 **on top of** kit |
 

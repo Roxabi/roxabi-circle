@@ -34,9 +34,10 @@ cd apps/example-api && bun run dev
 cd apps/example-web && bun run dev
 # → http://127.0.0.1:5173  (proxy /api → :8787)
 
-# Mailpit (email demo)
-docker compose up -d mailpit
-# UI http://127.0.0.1:8025
+# Worker mail = EMAIL_TRANSPORT=log (wrangler console, redacted). Not Mailpit.
+# Mailpit is Node @kit/email/server only — never wrangler + smtp (throws on Worker).
+# Optional Node catcher: docker compose up -d mailpit  # UI http://127.0.0.1:8025
+# See docs/email-cf-runbook.md
 
 # MCP stdio
 cd apps/mcp-example && bun run start
