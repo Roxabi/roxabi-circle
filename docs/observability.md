@@ -28,4 +28,4 @@
 ## Local
 
 - `console` JSON is enough for `wrangler dev`
-- Mailpit UI for email (see `docker-compose.yml`)
+- Worker email = `EMAIL_TRANSPORT=log` (console, redacted). Mailpit is Node `@kit/email/server` only — not the wrangler inbox

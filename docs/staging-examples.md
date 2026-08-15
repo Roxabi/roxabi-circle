@@ -22,8 +22,8 @@
 
 | Env | `ENVIRONMENT` | Email | Notes |
 |---|---|---|---|
-| local | `development` | `log` or Mailpit `smtp` | `.dev.vars` |
-| staging | `staging` | `cf` preferred or SMTP catcher | allowlist + `[TEST STAGING]` |
+| local | `development` | Worker `log` (console). Mailpit `smtp` = Node `@kit/email/server` only — never Worker | `.dev.vars` |
+| staging | `staging` | Worker `cf` preferred or `resend`. SMTP catcher = Node only (not a Worker var) | allowlist + `[TEST STAGING]` |
 | prod | `production` | `cf` | no log transport |
 
 **Never** set `ENVIRONMENT=development` or `EMAIL_TRANSPORT=log` on staging/prod (fail-closed).
@@ -38,7 +38,7 @@
 | `SESSION_SECRET` / cookie config | Session (see env schema / `.dev.vars.example`) |
 | `SESSION_COOKIE_NAME` | Optional override |
 | `CORS_ORIGINS` | Explicit SPA origin(s) |
-| `EMAIL_TRANSPORT` | `cf` or `smtp` (**not** `log`) |
+| `EMAIL_TRANSPORT` | `cf` or `resend` (**not** `log`, **not** `smtp`) |
 | `EMAIL_FROM` | Staging From `@example.com` |
 | `EMAIL_ALLOW_DOMAINS` | Required for staging + cf/resend (ADR-0004) |
 | Bindings | `DB`, `BUCKET`, `EMAIL` (if cf) |
