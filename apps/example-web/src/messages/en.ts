@@ -14,7 +14,8 @@ export const en: Messages = {
   forgotEmailHint: 'Generic response (no account enumeration). Local log transport.',
   forgotEmailRequired: 'Email is required',
   forgotSentTitle: 'Request recorded',
-  forgotSentDesc: 'If an account exists, a reset email was sent (check log / Mailpit).',
+  forgotSentDesc:
+    'If an account exists, a reset email was sent (local log transport — Worker console).',
   resetPasswordTitle: 'New password',
   resetPasswordDesc: 'Choose a password with at least 8 characters.',
   resetPasswordNew: 'New password',
@@ -40,7 +41,8 @@ export const en: Messages = {
   loginModeMagic: 'Magic link',
   magicSubmit: 'Send magic link',
   magicSentTitle: 'Check your email',
-  magicSentDesc: 'If an account exists, a sign-in link was sent (check log / Mailpit).',
+  magicSentDesc:
+    'If an account exists, a sign-in link was sent (local log transport — Worker console).',
   magicHint: 'Generic response (no account enumeration). Link valid about 5 minutes.',
   email: 'Email',
   password: 'Password',
@@ -75,7 +77,7 @@ export const en: Messages = {
   language: 'Language',
   me: 'Account',
   sendEmail: 'Send demo email',
-  emailSent: 'Demo email sent (see Mailpit :8025)',
+  emailSent: 'Demo email sent (local log transport — Worker console)',
   mailpit: 'Mailpit',
   health: 'API',
   empty: 'No notes yet',

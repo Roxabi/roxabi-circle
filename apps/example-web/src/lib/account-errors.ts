@@ -17,6 +17,14 @@ export function isRateLimited(err: unknown): boolean {
   return status === 429 || code === 'RATE_LIMITED'
 }
 
+/** Status ≥ 500 (`ApiError` or `Error('HTTP N')`); status-less failures fail-closed. */
+export function isServerError(err: unknown): boolean {
+  const { status } = resolveStatusCode(err)
+  if (status != null && status >= 500) return true
+  if (status == null && err != null) return true
+  return false
+}
+
 /**
  * Map BA / kit errors for **change-password** toasts only.
  * BA often returns non-kit envelopes → `Error('HTTP {status}')` from apiFetch.

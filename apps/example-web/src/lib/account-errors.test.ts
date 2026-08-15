@@ -3,6 +3,7 @@ import { en } from '../messages/en'
 import {
   changePasswordErrorMessage,
   isRateLimited,
+  isServerError,
   loginErrorMessage,
   profileErrorMessage,
   signupErrorMessage,
@@ -25,6 +26,36 @@ describe('isRateLimited', () => {
     expect(isRateLimited(new Error('HTTP 401'))).toBe(false)
     expect(isRateLimited(apiErr(401, 'UNAUTHORIZED'))).toBe(false)
     expect(isRateLimited(new Error('nope'))).toBe(false)
+  })
+})
+
+describe('isServerError', () => {
+  it('detects empty-body Error(HTTP 500) as server error (walk fixture)', () => {
+    expect(isServerError(new Error('HTTP 500'))).toBe(true)
+  })
+
+  it('detects kit ApiError 500 / INTERNAL_ERROR', () => {
+    expect(
+      isServerError(
+        new ApiError(500, {
+          error: { code: 'INTERNAL_ERROR', message: 'x' },
+          requestId: 'r',
+        }),
+      ),
+    ).toBe(true)
+  })
+
+  it('does not treat 429 or 400 as server error', () => {
+    expect(isServerError(new Error('HTTP 429'))).toBe(false)
+    expect(isServerError(new Error('HTTP 400'))).toBe(false)
+  })
+
+  it('treats status-less failures as fail-closed server error', () => {
+    expect(isServerError(new Error('network down'))).toBe(true)
+  })
+
+  it('is false for null', () => {
+    expect(isServerError(null)).toBe(false)
   })
 })
 
