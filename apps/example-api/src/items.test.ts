@@ -100,23 +100,34 @@ describe('MasterData demo_items API', () => {
     const idorGet = await app.request(`/api/items/${id}`, { headers: { cookie: cookieB } }, env)
     expect(idorGet.status).toBe(404)
 
+    // Two write-capable members of org_acme: grant passes; subject WHERE must still 404.
+    const ownerCookie = await loginAs(app, env, 'team-owner@kit.local', TENANCY_PASSWORD)
     const idorPatch = await app.request(
       `/api/items/${id}`,
       {
         method: 'PATCH',
-        headers: sessionMutation(cookieB),
+        headers: sessionMutationOrg(ownerCookie, 'org_acme'),
         body: JSON.stringify({ label: 'Hacked' }),
       },
       env,
     )
-    expect(idorPatch.status).toBe(400)
+    expect(idorPatch.status).toBe(404)
 
     const idorDel = await app.request(
       `/api/items/${id}`,
-      { method: 'DELETE', headers: sessionMutation(cookieB) },
+      { method: 'DELETE', headers: sessionMutationOrg(ownerCookie, 'org_acme') },
       env,
     )
-    expect(idorDel.status).toBe(400)
+    expect(idorDel.status).toBe(404)
+
+    const stillStaff = await app.request(
+      `/api/items/${id}`,
+      { headers: { cookie: staffCookie } },
+      env,
+    )
+    expect(stillStaff.status).toBe(200)
+    const kept = (await stillStaff.json()) as { item: { label: string } }
+    expect(kept.item.label).toBe('Alpha item')
 
     const patch = await app.request(
       `/api/items/${id}`,

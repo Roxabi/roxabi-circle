@@ -68,8 +68,23 @@ describe('LoginMagicForm', () => {
 
     expect(onSent).not.toHaveBeenCalled()
     expect(toast.message).not.toHaveBeenCalled()
+    expect(toast.error).toHaveBeenCalled()
     expect(toast.message).not.toHaveBeenCalledWith('Check your email', expect.anything())
     expect(toast.message).not.toHaveBeenCalledWith(en.magicSentTitle, expect.anything())
+  })
+
+  it('calls onSent and shows magicSentTitle on 2xx', async () => {
+    const onSent = vi.fn()
+    fetchMock.mockResolvedValueOnce({})
+    wrap(<LoginMagicForm next={undefined} onSent={onSent} />)
+
+    await submitValidEmail()
+
+    expect(onSent).toHaveBeenCalledTimes(1)
+    expect(toast.message).toHaveBeenCalledWith(en.magicSentTitle, {
+      description: en.magicSentDesc,
+    })
+    expect(toast.error).not.toHaveBeenCalled()
   })
 
   it('does not call onSent when apiFetch rejects Error(HTTP 429)', async () => {

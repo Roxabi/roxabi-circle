@@ -78,7 +78,7 @@ export const en: Messages = {
   me: 'Account',
   sendEmail: 'Send demo email',
   emailSent: 'Demo email sent (local log transport — Worker console)',
-  mailpit: 'Mailpit',
+  mailpit: 'Local log (Worker console)',
   health: 'API',
   empty: 'No notes yet',
   error: 'Error',

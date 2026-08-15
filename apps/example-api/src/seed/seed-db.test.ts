@@ -1,6 +1,7 @@
 import { createDb } from '@kit/db'
 import { describe, expect, it } from 'vitest'
 import { demoUsers, schema } from '../db/schema'
+import { isModuleEffective } from '../services/platform-modules'
 import { createMemoryEnv } from '../test/memory-env'
 import { SEED_NOTES, SEED_USERS } from './demo-data'
 import { ensureDemoUsers, seedDemoDatabase } from './seed-db'
@@ -21,6 +22,9 @@ describe('seedDemoDatabase', () => {
     expect(first.modules.find((m) => m.id === 'demo')?.enabled).toBe(true)
     // demo module needs no remote credentials
     expect(first.modules.find((m) => m.id === 'demo')?.configured).toBe(true)
+    expect(await isModuleEffective(db, 'org_acme', 'demo')).toBe(true)
+    expect(await isModuleEffective(db, 'org_team', 'demo')).toBe(true)
+    expect(await isModuleEffective(db, 'org_beta', 'demo')).toBe(false)
 
     const second = await seedDemoDatabase(db, { now: 2_000, environment: 'test' })
     expect(second.users.every((u) => !u.created)).toBe(true)

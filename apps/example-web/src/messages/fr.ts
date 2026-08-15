@@ -371,7 +371,7 @@ export const fr: Messages = {
   me: 'Compte',
   sendEmail: 'Envoyer e-mail démo',
   emailSent: 'E-mail démo envoyé (transport log en local — console Worker)',
-  mailpit: 'Mailpit',
+  mailpit: 'Log local (console Worker)',
   health: 'API',
   empty: 'Aucune note pour l’instant',
   error: 'Erreur',
