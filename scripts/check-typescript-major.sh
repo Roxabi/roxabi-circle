@@ -17,18 +17,30 @@ PIN_RE='^\^7(\.[0-9]+){0,2}$'
 fail=0
 stray_ok=0
 
-pin_value() {
+# Print every typescript range in dependencies / devDependencies / optionalDependencies.
+# rc 1 = none; rc 2 = present but not a string (unparseable).
+pin_values() {
   local file="$1"
-  local line val
-  line="$(grep -E '"typescript"' "$file" || true)"
-  [[ -z "$line" ]] && return 1
-  val=""
-  if [[ "$line" =~ \"typescript\"[[:space:]]*:[[:space:]]*\"([^\"]+)\" ]]; then
-    val="${BASH_REMATCH[1]}"
-  fi
-  [[ -z "$val" ]] && return 2
-  printf '%s' "$val"
-  return 0
+  python3 - "$file" <<'PY'
+import json, sys
+path = sys.argv[1]
+try:
+    data = json.load(open(path))
+except (OSError, json.JSONDecodeError):
+    sys.exit(2)
+found = []
+for key in ("dependencies", "devDependencies", "optionalDependencies"):
+    block = data.get(key)
+    if not isinstance(block, dict) or "typescript" not in block:
+        continue
+    val = block["typescript"]
+    if not isinstance(val, str) or val == "":
+        sys.exit(2)
+    found.append(val)
+if not found:
+    sys.exit(1)
+print("\n".join(found))
+PY
 }
 
 if [[ ! -f package.json ]]; then
@@ -36,26 +48,31 @@ if [[ ! -f package.json ]]; then
   exit 1
 fi
 
-root_pin=""
+root_pins=""
 root_rc=0
-root_pin="$(pin_value package.json)" || root_rc=$?
+root_pins="$(pin_values package.json)" || root_rc=$?
 if [[ "$root_rc" -eq 1 ]]; then
   echo "check-typescript-major: package.json has no typescript pin (expected exclusive ^7.x)" >&2
   fail=1
 elif [[ "$root_rc" -eq 2 ]]; then
   echo "check-typescript-major: package.json could not parse typescript pin" >&2
   fail=1
-elif [[ ! "$root_pin" =~ $PIN_RE ]]; then
-  echo "check-typescript-major: package.json pin must match exclusive ^7.x (got: $root_pin)" >&2
-  fail=1
+else
+  while IFS= read -r root_pin; do
+    [[ -z "$root_pin" ]] && continue
+    if [[ ! "$root_pin" =~ $PIN_RE ]]; then
+      echo "check-typescript-major: package.json pin must match exclusive ^7.x (got: $root_pin)" >&2
+      fail=1
+    fi
+  done <<<"$root_pins"
 fi
 
-# Leftover workspace pins (inherit is the default). If present, they must match ^7.
+# Leftover workspace pins (inherit is the default). If present, every dep pin must match ^7.
 shopt -s nullglob
 for f in packages/*/package.json apps/*/package.json; do
-  val=""
+  vals=""
   rc=0
-  val="$(pin_value "$f")" || rc=$?
+  vals="$(pin_values "$f")" || rc=$?
   if [[ "$rc" -eq 1 ]]; then
     continue
   fi
@@ -64,12 +81,18 @@ for f in packages/*/package.json apps/*/package.json; do
     fail=1
     continue
   fi
-  if [[ ! "$val" =~ $PIN_RE ]]; then
-    echo "check-typescript-major: $f leftover pin must match exclusive ^7.x (got: $val)" >&2
-    fail=1
-    continue
+  leftover_ok=1
+  while IFS= read -r val; do
+    [[ -z "$val" ]] && continue
+    if [[ ! "$val" =~ $PIN_RE ]]; then
+      echo "check-typescript-major: $f leftover pin must match exclusive ^7.x (got: $val)" >&2
+      leftover_ok=0
+      fail=1
+    fi
+  done <<<"$vals"
+  if [[ "$leftover_ok" -eq 1 ]]; then
+    stray_ok=$((stray_ok + 1))
   fi
-  stray_ok=$((stray_ok + 1))
 done
 
 if [[ ! -f bun.lock ]]; then
