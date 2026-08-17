@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# Fail if kit manifests pin typescript outside exclusive ^7.x, or if bun.lock has
-# non-allowlisted typescript@5./@6. package keys, or if the lock lacks a positive
-# typescript@7. resolution. Kit compiler must be 7.x.
+# Fail if the root (global) typescript pin is not exclusive ^7.x, if a leftover
+# workspace pin is not ^7.x, if bun.lock has non-allowlisted typescript@5./@6.
+# keys, or if the lock lacks a positive typescript@7. resolution.
+# Workspaces inherit the root pin — no census list.
 # Allowlist: empty by default. Dual-install (API 6 + native tsc 7) may add exact keys later.
 set -euo pipefail
 
@@ -9,60 +10,66 @@ set -euo pipefail
 ROOT="${TS_MAJOR_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
 cd "$ROOT"
 
-# package.json files that must declare typescript ^7 (root + all workspaces that pin it)
-PIN_FILES=(
-  package.json
-  packages/api-client/package.json
-  packages/auth/package.json
-  packages/core/package.json
-  packages/db/package.json
-  packages/email/package.json
-  packages/flows/package.json
-  packages/i18n/package.json
-  packages/mcp/package.json
-  packages/storage/package.json
-  packages/types/package.json
-  packages/ui/package.json
-  apps/example-api/package.json
-  apps/example-web/package.json
-  apps/mcp-example/package.json
-)
-
 # Exclusive ^7 pin: caret + major 7 only — reject || dual-ranges, spaces, npm: aliases, 5/6.
 # Accepts: ^7 | ^7.0 | ^7.0.2
 PIN_RE='^\^7(\.[0-9]+){0,2}$'
 
 fail=0
-pin_count=0
+stray_ok=0
 
-for f in "${PIN_FILES[@]}"; do
-  if [[ ! -f "$f" ]]; then
-    echo "check-typescript-major: missing $f" >&2
-    fail=1
-    continue
-  fi
-  line="$(grep -E '"typescript"' "$f" || true)"
-  if [[ -z "$line" ]]; then
-    echo "check-typescript-major: $f has no typescript pin (expected ^7.x)" >&2
-    fail=1
-    continue
-  fi
-  # Extract first double-quoted value after "typescript"
+pin_value() {
+  local file="$1"
+  local line val
+  line="$(grep -E '"typescript"' "$file" || true)"
+  [[ -z "$line" ]] && return 1
   val=""
   if [[ "$line" =~ \"typescript\"[[:space:]]*:[[:space:]]*\"([^\"]+)\" ]]; then
     val="${BASH_REMATCH[1]}"
   fi
-  if [[ -z "$val" ]]; then
-    echo "check-typescript-major: $f could not parse typescript pin: $line" >&2
+  [[ -z "$val" ]] && return 2
+  printf '%s' "$val"
+  return 0
+}
+
+if [[ ! -f package.json ]]; then
+  echo "check-typescript-major: missing package.json" >&2
+  exit 1
+fi
+
+root_pin=""
+root_rc=0
+root_pin="$(pin_value package.json)" || root_rc=$?
+if [[ "$root_rc" -eq 1 ]]; then
+  echo "check-typescript-major: package.json has no typescript pin (expected exclusive ^7.x)" >&2
+  fail=1
+elif [[ "$root_rc" -eq 2 ]]; then
+  echo "check-typescript-major: package.json could not parse typescript pin" >&2
+  fail=1
+elif [[ ! "$root_pin" =~ $PIN_RE ]]; then
+  echo "check-typescript-major: package.json pin must match exclusive ^7.x (got: $root_pin)" >&2
+  fail=1
+fi
+
+# Leftover workspace pins (inherit is the default). If present, they must match ^7.
+shopt -s nullglob
+for f in packages/*/package.json apps/*/package.json; do
+  val=""
+  rc=0
+  val="$(pin_value "$f")" || rc=$?
+  if [[ "$rc" -eq 1 ]]; then
+    continue
+  fi
+  if [[ "$rc" -eq 2 ]]; then
+    echo "check-typescript-major: $f could not parse typescript pin" >&2
     fail=1
     continue
   fi
   if [[ ! "$val" =~ $PIN_RE ]]; then
-    echo "check-typescript-major: $f pin must match exclusive ^7.x (got: $val)" >&2
+    echo "check-typescript-major: $f leftover pin must match exclusive ^7.x (got: $val)" >&2
     fail=1
     continue
   fi
-  pin_count=$((pin_count + 1))
+  stray_ok=$((stray_ok + 1))
 done
 
 if [[ ! -f bun.lock ]]; then
@@ -120,4 +127,4 @@ if [[ "$fail" -ne 0 ]]; then
   exit 1
 fi
 
-echo "check-typescript-major: OK (${pin_count} pins exclusive ^7; typescript@7. in lock; no non-allowlisted @5/@6)"
+echo "check-typescript-major: OK (root exclusive ^7; ${stray_ok} leftover workspace pin(s) match; typescript@7. in lock; no non-allowlisted @5/@6)"
