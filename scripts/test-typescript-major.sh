@@ -18,25 +18,6 @@ fi
 PASS=0
 FAIL=0
 
-# Same census as check-typescript-major.sh PIN_FILES
-PIN_PATHS=(
-  package.json
-  packages/api-client/package.json
-  packages/auth/package.json
-  packages/core/package.json
-  packages/db/package.json
-  packages/email/package.json
-  packages/flows/package.json
-  packages/i18n/package.json
-  packages/mcp/package.json
-  packages/storage/package.json
-  packages/types/package.json
-  packages/ui/package.json
-  apps/example-api/package.json
-  apps/example-web/package.json
-  apps/mcp-example/package.json
-)
-
 assert_case() {
   local name="$1"
   local expect="$2"
@@ -64,11 +45,10 @@ assert_case() {
   PASS=$((PASS + 1))
 }
 
-write_pin() {
+write_root() {
   local file="$1"
   local range="$2"
   mkdir -p "$(dirname "${file}")"
-  # Minimal package.json — only typescript pin matters for the checker
   cat >"${file}" <<EOF
 {
   "name": "fixture",
@@ -80,13 +60,31 @@ write_pin() {
 EOF
 }
 
-seed_pins() {
-  local base="$1"
-  local range="$2"
-  local p
-  for p in "${PIN_PATHS[@]}"; do
-    write_pin "${base}/${p}" "${range}"
-  done
+write_workspace() {
+  local file="$1"
+  local range="${2:-}"
+  mkdir -p "$(dirname "${file}")"
+  if [[ -n "$range" ]]; then
+    cat >"${file}" <<EOF
+{
+  "name": "fixture-ws",
+  "private": true,
+  "devDependencies": {
+    "typescript": "${range}"
+  }
+}
+EOF
+  else
+    cat >"${file}" <<'EOF'
+{
+  "name": "fixture-ws",
+  "private": true,
+  "devDependencies": {
+    "vitest": "^4.1.10"
+  }
+}
+EOF
+  fi
 }
 
 # Minimal bun.lock lines the checker greps (not a full valid lockfile)
@@ -126,51 +124,162 @@ write_lock_empty() {
 EOF
 }
 
+write_lock_ts6() {
+  local base="$1"
+  cat >"${base}/bun.lock" <<'EOF'
+{
+  "lockfileVersion": 1,
+  "packages": {
+    "typescript": ["typescript@7.0.2", "", {}, "sha512-fixture"],
+    "evil-tool/typescript": ["typescript@6.0.2", "", {}, "sha512-fixture-6"]
+  }
+}
+EOF
+}
+
+write_root_no_pin() {
+  local file="$1"
+  mkdir -p "$(dirname "${file}")"
+  cat >"${file}" <<'EOF'
+{
+  "name": "fixture",
+  "private": true,
+  "devDependencies": {
+    "vitest": "^4.1.10"
+  }
+}
+EOF
+}
+
+write_workspace_json() {
+  local file="$1"
+  mkdir -p "$(dirname "${file}")"
+  cat >"${file}"
+}
+
 echo "== CP-TS-MAJOR self-test =="
 TMP="$(mktemp -d -t cp-ts-major-XXXXXX)"
 trap 'rm -rf "$TMP"' EXIT
 
-# --- 0 golden ^7 + typescript@7 lock → 0 ---
+# --- 0 golden: root ^7, workspaces inherit (no pin), lock@7 → 0 ---
 G0="${TMP}/golden"
-seed_pins "${G0}" "^7.0.2"
+write_root "${G0}/package.json" "^7.0.2"
+write_workspace "${G0}/packages/core/package.json"
 write_lock_ts7 "${G0}"
-assert_case "0 golden ^7.0.2 + lock@7 → 0" 0 "${G0}" "OK"
+assert_case "0 golden root ^7 inherit + lock@7 → 0" 0 "${G0}" "0 leftover workspace pin(s) match"
 
-# --- 1 pin still ^5.9 → 1 ---
+# --- 1 root pin still ^5.9 → 1 ---
 B5="${TMP}/pin5"
-seed_pins "${B5}" "^5.9.0"
+write_root "${B5}/package.json" "^5.9.0"
 write_lock_ts7 "${B5}"
-assert_case "1 pin ^5.9.0 → 1" 1 "${B5}" "exclusive ^7"
+assert_case "1 root pin ^5.9.0 → 1" 1 "${B5}" "exclusive ^7"
 
-# --- 2 dual-range pin → 1 ---
+# --- 2 root dual-range pin → 1 ---
 OR="${TMP}/or-range"
-seed_pins "${OR}" "^7.0.2 || ^5.9.0"
+write_root "${OR}/package.json" "^7.0.2 || ^5.9.0"
 write_lock_ts7 "${OR}"
-assert_case "2 pin dual-range || → 1" 1 "${OR}" "exclusive ^7"
+assert_case "2 root pin dual-range || → 1" 1 "${OR}" "exclusive ^7"
 
 # --- 3 lock residual typescript@5 → 1 ---
 L5="${TMP}/lock5"
-seed_pins "${L5}" "^7.0.2"
+write_root "${L5}/package.json" "^7.0.2"
 write_lock_ts5 "${L5}"
 assert_case "3 lock typescript@5 → 1" 1 "${L5}" "typescript@5/6"
 
 # --- 4 lock missing typescript@7 → 1 ---
 L0="${TMP}/lock-empty"
-seed_pins "${L0}" "^7.0.2"
+write_root "${L0}/package.json" "^7.0.2"
 write_lock_empty "${L0}"
 assert_case "4 lock missing typescript@7 → 1" 1 "${L0}" "missing positive typescript@7"
 
-# --- 5 pin ^6 → 1 ---
+# --- 5 root pin ^6 → 1 ---
 B6="${TMP}/pin6"
-seed_pins "${B6}" "^6.0.2"
+write_root "${B6}/package.json" "^6.0.2"
 write_lock_ts7 "${B6}"
-assert_case "5 pin ^6.0.2 → 1" 1 "${B6}" "exclusive ^7"
+assert_case "5 root pin ^6.0.2 → 1" 1 "${B6}" "exclusive ^7"
 
-# --- 6 bare 7.0.2 (no caret) → 1 ---
+# --- 6 root bare 7.0.2 (no caret) → 1 ---
 BARE="${TMP}/bare"
-seed_pins "${BARE}" "7.0.2"
+write_root "${BARE}/package.json" "7.0.2"
 write_lock_ts7 "${BARE}"
-assert_case "6 pin bare 7.0.2 → 1" 1 "${BARE}" "exclusive ^7"
+assert_case "6 root pin bare 7.0.2 → 1" 1 "${BARE}" "exclusive ^7"
+
+# --- 7 leftover workspace pin ^5.9 → 1 ---
+STRAY="${TMP}/stray"
+write_root "${STRAY}/package.json" "^7.0.2"
+write_workspace "${STRAY}/packages/feedback/package.json" "^5.9.0"
+write_lock_ts7 "${STRAY}"
+assert_case "7 leftover workspace pin ^5.9.0 → 1" 1 "${STRAY}" "leftover pin"
+
+# --- 8 leftover workspace pin ^7 is ok (matches global) → 0 ---
+MATCH="${TMP}/match"
+write_root "${MATCH}/package.json" "^7.0.2"
+write_workspace "${MATCH}/packages/feedback/package.json" "^7.0.2"
+write_lock_ts7 "${MATCH}"
+assert_case "8 leftover workspace pin ^7 → 0" 0 "${MATCH}" "1 leftover workspace pin(s) match"
+
+# --- 9 leftover apps/* pin ^5.9 → 1 ---
+APP="${TMP}/apps-stray"
+write_root "${APP}/package.json" "^7.0.2"
+write_workspace "${APP}/apps/example-api/package.json" "^5.9.0"
+write_lock_ts7 "${APP}"
+assert_case "9 leftover apps pin ^5.9.0 → 1" 1 "${APP}" "leftover pin"
+
+# --- 10 root has no typescript pin → 1 ---
+NOPIN="${TMP}/root-nopin"
+write_root_no_pin "${NOPIN}/package.json"
+write_lock_ts7 "${NOPIN}"
+assert_case "10 root has no typescript pin → 1" 1 "${NOPIN}" "has no typescript pin"
+
+# --- 11 leftover dual-range (second key) → 1 ---
+DUAL="${TMP}/leftover-dual"
+write_root "${DUAL}/package.json" "^7.0.2"
+write_workspace_json "${DUAL}/packages/feedback/package.json" <<'EOF'
+{
+  "name": "fixture-ws",
+  "private": true,
+  "peerDependencies": {
+    "typescript": "^7.0.2"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2 || ^5.9.0"
+  }
+}
+EOF
+write_lock_ts7 "${DUAL}"
+assert_case "11 leftover peer^7 + dev dual-range → 1" 1 "${DUAL}" "leftover pin"
+
+# --- 12 lock residual typescript@6 → 1 ---
+L6="${TMP}/lock6"
+write_root "${L6}/package.json" "^7.0.2"
+write_lock_ts6 "${L6}"
+assert_case "12 lock typescript@6 → 1" 1 "${L6}" "typescript@5/6"
+
+# --- 13 missing package.json → 1 ---
+NOPKG="${TMP}/no-pkg"
+mkdir -p "${NOPKG}"
+write_lock_ts7 "${NOPKG}"
+assert_case "13 missing package.json → 1" 1 "${NOPKG}" "missing package.json"
+
+# --- 14 missing bun.lock file → 1 ---
+NOLOCK="${TMP}/no-lock"
+write_root "${NOLOCK}/package.json" "^7.0.2"
+assert_case "14 bun.lock missing → 1" 1 "${NOLOCK}" "bun.lock missing"
+
+# --- 15 unparseable leftover pin → 1 ---
+BAD="${TMP}/unparseable"
+write_root "${BAD}/package.json" "^7.0.2"
+write_workspace_json "${BAD}/packages/core/package.json" <<'EOF'
+{
+  "name": "fixture-ws",
+  "private": true,
+  "devDependencies": {
+    "typescript": true
+  }
+}
+EOF
+write_lock_ts7 "${BAD}"
+assert_case "15 leftover unparseable pin → 1" 1 "${BAD}" "could not parse"
 
 echo "== CP-TS-MAJOR summary: ${PASS} pass, ${FAIL} fail =="
 if [[ "${FAIL}" -ne 0 ]]; then

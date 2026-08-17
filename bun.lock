@@ -36,7 +36,6 @@
         "@cloudflare/workers-types": "^4.20250620.0",
         "@types/better-sqlite3": "^7.6.13",
         "better-sqlite3": "^13.0.2",
-        "typescript": "^7.0.2",
         "vitest": "^4.1.10",
         "wrangler": "^4.20.0",
       },
@@ -73,7 +72,6 @@
         "happy-dom": "^20.10.6",
         "playwright-core": "^1.61.1",
         "tailwindcss": "^4.1.0",
-        "typescript": "^7.0.2",
         "vite": "^8.2.0",
         "vitest": "^4.1.10",
       },
@@ -89,7 +87,6 @@
       "devDependencies": {
         "@types/bun": "^1.2.0",
         "@types/node": "^22.15.0",
-        "typescript": "^7.0.2",
         "vitest": "^4.1.10",
       },
     },
@@ -100,7 +97,6 @@
         "@kit/types": "workspace:*",
       },
       "devDependencies": {
-        "typescript": "^7.0.2",
         "vitest": "^4.1.10",
       },
     },
@@ -111,7 +107,6 @@
         "@kit/core": "workspace:*",
       },
       "devDependencies": {
-        "typescript": "^7.0.2",
         "vitest": "^4.1.10",
       },
       "peerDependencies": {
@@ -128,7 +123,6 @@
         "zod": "^4.4.3",
       },
       "devDependencies": {
-        "typescript": "^7.0.2",
         "vitest": "^4.1.10",
       },
     },
@@ -143,7 +137,6 @@
         "@kit/types": "workspace:*",
       },
       "devDependencies": {
-        "typescript": "^7.0.2",
         "vitest": "^4.1.10",
         "zod": "^4.4.3",
       },
@@ -158,7 +151,6 @@
         "@cloudflare/workers-types": "^4.20250620.0",
         "@types/better-sqlite3": "^7.6.13",
         "better-sqlite3": "^13.0.2",
-        "typescript": "^7.0.2",
         "vitest": "^4.1.10",
       },
     },
@@ -166,7 +158,6 @@
       "name": "@kit/email",
       "version": "0.0.1",
       "devDependencies": {
-        "typescript": "^7.0.2",
         "vitest": "^4.1.10",
       },
     },
@@ -178,7 +169,6 @@
         "zod": "^4.4.3",
       },
       "devDependencies": {
-        "typescript": "^7.0.2",
         "vitest": "^4.1.10",
       },
     },
@@ -186,7 +176,6 @@
       "name": "@kit/i18n",
       "version": "0.0.1",
       "devDependencies": {
-        "typescript": "^7.0.2",
         "vitest": "^4.1.10",
       },
     },
@@ -198,7 +187,6 @@
         "zod": "^4.4.3",
       },
       "devDependencies": {
-        "typescript": "^7.0.2",
         "vitest": "^4.1.10",
       },
     },
@@ -207,7 +195,6 @@
       "version": "0.0.1",
       "devDependencies": {
         "@cloudflare/workers-types": "^4.20250620.0",
-        "typescript": "^7.0.2",
         "vitest": "^4.1.10",
       },
     },
@@ -218,7 +205,6 @@
         "zod": "^4.4.3",
       },
       "devDependencies": {
-        "typescript": "^7.0.2",
         "vitest": "^4.1.10",
       },
     },
@@ -226,7 +212,6 @@
       "name": "@kit/types",
       "version": "0.0.1",
       "devDependencies": {
-        "typescript": "^7.0.2",
         "vitest": "^4.1.10",
       },
     },
@@ -259,7 +244,6 @@
         "react-dom": "^19.1.0",
         "shadcn": "^4.13.0",
         "tailwindcss": "^4.1.0",
-        "typescript": "^7.0.2",
         "vite": "^8.2.0",
         "vitest": "^4.1.10",
       },
