@@ -8,7 +8,7 @@ set -euo pipefail
 shopt -s nullglob
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd -P)"
-CATALOG="${ROOT}/config/kit-schema-modules.json"
+CATALOG="${KIT_SCHEMA_CATALOG:-${ROOT}/config/kit-schema-modules.json}"
 
 die() {
   echo "kit-schema-sync: $*" >&2
@@ -32,17 +32,23 @@ file_sha256() {
   printf '%s' "${out%% *}" | tr 'A-F' 'a-f'
 }
 
-# Hash kit-source bytes: headed product files are header + blank + body; raw clones are the whole file.
+# Hash kit-source bytes: headed files must be exactly 4 comment lines + blank + body.
 payload_sha256() {
   local f="$1"
   KIT_SCHEMA_FILE="$f" bun -e '
 const fs = require("fs");
 const crypto = require("crypto");
 const buf = fs.readFileSync(process.env.KIT_SCHEMA_FILE);
-const headed = buf.subarray(0, 15).toString("utf8") === "-- kit-schema: ";
-const start = buf.indexOf(Buffer.from("\n\n"));
-const payload = headed && start >= 0 ? buf.subarray(start + 2) : buf;
-process.stdout.write(crypto.createHash("sha256").update(payload).digest("hex"));
+const text = buf.toString("utf8").replace(/\r\n/g, "\n");
+if (text.startsWith("-- kit-schema: ")) {
+  const nl = text.indexOf("\n\n");
+  if (nl < 0) process.exit(2);
+  const header = text.slice(0, nl).split("\n");
+  if (header.length !== 4 || !header.every((l) => l.startsWith("-- "))) process.exit(2);
+  process.stdout.write(crypto.createHash("sha256").update(text.slice(nl + 2), "utf8").digest("hex"));
+} else {
+  process.stdout.write(crypto.createHash("sha256").update(buf).digest("hex"));
+}
 '
 }
 
@@ -326,9 +332,11 @@ is_claimed() {
   [[ -n "${CLAIMED[$rel]+x}" ]]
 }
 
+# Sets MATCH to the path. Return 0 found, 1 not found. Fatals die in this shell.
 find_sql_by_sha() {
   local want="$1"
   local f sha rel list
+  MATCH=""
   list="$(list_sql_files "${MIG_DIR}")" || die "failed to list ${MIG_DIR}"
   while IFS= read -r f; do
     [[ -n "${f}" ]] || continue
@@ -336,19 +344,21 @@ find_sql_by_sha() {
     if is_claimed "${rel}"; then
       continue
     fi
-    sha="$(file_sha256 "${f}")"
+    sha="$(file_sha256 "${f}")" || die "sha256 failed for ${f}"
     if [[ "${sha}" == "${want}" ]]; then
-      printf '%s' "${f}"
+      MATCH="${f}"
       return 0
     fi
   done <<< "${list}"$'\n'
   return 1
 }
 
+# Bind any unclaimed -- kit-schema: ${id} file. Payload miss → die (never append).
 find_sql_by_header() {
   local id="$1"
   local want="$2"
   local f line1 line2 rel list payload
+  MATCH=""
   list="$(list_sql_files "${MIG_DIR}")" || die "failed to list ${MIG_DIR}"
   while IFS= read -r f; do
     [[ -n "${f}" ]] || continue
@@ -362,13 +372,15 @@ find_sql_by_header() {
     } <"${f}"
     line1="${line1%$'\r'}"
     line2="${line2%$'\r'}"
-    if [[ "${line1}" == "-- kit-schema: ${id}" && "${line2}" == "-- kit-sha256: ${want}" ]]; then
-      payload="$(payload_sha256 "${f}")"
-      if [[ "${payload}" == "${want}" ]]; then
-        printf '%s' "${f}"
-        return 0
-      fi
+    if [[ "${line1}" != "-- kit-schema: ${id}" ]]; then
+      continue
     fi
+    payload="$(payload_sha256 "${f}")" || die "headed ${id} is not a canonical kit header (${rel})"
+    if [[ "${line2}" == "-- kit-sha256: ${want}" && "${payload}" == "${want}" ]]; then
+      MATCH="${f}"
+      return 0
+    fi
+    die "headed ${id} drifted; not rewriting ${rel}"
   done <<< "${list}"$'\n'
   return 1
 }
@@ -409,7 +421,7 @@ while [[ $i -lt ${#MODULE_IDS[@]} ]]; do
     rec_rel="${MANIFEST_FILE[$id]}"
     rec_path="${APP_DIR}/${rec_rel}"
     [[ -f "${rec_path}" ]] || die "recorded ${id} missing ${rec_rel}"
-    rec_payload="$(payload_sha256 "${rec_path}")"
+    rec_payload="$(payload_sha256 "${rec_path}")" || die "recorded ${id} is not a readable payload ${rec_rel}"
     if [[ "${rec_payload}" != "${kit_sha}" ]]; then
       die "recorded ${id} body drifted; not rewriting ${rec_rel}"
     fi
@@ -417,8 +429,9 @@ while [[ $i -lt ${#MODULE_IDS[@]} ]]; do
   fi
 
   if [[ -z "${MANIFEST_SHA[$id]+x}" ]]; then
-    match=""
-    if match="$(find_sql_by_sha "${kit_sha}")"; then
+    MATCH=""
+    if find_sql_by_sha "${kit_sha}"; then
+      match="${MATCH}"
       rel="$(rel_sql "${match}")"
       PLAN_KIND+=("record")
       PLAN_ID+=("${id}")
@@ -429,7 +442,9 @@ while [[ $i -lt ${#MODULE_IDS[@]} ]]; do
       claim "${rel}"
       continue
     fi
-    if match="$(find_sql_by_header "${id}" "${kit_sha}")"; then
+    MATCH=""
+    if find_sql_by_header "${id}" "${kit_sha}"; then
+      match="${MATCH}"
       rel="$(rel_sql "${match}")"
       PLAN_KIND+=("record")
       PLAN_ID+=("${id}")
@@ -474,8 +489,9 @@ fi
 
 write_manifest() {
   local tmp id cid in_catalog rows
-  tmp="$(mktemp)"
-  rows="$(mktemp)"
+  mkdir -p "$(dirname -- "${MANIFEST}")"
+  tmp="$(mktemp "${MANIFEST}.XXXXXX")"
+  rows="$(mktemp "${MANIFEST}.rows.XXXXXX")"
   for id in "${MODULE_IDS[@]}"; do
     if [[ -n "${MANIFEST_SHA[$id]+x}" ]]; then
       printf '%s\t%s\t%s\n' "${id}" "${MANIFEST_SHA[$id]}" "${MANIFEST_FILE[$id]}"

@@ -37,10 +37,17 @@ bash scripts/kit-schema-sync.sh --app apps/<product>-api --modules all   # every
 D1 journal = filename. Do **not** rename applied files. Do **not** rewrite `d1_migrations`.
 
 1. Freeze domain history already at `0009`–`0020` (or whatever you applied).
-2. Adopt kit files already present (records manifest without recopying / without colliding numbers):
+2. Adopt kit files already present. `--adopt` is fail-closed: selected modules must match kit bytes (or already be recorded). It does **not** append missing modules.
 
 ```bash
 bash scripts/kit-schema-sync.sh --app apps/<product>-api --adopt
+# default --modules core — records 0001–0008 clones; unmatched selected ids exit 1
+```
+
+Later kit sets append **without** `--adopt`:
+
+```bash
+bash scripts/kit-schema-sync.sh --app apps/<product>-api --modules audit
 ```
 
 3. Later kit modules **append** as local `NNNN_kit_*.sql` (e.g. `0021_kit_rate_limit_audit.sql`).

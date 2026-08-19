@@ -14,37 +14,38 @@ if [[ ! -f "${SCRIPT}" ]]; then
   exit 1
 fi
 
-# Catalog projection — derived, not a second SSoT.
+# Catalog projection — same TSV path as the SUT (no eval of JSON.stringify).
 CATALOG_IDS=()
 CATALOG_FILES=()
 CATALOG_SETS=()
 CATALOG_SHAS=()
 CORE_IDS=()
-eval "$(
+SOURCE_ROOT=""
+CATALOG_TSV="$(
   KIT_SCHEMA_CATALOG="${CATALOG}" bun -e '
 const fs = require("fs");
 const data = JSON.parse(fs.readFileSync(process.env.KIT_SCHEMA_CATALOG, "utf8"));
-const ids = [];
-const files = [];
-const sets = [];
-const shas = [];
-const core = [];
+if (typeof data.source_root !== "string") process.exit(1);
+console.log("#SOURCE_ROOT\t" + data.source_root);
 for (const m of data.modules) {
-  ids.push(m.id);
-  files.push(m.file);
-  sets.push(m.set);
-  shas.push(m.kitSha256);
-  if (m.set === "core") core.push(m.id);
+  console.log([m.id, m.file, m.set, m.kitSha256].join("\t"));
 }
-const q = (xs) => xs.map((s) => JSON.stringify(s)).join(" ");
-console.log("CATALOG_IDS=(" + q(ids) + ")");
-console.log("CATALOG_FILES=(" + q(files) + ")");
-console.log("CATALOG_SETS=(" + q(sets) + ")");
-console.log("CATALOG_SHAS=(" + q(shas) + ")");
-console.log("CORE_IDS=(" + q(core) + ")");
-console.log("SOURCE_ROOT=" + JSON.stringify(data.source_root));
 '
-)"
+)" || { echo "FAIL: catalog extract" >&2; exit 1; }
+while IFS=$'\t' read -r c1 c2 c3 c4; do
+  if [[ "${c1}" == "#SOURCE_ROOT" ]]; then
+    SOURCE_ROOT="${c2}"
+    continue
+  fi
+  [[ -n "${c1}" ]] || continue
+  CATALOG_IDS+=("${c1}")
+  CATALOG_FILES+=("${c2}")
+  CATALOG_SETS+=("${c3}")
+  CATALOG_SHAS+=("${c4}")
+  if [[ "${c3}" == "core" ]]; then
+    CORE_IDS+=("${c1}")
+  fi
+done <<< "${CATALOG_TSV}"$'\n'
 
 PASS=0
 FAIL=0
@@ -180,17 +181,13 @@ else
   done
 fi
 if [[ "${ok0}" -eq 1 ]] && git -C "${ROOT}" show origin/main:config/kit-schema-modules.json >/dev/null 2>&1; then
+  set +e
   pin_drift="$(
-    KIT_SCHEMA_CATALOG="${CATALOG}" KIT_SCHEMA_ROOT="${ROOT}" bun -e '
+    KIT_SCHEMA_CATALOG="${CATALOG}" bun -e '
 const fs = require("fs");
-const { execFileSync } = require("child_process");
 const now = JSON.parse(fs.readFileSync(process.env.KIT_SCHEMA_CATALOG, "utf8"));
-let prevRaw;
-try {
-  prevRaw = execFileSync("git", ["-C", process.env.KIT_SCHEMA_ROOT, "show", "origin/main:config/kit-schema-modules.json"], { encoding: "utf8" });
-} catch { process.exit(0); }
-const prev = JSON.parse(prevRaw);
-if (!Array.isArray(prev.modules)) process.exit(0);
+const prev = JSON.parse(fs.readFileSync("/dev/stdin", "utf8"));
+if (!Array.isArray(prev.modules)) process.exit(1);
 const nowMap = Object.fromEntries((now.modules || []).map((m) => [m.id, m.kitSha256]));
 const drifted = prev.modules
   .filter((m) => m && m.id && m.kitSha256 && nowMap[m.id] && nowMap[m.id] !== m.kitSha256)
@@ -199,11 +196,16 @@ if (drifted.length) {
   console.log(drifted.join(","));
   process.exit(2);
 }
-'
-  )" || true
-  if [[ -n "${pin_drift}" ]]; then
+' < <(git -C "${ROOT}" show origin/main:config/kit-schema-modules.json)
+  )"
+  pin_ec=$?
+  set -e
+  if [[ "${pin_ec}" -eq 2 ]]; then
     ok0=0
     detail0="published id hash changed vs origin/main: ${pin_drift}"
+  elif [[ "${pin_ec}" -ne 0 ]]; then
+    ok0=0
+    detail0="pin-drift checker failed (exit ${pin_ec})"
   fi
 fi
 if [[ "${ok0}" -eq 1 ]]; then
@@ -254,7 +256,7 @@ copy_sql_range "${A1B}/migrations" 1 8
 run_sync --app "${A1B}" --modules all --adopt
 if [[ "${RUN_EC}" -ne 0 && "${RUN_OUT}" == *"adopt unmatched"* \
   && "$(sql_count "${A1B}/migrations")" == "8" \
-  && ! -e "${A1B}/migrations/0009_kit_rate_limit_audit.sql" \
+  && ! -e "${A1B}/migrations/0009_kit_organization_roles.sql" \
   && ! -f "${A1B}/kit-schema-manifest.json" ]]; then
   pass "1b adopt-all on 0001-0008 exits 1, writes 0"
 else
@@ -490,6 +492,101 @@ if [[ "${RUN_EC}" -ne 0 && "${RUN_OUT}" == *"adopt unmatched"* \
   pass "11 adopt on mutated 0001 exits 1, no rewrite"
 else
   fail_case "11 adopt on mutated 0001 exits 1, no rewrite" \
+    "exit=${RUN_EC} out=$(echo "${RUN_OUT}" | tr '\n' ' ')"
+fi
+
+# --- 13: catalog pin mismatch via KIT_SCHEMA_CATALOG ---
+echo "-- 13 catalog pin mismatch --"
+A13="${TMP}/case13"
+copy_sql_range "${A13}/migrations" 1 8
+BAD_CAT="${TMP}/bad-catalog.json"
+KIT_SCHEMA_OUT="${BAD_CAT}" KIT_SCHEMA_CATALOG="${CATALOG}" bun -e '
+const fs = require("fs");
+const m = JSON.parse(fs.readFileSync(process.env.KIT_SCHEMA_CATALOG, "utf8"));
+m.modules[0].kitSha256 = "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
+fs.writeFileSync(process.env.KIT_SCHEMA_OUT, JSON.stringify(m, null, 2) + "\n");
+'
+set +e
+RUN_OUT="$(KIT_SCHEMA_CATALOG="${BAD_CAT}" bash "${SCRIPT}" --app "${A13}" --modules core 2>&1)"
+RUN_EC=$?
+set -e
+if [[ "${RUN_EC}" -eq 1 && "${RUN_OUT}" == *"catalog pin mismatch"* \
+  && "$(sql_count "${A13}/migrations")" == "8" ]]; then
+  pass "13 catalog pin mismatch exits 1, no write"
+else
+  fail_case "13 catalog pin mismatch exits 1, no write" \
+    "exit=${RUN_EC} out=$(echo "${RUN_OUT}" | tr '\n' ' ')"
+fi
+
+# --- 14: headed body drifted, no manifest → die, no extra kit file ---
+echo "-- 14 headed body drifted --"
+A14="${TMP}/case14"
+copy_sql_range "${A14}/migrations" 1 8
+run_sync --app "${A14}" --modules core
+if [[ "${RUN_EC}" -ne 0 ]]; then
+  fail_case "14 seed core" "exit=${RUN_EC}"
+fi
+run_sync --app "${A14}" --modules core,audit
+printf '\n-- smuggled\n' >>"${A14}/migrations/0009_kit_rate_limit_audit.sql"
+rm -f "${A14}/kit-schema-manifest.json"
+sql_before14="$(sql_count "${A14}/migrations")"
+run_sync --app "${A14}" --modules core,audit
+if [[ "${RUN_EC}" -eq 1 && "${RUN_OUT}" == *"headed rate_limit_audit drifted"* \
+  && "$(sql_count "${A14}/migrations")" == "${sql_before14}" \
+  && ! -f "${A14}/migrations/0010_kit_rate_limit_audit.sql" ]]; then
+  pass "14 headed body drifted dies, no append"
+else
+  fail_case "14 headed body drifted dies, no append" \
+    "exit=${RUN_EC} sql=$(sql_count "${A14}/migrations") out=$(echo "${RUN_OUT}" | tr '\n' ' ')"
+fi
+
+# --- 15: recorded body drifted ---
+echo "-- 15 recorded body drifted --"
+A15="${TMP}/case15"
+copy_sql_range "${A15}/migrations" 1 8
+run_sync --app "${A15}" --modules core
+if [[ "${RUN_EC}" -ne 0 ]]; then
+  fail_case "15 seed core" "exit=${RUN_EC}"
+fi
+printf '\n-- mutated body\n' >>"${A15}/migrations/0001_init.sql"
+sql_before15="$(sql_count "${A15}/migrations")"
+run_sync --app "${A15}" --modules core
+if [[ "${RUN_EC}" -eq 1 && "${RUN_OUT}" == *"body drifted"* \
+  && "$(sql_count "${A15}/migrations")" == "${sql_before15}" ]]; then
+  pass "15 recorded body drifted exits 1, no write"
+else
+  fail_case "15 recorded body drifted exits 1, no write" \
+    "exit=${RUN_EC} out=$(echo "${RUN_OUT}" | tr '\n' ' ')"
+fi
+
+# --- 16: recorded file missing ---
+echo "-- 16 recorded missing --"
+A16="${TMP}/case16"
+copy_sql_range "${A16}/migrations" 1 8
+run_sync --app "${A16}" --modules core
+if [[ "${RUN_EC}" -ne 0 ]]; then
+  fail_case "16 seed core" "exit=${RUN_EC}"
+fi
+rm -f "${A16}/migrations/0001_init.sql"
+run_sync --app "${A16}" --modules core
+if [[ "${RUN_EC}" -eq 1 && "${RUN_OUT}" == *"recorded init missing"* ]]; then
+  pass "16 recorded missing file exits 1"
+else
+  fail_case "16 recorded missing file exits 1" \
+    "exit=${RUN_EC} out=$(echo "${RUN_OUT}" | tr '\n' ' ')"
+fi
+
+# --- 17: kit band overflow at 0999 ---
+echo "-- 17 band overflow --"
+A17="${TMP}/case17"
+copy_sql_range "${A17}/migrations" 1 8
+printf '%s\n' "-- pad" >"${A17}/migrations/0999_pad.sql"
+run_sync --app "${A17}" --modules audit
+if [[ "${RUN_EC}" -eq 1 && "${RUN_OUT}" == *"kit migration band overflow"* \
+  && ! -f "${A17}/migrations/1000_kit_rate_limit_audit.sql" ]]; then
+  pass "17 0999 pad + audit overflows, no 1000_kit_*"
+else
+  fail_case "17 0999 pad + audit overflows, no 1000_kit_*" \
     "exit=${RUN_EC} out=$(echo "${RUN_OUT}" | tr '\n' ' ')"
 fi
 

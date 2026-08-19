@@ -6,7 +6,7 @@ Short path after [`start-product.md`](./start-product.md).
 2. Capture product intent (frame / brief) in **product** docs (`docs/product/*`).
 3. Open tracker issue + GitHub issue.
 4. Implement only under `apps/<product>-*` (+ product workflows if needed).
-5. If `apps/<product>-api` exists, `kit-schema-sync` must have been run (manifest present). `bun run validate:full` green · product-validate if apps exist.
+5. If `apps/<product>-api` exists, run `bash scripts/kit-schema-sync.sh --app apps/<product>-api` (manifest is product-owned; kit `validate:full` does **not** check it). Then `bun run validate:full` green · product-validate if apps exist.
 6. PR → review → merge on product `origin`.
 
 Kit shared fixes: land on a **kit clone**, then products `fetch`/`merge upstream`.
