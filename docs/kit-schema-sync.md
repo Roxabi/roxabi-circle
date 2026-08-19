@@ -50,20 +50,25 @@ bash scripts/kit-schema-sync.sh --app apps/<product>-api --adopt
 
 If you cloned the dogfood app: run `--adopt` **immediately**, then follow the existing-clone rules. This is not day-0.
 
-## Fail-closed
+## Fail-closed (script)
 
 | Event | Sync |
 |-------|------|
-| Published module `id` bytes changed | **Fail** — kit must add a **new** id, not mutate the old one |
-| Local `NNNN` already used | **Fail** — pick next free number (`NNNN_kit_*`) |
-| Target is `apps/example-*` | No-op / refuse — example-api **is** the SSoT |
-| Product edits `apps/example-api/migrations` | Forbidden (zero-edit) |
+| Published module `id` bytes changed (catalog `kitSha256` ≠ live SQL, or recorded product sha ≠ kit) | **Fail** — kit must add a **new** id, never mutate the old one |
+| `--adopt` selected module not present (sha/header miss) | **Fail** — lists unmatched ids; does not write a partial manifest |
+| Target resolves to `apps/example-*` | **Fail** — example-api **is** the applied SSoT |
+| Dest `NNNN_kit_<id>.sql` already exists | **Fail** |
+| Kit band `0001`–`0999` exhausted | **Fail** |
+
+Occupied local `NNNN` (including frozen clone domain files): skip that number and append the next free prefix **in 0001–0999**. Product `1000_` files do not occupy kit slots.
+
+Product edits of `apps/example-api/migrations` are forbidden by **zero-edit**, not by this script.
 
 Append-only: never rewrite an applied local file.
 
 ## Manifest
 
-Product-owned. Required facts: `id`, `sha256` (hex of kit source bytes), local filename. JSON keys = sync script (do not dual-edit the catalog by hand in a product).
+Product-owned. JSON keys (see [`templates/kit-schema-manifest.example.json`](./templates/kit-schema-manifest.example.json)): `version`, `app`, `modules.<id>.kitSha256`, `modules.<id>.productFile`. `kitSha256` is the hex sha256 of **kit source bytes** (not of the headed product copy). Do not dual-edit the catalog by hand in a product.
 
 ## Not this doc
 

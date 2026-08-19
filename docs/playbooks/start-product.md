@@ -11,7 +11,7 @@ Kit SQL identity is **module id + hash**, not `example-api` `NNNN_` filenames. N
 | New `apps/<product>-api` importing `@kit/*` | `cp -R apps/example-api` as happy path |
 | `bash scripts/kit-schema-sync.sh --app apps/<product>-api` after creating the app | Hand-copy `example-api/migrations` and then put domain SQL at 0009 |
 | Product SQL from `1000_` | Reuse kit 0009–0999 for domain |
-| Existing clone: freeze history, `--modules audit` (etc.) to append `NNNN_kit_*` | Rename applied files |
+| Existing clone: freeze history, `--adopt` (default core); later `--modules audit` (etc.) appends `NNNN_kit_*` | Rename applied files |
 
 **Last resort:** if you already cloned `example-api`, run `--adopt` **immediately**, then never add new domain SQL in `0001`–`0999` (frozen history stays; new domain at `1000_`).
 

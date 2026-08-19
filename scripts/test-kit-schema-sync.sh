@@ -4,30 +4,47 @@
 # Exit 0 only if all cases pass.
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+ROOT="$(cd "$(dirname "$0")/.." && pwd -P)"
 SCRIPT="${ROOT}/scripts/kit-schema-sync.sh"
 KIT_SQL="${ROOT}/apps/example-api/migrations"
-CATALOG_IDS=(
-  init
-  api_keys_prefix
-  kit_modules
-  kit_modules_config
-  better_auth
-  better_auth_organization
-  rbac_modules
-  api_keys_organization
-  organization_roles
-  rate_limit_audit
-  demo_items
-  flows_plans_runs
-  tasks_comments
-)
+CATALOG="${ROOT}/config/kit-schema-modules.json"
 
 if [[ ! -f "${SCRIPT}" ]]; then
   echo "FAIL: missing ${SCRIPT}" >&2
   exit 1
 fi
-chmod +x "${SCRIPT}" 2>/dev/null || true
+
+# Catalog projection — derived, not a second SSoT.
+CATALOG_IDS=()
+CATALOG_FILES=()
+CATALOG_SETS=()
+CATALOG_SHAS=()
+CORE_IDS=()
+eval "$(
+  KIT_SCHEMA_CATALOG="${CATALOG}" bun -e '
+const fs = require("fs");
+const data = JSON.parse(fs.readFileSync(process.env.KIT_SCHEMA_CATALOG, "utf8"));
+const ids = [];
+const files = [];
+const sets = [];
+const shas = [];
+const core = [];
+for (const m of data.modules) {
+  ids.push(m.id);
+  files.push(m.file);
+  sets.push(m.set);
+  shas.push(m.kitSha256);
+  if (m.set === "core") core.push(m.id);
+}
+const q = (xs) => xs.map((s) => JSON.stringify(s)).join(" ");
+console.log("CATALOG_IDS=(" + q(ids) + ")");
+console.log("CATALOG_FILES=(" + q(files) + ")");
+console.log("CATALOG_SETS=(" + q(sets) + ")");
+console.log("CATALOG_SHAS=(" + q(shas) + ")");
+console.log("CORE_IDS=(" + q(core) + ")");
+console.log("SOURCE_ROOT=" + JSON.stringify(data.source_root));
+'
+)"
 
 PASS=0
 FAIL=0
@@ -49,9 +66,12 @@ file_sha256() {
   local f="$1"
   local out
   if command -v sha256sum >/dev/null 2>&1; then
-    out="$(sha256sum -- "$f")"
+    out="$(sha256sum -- "$f")" || return 1
+  elif command -v shasum >/dev/null 2>&1; then
+    out="$(shasum -a 256 -- "$f")" || return 1
   else
-    out="$(shasum -a 256 -- "$f")"
+    echo "FAIL: need sha256sum or shasum" >&2
+    return 1
   fi
   printf '%s' "${out%% *}" | tr 'A-F' 'a-f'
 }
@@ -59,8 +79,11 @@ file_sha256() {
 sql_count() {
   local dir="$1"
   local files=()
+  local old
+  old="$(shopt -p nullglob)"
   shopt -s nullglob
   files=("${dir}"/*.sql)
+  eval "${old}"
   printf '%s' "${#files[@]}"
 }
 
@@ -119,7 +142,7 @@ expected_appended() {
 
 run_sync() {
   set +e
-  RUN_OUT="$("${SCRIPT}" "$@" 2>&1)"
+  RUN_OUT="$(bash "${SCRIPT}" "$@" 2>&1)"
   RUN_EC=$?
   set -e
 }
@@ -128,7 +151,68 @@ echo "== kit-schema-sync =="
 TMP="$(mktemp -d -t kit-schema-sync-XXXXXX)"
 trap 'rm -rf "$TMP"' EXIT
 
-# --- 1: adopt on a full copy records all 13, writes no SQL ---
+# --- 0: catalog pin vs live SQL + 1:1 listing ---
+echo "-- 0 catalog pin --"
+ok0=1
+detail0=""
+if [[ ${#CATALOG_IDS[@]} -eq 0 ]]; then
+  ok0=0
+  detail0="empty catalog extract"
+elif [[ "$(sql_count "${KIT_SQL}")" != "${#CATALOG_IDS[@]}" ]]; then
+  ok0=0
+  detail0="sql=$(sql_count "${KIT_SQL}") catalog=${#CATALOG_IDS[@]}"
+else
+  i=0
+  while [[ $i -lt ${#CATALOG_IDS[@]} ]]; do
+    src="${ROOT}/${SOURCE_ROOT}/${CATALOG_FILES[$i]}"
+    if [[ ! -f "${src}" ]]; then
+      ok0=0
+      detail0="missing ${CATALOG_FILES[$i]}"
+      break
+    fi
+    live="$(file_sha256 "${src}")"
+    if [[ "${live}" != "${CATALOG_SHAS[$i]}" ]]; then
+      ok0=0
+      detail0="${CATALOG_IDS[$i]} live=${live} pin=${CATALOG_SHAS[$i]}"
+      break
+    fi
+    i=$((i + 1))
+  done
+fi
+if [[ "${ok0}" -eq 1 ]] && git -C "${ROOT}" show origin/main:config/kit-schema-modules.json >/dev/null 2>&1; then
+  pin_drift="$(
+    KIT_SCHEMA_CATALOG="${CATALOG}" KIT_SCHEMA_ROOT="${ROOT}" bun -e '
+const fs = require("fs");
+const { execFileSync } = require("child_process");
+const now = JSON.parse(fs.readFileSync(process.env.KIT_SCHEMA_CATALOG, "utf8"));
+let prevRaw;
+try {
+  prevRaw = execFileSync("git", ["-C", process.env.KIT_SCHEMA_ROOT, "show", "origin/main:config/kit-schema-modules.json"], { encoding: "utf8" });
+} catch { process.exit(0); }
+const prev = JSON.parse(prevRaw);
+if (!Array.isArray(prev.modules)) process.exit(0);
+const nowMap = Object.fromEntries((now.modules || []).map((m) => [m.id, m.kitSha256]));
+const drifted = prev.modules
+  .filter((m) => m && m.id && m.kitSha256 && nowMap[m.id] && nowMap[m.id] !== m.kitSha256)
+  .map((m) => m.id);
+if (drifted.length) {
+  console.log(drifted.join(","));
+  process.exit(2);
+}
+'
+  )" || true
+  if [[ -n "${pin_drift}" ]]; then
+    ok0=0
+    detail0="published id hash changed vs origin/main: ${pin_drift}"
+  fi
+fi
+if [[ "${ok0}" -eq 1 ]]; then
+  pass "0 catalog 1:1 + kitSha256 pins match live SQL"
+else
+  fail_case "0 catalog pin" "${detail0}"
+fi
+
+# --- 1: adopt on a full copy records all catalog modules, writes no SQL ---
 echo "-- 1 adopt full copy --"
 A1="${TMP}/case1"
 mkdir -p "${A1}/migrations"
@@ -140,21 +224,42 @@ if [[ "${RUN_EC}" -eq 0 ]]; then
 else
   fail_case "1 adopt exit 0" "exit ${RUN_EC}: $(echo "${RUN_OUT}" | tr '\n' ' ')"
 fi
-if [[ "$(sql_count "${A1}/migrations")" == "${before_1}" && "${before_1}" == "13" ]]; then
-  pass "1 adopt writes 0 sql (still 13)"
+if [[ "$(sql_count "${A1}/migrations")" == "${before_1}" && "${before_1}" == "${#CATALOG_IDS[@]}" ]]; then
+  pass "1 adopt writes 0 sql (still ${#CATALOG_IDS[@]})"
 else
   fail_case "1 adopt writes 0 sql" "count=$(sql_count "${A1}/migrations") out=$(echo "${RUN_OUT}" | tr '\n' ' ')"
 fi
-if [[ "$(manifest_count "${A1}/kit-schema-manifest.json")" == "13" ]]; then
-  pass "1 adopt records 13 modules"
+if [[ "$(manifest_count "${A1}/kit-schema-manifest.json")" == "${#CATALOG_IDS[@]}" ]]; then
+  pass "1 adopt records ${#CATALOG_IDS[@]} modules"
 else
-  fail_case "1 adopt records 13 modules" "count=$(manifest_count "${A1}/kit-schema-manifest.json")"
+  fail_case "1 adopt records ${#CATALOG_IDS[@]} modules" "count=$(manifest_count "${A1}/kit-schema-manifest.json")"
 fi
-if [[ "$(manifest_field "${A1}/kit-schema-manifest.json" init productFile)" == "migrations/0001_init.sql" ]]; then
+got_pf="$(manifest_field "${A1}/kit-schema-manifest.json" init productFile || true)"
+if [[ "${got_pf}" == "migrations/0001_init.sql" ]]; then
   pass "1 adopt productFile stays 0001_init.sql"
 else
-  fail_case "1 adopt productFile stays 0001_init.sql" \
-    "got=$(manifest_field "${A1}/kit-schema-manifest.json" init productFile 2>/dev/null || true)"
+  fail_case "1 adopt productFile stays 0001_init.sql" "got=${got_pf}"
+fi
+# bytes unchanged (record must not rewrite)
+if cmp -s "${KIT_SQL}/0001_init.sql" "${A1}/migrations/0001_init.sql"; then
+  pass "1 adopt does not rewrite 0001_init.sql"
+else
+  fail_case "1 adopt does not rewrite 0001_init.sql"
+fi
+
+# --- 1b: --modules all --adopt on core-only copy fails and writes 0 kit files ---
+echo "-- 1b adopt-all on partial clone --"
+A1B="${TMP}/case1b"
+copy_sql_range "${A1B}/migrations" 1 8
+run_sync --app "${A1B}" --modules all --adopt
+if [[ "${RUN_EC}" -ne 0 && "${RUN_OUT}" == *"adopt unmatched"* \
+  && "$(sql_count "${A1B}/migrations")" == "8" \
+  && ! -e "${A1B}/migrations/0009_kit_rate_limit_audit.sql" \
+  && ! -f "${A1B}/kit-schema-manifest.json" ]]; then
+  pass "1b adopt-all on 0001-0008 exits 1, writes 0"
+else
+  fail_case "1b adopt-all on 0001-0008 exits 1, writes 0" \
+    "exit=${RUN_EC} sql=$(sql_count "${A1B}/migrations") out=$(echo "${RUN_OUT}" | tr '\n' ' ')"
 fi
 
 # --- 2: 0001-0008 + --modules core records 8, writes 0 ---
@@ -162,33 +267,53 @@ echo "-- 2 core clone 0001-0008 --"
 A2="${TMP}/case2"
 copy_sql_range "${A2}/migrations" 1 8
 run_sync --app "${A2}" --modules core
-if [[ "${RUN_EC}" -eq 0 && "$(manifest_count "${A2}/kit-schema-manifest.json")" == "8" && "$(sql_count "${A2}/migrations")" == "8" ]]; then
-  pass "2 core records 8 writes 0"
+if [[ "${RUN_EC}" -eq 0 && "$(manifest_count "${A2}/kit-schema-manifest.json")" == "${#CORE_IDS[@]}" && "$(sql_count "${A2}/migrations")" == "8" ]]; then
+  pass "2 core records ${#CORE_IDS[@]} writes 0"
 else
-  fail_case "2 core records 8 writes 0" \
+  fail_case "2 core records ${#CORE_IDS[@]} writes 0" \
     "exit=${RUN_EC} modules=$(manifest_count "${A2}/kit-schema-manifest.json") sql=$(sql_count "${A2}/migrations") out=$(echo "${RUN_OUT}" | tr '\n' ' ')"
 fi
 
-# --- 3: same tree --modules core,audit appends 0009_kit_rate_limit_audit.sql ---
+# --- 3: isolated tree --modules core,audit appends 0009_kit_rate_limit_audit.sql ---
 echo "-- 3 append audit as 0009_kit_* --"
-run_sync --app "${A2}" --modules core,audit
-want3="${A2}/migrations/0009_kit_rate_limit_audit.sql"
+A3="${TMP}/case3"
+copy_sql_range "${A3}/migrations" 1 8
+run_sync --app "${A3}" --modules core
+if [[ "${RUN_EC}" -ne 0 ]]; then
+  fail_case "3 seed core" "exit=${RUN_EC} out=$(echo "${RUN_OUT}" | tr '\n' ' ')"
+fi
+run_sync --app "${A3}" --modules core,audit
+want3="${A3}/migrations/0009_kit_rate_limit_audit.sql"
 expected_appended "${TMP}/expected-audit.sql" "rate_limit_audit" \
   "${KIT_SQL}/0010_rate_limit_audit.sql" \
   "apps/example-api/migrations/0010_rate_limit_audit.sql"
-if [[ "${RUN_EC}" -eq 0 && -f "${want3}" && "$(sql_count "${A2}/migrations")" == "9" ]] \
+if [[ "${RUN_EC}" -eq 0 && -f "${want3}" && "$(sql_count "${A3}/migrations")" == "9" ]] \
   && cmp -s "${want3}" "${TMP}/expected-audit.sql"; then
   pass "3 writes 0009_kit_rate_limit_audit.sql (header + kit 0010)"
 else
   fail_case "3 writes 0009_kit_rate_limit_audit.sql" \
-    "exit=${RUN_EC} sql=$(sql_count "${A2}/migrations") out=$(echo "${RUN_OUT}" | tr '\n' ' ')"
+    "exit=${RUN_EC} sql=$(sql_count "${A3}/migrations") out=$(echo "${RUN_OUT}" | tr '\n' ' ')"
 fi
-run_sync --app "${A2}" --modules core,audit
-if [[ "${RUN_EC}" -eq 0 && "$(sql_count "${A2}/migrations")" == "9" ]]; then
+run_sync --app "${A3}" --modules core,audit
+if [[ "${RUN_EC}" -eq 0 && "$(sql_count "${A3}/migrations")" == "9" ]]; then
   pass "3 second run writes 0"
 else
   fail_case "3 second run writes 0" \
-    "exit=${RUN_EC} sql=$(sql_count "${A2}/migrations") out=$(echo "${RUN_OUT}" | tr '\n' ' ')"
+    "exit=${RUN_EC} sql=$(sql_count "${A3}/migrations") out=$(echo "${RUN_OUT}" | tr '\n' ' ')"
+fi
+
+# --- 3b: header recovery — delete manifest, headed file is recorded, not rewritten ---
+echo "-- 3b header recovery --"
+cp "${want3}" "${TMP}/audit-before-header.sql"
+rm -f "${A3}/kit-schema-manifest.json"
+run_sync --app "${A3}" --modules core,audit
+if [[ "${RUN_EC}" -eq 0 && "$(sql_count "${A3}/migrations")" == "9" ]] \
+  && cmp -s "${want3}" "${TMP}/audit-before-header.sql" \
+  && [[ "$(manifest_field "${A3}/kit-schema-manifest.json" rate_limit_audit productFile)" == "migrations/0009_kit_rate_limit_audit.sql" ]]; then
+  pass "3b header recovery records existing 0009_kit_* writes 0"
+else
+  fail_case "3b header recovery records existing 0009_kit_*" \
+    "exit=${RUN_EC} sql=$(sql_count "${A3}/migrations") out=$(echo "${RUN_OUT}" | tr '\n' ' ')"
 fi
 
 # --- 4: product 0009_lgu_domain.sql + core files → rbac writes 0010_kit_organization_roles.sql ---
@@ -212,11 +337,14 @@ echo "-- 5 mutated manifest sha --"
 A5="${TMP}/case5"
 copy_sql_range "${A5}/migrations" 1 8
 run_sync --app "${A5}" --modules core
+if [[ "${RUN_EC}" -ne 0 ]]; then
+  fail_case "5 seed core" "exit=${RUN_EC} out=$(echo "${RUN_OUT}" | tr '\n' ' ')"
+fi
 KIT_SCHEMA_MANIFEST="${A5}/kit-schema-manifest.json" bun -e '
 const fs = require("fs");
 const p = process.env.KIT_SCHEMA_MANIFEST;
 const m = JSON.parse(fs.readFileSync(p, "utf8"));
-m.modules.init.kitSha256 = "deadbeef";
+m.modules.init.kitSha256 = "deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef";
 fs.writeFileSync(p, JSON.stringify(m, null, 2) + "\n");
 '
 sql_before5="$(sql_count "${A5}/migrations")"
@@ -228,7 +356,7 @@ else
     "exit=${RUN_EC} sql=$(sql_count "${A5}/migrations") out=$(echo "${RUN_OUT}" | tr '\n' ' ')"
 fi
 
-# --- 6: dry-run of case 3 prints filename, does not create it ---
+# --- 6: dry-run prints filename, does not create it ---
 echo "-- 6 dry-run --"
 A6="${TMP}/case6"
 copy_sql_range "${A6}/migrations" 1 8
@@ -242,7 +370,7 @@ else
     "exit=${RUN_EC} sql=$(sql_count "${A6}/migrations") out=$(echo "${RUN_OUT}" | tr '\n' ' ')"
 fi
 
-# --- 7: --modules all on empty migrations writes 0001..0013_kit_*.sql in catalog order ---
+# --- 7: --modules all on empty migrations writes NNNN_kit_*.sql in catalog order ---
 echo "-- 7 empty all --"
 A7="${TMP}/case7"
 mkdir -p "${A7}/migrations"
@@ -252,9 +380,12 @@ detail7=""
 if [[ "${RUN_EC}" -ne 0 ]]; then
   ok7=0
   detail7="exit ${RUN_EC}: $(echo "${RUN_OUT}" | tr '\n' ' ')"
-elif [[ "$(sql_count "${A7}/migrations")" != "13" ]]; then
+elif [[ "$(sql_count "${A7}/migrations")" != "${#CATALOG_IDS[@]}" ]]; then
   ok7=0
   detail7="sql count=$(sql_count "${A7}/migrations")"
+elif [[ "$(manifest_count "${A7}/kit-schema-manifest.json")" != "${#CATALOG_IDS[@]}" ]]; then
+  ok7=0
+  detail7="manifest count=$(manifest_count "${A7}/kit-schema-manifest.json")"
 else
   n=1
   for id in "${CATALOG_IDS[@]}"; do
@@ -273,11 +404,93 @@ else
     fi
     n=$((n + 1))
   done
+  if [[ "${ok7}" -eq 1 ]]; then
+    expected_appended "${TMP}/expected-init.sql" "init" \
+      "${KIT_SQL}/0001_init.sql" \
+      "apps/example-api/migrations/0001_init.sql"
+    if ! cmp -s "${A7}/migrations/0001_kit_init.sql" "${TMP}/expected-init.sql"; then
+      ok7=0
+      detail7="0001_kit_init.sql body mismatch"
+    fi
+  fi
 fi
 if [[ "${ok7}" -eq 1 ]]; then
-  pass "7 all on empty writes 0001..0013_kit_*.sql in catalog order"
+  pass "7 all on empty writes catalog-ordered kit_ files"
 else
-  fail_case "7 all on empty writes 13 sequential kit_ files" "${detail7}"
+  fail_case "7 all on empty writes catalog-ordered kit_ files" "${detail7}"
+fi
+
+# --- 8: empty --modules ---
+echo "-- 8 empty modules --"
+A8="${TMP}/case8"
+mkdir -p "${A8}/migrations"
+run_sync --app "${A8}" --modules ""
+if [[ "${RUN_EC}" -eq 1 && "${RUN_OUT}" == *"empty"* ]]; then
+  pass "8 empty --modules exits 1"
+else
+  fail_case "8 empty --modules exits 1" "exit=${RUN_EC} out=$(echo "${RUN_OUT}" | tr '\n' ' ')"
+fi
+
+# --- 9: unknown set ---
+echo "-- 9 unknown set --"
+run_sync --app "${A8}" --modules nope
+if [[ "${RUN_EC}" -eq 1 && "${RUN_OUT}" == *"unknown module set"* ]]; then
+  pass "9 unknown set exits 1"
+else
+  fail_case "9 unknown set exits 1" "exit=${RUN_EC} out=$(echo "${RUN_OUT}" | tr '\n' ' ')"
+fi
+
+# --- 10: refuse apps/example-api ---
+echo "-- 10 refuse example-api --"
+sql_ex="$(sql_count "${KIT_SQL}")"
+run_sync --app "${ROOT}/apps/example-api" --modules core
+if [[ "${RUN_EC}" -eq 1 && "${RUN_OUT}" == *"refuse apps/example-"* \
+  && "$(sql_count "${KIT_SQL}")" == "${sql_ex}" \
+  && ! -f "${ROOT}/apps/example-api/kit-schema-manifest.json" ]]; then
+  pass "10 refuse --app apps/example-api"
+else
+  fail_case "10 refuse --app apps/example-api" \
+    "exit=${RUN_EC} out=$(echo "${RUN_OUT}" | tr '\n' ' ')"
+fi
+
+# --- 11b: --modules all,typo still validates the typo ---
+echo "-- 11b all+typo --"
+run_sync --app "${A8}" --modules all,nope
+if [[ "${RUN_EC}" -eq 1 && "${RUN_OUT}" == *"unknown module set"* ]]; then
+  pass "11b --modules all,nope exits 1"
+else
+  fail_case "11b --modules all,nope exits 1" "exit=${RUN_EC} out=$(echo "${RUN_OUT}" | tr '\n' ' ')"
+fi
+
+# --- 12: product 1000_ does not steal kit 0009 ---
+echo "-- 12 kit band ignores 1000_ --"
+A12="${TMP}/case12"
+copy_sql_range "${A12}/migrations" 1 8
+printf '%s\n' "-- product domain" "CREATE TABLE IF NOT EXISTS lgu_domain (id TEXT PRIMARY KEY);" \
+  >"${A12}/migrations/1000_lgu_domain.sql"
+run_sync --app "${A12}" --modules audit
+if [[ "${RUN_EC}" -eq 0 && -f "${A12}/migrations/0009_kit_rate_limit_audit.sql" \
+  && ! -f "${A12}/migrations/1001_kit_rate_limit_audit.sql" \
+  && -f "${A12}/migrations/1000_lgu_domain.sql" ]]; then
+  pass "12 1000_domain + audit writes 0009_kit_* not 1001"
+else
+  fail_case "12 1000_domain + audit writes 0009_kit_* not 1001" \
+    "exit=${RUN_EC} out=$(echo "${RUN_OUT}" | tr '\n' ' ')"
+fi
+
+# --- 11: corrupt clone + --adopt does not rewrite ---
+echo "-- 11 adopt mutated clone --"
+A11="${TMP}/case11"
+copy_sql_range "${A11}/migrations" 1 8
+printf '\n-- corrupted\n' >>"${A11}/migrations/0001_init.sql"
+run_sync --app "${A11}" --modules core --adopt
+if [[ "${RUN_EC}" -ne 0 && "${RUN_OUT}" == *"adopt unmatched"* \
+  && ! -f "${A11}/migrations/0009_kit_init.sql" ]] \
+  && grep -q "corrupted" "${A11}/migrations/0001_init.sql"; then
+  pass "11 adopt on mutated 0001 exits 1, no rewrite"
+else
+  fail_case "11 adopt on mutated 0001 exits 1, no rewrite" \
+    "exit=${RUN_EC} out=$(echo "${RUN_OUT}" | tr '\n' ' ')"
 fi
 
 echo "== summary: ${PASS} pass, ${FAIL} fail =="

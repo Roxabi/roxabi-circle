@@ -58,8 +58,8 @@ Identity is **not** the example-api filename.
 
 | Fact | Where |
 |------|--------|
-| Module `id` + source path | Catalog `config/kit-schema-modules.json` (kit) |
-| sha256 of **kit source bytes** | Computed at sync from the catalogued file |
+| Module `id` + source path + `kitSha256` pin | Catalog `config/kit-schema-modules.json` (kit) |
+| sha256 of **kit source bytes** | Catalog pin; verified at sync against live catalogued file |
 | Local filename in the product app | Manifest `apps/<product>-api/kit-schema-manifest.json` (product-owned, new file) |
 
 Product local names are free (`0021_kit_rate_limit_audit.sql`). The journal may differ from the kit’s `0010_rate_limit_audit.sql`; the **hash** must match the kit source.

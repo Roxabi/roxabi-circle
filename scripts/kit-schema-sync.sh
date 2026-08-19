@@ -7,7 +7,7 @@
 set -euo pipefail
 shopt -s nullglob
 
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+ROOT="$(cd "$(dirname "$0")/.." && pwd -P)"
 CATALOG="${ROOT}/config/kit-schema-modules.json"
 
 die() {
@@ -30,6 +30,20 @@ file_sha256() {
     die "need sha256sum or shasum -a 256"
   fi
   printf '%s' "${out%% *}" | tr 'A-F' 'a-f'
+}
+
+# Hash kit-source bytes: headed product files are header + blank + body; raw clones are the whole file.
+payload_sha256() {
+  local f="$1"
+  KIT_SCHEMA_FILE="$f" bun -e '
+const fs = require("fs");
+const crypto = require("crypto");
+const buf = fs.readFileSync(process.env.KIT_SCHEMA_FILE);
+const headed = buf.subarray(0, 15).toString("utf8") === "-- kit-schema: ";
+const start = buf.indexOf(Buffer.from("\n\n"));
+const payload = headed && start >= 0 ? buf.subarray(start + 2) : buf;
+process.stdout.write(crypto.createHash("sha256").update(payload).digest("hex"));
+'
 }
 
 trim() {
@@ -95,11 +109,18 @@ APP_DIR=""
 if [[ "${APP_ARG}" == /* ]]; then
   APP_DIR="${APP_ARG}"
 elif [[ -d "${APP_ARG}" ]]; then
-  APP_DIR="$(cd "${APP_ARG}" && pwd)"
+  APP_DIR="$(cd "${APP_ARG}" && pwd -P)"
 elif [[ -d "${ROOT}/${APP_ARG}" ]]; then
-  APP_DIR="$(cd "${ROOT}/${APP_ARG}" && pwd)"
+  APP_DIR="$(cd "${ROOT}/${APP_ARG}" && pwd -P)"
 fi
 [[ -n "${APP_DIR}" && -d "${APP_DIR}" ]] || die "app directory not found: ${APP_ARG}"
+APP_DIR="$(cd "${APP_DIR}" && pwd -P)"
+
+case "${APP_DIR}" in
+  "${ROOT}/apps/example-"*)
+    die "refuse apps/example-* (applied SSoT)"
+    ;;
+esac
 
 MIG_DIR="${APP_DIR}/migrations"
 MANIFEST="${APP_DIR}/kit-schema-manifest.json"
@@ -109,18 +130,11 @@ SOURCE_ROOT=""
 MODULE_IDS=()
 MODULE_FILES=()
 MODULE_SETS=()
+MODULE_PINS=()
 declare -A VALID_SET=()
+declare -A CAT_BASENAME=()
 
-while IFS=$'\t' read -r col1 col2 col3; do
-  if [[ "${col1}" == "#SOURCE_ROOT" ]]; then
-    SOURCE_ROOT="${col2}"
-    continue
-  fi
-  MODULE_IDS+=("${col1}")
-  MODULE_FILES+=("${col2}")
-  MODULE_SETS+=("${col3}")
-  VALID_SET["${col3}"]=1
-done < <(
+CATALOG_TSV="$(
   KIT_SCHEMA_CATALOG="${CATALOG}" bun -e '
 const fs = require("fs");
 const p = process.env.KIT_SCHEMA_CATALOG;
@@ -131,29 +145,70 @@ if (data.version !== 1) { console.error("kit-schema-sync: catalog version must b
 if (typeof data.source_root !== "string" || !data.source_root) {
   console.error("kit-schema-sync: catalog source_root required"); process.exit(1);
 }
+if (data.source_root.includes("..") || data.source_root.startsWith("/") || data.source_root.includes("\t") || data.source_root.includes("\n")) {
+  console.error("kit-schema-sync: invalid catalog source_root"); process.exit(1);
+}
 if (!Array.isArray(data.modules)) {
   console.error("kit-schema-sync: catalog modules must be an array"); process.exit(1);
 }
 const seen = new Set();
+const seenFile = new Set();
 console.log("#SOURCE_ROOT\t" + data.source_root);
 for (const m of data.modules) {
-  if (!m || typeof m.id !== "string" || typeof m.file !== "string" || typeof m.set !== "string") {
-    console.error("kit-schema-sync: catalog module requires id, file, set"); process.exit(1);
+  if (!m || typeof m.id !== "string" || typeof m.file !== "string" || typeof m.set !== "string" || typeof m.kitSha256 !== "string") {
+    console.error("kit-schema-sync: catalog module requires id, file, set, kitSha256"); process.exit(1);
   }
   if (!/^[A-Za-z0-9_]+$/.test(m.id)) {
     console.error("kit-schema-sync: invalid module id: " + m.id); process.exit(1);
   }
+  if (!/^[A-Za-z0-9_]+$/.test(m.set)) {
+    console.error("kit-schema-sync: invalid module set: " + m.set); process.exit(1);
+  }
+  if (!/^[0-9]{4}_[A-Za-z0-9_.-]+\.sql$/.test(m.file) || m.file.includes("..")) {
+    console.error("kit-schema-sync: invalid catalog file: " + m.file); process.exit(1);
+  }
+  if (!/^[0-9a-f]{64}$/.test(m.kitSha256)) {
+    console.error("kit-schema-sync: invalid kitSha256 for " + m.id); process.exit(1);
+  }
   if (seen.has(m.id)) {
     console.error("kit-schema-sync: duplicate module id: " + m.id); process.exit(1);
   }
+  if (seenFile.has(m.file)) {
+    console.error("kit-schema-sync: duplicate catalog file: " + m.file); process.exit(1);
+  }
   seen.add(m.id);
-  console.log([m.id, m.file, m.set].join("\t"));
+  seenFile.add(m.file);
+  console.log([m.id, m.file, m.set, m.kitSha256].join("\t"));
 }
 '
-)
+)" || die "invalid catalog JSON"
+
+while IFS=$'\t' read -r col1 col2 col3 col4; do
+  if [[ "${col1}" == "#SOURCE_ROOT" ]]; then
+    SOURCE_ROOT="${col2}"
+    continue
+  fi
+  [[ -n "${col1}" ]] || continue
+  MODULE_IDS+=("${col1}")
+  MODULE_FILES+=("${col2}")
+  MODULE_SETS+=("${col3}")
+  MODULE_PINS+=("${col4}")
+  VALID_SET["${col3}"]=1
+  CAT_BASENAME["${col2}"]=1
+done <<< "${CATALOG_TSV}"$'\n'
 
 [[ -n "${SOURCE_ROOT}" ]] || die "catalog source_root missing"
 [[ ${#MODULE_IDS[@]} -gt 0 ]] || die "catalog has no modules"
+
+SOURCE_DIR="${ROOT}/${SOURCE_ROOT}"
+[[ -d "${SOURCE_DIR}" ]] || die "missing kit source_root ${SOURCE_ROOT}"
+
+for f in "${SOURCE_DIR}"/*.sql; do
+  base="${f##*/}"
+  if [[ -z "${CAT_BASENAME[$base]+x}" ]]; then
+    die "uncatalogued kit SQL ${SOURCE_ROOT}/${base}"
+  fi
+done
 
 # --- --modules filter ---
 SELECT_ALL=0
@@ -168,16 +223,14 @@ for raw in "${MODULE_PARTS[@]}"; do
     WANT_SET["${part}"]=1
   fi
 done
-if [[ "${SELECT_ALL}" -eq 0 ]]; then
-  if [[ ${#WANT_SET[@]} -eq 0 ]]; then
-    die "--modules is empty"
-  fi
-  for s in "${!WANT_SET[@]}"; do
-    if [[ -z "${VALID_SET[$s]+x}" ]]; then
-      die "unknown module set: ${s}"
-    fi
-  done
+if [[ "${SELECT_ALL}" -eq 0 && ${#WANT_SET[@]} -eq 0 ]]; then
+  die "--modules is empty"
 fi
+for s in "${!WANT_SET[@]}"; do
+  if [[ -z "${VALID_SET[$s]+x}" ]]; then
+    die "unknown module set: ${s}"
+  fi
+done
 
 selected() {
   local set="$1"
@@ -191,11 +244,7 @@ selected() {
 declare -A MANIFEST_SHA=()
 declare -A MANIFEST_FILE=()
 if [[ -f "${MANIFEST}" ]]; then
-  while IFS=$'\t' read -r mid msha mfile; do
-    [[ -n "${mid}" ]] || continue
-    MANIFEST_SHA["${mid}"]="${msha}"
-    MANIFEST_FILE["${mid}"]="${mfile}"
-  done < <(
+  MANIFEST_TSV="$(
     KIT_SCHEMA_MANIFEST="${MANIFEST}" bun -e '
 const fs = require("fs");
 const p = process.env.KIT_SCHEMA_MANIFEST;
@@ -204,14 +253,31 @@ try { data = JSON.parse(fs.readFileSync(p, "utf8")); }
 catch { console.error("kit-schema-sync: invalid manifest JSON"); process.exit(1); }
 if (data.version !== 1) { console.error("kit-schema-sync: manifest version must be 1"); process.exit(1); }
 const mods = data.modules && typeof data.modules === "object" ? data.modules : {};
+const idRe = /^[A-Za-z0-9_]+$/;
+const shaRe = /^[0-9a-f]{64}$/;
+const fileRe = /^migrations\/[0-9]{4}_[A-Za-z0-9_.-]+\.sql$/;
 for (const [id, v] of Object.entries(mods)) {
+  if (!idRe.test(id)) {
+    console.error("kit-schema-sync: invalid manifest id: " + id); process.exit(1);
+  }
   if (!v || typeof v.kitSha256 !== "string" || typeof v.productFile !== "string") {
     console.error("kit-schema-sync: invalid manifest entry: " + id); process.exit(1);
+  }
+  if (!shaRe.test(v.kitSha256)) {
+    console.error("kit-schema-sync: invalid manifest kitSha256: " + id); process.exit(1);
+  }
+  if (!fileRe.test(v.productFile) || v.productFile.includes("..")) {
+    console.error("kit-schema-sync: invalid manifest productFile: " + id); process.exit(1);
   }
   console.log([id, v.kitSha256, v.productFile].join("\t"));
 }
 '
-  )
+  )" || die "invalid manifest JSON"
+  while IFS=$'\t' read -r mid msha mfile; do
+    [[ -n "${mid}" ]] || continue
+    MANIFEST_SHA["${mid}"]="${msha}"
+    MANIFEST_FILE["${mid}"]="${mfile}"
+  done <<< "${MANIFEST_TSV}"$'\n'
 fi
 
 list_sql_files() {
@@ -234,7 +300,8 @@ max_migration_prefix() {
     base="${f##*/}"
     if [[ "${base}" =~ ^([0-9]{4})_ ]]; then
       n=$((10#${BASH_REMATCH[1]}))
-      if ((n > max)); then
+      # Kit band is 0001–0999. Product domain at 1000+ must not occupy kit slots.
+      if ((n <= 999 && n > max)); then
         max=$n
       fi
     fi
@@ -242,7 +309,6 @@ max_migration_prefix() {
   printf '%s' "${max}"
 }
 
-# relative productFile under the app dir
 rel_sql() {
   local abs="$1"
   printf 'migrations/%s' "${abs##*/}"
@@ -262,7 +328,8 @@ is_claimed() {
 
 find_sql_by_sha() {
   local want="$1"
-  local f sha rel
+  local f sha rel list
+  list="$(list_sql_files "${MIG_DIR}")" || die "failed to list ${MIG_DIR}"
   while IFS= read -r f; do
     [[ -n "${f}" ]] || continue
     rel="$(rel_sql "${f}")"
@@ -274,14 +341,15 @@ find_sql_by_sha() {
       printf '%s' "${f}"
       return 0
     fi
-  done < <(list_sql_files "${MIG_DIR}")
+  done <<< "${list}"$'\n'
   return 1
 }
 
 find_sql_by_header() {
   local id="$1"
   local want="$2"
-  local f line1 line2 rel
+  local f line1 line2 rel list payload
+  list="$(list_sql_files "${MIG_DIR}")" || die "failed to list ${MIG_DIR}"
   while IFS= read -r f; do
     [[ -n "${f}" ]] || continue
     rel="$(rel_sql "${f}")"
@@ -295,26 +363,27 @@ find_sql_by_header() {
     line1="${line1%$'\r'}"
     line2="${line2%$'\r'}"
     if [[ "${line1}" == "-- kit-schema: ${id}" && "${line2}" == "-- kit-sha256: ${want}" ]]; then
-      printf '%s' "${f}"
-      return 0
+      payload="$(payload_sha256 "${f}")"
+      if [[ "${payload}" == "${want}" ]]; then
+        printf '%s' "${f}"
+        return 0
+      fi
     fi
-  done < <(list_sql_files "${MIG_DIR}")
+  done <<< "${list}"$'\n'
   return 1
 }
 
-# Mark already-recorded product files so a later module cannot steal them.
 for mid in "${!MANIFEST_FILE[@]}"; do
   claim "${MANIFEST_FILE[$mid]}"
 done
 
-# --- plan ---
-# kind: record | write
 PLAN_KIND=()
 PLAN_ID=()
 PLAN_SHA=()
 PLAN_REL=()
 PLAN_KIT=()
 PLAN_SRC_REL=()
+ADOPT_SKIP=()
 
 next_n="$(max_migration_prefix "${MIG_DIR}")"
 
@@ -323,6 +392,7 @@ while [[ $i -lt ${#MODULE_IDS[@]} ]]; do
   id="${MODULE_IDS[$i]}"
   file="${MODULE_FILES[$i]}"
   set_name="${MODULE_SETS[$i]}"
+  pin="${MODULE_PINS[$i]}"
   i=$((i + 1))
 
   selected "${set_name}" || continue
@@ -330,13 +400,22 @@ while [[ $i -lt ${#MODULE_IDS[@]} ]]; do
   kit_file="${ROOT}/${SOURCE_ROOT}/${file}"
   [[ -f "${kit_file}" ]] || die "missing kit source ${SOURCE_ROOT}/${file}"
   kit_sha="$(file_sha256 "${kit_file}")"
+  if [[ "${kit_sha}" != "${pin}" ]]; then
+    die "catalog pin mismatch ${id}: live ${kit_sha} != ${pin}"
+  fi
   src_rel="${SOURCE_ROOT}/${file}"
 
   if [[ -n "${MANIFEST_SHA[$id]+x}" && "${MANIFEST_SHA[$id]}" == "${kit_sha}" ]]; then
+    rec_rel="${MANIFEST_FILE[$id]}"
+    rec_path="${APP_DIR}/${rec_rel}"
+    [[ -f "${rec_path}" ]] || die "recorded ${id} missing ${rec_rel}"
+    rec_payload="$(payload_sha256 "${rec_path}")"
+    if [[ "${rec_payload}" != "${kit_sha}" ]]; then
+      die "recorded ${id} body drifted; not rewriting ${rec_rel}"
+    fi
     continue
   fi
 
-  # Unrecorded: match raw clone by full-file sha, then header from a prior append.
   if [[ -z "${MANIFEST_SHA[$id]+x}" ]]; then
     match=""
     if match="$(find_sql_by_sha "${kit_sha}")"; then
@@ -362,11 +441,13 @@ while [[ $i -lt ${#MODULE_IDS[@]} ]]; do
       continue
     fi
     if [[ "${ADOPT}" -eq 1 ]]; then
+      echo "kit-schema-sync: skip ${id} (not present)" >&2
+      ADOPT_SKIP+=("${id}")
       continue
     fi
     next_n=$((next_n + 1))
-    if ((next_n > 9999)); then
-      die "migration prefix overflow"
+    if ((next_n > 999)); then
+      die "kit migration band overflow (0001-0999)"
     fi
     nnnn="$(printf '%04d' "${next_n}")"
     rel="migrations/${nnnn}_kit_${id}.sql"
@@ -384,18 +465,22 @@ while [[ $i -lt ${#MODULE_IDS[@]} ]]; do
     continue
   fi
 
-  # Recorded with a different sha: kit source for this id changed. Never rewrite.
   die "module ${id} mutated; add a new module id, never edit applied SQL"
 done
 
+if [[ ${#ADOPT_SKIP[@]} -gt 0 ]]; then
+  die "adopt unmatched: ${ADOPT_SKIP[*]}"
+fi
+
 write_manifest() {
-  local tmp id cid in_catalog
+  local tmp id cid in_catalog rows
   tmp="$(mktemp)"
+  rows="$(mktemp)"
   for id in "${MODULE_IDS[@]}"; do
     if [[ -n "${MANIFEST_SHA[$id]+x}" ]]; then
       printf '%s\t%s\t%s\n' "${id}" "${MANIFEST_SHA[$id]}" "${MANIFEST_FILE[$id]}"
     fi
-  done >"${tmp}"
+  done >"${rows}"
   for id in "${!MANIFEST_SHA[@]}"; do
     in_catalog=0
     for cid in "${MODULE_IDS[@]}"; do
@@ -405,10 +490,10 @@ write_manifest() {
       fi
     done
     if [[ "${in_catalog}" -eq 0 ]]; then
-      printf '%s\t%s\t%s\n' "${id}" "${MANIFEST_SHA[$id]}" "${MANIFEST_FILE[$id]}" >>"${tmp}"
+      printf '%s\t%s\t%s\n' "${id}" "${MANIFEST_SHA[$id]}" "${MANIFEST_FILE[$id]}" >>"${rows}"
     fi
   done
-  KIT_SCHEMA_APP="${APP_ARG}" KIT_SCHEMA_MANIFEST="${MANIFEST}" KIT_SCHEMA_ROWS="${tmp}" bun -e '
+  if ! KIT_SCHEMA_APP="${APP_ARG}" KIT_SCHEMA_ROWS="${rows}" KIT_SCHEMA_TMP="${tmp}" bun -e '
 const fs = require("fs");
 const rowsRaw = fs.readFileSync(process.env.KIT_SCHEMA_ROWS, "utf8").trim();
 const modules = {};
@@ -419,9 +504,13 @@ if (rowsRaw) {
   }
 }
 const json = { version: 1, app: process.env.KIT_SCHEMA_APP, modules };
-fs.writeFileSync(process.env.KIT_SCHEMA_MANIFEST, JSON.stringify(json, null, 2) + "\n");
-'
-  rm -f "${tmp}"
+fs.writeFileSync(process.env.KIT_SCHEMA_TMP, JSON.stringify(json, null, 2) + "\n");
+'; then
+    rm -f -- "${tmp}" "${rows}"
+    die "manifest write failed"
+  fi
+  mv -f "${tmp}" "${MANIFEST}"
+  rm -f -- "${rows}"
 }
 
 write_module_file() {
@@ -430,6 +519,8 @@ write_module_file() {
   local sha="$3"
   local src_rel="$4"
   local kit_file="$5"
+  local tmp
+  tmp="${dest}.tmp.$$"
   {
     printf -- '-- kit-schema: %s\n' "${id}"
     printf -- '-- kit-sha256: %s\n' "${sha}"
@@ -437,7 +528,8 @@ write_module_file() {
     printf -- '-- Do not edit this file. Kit changes ship as a new module id.\n'
     printf '\n'
     cat "${kit_file}"
-  } >"${dest}"
+  } >"${tmp}"
+  mv -f "${tmp}" "${dest}"
 }
 
 if [[ ${#PLAN_KIND[@]} -eq 0 ]]; then
@@ -455,8 +547,9 @@ while [[ $idx -lt ${#PLAN_KIND[@]} ]]; do
   src_rel="${PLAN_SRC_REL[$idx]}"
   idx=$((idx + 1))
 
+  echo "kit-schema-sync: ${kind} ${rel}"
+
   if [[ "${kind}" == "write" ]]; then
-    echo "kit-schema-sync: write ${rel}"
     if [[ "${DRY_RUN}" -eq 0 ]]; then
       mkdir -p "${MIG_DIR}"
       write_module_file "${MIG_DIR}/${rel#migrations/}" "${id}" "${sha}" "${src_rel}" "${kit_file}"
@@ -467,7 +560,6 @@ while [[ $idx -lt ${#PLAN_KIND[@]} ]]; do
     continue
   fi
 
-  # record
   if [[ "${DRY_RUN}" -eq 0 ]]; then
     MANIFEST_SHA["${id}"]="${sha}"
     MANIFEST_FILE["${id}"]="${rel}"

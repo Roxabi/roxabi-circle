@@ -8,7 +8,7 @@
 # Pair with scripts/product/validate.sh (or app-local product-validate.sh)
 # copied from docs/templates/product-validate.example.sh
 #
-# See: docs/product-consumer-contract.md · docs/playbooks/start-product.md §7
+# See: docs/product-consumer-contract.md · docs/playbooks/start-product.md §8
 name: Product CI
 
 on:

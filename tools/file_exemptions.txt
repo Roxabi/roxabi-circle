@@ -18,4 +18,3 @@ packages/email/src/index.ts  # 350 lines — builders + createEmailPort policy; 
 apps/example-api/src/routes/orgs.ts  # 340 lines — org routes demo
 apps/example-api/src/services/org-roles.ts  # 340 lines — phase-B RBAC service
 apps/example-web/src/routes/items.tsx  # 400 lines — MasterData CRUD demo (#82); split dialogs if product grows
-scripts/kit-schema-sync.sh  # 500 lines — catalog parse + append planner (ADR-0008); split if a second caller appears

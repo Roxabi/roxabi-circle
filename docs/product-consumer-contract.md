@@ -62,7 +62,7 @@ Normative: [ADR-0008](./architecture/adr/0008-kit-schema-identity-product-compos
 | `apps/example-api/migrations/*` | **kit** (applied SSoT) | **Read only.** Never copy-then-domain-at-0009. Never edit. |
 | `config/kit-schema-modules.json` | **kit** | Read only. Catalog of module `id` + source path. |
 | `apps/<product>-api/migrations/*` | **product** | Local filenames (`0021_kit_rate_limit_audit.sql`, domain `1000_*`). Append via `scripts/kit-schema-sync.sh` — never rewrite applied files. |
-| `apps/<product>-api/kit-schema-manifest.json` | **product** | **New product file (allowed).** Records `id` + sha256 of kit source bytes + local filename. |
+| `apps/<product>-api/kit-schema-manifest.json` | **product** | **New product file (allowed).** Records `id` + `kitSha256` (hex of kit source bytes) + `productFile`. |
 
 Default sync: `--modules core` (0001–0008). Opt-in sets (`rbac`, `audit`, `demo`, `flows`, `tasks`) only if the product mounts those routes. Existing clones: freeze 0009–0020 domain history; `--adopt`; append `NNNN_kit_*`.
 
@@ -288,7 +288,8 @@ Do **not** hardcode product chassis names into kit defaults. Prefer full chassis
 4. Copy env examples → gitignored local files only.
 5. Ensure **kit-ci** (org var/secret) or accept manual merge — see [`kit-ci-app-setup.md`](./kit-ci-app-setup.md).
 6. Add product apps under `apps/<product>-*` only.
-7. Keep `bun run validate:full` green (kit bar). When `apps/<product>-*` exist, also wire product-validate / product-ci (see Product CI DoD below).
+7. When `apps/<product>-api` exists: `bash scripts/kit-schema-sync.sh --app apps/<product>-api` (default `--modules core`). Last-resort clones: `--adopt` immediately. Product domain SQL starts at `1000_`.
+8. Keep `bun run validate:full` green (kit bar). When `apps/<product>-*` exist, also wire product-validate / product-ci (see Product CI DoD below).
 
 Optional product-only files (safe for upstream merge):
 
@@ -400,6 +401,7 @@ If product build breaks after pull → fix product code or contribute a kit fix 
 - [ ] CI vars/secrets only — no forked workflow diffs  
 - [ ] Deny-upstream hook active (kit lefthook; no product fork of the file)  
 - [ ] `bun run zero-edit` green (exceptions current or empty)  
+- [ ] If `apps/<product>-api` exists: run `bash scripts/kit-schema-sync.sh --app apps/<product>-api` after merge and commit new `NNNN_kit_*` + manifest  
 - [ ] Theming via design overrides, not `packages/ui` forks  
 
 ---
