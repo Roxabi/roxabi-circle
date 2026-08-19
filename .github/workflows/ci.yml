@@ -46,9 +46,10 @@ jobs:
           set -euo pipefail
           path=naked
           prs="$(gh api "repos/${REPO}/commits/${SHA}/pulls")"
-          n="$(printf '%s' "$prs" | jq --arg sha "$SHA" '[.[] | select(.merged == true and .merge_commit_sha == $sha)] | length')"
+          # /commits/SHA/pulls omits `merged` (always null); merged_at is the signal.
+          n="$(printf '%s' "$prs" | jq --arg sha "$SHA" '[.[] | select(.merged_at != null and .merge_commit_sha == $sha)] | length')"
           if [ "$n" -gt 0 ]; then
-            head="$(printf '%s' "$prs" | jq -r --arg sha "$SHA" '[.[] | select(.merged == true and .merge_commit_sha == $sha)][0].head.sha')"
+            head="$(printf '%s' "$prs" | jq -r --arg sha "$SHA" '[.[] | select(.merged_at != null and .merge_commit_sha == $sha)][0].head.sha')"
             conc="$(gh api --paginate "repos/${REPO}/commits/${head}/check-runs" --jq '[.check_runs[] | select((.name | ascii_downcase) == "ci") | .conclusion] | map(select(. == "success")) | if length > 0 then "success" else "missing" end')"
             if [ "$conc" = "success" ]; then
               path=pr-merge
