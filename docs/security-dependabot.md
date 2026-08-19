@@ -5,9 +5,21 @@
 | | Version updates | Security updates + alerts |
 |---|---|---|
 | Config | [`.github/dependabot.yml`](../.github/dependabot.yml) | Repo **Dependabot alerts** + **Dependabot security updates** |
+| Ecosystem | **`bun`** (text `bun.lock`) — not `npm` | Separate channel (CVE / GHSA) |
 | Cadence | Weekly (Mon) + **cooldown** (patch/minor 3d, major 7d) | **Immediate** when a GHSA/CVE matches the lockfile |
 | Cooldown | Yes (version only) | **No** — never delayed by `cooldown:` |
 | Output | PR “stay current” | Alert in Security tab + optional security PR |
+
+`package-ecosystem: npm` does not own `bun.lock`. Those PRs fail CI at `bun install --frozen-lockfile` before the suite runs.
+
+### Ignored majors (version updates only)
+
+Need a migration / decision, not a Dependabot bump. `ignore` does **not** apply to security updates.
+
+| Package | Why |
+|---|---|
+| `@tanstack/react-table` (semver-major) | v9 rewrites the API (`useTable` + `tableFeatures`) |
+| `@cloudflare/workers-types` (semver-major) | v5 drops dated entrypoints; prefer `wrangler types` locked to `compatibility_date` |
 
 GitHub docs: `cooldown` applies **only** to version updates, not security updates.
 

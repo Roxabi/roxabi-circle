@@ -1,4 +1,4 @@
-# Dependabot — npm (bun.lock) + GitHub Actions.
+# Dependabot — bun.lock + GitHub Actions.
 # Cooldown 3d on patch/minor (fleet convention). github-actions: default-days only
 # (semver-*-days rejected by GitHub for that ecosystem).
 # Ref: kit-marketplace dependabot + checkup dependabot-cooldown tests.
@@ -8,21 +8,24 @@
 # See docs/security-dependabot.md
 #
 # Grouping policy (kit deps waves 2026-08):
-# - patch/minor npm → npm-dependencies (existing)
+# - patch/minor bun → bun-dependencies
 # - major vitest + @vitest/* → one PR
 # - major @commitlint/* → one PR
 # - major github-actions → one PR
 # - major zod / typescript / fastmcp / lucide-react → individual PRs (no group)
+#
+# Ecosystem is bun (not npm): the npm updater edits package.json and leaves
+# bun.lock stale, so CI `bun install --frozen-lockfile` fails before the suite.
 version: 2
 updates:
-  - package-ecosystem: npm
+  - package-ecosystem: bun
     directory: /
     schedule:
       interval: weekly
       day: monday
     open-pull-requests-limit: 10
     groups:
-      npm-dependencies:
+      bun-dependencies:
         patterns:
           - "*"
         # Majors excluded from the group → individual PRs (human review),
@@ -41,6 +44,13 @@ updates:
           - "@commitlint/*"
         update-types:
           - major
+    ignore:
+      # v9 rewrites the API (useTable + tableFeatures). Migrate via issue, not a bump.
+      - dependency-name: "@tanstack/react-table"
+        update-types: ["version-update:semver-major"]
+      # v5 drops dated entrypoints; CF recommends `wrangler types` vs the package.
+      - dependency-name: "@cloudflare/workers-types"
+        update-types: ["version-update:semver-major"]
     cooldown:
       default-days: 3
       semver-major-days: 7
