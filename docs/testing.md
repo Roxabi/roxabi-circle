@@ -38,7 +38,7 @@ merge-on-green (label reviewed + checks)
 | Layer | Role | Cost expectation |
 |---|---|---|
 | **Lefthook pre-push** | **Primary kit bar** — `validate:full` | Accept wall-clock; fix here |
-| **CI** (`validate-full` job) | **Secondary kit bar** — same `validate:full` if hooks skipped or local env lied | Should almost always be green if pre-push ran |
+| **CI** (check `ci`, runs `validate:full`) | **Secondary kit bar** — same `validate:full` if hooks skipped or local env lied | Should almost always be green if pre-push ran |
 | **Product CI** (`product-validate`) | **Product bar** — typecheck/test/build for `apps/<product>-*` via **copied** templates ([`product-validate.example.sh`](./templates/product-validate.example.sh), [`product-ci.example.yml`](./templates/product-ci.example.yml)) | Product repos only; not kit CI |
 | **Secret scan** | Orthogonal security | Always — **two passes, see below** |
 

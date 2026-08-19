@@ -614,7 +614,7 @@ Règles : guard first · Zod double frontière · pas de god file · packages �
 - [x] Créer/installer App + set `CI_APP_ID` (var) / `CI_APP_PRIVATE_KEY` (secret) — org-level live · [`docs/kit-ci-app-setup.md`](docs/kit-ci-app-setup.md) · staging: [`docs/staging-examples.md`](docs/staging-examples.md)
 - [ ] Branch protection / rulesets — **bloqué plan Free privé** (voir § GitHub Free)  
 - [x] Bun workspaces + Turbo  
-- [x] Biome + CI app (`validate:full` incl. build:kit + smoke:mcp) — local pre-push + GH job `validate-full`
+- [x] Biome + CI app (`validate:full` incl. build:kit + smoke:mcp) — local pre-push + GH check `ci`
 - [x] AppError + requestId + middleware Hono  
 - [x] Vitest (core + auth + example-api paths critiques + floors)  
 - [x] D1 migrations versionnées (`apps/example-api/migrations`)  

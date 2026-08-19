@@ -1,13 +1,15 @@
 name: CI
 
-# Gate qualité (validate:full). Ne déploie pas.
+# Gate qualité (`bun run validate:full`). Ne déploie pas.
 #
 # Quand ça tourne :
 #   - pull_request → staging|main  = gate avant merge (ready only; draft skipped)
-#   - push staging|main            = validation post-merge
+#   - push staging|main            = suite seulement si commit nu (classify=naked)
 #   - workflow_dispatch            = secours manuel
 # Pas de CI sur feat/* sans PR vers staging|main.
 # Draft PRs: no heavy CI (ready_for_review starts the gate).
+# Processed PR merge → skip suite (effects = Cloudflare Builds). Naked push → run suite.
+# ~/projects/ssot/conventions.ssot.md § CI landing
 on:
   push:
     branches: [main, staging]
@@ -20,15 +22,46 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
-# Least privilege — same spirit as secret-scan / merge-on-green.
+# Least privilege — classify reads check-runs + associated PRs.
 permissions:
   contents: read
+  checks: read
+  pull-requests: read
 
 jobs:
+  classify:
+    name: Classify push
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    outputs:
+      path: ${{ steps.out.outputs.path }}
+    steps:
+      - id: out
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          path=naked
+          prs="$(gh api "repos/${REPO}/commits/${SHA}/pulls")"
+          n="$(printf '%s' "$prs" | jq --arg sha "$SHA" '[.[] | select(.merged == true and .merge_commit_sha == $sha)] | length')"
+          if [ "$n" -gt 0 ]; then
+            head="$(printf '%s' "$prs" | jq -r --arg sha "$SHA" '[.[] | select(.merged == true and .merge_commit_sha == $sha)][0].head.sha')"
+            conc="$(gh api --paginate "repos/${REPO}/commits/${head}/check-runs" --jq '[.check_runs[] | select((.name | ascii_downcase) == "ci") | .conclusion] | map(select(. == "success")) | if length > 0 then "success" else "missing" end')"
+            if [ "$conc" = "success" ]; then
+              path=pr-merge
+            fi
+          fi
+          echo "path=${path}" >> "$GITHUB_OUTPUT"
+          echo "landing path: ${path}"
+
   quality:
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
-    # Name is matched by merge-on-green (regex validate-full). Do not rename without updating that workflow.
-    name: validate-full
+    needs: [classify]
+    if: always() && !cancelled() && (github.event_name != 'pull_request' || !github.event.pull_request.draft) && (github.event_name != 'push' || needs.classify.outputs.path == 'naked')
+    # Check display name `ci` — classify + merge-on-green + checkup. Do not rename without both.
+    name: ci
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
