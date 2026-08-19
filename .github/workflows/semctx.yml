@@ -18,7 +18,7 @@
 # Le bundle est téléchargé dans RUNNER_TEMP, hors du workspace : sinon `index` l'avalerait
 # (le `exclude` par défaut ne couvre pas un dossier ajouté à la racine).
 #
-# Rapport au gate primaire : `validate:full` (pre-push local + job CI `validate-full`)
+# Rapport au gate primaire : `validate:full` (pre-push local + job CI `ci`)
 # reste LE gate qualité (AGENTS.md § Doctrine ops). Ce job est un garde-fou en plus.
 #
 # Limite connue au 2026-08-08 : le tier `strict` (les 3 règles `block`) ne peut rien

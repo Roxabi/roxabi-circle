@@ -75,7 +75,7 @@ Until `[env.staging]` exists, **do not** run `wrangler deploy --env staging` —
 ## Auto-merge path (kit)
 
 ```text
-PR → Secret scan green → CI validate-full green → label `reviewed`
+PR → Secret scan green → CI check `ci` green → label `reviewed`
   → merge-on-green (kit-ci) → merge commit on main
 ```
 

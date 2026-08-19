@@ -25,7 +25,7 @@
 #       secrets.CI_APP_PRIVATE_KEY
 #     Setup: docs/kit-ci-app-setup.md
 #
-# Gating workflows: Secret scan + CI (job name validate-full).
+# Gating workflows: Secret scan + CI (job name `ci`; alias `validate-full` for in-flight PRs).
 # Semctx est dans les triggers mais PAS dans les required checks : il ne peut pas
 # débloquer un merge à lui seul, il évite juste qu'une PR reste coincée s'il termine
 # après CI/Secret scan (l'évaluation skippe sur `pending`).
@@ -148,12 +148,12 @@ jobs:
                 core.info(`${tag}: no check runs on head — skip (fail-closed).`);
                 continue;
               }
-              // Require secret-scan AND quality CI job name `validate-full`.
+              // Require secret-scan AND quality CI job name `ci` (alias validate-full for in-flight PRs).
               const hasSecret = others.some((r) =>
                 /TruffleHog|Secret scan/i.test(r.name || ''),
               );
               const hasCi = others.some((r) =>
-                /validate-full|lint-typecheck-test/i.test(r.name || ''),
+                /^(ci|validate-full|lint-typecheck-test)$/i.test(r.name || ''),
               );
               if (!hasSecret || !hasCi) {
                 core.info(
