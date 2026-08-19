@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "source_root": "apps/example-api/migrations",
+  "modules": [
+    { "id": "init", "file": "0001_init.sql", "set": "core" },
+    { "id": "api_keys_prefix", "file": "0002_api_keys_prefix.sql", "set": "core" },
+    { "id": "kit_modules", "file": "0003_kit_modules.sql", "set": "core" },
+    { "id": "kit_modules_config", "file": "0004_kit_modules_config.sql", "set": "core" },
+    { "id": "better_auth", "file": "0005_better_auth.sql", "set": "core" },
+    {
+      "id": "better_auth_organization",
+      "file": "0006_better_auth_organization.sql",
+      "set": "core"
+    },
+    { "id": "rbac_modules", "file": "0007_rbac_modules.sql", "set": "core" },
+    { "id": "api_keys_organization", "file": "0008_api_keys_organization.sql", "set": "core" },
+    { "id": "organization_roles", "file": "0009_organization_roles_grants.sql", "set": "rbac" },
+    { "id": "rate_limit_audit", "file": "0010_rate_limit_audit.sql", "set": "audit" },
+    { "id": "demo_items", "file": "0011_demo_items.sql", "set": "demo" },
+    { "id": "flows_plans_runs", "file": "0012_flows_plans_runs.sql", "set": "flows" },
+    { "id": "tasks_comments", "file": "0013_tasks_comments.sql", "set": "tasks" }
+  ]
+}

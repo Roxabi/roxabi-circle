@@ -169,6 +169,12 @@ Tout repo **produit** qui prend ce kit comme `upstream` **doit** :
 
 Gate machine: `bun run zero-edit` · SSoT [`docs/product-consumer-contract.md`](docs/product-consumer-contract.md) · `config/zero-edit-zones.json`.
 
+**D1 schema — compose, do not clone** ([ADR-0008](docs/architecture/adr/0008-kit-schema-identity-product-compose.md) · [`docs/kit-schema-sync.md`](docs/kit-schema-sync.md)):
+
+| Produit | Interdit |
+|---|---|
+| New `apps/<product>-api` + `kit-schema-sync` · domain SQL `1000_` | `cp -R apps/example-api` as day-0 · domain at kit `0009` |
+
  **Barre qualité = audits** : sécu, coverage, god files, couches, CI, linter — **par défaut** tooling+CI.
 
 

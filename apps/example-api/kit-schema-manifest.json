@@ -1,0 +1,58 @@
+{
+  "version": 1,
+  "app": "apps/example-api",
+  "modules": {
+    "init": {
+      "kitSha256": "0c4cbdfbba9c6d33b14dd7df1a6548acef4e836ea85898da34412773e222c3c9",
+      "productFile": "migrations/0001_init.sql"
+    },
+    "api_keys_prefix": {
+      "kitSha256": "dbe6168d8fb6f660ffb7fde2f82cb8c9e0ce110b7af698c0ee15b8782f351abb",
+      "productFile": "migrations/0002_api_keys_prefix.sql"
+    },
+    "kit_modules": {
+      "kitSha256": "df46b036f83278a804ad85fda1ece157a48694c05a9712f9ac512d8fe7b8c6ef",
+      "productFile": "migrations/0003_kit_modules.sql"
+    },
+    "kit_modules_config": {
+      "kitSha256": "aca4f5c1e7106c89a1e1b4b2209bf2f67e96a313ef41349046a2308b00635b1e",
+      "productFile": "migrations/0004_kit_modules_config.sql"
+    },
+    "better_auth": {
+      "kitSha256": "a2a1b36f6fa51253db2c3520e9647feaae690c507e0bacb730b98b32606c03e3",
+      "productFile": "migrations/0005_better_auth.sql"
+    },
+    "better_auth_organization": {
+      "kitSha256": "dc26e44a720c50b69a37afc870bfe7bd54c2ee1edc251e6e4b466cac6f4accfd",
+      "productFile": "migrations/0006_better_auth_organization.sql"
+    },
+    "rbac_modules": {
+      "kitSha256": "3e85a82d0303566c273a4fc49f937fce86c5340fb83b7dbbac6ed0b7da47cb4a",
+      "productFile": "migrations/0007_rbac_modules.sql"
+    },
+    "api_keys_organization": {
+      "kitSha256": "8be34a982325b5a17f915204e4bff20be0496123a6d8df068f027563a66103d3",
+      "productFile": "migrations/0008_api_keys_organization.sql"
+    },
+    "organization_roles": {
+      "kitSha256": "3d6b8cf199b47e415f967bd39f37bbd1383a5be599e297854bc9652cc372f035",
+      "productFile": "migrations/0009_organization_roles_grants.sql"
+    },
+    "rate_limit_audit": {
+      "kitSha256": "722616d14e2bb8036e941b0909acb1f2270b4d5eb946018610c9b41114785a84",
+      "productFile": "migrations/0010_rate_limit_audit.sql"
+    },
+    "demo_items": {
+      "kitSha256": "ce5d398cdbafd0945ade47f2d1297e34114481dcfee4caf1af76199c0cf7a01b",
+      "productFile": "migrations/0011_demo_items.sql"
+    },
+    "flows_plans_runs": {
+      "kitSha256": "b18cbcb53b8ebbe11f5e9bd659a4269c7655af386cd724be1e3cbb3716615f16",
+      "productFile": "migrations/0012_flows_plans_runs.sql"
+    },
+    "tasks_comments": {
+      "kitSha256": "723ec5cbf3c2d60185ac6050b913bac7a7d0e5bf02483d4d92f397a8e1584ce3",
+      "productFile": "migrations/0013_tasks_comments.sql"
+    }
+  }
+}

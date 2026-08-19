@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "app": "apps/foo-api",
+  "modules": {
+    "init": {
+      "kitSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "productFile": "migrations/0001_init.sql"
+    },
+    "rate_limit_audit": {
+      "kitSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "productFile": "migrations/0009_kit_rate_limit_audit.sql"
+    }
+  }
+}
