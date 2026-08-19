@@ -169,6 +169,12 @@ Tout repo **produit** qui prend ce kit comme `upstream` **doit** :
 
 Gate machine: `bun run zero-edit` · SSoT [`docs/product-consumer-contract.md`](docs/product-consumer-contract.md) · `config/zero-edit-zones.json`.
 
+**D1 schema — compose, do not clone** ([ADR-0008](docs/architecture/adr/0008-kit-schema-identity-product-compose.md) · [`docs/kit-schema-sync.md`](docs/kit-schema-sync.md)):
+
+| Produit | Interdit |
+|---|---|
+| New `apps/<product>-api` + `kit-schema-sync` · domain SQL `1000_` | `cp -R apps/example-api` as day-0 · domain at kit `0009` |
+
  **Barre qualité = audits** : sécu, coverage, god files, couches, CI, linter — **par défaut** tooling+CI.
 
 
@@ -461,7 +467,7 @@ EMAIL_TRANSPORT=log | smtp | cf | resend
 | Tests | **Vitest** + `@cloudflare/vitest-pool-workers` | S0 |
 | E2E | **Playwright** | P1 |
 | Hooks | **Lefthook** (pre-commit Biome · **pre-push = validate:full** primary gate) + commitlint · CI = garde-fou | S0 |
-| CI | GH Actions `validate:full` (= lint · typecheck · coverage · banlist · **zod-major** · **ts-major** · **test:ts-major** · extract · **zero-edit** · import-boundary · deny-upstream · **debt** · env · license · quality-gates · **build:kit** · **smoke:mcp**) + secret-scan — **bloquant** | S0 |
+| CI | GH Actions `validate:full` (= lint · typecheck · coverage · banlist · **zod-major** · **ts-major** · **test:ts-major** · extract · **zero-edit** · import-boundary · deny-upstream · **test:kit-schema-sync** · **debt** · env · license · quality-gates · **build:kit** · **smoke:mcp**) + secret-scan — **bloquant** | S0 |
 | Security headers | HSTS, X-Frame-Options, nosniff, Referrer-Policy (ShipFast) | S0/M0 |
 | Schema validation | Zod partout (ShipFast security) | S0 |
 
@@ -749,7 +755,7 @@ pre-commit (Lefthook) → Biome format/lint (staged)
          ↓
 pre-push (Lefthook)   → bun run validate:full
                         (lint · typecheck · banlist · zod-major · ts-major · test:ts-major · extract · zero-edit · import-boundary
-                         · deny-upstream · debt:check · test:debt · agents-adr · env:check
+                         · deny-upstream · test:kit-schema-sync · debt:check · test:debt · agents-adr · env:check
                          · coverage floors · license:check · quality-gates · build:kit · smoke:mcp)
          ↓
 PR CI                 → même suite (garde-fou) · secret scan

@@ -2,6 +2,23 @@
 
 **Audience:** engineer spinning a greenfield product that takes this monorepo as git `upstream`.
 
+## Architecture default — compose, do not clone
+
+Kit SQL identity is **module id + hash**, not `example-api` `NNNN_` filenames. Normative: [ADR-0008](../architecture/adr/0008-kit-schema-identity-product-compose.md) · how-to: [`docs/kit-schema-sync.md`](../kit-schema-sync.md).
+
+| Do | Do not |
+|----|--------|
+| New `apps/<product>-api` importing `@kit/*` | `cp -R apps/example-api` as happy path |
+| `bash scripts/kit-schema-sync.sh --app apps/<product>-api` after creating the app | Hand-copy `example-api/migrations` and then put domain SQL at 0009 |
+| Product SQL from `1000_` | Reuse kit 0009–0999 for domain |
+| Existing clone: freeze history, `--adopt` (default core); later `--modules audit` (etc.) appends `NNNN_kit_*` | Rename applied files |
+
+**Last resort:** if you already cloned `example-api`, run `--adopt` **immediately**, then never add new domain SQL in `0001`–`0999` (frozen history stays; new domain at `1000_`).
+
+```bash
+bash scripts/kit-schema-sync.sh --app apps/<product>-api --adopt
+```
+
 ## Day-0 checklist
 
 1. Create a **private product repo** (empty or cloned from kit history).
@@ -16,8 +33,9 @@
    Public sign-up is **off** unless you set `ALLOW_PUBLIC_SIGNUP=true` (then SPA `/sign-up` appears). Leave unset for invite/admin-only.
 5. Configure CI App vars/secrets on the **product** repo if you want merge-on-green (`CI_APP_ID` / `CI_APP_PRIVATE_KEY`) — see [`docs/ci-app-setup.md`](../ci-app-setup.md).
 6. Add product apps only under `apps/<product>-*`.
-7. Keep `bun run validate:full` green (kit bar). Wire product-validate when product apps exist ([`docs/templates/`](../templates/)).
-8. Cloudflare deploy profile (when shipping): copy `config/deploy.cf.example.toml` → `config/deploy.cf.local.toml` (gitignored), fill **account id** + zone/hosts — see [`docs/deploy-cloudflare.md`](../deploy-cloudflare.md). Account is never assumed by the kit.
+7. When `apps/<product>-api` exists: `bash scripts/kit-schema-sync.sh --app apps/<product>-api` (default `--modules core`). Last-resort clones: `--adopt` immediately (fail-closed if copied bytes drifted). Do not hand-copy `apps/example-api/migrations`. Product domain SQL starts at `1000_`.
+8. Keep `bun run validate:full` green (kit bar). Wire product-validate when product apps exist ([`docs/templates/`](../templates/)).
+9. Cloudflare deploy profile (when shipping): copy `config/deploy.cf.example.toml` → `config/deploy.cf.local.toml` (gitignored), fill **account id** + zone/hosts — see [`docs/deploy-cloudflare.md`](../deploy-cloudflare.md). Account is never assumed by the kit.
 
 ## Contract
 

@@ -51,6 +51,23 @@ Machine gates here only care: product does not dual-edit kit paths; `upstream` i
 
 ---
 
+## Kit schema vs product schema (D1)
+
+Normative: [ADR-0008](./architecture/adr/0008-kit-schema-identity-product-compose.md) · operator: [`kit-schema-sync.md`](./kit-schema-sync.md).
+
+`example-api` is dogfood + **applied D1 SSoT**, not a clone template. Products **compose** `@kit/*` and sync kit SQL; they do not edit kit migrations or reuse kit `NNNN_` as identity.
+
+| | Owner | Product may |
+|--|--------|-------------|
+| `apps/example-api/migrations/*` | **kit** (applied SSoT) | **Read only.** Never copy-then-domain-at-0009. Never edit. |
+| `config/kit-schema-modules.json` | **kit** | Read only. Catalog of module `id` + source path. |
+| `apps/<product>-api/migrations/*` | **product** | Local filenames (`0021_kit_rate_limit_audit.sql`, domain `1000_*`). Append via `scripts/kit-schema-sync.sh` — never rewrite applied files. |
+| `apps/<product>-api/kit-schema-manifest.json` | **product** | **New product file (allowed).** Records `id` + `kitSha256` (hex of kit source bytes) + `productFile`. |
+
+Default sync: `--modules core` (0001–0008). Opt-in sets (`rbac`, `audit`, `demo`, `flows`, `tasks`) only if the product mounts those routes. Existing clones: freeze 0009–0020 domain history; `--adopt`; append `NNNN_kit_*`.
+
+---
+
 ## Configuration without forking kit files
 
 | Need | Do this | Not this |
@@ -271,12 +288,14 @@ Do **not** hardcode product chassis names into kit defaults. Prefer full chassis
 4. Copy env examples → gitignored local files only.
 5. Ensure **kit-ci** (org var/secret) or accept manual merge — see [`kit-ci-app-setup.md`](./kit-ci-app-setup.md).
 6. Add product apps under `apps/<product>-*` only.
-7. Keep `bun run validate:full` green (kit bar). When `apps/<product>-*` exist, also wire product-validate / product-ci (see Product CI DoD below).
+7. When `apps/<product>-api` exists: `bash scripts/kit-schema-sync.sh --app apps/<product>-api` (default `--modules core`). Last-resort clones: `--adopt` immediately. Product domain SQL starts at `1000_`.
+8. Keep `bun run validate:full` green (kit bar). When `apps/<product>-*` exist, also wire product-validate / product-ci (see Product CI DoD below).
 
 Optional product-only files (safe for upstream merge):
 
 ```text
 apps/<product>-api/
+apps/<product>-api/kit-schema-manifest.json  # allowed product file (kit schema manifest)
 apps/<product>-web/
 apps/<product>-mcp/
 docs/product/                              # AGENTS, frames, zero-edit-exceptions.json, kit-baseline
@@ -369,6 +388,7 @@ If product build breaks after pull → fix product code or contribute a kit fix 
 5. `git push upstream` from product (or force-with-lease to kit)  
 6. Patching `packages/ui` for brand colors instead of CSS token override  
 7. Open-ended exceptions without `expires` / `ticket` / alternatives considered  
+8. Hand-copy `example-api/migrations` then domain SQL at 0009 (or rewrite `d1_migrations`) — [ADR-0008](./architecture/adr/0008-kit-schema-identity-product-compose.md)  
 
 ---
 
@@ -381,6 +401,7 @@ If product build breaks after pull → fix product code or contribute a kit fix 
 - [ ] CI vars/secrets only — no forked workflow diffs  
 - [ ] Deny-upstream hook active (kit lefthook; no product fork of the file)  
 - [ ] `bun run zero-edit` green (exceptions current or empty)  
+- [ ] If `apps/<product>-api` exists: run `bash scripts/kit-schema-sync.sh --app apps/<product>-api` after merge and commit new `NNNN_kit_*` + manifest  
 - [ ] Theming via design overrides, not `packages/ui` forks  
 
 ---
@@ -394,7 +415,9 @@ If product build breaks after pull → fix product code or contribute a kit fix 
 | [`config/zero-edit-zones.json`](../config/zero-edit-zones.json) | Protected paths + design_overrides SSoT |
 | [`config/zero-edit-exceptions.example.json`](../config/zero-edit-exceptions.example.json) | Exception schema template |
 | [`scripts/check-zero-edit-zones.sh`](../scripts/check-zero-edit-zones.sh) | Gate implementation |
-| ADR-0001 | packages compose apps |
+| [ADR-0001](./architecture/adr/0001-primary-axis-packages-compose-apps.md) | packages compose apps |
+| [ADR-0008](./architecture/adr/0008-kit-schema-identity-product-compose.md) | Kit schema identity · compose, do not clone |
+| [`kit-schema-sync.md`](./kit-schema-sync.md) | Product D1 sync (append-only) |
 | [`playbooks/start-product.md`](./playbooks/start-product.md) | Day-1 greenfield product setup + dogfood |
 | [`playbooks/fork-to-first-issue.md`](./playbooks/fork-to-first-issue.md) | Full runbook: brief → tracker → GH issue → `/dev` first ship |
 | [`product-consumer-dogfood-evidence.md`](./product-consumer-dogfood-evidence.md) | B5 live evidence (`kit-dogfood`) |

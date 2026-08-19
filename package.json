@@ -42,10 +42,11 @@
     "cf:showcase:deploy-api": "bash scripts/cf-builds/api-deploy.sh",
     "cf:showcase:build-web": "bash scripts/cf-builds/web-build.sh",
     "smoke:mcp": "bun run --filter @kit/mcp-example smoke:stdio",
-    "validate:full": "bun run lint && bun run typecheck && bun run banlist && bun run zod-major && bun run ts-major && bun run test:ts-major && bun run extract-dry-run && bun run zero-edit && bun run import-boundary && bun run test:import-boundary && bun run test:deny-upstream && bun run debt:check && bun run test:debt && bun run agents-adr:check && bun run env:check && bun run test:coverage && bun run license:check && bun run quality-gates:check && bun run build:kit && bun run smoke:mcp",
+    "validate:full": "bun run lint && bun run typecheck && bun run banlist && bun run zod-major && bun run ts-major && bun run test:ts-major && bun run extract-dry-run && bun run zero-edit && bun run import-boundary && bun run test:import-boundary && bun run test:deny-upstream && bun run test:kit-schema-sync && bun run debt:check && bun run test:debt && bun run agents-adr:check && bun run env:check && bun run test:coverage && bun run license:check && bun run quality-gates:check && bun run build:kit && bun run smoke:mcp",
     "prepare": "git config --get core.hooksPath >/dev/null 2>&1 || lefthook install",
     "dogfood:zero-edit": "bash scripts/dogfood-zero-edit.sh --self-sim",
-    "test:deny-upstream": "bash scripts/test-deny-upstream.sh"
+    "test:deny-upstream": "bash scripts/test-deny-upstream.sh",
+    "test:kit-schema-sync": "bash scripts/test-kit-schema-sync.sh"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.8",

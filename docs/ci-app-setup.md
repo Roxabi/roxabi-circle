@@ -105,7 +105,8 @@ When spinning a product consumer (fork / new repo + `upstream` → this kit):
 4. [ ] **CI App (mandatory on Free private):** set **repo-level** `CI_APP_ID` + `CI_APP_PRIVATE_KEY` (commands above) — **never** edit `merge-on-green.yml`
 5. [ ] Confirm: draft PR → **Merge on Green** log has non-empty `APP_ID` and mint succeeds (or evaluate-only until set)
 6. [ ] Product domain only under **new** `apps/<product>-*`; never patch `example-*` / `packages/*` for métier
-7. [ ] Pin `docs/product/kit-baseline` (see playbook §6)
+7. [ ] When `apps/<product>-api` exists: `bash scripts/kit-schema-sync.sh --app apps/<product>-api` (default `--modules core`; last-resort clones `--adopt` immediately)
+8. [ ] Pin `docs/product/kit-baseline` (see [`product-consumer-contract.md`](./product-consumer-contract.md) § Product file)
 
 Verify **repo** credentials (this is what Free private actually uses):
 

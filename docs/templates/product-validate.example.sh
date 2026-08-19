@@ -9,7 +9,7 @@
 # Kit `validate:full` / `scripts/test-coverage.sh` stay kit-only — do not dual-edit them
 # to add product packages.
 #
-# See: docs/product-consumer-contract.md · docs/playbooks/start-product.md §7
+# See: docs/product-consumer-contract.md · docs/playbooks/start-product.md §8
 set -euo pipefail
 
 # Resolve monorepo root from this script location.
