@@ -1,6 +1,7 @@
 import { AppError } from '@kit/core'
 import { describe, expect, it, vi } from 'vitest'
 import { MAGIC_LINK_EXPIRES_IN_SEC, RESET_PASSWORD_TOKEN_EXPIRES_IN_SEC } from './auth-email'
+import { getBetterAuthSecret } from './better-auth-env'
 import { createBetterAuth } from './better-auth-factory'
 import { betterAuthDrizzleSchema } from './better-auth-schema'
 
@@ -68,6 +69,13 @@ describe('createBetterAuth', () => {
   it('rejects short and kit-placeholder secrets', () => {
     expect(() => factory({ secret: 'short' })).toThrow(AppError)
     expect(() => factory({ secret: 'dev-better-auth-secret-change-me-32c!!' })).toThrow(AppError)
+  })
+
+  it('accepts kit placeholder only when allowKitPlaceholderSecret is set', () => {
+    const secret = getBetterAuthSecret({ ENVIRONMENT: 'development' })
+    expect(() => factory({ secret })).toThrow(AppError)
+    const auth = factory({ secret, allowKitPlaceholderSecret: true })
+    expect(typeof auth.handler).toBe('function')
   })
 
   it('invokes emailPort.send from reset + magic handlers', async () => {

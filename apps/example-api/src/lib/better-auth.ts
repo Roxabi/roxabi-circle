@@ -8,6 +8,7 @@ import {
   assertBetterAuthConfigured,
   corsAllowlist,
   getBetterAuthSecret,
+  isDevLikeEnvironment,
   sessionCookieNameFromEnv,
   useSecureCookie,
 } from '@kit/auth'
@@ -25,6 +26,7 @@ export function createBetterAuth(env: Env, baseURL: string): KitBetterAuth {
     database: env.DB,
     schema: betterAuthDrizzleSchema,
     secret: getBetterAuthSecret(env),
+    allowKitPlaceholderSecret: isDevLikeEnvironment(env),
     baseURL,
     cookieName: sessionCookieNameFromEnv(env),
     useSecureCookies: useSecureCookie(env),
