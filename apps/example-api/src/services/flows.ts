@@ -1,4 +1,4 @@
-import { AppError, parseOrThrow } from '@kit/core'
+import { AppError, createLogger, parseOrThrow } from '@kit/core'
 import {
   canAdminFlows,
   canCreateFlowRun,
@@ -21,6 +21,21 @@ import * as flowsRepo from '../repos/flows'
 type Db = DrizzleD1Database<typeof schema>
 type PlanRow = typeof import('../db/schema').flowPlans.$inferSelect
 type RunRow = typeof import('../db/schema').flowRuns.$inferSelect
+
+const log = createLogger({ service: 'example-api', component: 'flows' })
+
+function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err)
+}
+
+function isUniqueConstraintError(err: unknown): boolean {
+  let current: unknown = err
+  for (let depth = 0; depth < 6 && current != null; depth++) {
+    if (/UNIQUE|unique constraint/i.test(errorMessage(current))) return true
+    current = current instanceof Error ? current.cause : undefined
+  }
+  return false
+}
 
 function toPublicPlan(row: PlanRow) {
   return {
@@ -129,8 +144,7 @@ export async function createPlan(
   try {
     await flowsRepo.insertPlan(db, row)
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
-    if (/UNIQUE|unique constraint/i.test(msg)) {
+    if (isUniqueConstraintError(err)) {
       throw AppError.conflict('Plan already exists')
     }
     throw err
@@ -185,9 +199,6 @@ export async function createRun(
   parseOrThrow(createRunBodySchema, input.body)
   const existing = await flowsRepo.getPlan(db, input.planId, input.orgId)
   if (!existing) throw AppError.notFound()
-  if (existing.enabled === false) {
-    throw AppError.conflict('Plan is disabled')
-  }
   let plan: unknown
   try {
     plan = JSON.parse(existing.planJson) as unknown
@@ -214,25 +225,46 @@ export async function createRun(
   }
   const runId = `run_${crypto.randomUUID().replace(/-/g, '')}`
   const now = Date.now()
-  await flowsRepo.insertQueuedRun(db, {
+  const inserted = await flowsRepo.insertQueuedRunIfPlanEnabled(db, {
     id: runId,
     orgId: input.orgId,
     planId: existing.id,
-    planKey: existing.planKey,
-    status: 'queued',
     actorId: input.subject,
     snapshotJson,
-    planDigest: existing.planDigest,
     createdAt: now,
     updatedAt: now,
   })
+  if (!inserted) {
+    const again = await flowsRepo.getPlan(db, input.planId, input.orgId)
+    if (!again) throw AppError.notFound()
+    if (!again.enabled) throw AppError.conflict('Plan is disabled')
+    throw AppError.internal()
+  }
   try {
     await env.FLOW_RUN.create({ id: runId, params: { runId, orgId: input.orgId } })
-  } catch {
+  } catch (err) {
+    log.error('flow_run_create_failed', {
+      runId,
+      orgId: input.orgId,
+      error: errorMessage(err),
+    })
+    let marked = false
     try {
-      await flowsRepo.markQueuedRunCreateFailed(db, { id: runId, orgId: input.orgId })
-    } catch {
-      // Compensation miss: still 502. GET may stay queued — logged by onError.
+      marked = await flowsRepo.markQueuedRunCreateFailed(db, { id: runId, orgId: input.orgId })
+    } catch (markErr) {
+      log.error('flow_run_mark_create_failed', {
+        runId,
+        orgId: input.orgId,
+        error: errorMessage(markErr),
+      })
+      throw AppError.internal()
+    }
+    if (!marked) {
+      const row = await flowsRepo.getRun(db, runId, input.orgId)
+      if (row?.status === 'failed' && row.errorCode === 'WORKFLOW_CREATE_FAILED') {
+        throw new AppError('INTERNAL_ERROR', 'Internal error', 502)
+      }
+      throw AppError.internal()
     }
     throw new AppError('INTERNAL_ERROR', 'Internal error', 502)
   }

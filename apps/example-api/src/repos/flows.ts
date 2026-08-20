@@ -1,4 +1,4 @@
-import { and, desc, eq } from 'drizzle-orm'
+import { and, desc, eq, sql } from 'drizzle-orm'
 import type { DrizzleD1Database } from 'drizzle-orm/d1'
 import { flowPlans, flowRuns, type schema } from '../db/schema'
 
@@ -76,9 +76,38 @@ export async function setPlanEnabled(
     .run()
 }
 
-export async function insertQueuedRun(db: Db, row: typeof flowRuns.$inferInsert) {
-  await db.insert(flowRuns).values(row).run()
-  return row
+/** Insert queued only if the plan is still enabled (closes disable TOCTOU). */
+export async function insertQueuedRunIfPlanEnabled(
+  db: Db,
+  row: {
+    id: string
+    orgId: string
+    planId: string
+    actorId: string
+    snapshotJson: string
+    createdAt: number
+    updatedAt: number
+  },
+): Promise<boolean> {
+  const result = await db.run(sql`
+    INSERT INTO flow_runs (
+      id, org_id, plan_id, plan_key, status, actor_id, snapshot_json, plan_digest, created_at, updated_at
+    )
+    SELECT
+      ${row.id},
+      ${row.orgId},
+      id,
+      plan_key,
+      'queued',
+      ${row.actorId},
+      ${row.snapshotJson},
+      plan_digest,
+      ${row.createdAt},
+      ${row.updatedAt}
+    FROM flow_plans
+    WHERE id = ${row.planId} AND org_id = ${row.orgId} AND enabled = 1
+  `)
+  return (result.meta.changes ?? 0) > 0
 }
 
 export async function markQueuedRunCreateFailed(db: Db, input: { id: string; orgId: string }) {

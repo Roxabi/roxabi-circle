@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { INVOKE_ONLY_PLAN_YAML } from './flows-run/fixtures'
+import * as flowsRepo from './repos/flows'
 import { mintApiKey } from './services/auth'
 import {
   BOTH_ORGS,
@@ -13,6 +14,10 @@ import {
   seedFlowsApp,
   sessionHeaders,
 } from './test/flows-fixture'
+
+afterEach(() => {
+  vi.restoreAllMocks()
+})
 
 describe('V2 publish + enable', () => {
   it('POST /api/flows/plans with allowedTools net is 400 VALIDATION_ERROR', async () => {
@@ -94,6 +99,30 @@ tasks:
       env,
     )
     await expectError(res, 400, 'VALIDATION_ERROR')
+  })
+
+  it('POST /api/flows/plans maps UNIQUE on drizzle cause to 409 CONFLICT', async () => {
+    const { app, env, db } = await seedFlowsApp()
+    await enableFlowsForOrgs(db, BOTH_ORGS)
+    const cookie = await login(app, env, STAFF_EMAIL)
+    vi.spyOn(flowsRepo, 'getPlanByOrgKeyVersion').mockResolvedValue(null)
+    vi.spyOn(flowsRepo, 'insertPlan').mockRejectedValue(
+      Object.assign(new Error('Failed query: insert into flow_plans'), {
+        cause: new Error(
+          'UNIQUE constraint failed: flow_plans.org_id, flow_plans.plan_key, flow_plans.version',
+        ),
+      }),
+    )
+    const res = await app.request(
+      '/api/flows/plans',
+      {
+        method: 'POST',
+        headers: sessionHeaders(cookie),
+        body: JSON.stringify({ yaml: INVOKE_ONLY_PLAN_YAML }),
+      },
+      env,
+    )
+    await expectError(res, 409, 'CONFLICT')
   })
 
   it('POST /api/flows/plans duplicate plan_key same org is 409 CONFLICT', async () => {

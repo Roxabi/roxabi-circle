@@ -86,6 +86,16 @@ describe('flows admin API (V1 gates + GET)', () => {
     expect(body.requestId).toMatch(/^req_/)
   })
 
+  it('GET /api/flows/runs is 404 when flows module is off', async () => {
+    const { app, env } = await seedFlowsApp()
+    const cookie = await login(app, env, STAFF_EMAIL)
+    const res = await app.request('/api/flows/runs', { headers: sessionHeaders(cookie) }, env)
+    expect(res.status).toBe(404)
+    const body = (await res.json()) as { error: { code: string; message: string } }
+    expect(body.error.code).toBe('NOT_FOUND')
+    expect(body.error.message).toBe('Module not available')
+  })
+
   it('GET /api/flows/plans returns empty list after enableFlows', async () => {
     const { app, env, db } = await seedFlowsApp()
     await enableFlowsForOrgs(db, BOTH_ORGS)
@@ -108,7 +118,7 @@ describe('flows admin API (V1 gates + GET)', () => {
     expect(body.requestId).toMatch(/^req_/)
   })
 
-  it('GET stolen plan/run id with own X-Org-Id is 404', async () => {
+  it('stolen plan/run id with own X-Org-Id is 404 on GET, PATCH, and POST run', async () => {
     const { app, env, db } = await seedFlowsApp()
     await enableFlowsForOrgs(db, BOTH_ORGS)
     const stolenPlanId = 'plan_stolen_team'
@@ -144,6 +154,25 @@ describe('flows admin API (V1 gates + GET)', () => {
     await expectError(plan, 404, 'NOT_FOUND')
     const run = await app.request(`/api/flows/runs/${stolenRunId}`, { headers }, env)
     await expectError(run, 404, 'NOT_FOUND')
+
+    const patch = await app.request(
+      `/api/flows/plans/${stolenPlanId}`,
+      { method: 'PATCH', headers, body: JSON.stringify({ enabled: false }) },
+      env,
+    )
+    await expectError(patch, 404, 'NOT_FOUND')
+    const teamPlan = await app.request(
+      `/api/flows/plans/${stolenPlanId}`,
+      { headers: teamHeaders },
+      env,
+    )
+    expect(teamPlan.status).toBe(200)
+    const stolenRun = await app.request(
+      `/api/flows/plans/${stolenPlanId}/runs`,
+      { method: 'POST', headers, body: '{}' },
+      env,
+    )
+    await expectError(stolenRun, 404, 'NOT_FOUND')
   })
 
   it('GET unknown plan/run id on enabled org_acme is 404', async () => {

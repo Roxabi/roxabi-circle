@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { flowRuns } from './db/schema'
 import { INVOKE_ONLY_PLAN_YAML } from './flows-run/fixtures'
+import * as flowsRepo from './repos/flows'
 import { mintApiKey } from './services/auth'
 import {
   BOTH_ORGS,
@@ -154,6 +155,33 @@ describe('V3 create-run + rollup', () => {
     const gotBody = (await got.json()) as { run: { id: string; status: string } }
     expect(gotBody.run.id).toBe(run.id)
     expect(gotBody.run.status).toBe('queued')
+  })
+
+  it('POST run when gated insert returns false on an enabled plan is 500 not 409', async () => {
+    const { app, env, headers, planId } = await staffWithPlan()
+    const create = spyCreate(env)
+    vi.spyOn(flowsRepo, 'insertQueuedRunIfPlanEnabled').mockResolvedValue(false)
+    const res = await postRun(app, env, headers, planId, '{}')
+    await expectError(res, 500, 'INTERNAL_ERROR')
+    expect(create).not.toHaveBeenCalled()
+  })
+
+  it('POST run when FLOW_RUN.create throws and CAS marks 0 is 500 not 502 and GET stays queued', async () => {
+    const { app, env, headers, planId } = await staffWithPlan()
+    const create = vi.fn(async () => {
+      throw new Error('workflow down')
+    })
+    env.FLOW_RUN.create = create
+    vi.spyOn(flowsRepo, 'markQueuedRunCreateFailed').mockResolvedValue(false)
+    const res = await postRun(app, env, headers, planId, '{}')
+    await expectError(res, 500, 'INTERNAL_ERROR')
+    expect(create).toHaveBeenCalledTimes(1)
+    const arg = create.mock.calls[0]?.[0] as CreateArg
+    const got = await app.request(`/api/flows/runs/${arg.id}`, { headers }, env)
+    expect(got.status).toBe(200)
+    const body = (await got.json()) as { run: { status: string; errorCode?: string | null } }
+    expect(body.run.status).toBe('queued')
+    expect(body.run.errorCode ?? null).toBeNull()
   })
 
   it('POST run when FLOW_RUN.create throws is 502 INTERNAL_ERROR and GET is failed never queued', async () => {
