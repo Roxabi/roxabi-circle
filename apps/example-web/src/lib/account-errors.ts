@@ -1,5 +1,13 @@
+import {
+  changePasswordErrorMessage as kitChangePasswordErrorMessage,
+  isRateLimited as kitIsRateLimited,
+} from '@kit/auth/react'
 import type { Messages } from '../messages/fr'
 import { ApiError, apiErrorToMessage } from './api'
+
+export function isRateLimited(err: unknown): boolean {
+  return kitIsRateLimited(err)
+}
 
 /** ApiError fields + BA non-kit envelopes `Error('HTTP N')` from apiFetch. */
 function resolveStatusCode(err: unknown): { status: number | null; code: string | null } {
@@ -9,12 +17,6 @@ function resolveStatusCode(err: unknown): { status: number | null; code: string 
     if (match) return { status: Number(match[1]), code: null }
   }
   return { status: null, code: null }
-}
-
-/** True for ApiError 429 / RATE_LIMITED or `Error('HTTP 429')`. */
-export function isRateLimited(err: unknown): boolean {
-  const { status, code } = resolveStatusCode(err)
-  return status === 429 || code === 'RATE_LIMITED'
 }
 
 /** Status ≥ 500 (`ApiError` or `Error('HTTP N')`); status-less failures fail-closed. */
@@ -36,12 +38,7 @@ export function isServerError(err: unknown): boolean {
  * - 403 → re-auth (future SESSION_NOT_FRESH / forbidden sensitive) — not “wrong password”
  */
 export function changePasswordErrorMessage(err: unknown, m: Messages): string {
-  const { status, code } = resolveStatusCode(err)
-  if (status === 401 || code === 'UNAUTHORIZED') return m.changePasswordReauth
-  if (status === 429 || code === 'RATE_LIMITED') return m.errRateLimited
-  if (status === 403 || code === 'FORBIDDEN') return m.changePasswordReauth
-  if (status === 400) return m.changePasswordWrong
-  return apiErrorToMessage(err, m)
+  return kitChangePasswordErrorMessage(err, m, (e) => apiErrorToMessage(e, m))
 }
 
 /**

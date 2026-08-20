@@ -115,6 +115,12 @@ seed_workspace "${R4}"
 echo "import { env } from 'cloudflare:workers'" >"${R4}/apps/example-web/src/bad-r4.ts"
 assert_case "4 R4 cloudflare:workers → 1" 1 "${R4}" "R4"
 
+# --- R5 example-api ↛ @kit/auth/react ---
+R5="${TMP}/r5"
+seed_workspace "${R5}"
+echo "import { ForgotPasswordForm } from '@kit/auth/react'" >"${R5}/apps/example-api/src/bad-r5.ts"
+assert_case "5 R5 api→auth/react → 1" 1 "${R5}" "R5"
+
 # --- R1 via export … from (fromRe / re-export) ---
 R1E="${TMP}/r1export"
 seed_workspace "${R1E}"
