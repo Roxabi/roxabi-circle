@@ -1,6 +1,7 @@
 import {
   DropdownMenuItem,
   DropdownMenuSeparator,
+  LocaleSwitcher,
   NavUser,
   Separator,
   Sidebar,
@@ -25,7 +26,6 @@ import {
   Building2,
   FileText,
   KeyRound,
-  Languages,
   LayoutDashboard,
   ListTodo,
   Moon,
@@ -39,6 +39,7 @@ import {
 import type { ReactNode } from 'react'
 import { toast } from 'sonner'
 import { canManageMembers, isPlatformActor, signOutAndClearSession, useMe } from '../lib/auth'
+import { localeLabels } from '../lib/i18n'
 import { useLocale } from '../lib/locale'
 import { useOrgContext } from '../lib/org-context'
 import { type Theme, useTheme } from '../lib/theme'
@@ -91,7 +92,7 @@ function pageTitle(pathname: string, m: ReturnType<typeof useLocale>['m']): stri
 
 /** dashboard-01 inspired shell: brand header, grouped nav, user footer, site header. */
 function ShellChrome({ mode, children }: { mode: ShellMode; children: ReactNode }) {
-  const { m, locale, setLocale } = useLocale()
+  const { m, locale, setLocale, locales } = useLocale()
   const { theme, setTheme } = useTheme()
   const me = useMe()
   const { activeOrgId } = useOrgContext()
@@ -232,10 +233,13 @@ function ShellChrome({ mode, children }: { mode: ShellMode; children: ReactNode 
               </DropdownMenuItem>
             ) : null}
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => setLocale(locale === 'fr' ? 'en' : 'fr')}>
-              <Languages />
-              {m.language}: {locale === 'fr' ? 'FR' : 'EN'}
-            </DropdownMenuItem>
+            <LocaleSwitcher
+              variant="menu"
+              locales={locales}
+              value={locale}
+              onChange={setLocale}
+              labels={localeLabels}
+            />
             <DropdownMenuItem onClick={cycleTheme}>
               <ThemeIcon />
               {themeLabel}

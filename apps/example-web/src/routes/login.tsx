@@ -1,4 +1,13 @@
-import { Button, cn, Field, FieldError, FieldGroup, FieldLabel, Input } from '@kit/ui'
+import {
+  Button,
+  cn,
+  Field,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+  Input,
+  LocaleSwitcher,
+} from '@kit/ui'
 import { useForm } from '@tanstack/react-form'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useSearch } from '@tanstack/react-router'
@@ -20,7 +29,7 @@ type LoginMode = 'password' | 'magic'
 
 /** login-05 chrome: centered brand + Password | Magic link modes. */
 export function LoginPage() {
-  const { m, locale, setLocale } = useLocale()
+  const { m, locale, setLocale, locales } = useLocale()
   const navigate = useNavigate()
   const search = useSearch({ from: '/login' })
   const qc = useQueryClient()
@@ -95,24 +104,12 @@ export function LoginPage() {
 
   return (
     <div className="flex min-h-svh flex-col items-center justify-center gap-6 bg-background p-6 md:p-10">
-      <div className="absolute top-4 right-4 flex gap-1">
-        <Button
-          type="button"
-          size="sm"
-          variant={locale === 'fr' ? 'secondary' : 'ghost'}
-          onClick={() => setLocale('fr')}
-        >
-          FR
-        </Button>
-        <Button
-          type="button"
-          size="sm"
-          variant={locale === 'en' ? 'secondary' : 'ghost'}
-          onClick={() => setLocale('en')}
-        >
-          EN
-        </Button>
-      </div>
+      <LocaleSwitcher
+        className="absolute top-4 right-4"
+        locales={locales}
+        value={locale}
+        onChange={setLocale}
+      />
 
       <div className={cn('flex w-full max-w-sm flex-col gap-6')}>
         <div className="flex flex-col items-center gap-2 text-center">

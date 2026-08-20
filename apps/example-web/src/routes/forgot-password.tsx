@@ -7,6 +7,7 @@ import {
   FieldGroup,
   FieldLabel,
   Input,
+  LocaleSwitcher,
 } from '@kit/ui'
 import { useForm } from '@tanstack/react-form'
 import { Link } from '@tanstack/react-router'
@@ -22,7 +23,7 @@ import { forgotPasswordSchema } from '../lib/schemas'
  * Forgot-password UI — Better Auth request-password-reset (enumeration-safe).
  */
 export function ForgotPasswordPage() {
-  const { m, locale, setLocale } = useLocale()
+  const { m, locale, setLocale, locales } = useLocale()
   const [sent, setSent] = useState(false)
 
   const form = useForm({
@@ -62,24 +63,12 @@ export function ForgotPasswordPage() {
 
   return (
     <div className="flex min-h-svh flex-col items-center justify-center gap-6 bg-background p-6 md:p-10">
-      <div className="absolute top-4 right-4 flex gap-1">
-        <Button
-          type="button"
-          size="sm"
-          variant={locale === 'fr' ? 'secondary' : 'ghost'}
-          onClick={() => setLocale('fr')}
-        >
-          FR
-        </Button>
-        <Button
-          type="button"
-          size="sm"
-          variant={locale === 'en' ? 'secondary' : 'ghost'}
-          onClick={() => setLocale('en')}
-        >
-          EN
-        </Button>
-      </div>
+      <LocaleSwitcher
+        className="absolute top-4 right-4"
+        locales={locales}
+        value={locale}
+        onChange={setLocale}
+      />
 
       <div className={cn('flex w-full max-w-sm flex-col gap-6')}>
         <div className="flex flex-col items-center gap-2 text-center">

@@ -26,7 +26,7 @@ SSoT: [`docs/product-consumer-contract.md`](product-consumer-contract.md) (desig
 | Lists empty | `@kit/ui` `Empty` + `EmptyHeader` / `EmptyMedia` / `EmptyTitle` |
 | Selects | `@kit/ui` `Select` (Base UI) + `items` prop — not native `<select>` |
 | Forms | TanStack Form + Zod (`lib/schemas.ts`) + Field from ui |
-| i18n chrome | App message catalogs (`src/messages/*`) — not hardcoded in ui |
+| i18n chrome | App catalogs (`src/messages/*`) + `LocaleSwitcher` (`locales` from `createI18n`). Hidden if one locale. Kit does not ship FR/EN copy |
 | Local D1 seed | `bun run db:seed` after `db:migrate` — re-applies SQL only if `d1_migrations` missing |
 
 ## Exports
@@ -39,6 +39,7 @@ See `packages/ui/src/index.ts` for the current export map (Button, Dialog, Sheet
 |--------|--------|-----|
 | `Calendar` | `shadcn add calendar` | Day grid (`react-day-picker`) |
 | `DatePicker` | Kit composition (Popover + Calendar) — no base-nova registry item | Due dates; pass `placeholder` from app i18n |
+| `LocaleSwitcher` | Kit composition (Button / DropdownMenuItem) | Auth chips + settings + shell menu. Pass `locales` from `@kit/i18n`. Renders nothing for a single locale |
 | `Popover*` | `shadcn add popover` | Anchored overlays |
 | `Combobox*` (+ `ComboboxChips` multi) | `shadcn add combobox` | Assignees / multi-select |
 | `InputGroup*` | pulled in by combobox | Input chrome |

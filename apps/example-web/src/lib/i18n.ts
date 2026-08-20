@@ -14,3 +14,10 @@ export function t(locale: Locale): Messages {
 }
 
 export const defaultLocale: Locale = engine.defaultLocale
+export const locales: readonly Locale[] = engine.locales
+
+/** Native names for settings / shell. Auth chrome uses uppercase codes. */
+export const localeLabels: Record<Locale, string> = {
+  fr: 'Français',
+  en: 'English',
+}
