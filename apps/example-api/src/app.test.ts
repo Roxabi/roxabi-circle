@@ -478,8 +478,28 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
 
   it('cookie mutations require trusted Origin', async () => {
     const app = createApp()
-    const env = createMemoryEnv()
-    const cookie = await loginAs(app, env, DEMO_EMAIL, DEMO_PASSWORD)
+    const env = createMemoryEnv({
+      ENVIRONMENT: 'staging',
+      CORS_ORIGINS: SPA_ORIGIN,
+    })
+    const db = createDb(env.DB as unknown as D1Database, schema)
+    const { seedDemoDatabase } = await import('./seed/seed-db')
+    await seedDemoDatabase(db, { notes: false, environment: 'test' })
+    const login = await app.request(
+      '/api/auth/sign-in/email',
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', Origin: SPA_ORIGIN },
+        body: JSON.stringify({ email: DEMO_EMAIL, password: DEMO_PASSWORD }),
+      },
+      env,
+    )
+    expect(login.status).toBeLessThan(400)
+    const cookie = login.headers.get('set-cookie')?.split(';')[0]
+    expect(cookie).toMatch(/^__Secure-kit_session=/)
+
+    const me = await app.request('/api/me', { headers: { cookie, Origin: SPA_ORIGIN } }, env)
+    expect(me.status).toBe(200)
 
     const missing = await app.request(
       '/api/keys',
@@ -491,6 +511,9 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
       env,
     )
     expect(missing.status).toBe(403)
+    const missingBody = (await missing.json()) as { error: { code: string; message: string } }
+    expect(missingBody.error.code).toBe('FORBIDDEN')
+    expect(missingBody.error.message).toMatch(/Origin required/)
 
     const evil = await app.request(
       '/api/keys',
@@ -766,16 +789,6 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     expect(login.headers.get('strict-transport-security')).toMatch(/max-age/i)
     const cookie = setCookie.split(';')[0]!
     expect(cookie).toMatch(/^__Secure-kit_session=/)
-    const missingOrigin = await app.request(
-      '/api/keys',
-      {
-        method: 'POST',
-        headers: { cookie, 'content-type': 'application/json' },
-        body: '{}',
-      },
-      env,
-    )
-    expect(missingOrigin.status).toBe(403)
   })
 
   it('logout via Better Auth sign-out clears session cookie', async () => {

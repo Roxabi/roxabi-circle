@@ -35,3 +35,11 @@ export function parseCookie(header: string | null | undefined, name: string): st
   }
   return null
 }
+
+/**
+ * BA on-wire names: logical `name` (dev/test) or `__Secure-${name}` (staging/prod).
+ * originGuard must use this — `sessionCookieNameFromEnv` is the logical name only.
+ */
+export function parseSessionCookie(header: string | null | undefined, name: string): string | null {
+  return parseCookie(header, name) ?? parseCookie(header, `__Secure-${name}`)
+}

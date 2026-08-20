@@ -76,6 +76,7 @@ export {
 export {
   clearSessionCookieHeader,
   parseCookie,
+  parseSessionCookie,
   SESSION_COOKIE,
   type SessionPayload,
   sessionCookieHeader,

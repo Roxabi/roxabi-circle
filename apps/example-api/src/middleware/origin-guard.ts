@@ -1,4 +1,4 @@
-import { parseCookie } from '@kit/auth'
+import { parseSessionCookie } from '@kit/auth'
 import { AppError } from '@kit/core'
 import type { MiddlewareHandler } from 'hono'
 import { corsAllowlist, sessionCookieNameFromEnv } from '../lib/session-env'
@@ -33,9 +33,7 @@ export const originGuard: MiddlewareHandler<AppEnv> = async (c, next) => {
 
   const cookie = c.req.header('Cookie')
   const name = sessionCookieNameFromEnv(c.env)
-  // BA prefixes `__Secure-` when useSecureCookies is true (staging/prod).
-  // parseCookie is exact-match — check both on-wire names.
-  if (parseCookie(cookie, name) || parseCookie(cookie, `__Secure-${name}`)) {
+  if (parseSessionCookie(cookie, name)) {
     throw AppError.forbidden('Origin required for cookie-authenticated mutations')
   }
 
