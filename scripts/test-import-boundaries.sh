@@ -118,24 +118,38 @@ assert_case "4 R4 cloudflare:workers → 1" 1 "${R4}" "R4"
 # --- R5 example-api ↛ @kit/auth/react ---
 R5="${TMP}/r5"
 seed_workspace "${R5}"
-echo "import { ForgotPasswordForm } from '@kit/auth/react'" >"${R5}/apps/example-api/src/bad-r5.ts"
-assert_case "5 R5 api→auth/react → 1" 1 "${R5}" "R5"
+echo "import { ForgotPasswordForm } from '@kit/auth/react'" >"${R5}/apps/example-api/src/bad-auth-react.ts"
+assert_case "5 R5 api→auth/react → 1" 1 "${R5}" "R5 apps/example-api"
 
 # --- R5 product Worker API ↛ @kit/auth/react ---
 R5P="${TMP}/r5prod"
 seed_workspace "${R5P}"
 mkdir -p "${R5P}/apps/lgu-api/src"
 echo '{ "name": "@gosilex/lgu-api", "private": true }' >"${R5P}/apps/lgu-api/package.json"
-echo "import { ForgotPasswordForm } from '@kit/auth/react'" >"${R5P}/apps/lgu-api/src/bad-r5.ts"
-assert_case "5b R5 product-api→auth/react → 1" 1 "${R5P}" "R5"
+echo "import { ForgotPasswordForm } from '@kit/auth/react'" >"${R5P}/apps/lgu-api/src/bad-auth-react.ts"
+assert_case "5b R5 product-api→auth/react → 1" 1 "${R5P}" "R5 apps/lgu-api"
 
 # --- SPA product web MAY import @kit/auth/react ---
 R5W="${TMP}/r5web"
 seed_workspace "${R5W}"
 mkdir -p "${R5W}/apps/lgu-web/src"
 echo '{ "name": "@gosilex/lgu-web", "private": true }' >"${R5W}/apps/lgu-web/package.json"
-echo "import { ForgotPasswordForm } from '@kit/auth/react'" >"${R5W}/apps/lgu-web/src/ok-r5.ts"
+echo "import { ForgotPasswordForm } from '@kit/auth/react'" >"${R5W}/apps/lgu-web/src/ok-auth-react.ts"
 assert_case "5c product-web→auth/react allowed → 0" 0 "${R5W}"
+
+# --- R5 non-web other-app (mcp / unnamed Worker) stays banned ---
+R5M="${TMP}/r5mcp"
+seed_workspace "${R5M}"
+mkdir -p "${R5M}/apps/mcp-example/src"
+echo '{ "name": "@kit/mcp-example", "private": true }' >"${R5M}/apps/mcp-example/package.json"
+echo "import { ForgotPasswordForm } from '@kit/auth/react'" >"${R5M}/apps/mcp-example/src/bad-auth-react.ts"
+assert_case "5d R5 mcp-example→auth/react → 1" 1 "${R5M}" "R5 apps/mcp-example"
+
+# --- R5 example-web MAY import @kit/auth/react ---
+R5E="${TMP}/r5exweb"
+seed_workspace "${R5E}"
+echo "import { ForgotPasswordForm } from '@kit/auth/react'" >"${R5E}/apps/example-web/src/ok-auth-react.ts"
+assert_case "5e example-web→auth/react allowed → 0" 0 "${R5E}"
 
 # --- R1 via export … from (fromRe / re-export) ---
 R1E="${TMP}/r1export"
