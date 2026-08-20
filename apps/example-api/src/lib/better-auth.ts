@@ -31,6 +31,7 @@ export function createBetterAuth(env: Env, baseURL: string): KitBetterAuth {
     cookieName: sessionCookieNameFromEnv(env),
     useSecureCookies: useSecureCookie(env),
     allowPublicSignup: allowPublicSignup(env),
+    allowLoopbackOrigins: isDevLikeEnvironment(env),
     trustedOrigins: corsAllowlist(env),
     // Resolve on send — constructing BA every request must not require EMAIL_TRANSPORT.
     emailPort: {

@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 import { createApp } from './app'
 import { schema } from './db/schema'
 import { assertRateLimit } from './lib/rate-limit'
-import { getSecret, useSecureCookie } from './lib/session-env'
+import { getSessionSecret, useSecureCookie } from './lib/session-env'
 import { DEMO_EMAIL, DEMO_EMAIL_B, DEMO_PASSWORD, DEMO_PASSWORD_B } from './services/auth'
 import { createMemoryEnv } from './test/memory-env'
 
@@ -728,15 +728,15 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     expect(missingBody.error.code).toBe('NOT_FOUND')
   })
 
-  it('getSecret fails closed without explicit development|test', () => {
+  it('getSessionSecret fails closed without explicit development|test', () => {
     const base = { DB: {} as never, BUCKET: {} as never }
-    expect(() => getSecret({ ...base, ENVIRONMENT: 'production' })).toThrow(/SESSION_SECRET/)
-    expect(() => getSecret({ ...base, ENVIRONMENT: 'staging' })).toThrow(/SESSION_SECRET/)
-    expect(() => getSecret({ ...base })).toThrow(/SESSION_SECRET/)
-    expect(getSecret({ ...base, ENVIRONMENT: 'development' })).toMatch(/dev-session/)
-    expect(getSecret({ ...base, ENVIRONMENT: 'test' })).toMatch(/dev-session/)
+    expect(() => getSessionSecret({ ...base, ENVIRONMENT: 'production' })).toThrow(/SESSION_SECRET/)
+    expect(() => getSessionSecret({ ...base, ENVIRONMENT: 'staging' })).toThrow(/SESSION_SECRET/)
+    expect(() => getSessionSecret({ ...base })).toThrow(/SESSION_SECRET/)
+    expect(getSessionSecret({ ...base, ENVIRONMENT: 'development' })).toMatch(/dev-session/)
+    expect(getSessionSecret({ ...base, ENVIRONMENT: 'test' })).toMatch(/dev-session/)
     expect(
-      getSecret({
+      getSessionSecret({
         ...base,
         ENVIRONMENT: 'production',
         SESSION_SECRET: 'prod-session-secret-at-least-32-chars!!',
@@ -744,20 +744,20 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     ).toBe('prod-session-secret-at-least-32-chars!!')
   })
 
-  it('getSecret rejects short secrets and kit placeholders outside dev|test', () => {
+  it('getSessionSecret rejects short secrets and kit placeholders outside dev|test', () => {
     const base = { DB: {} as never, BUCKET: {} as never }
     expect(() =>
-      getSecret({ ...base, ENVIRONMENT: 'development', SESSION_SECRET: 'too-short' }),
+      getSessionSecret({ ...base, ENVIRONMENT: 'development', SESSION_SECRET: 'too-short' }),
     ).toThrow(/at least 32/)
     expect(() =>
-      getSecret({
+      getSessionSecret({
         ...base,
         ENVIRONMENT: 'production',
         SESSION_SECRET: 'dev-session-secret-change-me-32chars!!',
       }),
     ).toThrow(/placeholder/)
     expect(
-      getSecret({
+      getSessionSecret({
         ...base,
         ENVIRONMENT: 'development',
         SESSION_SECRET: 'dev-session-secret-change-me-32chars!!',

@@ -71,7 +71,7 @@ Manifest JSON keys (sync script): `modules.<id>.kitSha256`, `modules.<id>.produc
 | Tree | Status in this ADR |
 |------|-------------------|
 | `apps/example-api/migrations/*` | **Applied SSoT** — sync hashes and copies **these** bytes |
-| `packages/*/migrations/*` | **Sketches only** — not the product apply path until a later ADR promotes them |
+| `packages/*/migrations/*` | **Sketches only** — not the product apply path until a later ADR promotes them. Gate: `scripts/check-wrangler-migrations-dir.sh` |
 
 Honest debt: kit SQL still lives in the dogfood app, not in packages. This ADR does **not** move files. Promoting sketches → applied SSoT is a follow-up ADR. `@kit/auth` does **not** export `./migrations/*`. Those files are sketches (`SKETCH / NOT applied`); the apply path is `kit-schema-sync` + `apps/example-api/migrations`.
 

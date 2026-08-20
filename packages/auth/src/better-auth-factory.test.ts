@@ -28,6 +28,7 @@ function factory(overrides: Partial<Parameters<typeof createBetterAuth>[0]> = {}
     secret: SECRET,
     baseURL: 'http://localhost:8787',
     trustedOrigins: ['http://localhost:5173'],
+    allowLoopbackOrigins: true,
     emailPort: { send: vi.fn(async () => ({ ok: true, transport: 'log' })) },
     schema: betterAuthDrizzleSchema,
     ...overrides,
@@ -75,6 +76,47 @@ describe('createBetterAuth', () => {
     const secret = getBetterAuthSecret({ ENVIRONMENT: 'development' })
     expect(() => factory({ secret })).toThrow(AppError)
     const auth = factory({ secret, allowKitPlaceholderSecret: true })
+    expect(typeof auth.handler).toBe('function')
+  })
+
+  it('rejects wildcard / glob / null / empty trustedOrigins even if corsAllowlist is skipped', () => {
+    expect(() => factory({ trustedOrigins: ['*'] })).toThrow(/explicit origins/)
+    expect(() => factory({ trustedOrigins: ['https://*'] })).toThrow(/glob/)
+    expect(() => factory({ trustedOrigins: ['https://*.example.com'] })).toThrow(/glob/)
+    expect(() => factory({ trustedOrigins: ['https://app.example.com', 'null'] })).toThrow(
+      /explicit origins/,
+    )
+    expect(() => factory({ trustedOrigins: [] })).toThrow(/never empty/)
+    expect(() => factory({ trustedOrigins: ['  ', ''] })).toThrow(/never empty/)
+  })
+
+  it('rejects loopback trustedOrigins unless allowLoopbackOrigins is set', () => {
+    expect(() =>
+      factory({
+        trustedOrigins: ['http://localhost:5173'],
+        allowLoopbackOrigins: false,
+      }),
+    ).toThrow(/loopback/)
+    expect(() =>
+      createBetterAuth({
+        database: {},
+        secret: SECRET,
+        baseURL: 'https://api.example.com',
+        trustedOrigins: ['http://127.0.0.1:5173'],
+        emailPort: { send: vi.fn(async () => ({ ok: true, transport: 'log' })) },
+        schema: betterAuthDrizzleSchema,
+      }),
+    ).toThrow(/loopback/)
+    expect(() =>
+      factory({
+        trustedOrigins: ['https://app.example.com', 'http://localhost:5173'],
+        allowLoopbackOrigins: false,
+      }),
+    ).toThrow(/loopback/)
+    const auth = factory({
+      trustedOrigins: ['https://app.example.com'],
+      allowLoopbackOrigins: false,
+    })
     expect(typeof auth.handler).toBe('function')
   })
 

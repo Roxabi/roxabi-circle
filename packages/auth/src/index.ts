@@ -2,6 +2,7 @@ export {
   allowPublicSignup,
   assertAuthSecret,
   assertBetterAuthConfigured,
+  assertTrustedOrigins,
   type BetterAuthEnvSlice,
   betterAuthBaseURL,
   corsAllowlist,

@@ -40,7 +40,7 @@ commit-msg:
 # Intentional cost: local SoT; CI re-runs as guardrail (skip hooks / env drift).
 # validate:full = lint · typecheck · banlist · zod-major · ts-major · test:ts-major · extract ·
 #                 zero-edit · import-boundary · test:import-boundary · deny-upstream ·
-#                 test:kit-schema-sync · debt:check · test:debt · agents-adr · env ·
+#                 test:kit-schema-sync · wrangler-migrations · debt:check · test:debt · agents-adr · env ·
 #                 test:coverage · license · quality-gates · build:kit · smoke:mcp
 # zero-edit: product must not dual-edit kit paths (see docs/product-consumer-contract.md)
 # import-boundary: packages↛apps · example-web↛api/workers (CP-IMPORT)

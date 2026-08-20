@@ -13,7 +13,7 @@ import {
   sendMagicLinkMail,
   sendResetPasswordMail,
 } from './auth-email'
-import { assertAuthSecret } from './better-auth-env'
+import { assertAuthSecret, assertTrustedOrigins } from './better-auth-env'
 import type { BetterAuthLike } from './better-auth-port'
 import { betterAuthDrizzleSchema } from './better-auth-schema'
 import { sessionCookieName } from './cookie-name'
@@ -35,6 +35,8 @@ export type CreateBetterAuthOpts = {
   secret: string
   baseURL: string
   trustedOrigins: string[]
+  /** Loopback origins allowed only for explicit development|test adapters. Default false. */
+  allowLoopbackOrigins?: boolean
   emailPort: AuthEmailPort
   schema?: typeof betterAuthDrizzleSchema
   cookieName?: string
@@ -51,6 +53,9 @@ export type CreateBetterAuthOpts = {
 export function createBetterAuth(opts: CreateBetterAuthOpts): KitBetterAuth {
   assertAuthSecret('BETTER_AUTH_SECRET', opts.secret, {
     allowKitPlaceholder: opts.allowKitPlaceholderSecret,
+  })
+  const trustedOrigins = assertTrustedOrigins(opts.trustedOrigins, {
+    allowLoopback: opts.allowLoopbackOrigins === true,
   })
   const schema = opts.schema ?? betterAuthDrizzleSchema
   const db = drizzle(opts.database as never, { schema })
@@ -107,6 +112,6 @@ export function createBetterAuth(opts: CreateBetterAuthOpts): KitBetterAuth {
         },
       },
     },
-    trustedOrigins: opts.trustedOrigins,
+    trustedOrigins,
   })
 }
