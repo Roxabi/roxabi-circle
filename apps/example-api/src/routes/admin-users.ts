@@ -51,7 +51,7 @@ function webBase(c: {
   const origin = c.req.header('origin')
   const list = corsAllowlist(c.env)
   if (origin && list.includes(origin)) return origin
-  return list[0] ?? 'http://localhost:5173'
+  return list[0]
 }
 
 adminUsersRoutes.get('/api/admin/users', requirePlatformRole('super_admin', 'staff'), async (c) => {

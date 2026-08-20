@@ -26,11 +26,40 @@ describe('better-auth env helpers', () => {
     expect(useSecureCookie({ ENVIRONMENT: 'development' })).toBe(false)
   })
 
-  it('parses CORS allowlist with default local origins', () => {
-    expect(corsAllowlist({})).toEqual(['http://localhost:5173', 'http://127.0.0.1:5173'])
+  it('parses CORS allowlist — localhost default only in development|test', () => {
+    expect(corsAllowlist({ ENVIRONMENT: 'development' })).toEqual([
+      'http://localhost:5173',
+      'http://127.0.0.1:5173',
+    ])
     expect(corsAllowlist({ CORS_ORIGINS: ' https://app.example.com , ' })).toEqual([
       'https://app.example.com',
     ])
+  })
+
+  it('fails closed on missing CORS_ORIGINS and on * / null / loopback', () => {
+    expect(() => corsAllowlist({})).toThrow(AppError)
+    expect(() => corsAllowlist({ ENVIRONMENT: 'production' })).toThrow(/CORS_ORIGINS/)
+    expect(() => corsAllowlist({ ENVIRONMENT: 'development', CORS_ORIGINS: '*' })).toThrow(
+      /explicit origins/,
+    )
+    expect(() => corsAllowlist({ ENVIRONMENT: 'test', CORS_ORIGINS: 'NULL' })).toThrow(
+      /explicit origins/,
+    )
+    expect(() =>
+      corsAllowlist({
+        ENVIRONMENT: 'production',
+        CORS_ORIGINS: 'https://app.example.com,*',
+      }),
+    ).toThrow(/explicit origins/)
+    expect(() =>
+      corsAllowlist({ ENVIRONMENT: 'production', CORS_ORIGINS: 'http://localhost:5173' }),
+    ).toThrow(/loopback/)
+    expect(() =>
+      corsAllowlist({
+        ENVIRONMENT: 'staging',
+        CORS_ORIGINS: 'https://app.example.com,http://127.0.0.1:5173',
+      }),
+    ).toThrow(/loopback/)
   })
 
   it('public signup is off unless exactly true', () => {

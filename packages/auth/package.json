@@ -18,8 +18,7 @@
       "types": "./src/factory.ts",
       "import": "./src/factory.ts",
       "default": "./src/factory.ts"
-    },
-    "./migrations/*": "./migrations/*"
+    }
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json",

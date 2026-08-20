@@ -77,11 +77,42 @@ export function getSessionSecret(env: BetterAuthEnvSlice): string {
   )
 }
 
+function isWildcardOrNullOrigin(o: string): boolean {
+  const n = o.trim().toLowerCase()
+  return n === '*' || n === 'null'
+}
+
+function isLoopbackOrigin(o: string): boolean {
+  try {
+    const host = new URL(o).hostname.toLowerCase()
+    return host === 'localhost' || host === '127.0.0.1' || host === '::1'
+  } catch {
+    return /^(https?:\/\/)?(localhost|127\.0\.0\.1|\[::1\])(:|\/|$)/i.test(o)
+  }
+}
+
 export function corsAllowlist(env: BetterAuthEnvSlice): string[] {
-  return (env.CORS_ORIGINS || DEFAULT_CORS)
+  const raw = env.CORS_ORIGINS?.trim()
+  const source = raw || (isDevLikeEnvironment(env) ? DEFAULT_CORS : '')
+  if (!source) {
+    throw AppError.internal('CORS_ORIGINS is required outside development|test')
+  }
+  const list = source
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean)
+  if (list.length === 0) {
+    throw AppError.internal('CORS_ORIGINS is required outside development|test')
+  }
+  if (list.some(isWildcardOrNullOrigin)) {
+    throw AppError.internal('CORS_ORIGINS must be explicit origins (never * or null)')
+  }
+  if (!isDevLikeEnvironment(env) && list.some(isLoopbackOrigin)) {
+    throw AppError.internal(
+      'CORS_ORIGINS must not include loopback origins outside development|test',
+    )
+  }
+  return list
 }
 
 /** Secure cookies on HTTPS-like envs; local HTTP only for explicit development|test. */

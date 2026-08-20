@@ -1,4 +1,5 @@
--- Better Auth core tables (SQLite / D1) — compose from package, apps apply.
+-- SKETCH / REFERENCE ONLY — NOT applied by wrangler.
+-- Applied SSoT: apps/example-api/migrations/0005_better_auth.sql (kit-schema-sync).
 -- Schema aligned with better-auth drizzle sqlite snapshot (user/session/account/verification).
 
 CREATE TABLE IF NOT EXISTS "user" (

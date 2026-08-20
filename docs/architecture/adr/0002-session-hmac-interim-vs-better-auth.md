@@ -122,7 +122,7 @@ Added 2026-08-09. The behaviour predates this section; the rule was implemented 
 
 1. Depend on `@kit/auth` + peer `better-auth` (peer required on the Worker that mounts BA).
 2. Apply BA migrations via `kit-schema-sync` (core set). Tables: `@kit/auth/schema`.
-3. Set `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL` (and cookie name if needed). **No** `AUTH_SESSION_ADAPTER`.
+3. Set `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, and `CORS_ORIGINS` (required outside `development|test`). Cookie name optional. **No** `AUTH_SESSION_ADAPTER`.
 4. Per-request: `createBetterAuth({ database, secret: getBetterAuthSecret(env), baseURL, emailPort, … })` from `@kit/auth/factory`. Env helpers from `@kit/auth`. Do **not** copy `example-api/src/lib/better-auth.ts` as the factory (it is only the Env mapping example).
 5. `createBetterAuthSessionPort({ getAuth: () => c.get('betterAuth'), cookieName })` into `createRequireAuth`.
 6. Mount `auth.handler(c.req.raw)` on `/api/auth/*`.

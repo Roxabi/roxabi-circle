@@ -77,7 +77,7 @@ describe('org invitations (B3 S2)', () => {
     const body = (await res.json()) as { invitation: { email: string; status: string } }
     expect(body.invitation.email).toBe('brand-new@kit.local')
     expect(body.invitation.status).toBe('pending')
-    const { baUser } = await import('./db/better-auth-schema')
+    const { baUser } = await import('@kit/auth/schema')
     const { eq } = await import('drizzle-orm')
     const users = await db.select().from(baUser).where(eq(baUser.email, 'brand-new@kit.local'))
     expect(users.length).toBe(1)

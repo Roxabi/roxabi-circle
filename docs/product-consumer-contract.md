@@ -75,7 +75,7 @@ Auth glue (ADR-0008 D6): import `createBetterAuth` from `@kit/auth/factory`, tab
 | Need | Do this | Not this |
 |------|---------|----------|
 | CI auto-merge | Org/repo **vars/secrets** **`CI_APP_ID`** (var) + **`CI_APP_PRIVATE_KEY`** (secret) | Edit `merge-on-green.yml`; invent other secret names |
-| Session / CORS / SMTP / CF | `apps/<product>-api/.dev.vars` + CF dashboard secrets | Commit secrets; edit kit examples permanently |
+| Session / CORS / SMTP / CF | `apps/<product>-api/.dev.vars` + CF dashboard secrets. **`CORS_ORIGINS` required** outside `development\|test` (never `*` / `null`) | Commit secrets; edit kit examples permanently; rely on localhost CORS default in staging/prod |
 | Public self-serve sign-up | Set `ALLOW_PUBLIC_SIGNUP=true` on the **product** Worker in `apps/<product>-api/wrangler.toml` `[env.<name>].vars` (durable). Unset / `false` = invite + admin only. SPA `/sign-up` follows `GET /health.allowPublicSignup` (UX only — BA `disableSignUp` is the gate) | Patch `example-web`; copy kit `[env.production]` (showcase hosts + open signup); rely on `.dev.vars` for remote |
 | Product Worker name / D1 / R2 | `apps/<product>-api/wrangler.toml` (**new**) | Edit `apps/example-api/wrangler.toml` |
 | Product UI routes | `apps/<product>-web/**` | Patch `example-web` into a product |

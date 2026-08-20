@@ -1,4 +1,5 @@
--- Kit multi-tenant authz (ADR-0003) — platform roles + dual-level modules.
+-- SKETCH / REFERENCE ONLY — NOT applied by wrangler.
+-- Applied SSoT: apps/example-api/migrations/0007_rbac_modules.sql (kit-schema-sync; includes kit_modules seed).
 -- organization_id references BA organization.id (logical FK).
 
 CREATE TABLE IF NOT EXISTS "user_platform_roles" (

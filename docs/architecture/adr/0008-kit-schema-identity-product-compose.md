@@ -73,7 +73,7 @@ Manifest JSON keys (sync script): `modules.<id>.kitSha256`, `modules.<id>.produc
 | `apps/example-api/migrations/*` | **Applied SSoT** — sync hashes and copies **these** bytes |
 | `packages/*/migrations/*` | **Sketches only** — not the product apply path until a later ADR promotes them |
 
-Honest debt: kit SQL still lives in the dogfood app, not in packages. This ADR does **not** move files. Promoting sketches → applied SSoT is a follow-up ADR.
+Honest debt: kit SQL still lives in the dogfood app, not in packages. This ADR does **not** move files. Promoting sketches → applied SSoT is a follow-up ADR. `@kit/auth` does **not** export `./migrations/*`. Those files are sketches (`SKETCH / NOT applied`); the apply path is `kit-schema-sync` + `apps/example-api/migrations`.
 
 ### D4 — Sync is append-only
 
