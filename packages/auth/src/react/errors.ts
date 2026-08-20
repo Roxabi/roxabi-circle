@@ -21,6 +21,14 @@ export function isRateLimited(err: unknown): boolean {
   return status === 429 || code === 'RATE_LIMITED'
 }
 
+/** Status ≥ 500, or status-less thrown value (network). null is not an error. */
+export function isServerError(err: unknown): boolean {
+  const { status } = resolveAuthFormStatus(err)
+  if (status != null && status >= 500) return true
+  if (status == null && err != null) return true
+  return false
+}
+
 export type ChangePasswordErrorCopy = {
   changePasswordReauth: string
   changePasswordWrong: string

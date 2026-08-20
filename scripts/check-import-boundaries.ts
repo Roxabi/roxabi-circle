@@ -367,7 +367,10 @@ function classify(
   if (importerZone === 'example-web' && WORKER_BAR_IMPORTS.has(specBare)) {
     return { ...hit, rule: 'R4' }
   }
-  if (importerZone === 'example-api' && specBare === '@kit/auth/react') {
+  if (
+    (importerZone === 'example-api' || importerZone === 'other-app') &&
+    (specBare === '@kit/auth/react' || specBare.startsWith('@kit/auth/react/'))
+  ) {
     return { ...hit, rule: 'R5' }
   }
 

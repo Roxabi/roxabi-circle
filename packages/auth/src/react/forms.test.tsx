@@ -81,6 +81,24 @@ describe('ForgotPasswordForm', () => {
     expect(notify.message).toHaveBeenCalledWith('sent-title', 'sent-desc')
   })
 
+  it('still claims sent on 400 (anti-enumeration)', async () => {
+    const user = userEvent.setup()
+    const authFetch = vi.fn().mockRejectedValue({ status: 400 })
+    const notify = { success: vi.fn(), error: vi.fn(), message: vi.fn() }
+    render(
+      <ForgotPasswordForm
+        fetch={authFetch}
+        copy={forgotCopy}
+        resetRedirectTo="https://app.example/reset-password"
+        notify={notify}
+      />,
+    )
+    await user.type(screen.getByLabelText('Email'), 'ada@kit.local')
+    await user.click(screen.getByRole('button', { name: 'Send' }))
+    expect(await screen.findByText('sent-desc')).toBeInTheDocument()
+    expect(notify.error).not.toHaveBeenCalled()
+  })
+
   it('does not claim sent on 429', async () => {
     const user = userEvent.setup()
     const authFetch = vi.fn().mockRejectedValue({ status: 429, code: 'RATE_LIMITED' })
@@ -98,6 +116,27 @@ describe('ForgotPasswordForm', () => {
     await user.click(screen.getByRole('button', { name: 'Send' }))
     await waitFor(() => {
       expect(notify.error).toHaveBeenCalledWith('Error', 'slow')
+    })
+    expect(screen.getByRole('button', { name: 'Send' })).toBeInTheDocument()
+  })
+
+  it('does not claim sent on HTTP 500', async () => {
+    const user = userEvent.setup()
+    const authFetch = vi.fn().mockRejectedValue(new Error('HTTP 500'))
+    const notify = { success: vi.fn(), error: vi.fn(), message: vi.fn() }
+    render(
+      <ForgotPasswordForm
+        fetch={authFetch}
+        copy={forgotCopy}
+        resetRedirectTo="https://app.example/reset-password"
+        notify={notify}
+        rateLimitedDescription={() => 'down'}
+      />,
+    )
+    await user.type(screen.getByLabelText('Email'), 'ada@kit.local')
+    await user.click(screen.getByRole('button', { name: 'Send' }))
+    await waitFor(() => {
+      expect(notify.error).toHaveBeenCalled()
     })
     expect(screen.getByRole('button', { name: 'Send' })).toBeInTheDocument()
   })

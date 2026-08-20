@@ -2,7 +2,7 @@ import { Button, Field, FieldDescription, FieldError, FieldGroup, FieldLabel, In
 import { useForm } from '@tanstack/react-form'
 import { type ReactNode, useState } from 'react'
 import { AUTH_REQUEST_PASSWORD_RESET_PATH, forgotPasswordSchema } from '../password-schemas'
-import { isRateLimited } from './errors'
+import { isRateLimited, isServerError } from './errors'
 import { type AuthFormFetch, type AuthFormNotify, silentNotify } from './notify'
 
 export type ForgotPasswordCopy = {
@@ -49,7 +49,7 @@ export function ForgotPasswordForm({
           body: JSON.stringify({ email: value.email, redirectTo: resetRedirectTo }),
         })
       } catch (e) {
-        if (isRateLimited(e)) {
+        if (isRateLimited(e) || isServerError(e)) {
           notify.error(copy.error, rateLimitedDescription?.(e))
           return
         }
@@ -61,7 +61,7 @@ export function ForgotPasswordForm({
 
   if (sent) {
     return (
-      <div className="flex flex-col gap-4 text-center">
+      <div className="flex flex-col gap-4 text-center" role="status">
         <p className="text-sm text-muted-foreground">{copy.forgotSentDesc}</p>
         {loginLink}
       </div>

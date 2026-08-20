@@ -34,17 +34,20 @@
   "dependencies": {
     "@kit/core": "workspace:*",
     "@kit/email": "workspace:*",
-    "@kit/ui": "workspace:*",
     "drizzle-orm": "^0.45.2",
     "zod": "^4.4.3"
   },
   "peerDependencies": {
+    "@kit/ui": "workspace:*",
     "@tanstack/react-form": "^1.12.0",
     "better-auth": ">=1.2.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
   "peerDependenciesMeta": {
+    "@kit/ui": {
+      "optional": true
+    },
     "@tanstack/react-form": {
       "optional": true
     },
@@ -59,6 +62,7 @@
     }
   },
   "devDependencies": {
+    "@kit/ui": "workspace:*",
     "@tanstack/react-form": "^1.33.5",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.2",

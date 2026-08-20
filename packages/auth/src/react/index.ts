@@ -22,6 +22,7 @@ export {
   type ChangePasswordErrorCopy,
   changePasswordErrorMessage,
   isRateLimited,
+  isServerError,
   resolveAuthFormStatus,
 } from './errors'
 export {

@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { changePasswordErrorMessage, isRateLimited, resolveAuthFormStatus } from './errors'
+import {
+  changePasswordErrorMessage,
+  isRateLimited,
+  isServerError,
+  resolveAuthFormStatus,
+} from './errors'
 
 const copy = {
   changePasswordReauth: 'reauth',
@@ -17,6 +22,16 @@ describe('resolveAuthFormStatus', () => {
 
   it('parses BA Error HTTP N', () => {
     expect(resolveAuthFormStatus(new Error('HTTP 429'))).toEqual({ status: 429, code: null })
+  })
+})
+
+describe('isServerError', () => {
+  it('treats 5xx and status-less throws as server errors', () => {
+    expect(isServerError(new Error('HTTP 500'))).toBe(true)
+    expect(isServerError(new Error('network down'))).toBe(true)
+    expect(isServerError({ status: 503 })).toBe(true)
+    expect(isServerError(new Error('HTTP 429'))).toBe(false)
+    expect(isServerError(null)).toBe(false)
   })
 })
 
