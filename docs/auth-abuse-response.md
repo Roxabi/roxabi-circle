@@ -79,4 +79,4 @@ Alert on elevated `audit_append_failed` rate. Full outbox / SIEM is out of scope
 
 - ADR-0002 Better Auth only  
 - Frame/spec: product tracker  
-- Staging: `docs/staging-examples.md`
+- Environments / staging: [`docs/environments.md`](./environments.md) · example-* checklist: [`docs/staging-examples.md`](./staging-examples.md)

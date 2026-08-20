@@ -10,6 +10,7 @@ SSoT kit for product apps that pull this repo as git `upstream` (zero-edit contr
 | **Foundations** | [`docs/playbooks/start-project.md`](docs/playbooks/start-project.md) |
 | **First issue** | [`docs/playbooks/fork-to-first-issue.md`](docs/playbooks/fork-to-first-issue.md) |
 | **Consumer contract** | [`docs/product-consumer-contract.md`](docs/product-consumer-contract.md) |
+| **Environments / deploy** | [`docs/environments.md`](docs/environments.md) · staging + main → Wrangler `--env` |
 | **ADRs** | [0001 axis](docs/architecture/adr/0001-primary-axis-packages-compose-apps.md) · [0002 BA-only session](docs/architecture/adr/0002-session-hmac-interim-vs-better-auth.md) · [0003 multi-tenant](docs/architecture/adr/0003-multi-tenant-rbac-modules.md) · [0004 CF Email](docs/architecture/adr/0004-email-transport-cf-default.md) |
 | **Agent** | [`AGENTS.md`](AGENTS.md) |
 | **Kit parent URL / lineage** | operator SSoT (outside this monorepo) |

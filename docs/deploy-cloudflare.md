@@ -6,6 +6,7 @@ GitHub CI = **quality only** (`validate:full`). GH does **not** ship the showcas
 
 | Related | Role |
 |---------|------|
+| [`environments.md`](./environments.md) | **SSoT** git `staging`/`main` → Wrangler `--env` → CF isolation (all apps) |
 | [`config/deploy.cf.example.toml`](../config/deploy.cf.example.toml) | Operator profile template (account/hosts; gitignored local copy) |
 | [`scripts/cf-builds/`](../scripts/cf-builds/) | Install / migrate / deploy / SPA build scripts used by CF Builds |
 | [`email-cf-runbook.md`](./email-cf-runbook.md) | Email Sending |
@@ -15,6 +16,10 @@ GitHub CI = **quality only** (`validate:full`). GH does **not** ship the showcas
 ---
 
 ## 0. Model (normative)
+
+Generic protocol (staging **and** production, product + kit): [`environments.md`](./environments.md).
+
+This page is the **kit showcase** instance: CD on **`main` only** until B4 adds `[env.staging]` for `example-*`.
 
 ```text
 dev → PR → GitHub CI (validate:full)     # prove quality

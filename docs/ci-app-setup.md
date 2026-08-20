@@ -175,6 +175,7 @@ If mint fails with *private-key must be set*: secret not visible to the repo (in
 
 ## Related
 
+- Environments (git staging/main → Wrangler → CF): [`docs/environments.md`](./environments.md)
 - Cloudflare deploy (account-agnostic + local profile): [`docs/deploy-cloudflare.md`](./deploy-cloudflare.md)
 - Staging examples deploy: [`docs/staging-examples.md`](./staging-examples.md)
 - Product start playbook: [`docs/playbooks/start-product.md`](./playbooks/start-product.md)

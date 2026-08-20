@@ -1,10 +1,12 @@
 # Staging deploy — example-api / example-web
 
-**Status:** **ops runbook draft** — not B4 DoD complete. Kit `apps/example-api/wrangler.toml` has **no** `[env.staging]` yet; do not treat this doc as “staging is provisioned”.
+**Protocol (all apps):** [`environments.md`](./environments.md) — planes, isolation, git × Wrangler, cookies/CORS.
 
-**Canonical deploy + account gate:** [`deploy-cloudflare.md`](./deploy-cloudflare.md) + local `config/deploy.cf.local.toml` (from `config/deploy.cf.example.toml`). This page is staging-focused detail only.
+**Status:** **ops runbook draft** — not B4 DoD complete. Kit `apps/example-api/wrangler.toml` has **no** `[env.staging]` yet; do not treat this doc as “staging is provisioned”. This page is the **example-*** checklist only.
 
-**Goal B4 (when complete):** industrialize staging for kit examples without shipping `ENVIRONMENT=development` to the cloud.
+**Canonical deploy + account gate:** [`deploy-cloudflare.md`](./deploy-cloudflare.md) + local `config/deploy.cf.local.toml` (from `config/deploy.cf.example.toml`).
+
+**Goal B4 (when complete):** industrialize staging for kit examples without shipping `ENVIRONMENT=development` to the cloud. Products add `[env.staging]` in `apps/<product>-*` without waiting for B4.
 
 ## Preconditions
 
