@@ -121,6 +121,22 @@ seed_workspace "${R5}"
 echo "import { ForgotPasswordForm } from '@kit/auth/react'" >"${R5}/apps/example-api/src/bad-r5.ts"
 assert_case "5 R5 api→auth/react → 1" 1 "${R5}" "R5"
 
+# --- R5 product Worker API ↛ @kit/auth/react ---
+R5P="${TMP}/r5prod"
+seed_workspace "${R5P}"
+mkdir -p "${R5P}/apps/lgu-api/src"
+echo '{ "name": "@gosilex/lgu-api", "private": true }' >"${R5P}/apps/lgu-api/package.json"
+echo "import { ForgotPasswordForm } from '@kit/auth/react'" >"${R5P}/apps/lgu-api/src/bad-r5.ts"
+assert_case "5b R5 product-api→auth/react → 1" 1 "${R5P}" "R5"
+
+# --- SPA product web MAY import @kit/auth/react ---
+R5W="${TMP}/r5web"
+seed_workspace "${R5W}"
+mkdir -p "${R5W}/apps/lgu-web/src"
+echo '{ "name": "@gosilex/lgu-web", "private": true }' >"${R5W}/apps/lgu-web/package.json"
+echo "import { ForgotPasswordForm } from '@kit/auth/react'" >"${R5W}/apps/lgu-web/src/ok-r5.ts"
+assert_case "5c product-web→auth/react allowed → 0" 0 "${R5W}"
+
 # --- R1 via export … from (fromRe / re-export) ---
 R1E="${TMP}/r1export"
 seed_workspace "${R1E}"

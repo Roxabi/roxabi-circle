@@ -6,7 +6,7 @@
  *   R1/R2 packages ↛ apps (workspace name or relative)
  *   R3 example-web ↛ example-api src
  *   R4 example-web ↛ cloudflare:workers (and WORKER_BAR_IMPORTS)
- *   R5 example-api ↛ @kit/auth/react (SPA password forms)
+ *   R5 Worker APIs (example-api and apps/*-api) ↛ @kit/auth/react (SPA password forms)
  *   exemptions require reason; invalid config → exit 2
  *
  * Does NOT prove: runtime/DI purity, non-literal dynamic imports,
@@ -367,10 +367,10 @@ function classify(
   if (importerZone === 'example-web' && WORKER_BAR_IMPORTS.has(specBare)) {
     return { ...hit, rule: 'R4' }
   }
-  if (
-    (importerZone === 'example-api' || importerZone === 'other-app') &&
-    (specBare === '@kit/auth/react' || specBare.startsWith('@kit/auth/react/'))
-  ) {
+  const importerRel = relPosix(root, hit.file)
+  const isWorkerApi =
+    importerZone === 'example-api' || /(?:^|\/)apps\/[^/]+-api\//.test(importerRel)
+  if (isWorkerApi && (specBare === '@kit/auth/react' || specBare.startsWith('@kit/auth/react/'))) {
     return { ...hit, rule: 'R5' }
   }
 
