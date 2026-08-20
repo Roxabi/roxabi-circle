@@ -1,9 +1,38 @@
 export {
+  type AuthEmailPort,
+  MAGIC_LINK_EXPIRES_IN_SEC,
+  RESET_PASSWORD_TOKEN_EXPIRES_IN_SEC,
+  sendMagicLinkMail,
+  sendResetPasswordMail,
+} from './auth-email'
+export {
+  allowPublicSignup,
+  assertBetterAuthConfigured,
+  type BetterAuthEnvSlice,
+  betterAuthBaseURL,
+  corsAllowlist,
+  environmentName,
+  getBetterAuthSecret,
+  getSessionSecret,
+  isDevLikeEnvironment,
+  sessionCookieNameFromEnv,
+  useSecureCookie,
+} from './better-auth-env'
+export {
+  type CreateBetterAuthOpts,
+  createBetterAuth,
+  type KitBetterAuth,
+} from './better-auth-factory'
+export {
   type BetterAuthLike,
   type CreateBetterAuthSessionPortOpts,
   createBetterAuthSessionPort,
 } from './better-auth-port'
 export { type SessionCookieNameOpts, sessionCookieName } from './cookie-name'
+export {
+  createFirstSessionAfterHook,
+  type FirstSessionHandler,
+} from './first-session-hook'
 export {
   apiKeyPrefix,
   generateApiKey,

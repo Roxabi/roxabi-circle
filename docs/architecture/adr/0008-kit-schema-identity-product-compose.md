@@ -109,17 +109,24 @@ Set ↔ current applied files (catalog remains SSoT):
 | **Existing clone** (LGU) | Domain already at `0009`–`0020` | **Freeze** that history. `--adopt` core. Later kit modules **append** (`0021_kit_*`…). New domain at **`1000_`** |
 | Last-resort `cp` | Applied 0001–0008 (or more) | `--adopt` immediately; no new domain SQL below `1000_` |
 
-### D6 — Code glue is a follow-up (not this change)
+### D6 — Code glue is importable (`@kit/auth`)
 
-**Non-goal here.** Products still copy or port `example-api/src/lib/better-auth.ts` until a later PR promotes:
+**Shipped 2026-08-20.** Products **import**; they do not port `example-api/src/lib/better-auth.ts`.
 
-- `createBetterAuth` / per-request factory
-- `first_login` audit hook
-- email-port wiring (magic link, reset, welcome)
+| Piece | Where |
+|-------|--------|
+| `createBetterAuth({ database, secret, baseURL, emailPort, … })` | `@kit/auth` |
+| Drizzle BA tables | `@kit/auth/schema` (subpath — do not pull the factory into `schema.ts`) |
+| Env helpers (`getBetterAuthSecret`, `betterAuthBaseURL`, cors, signup, cookies) | `@kit/auth` |
+| Magic-link + reset send via EmailPort | `@kit/auth` (`sendMagicLinkMail` / `sendResetPasswordMail`) using `@kit/email` templates |
+| `first_login` hook | `@kit/auth` `onFirstSession` / `createFirstSessionAfterHook` — product supplies the audit insert (`tryFirstLogin`) when the audit module is mounted |
+| Welcome / invite mail | already `@kit/email` `build*EmailText` + app `resolveEmailPort` |
 
-into `@kit/auth` + `@kit/email` so products **import** instead of port.
+`example-api/src/lib/better-auth.ts` is a thin **Env adapter** (dogfood), not the SSoT.
 
-This ADR records the debt. Do **not** treat D6 as shipped.
+`emailPort.send` runs only when BA sends mail. Do **not** call `resolveEmailPort(env)` at factory construction — that 500s every request (including `/health`) when staging/prod lacks `EMAIL_TRANSPORT`. Wrap: `emailPort: { send: (input) => resolveEmailPort(env).send(input) }`.
+
+SQL identity is still D1–D5 (this ADR). D6 does **not** move applied SQL into `packages/*/migrations`.
 
 ## Consequences
 
@@ -136,12 +143,11 @@ This ADR records the debt. Do **not** treat D6 as shipped.
 | Rewrite `d1_migrations` in prod (or any applied DB) | History is the database |
 | Rename applied migration files to “make room” | Same — journal = filename |
 | `--modules all` / port `demo_items` · flows · tasks “to stay current” when the product does not mount those routes | Dead schema + merge noise |
-| Dual-edit kit `better-auth.ts` (or kit migrations) in the product | Forever-conflicts; D6 is the promote path |
+| Dual-edit kit `better-auth.ts` (or kit migrations) in the product | Forever-conflicts; import `@kit/auth` `createBetterAuth` |
 | Treat `packages/*/migrations` as applied SSoT | Sketches; hashes would drift from example-api |
 
 ## Non-goals
 
 - Implementing product domain SQL in the kit
 - Moving applied SSoT into `packages/*/migrations` (later ADR)
-- Shipping `createBetterAuth` in `@kit/auth` (D6 follow-up)
 - Editing `apps/lgu-*` or any product tree from the kit

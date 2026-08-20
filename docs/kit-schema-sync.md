@@ -79,5 +79,5 @@ Product-owned. JSON keys (see [`templates/kit-schema-manifest.example.json`](./t
 
 ## Not this doc
 
-- Code glue (`createBetterAuth`, `first_login`, email-port) stays in `example-api` until ADR-0008 **D6** promote.
+- Code glue: import `createBetterAuth` from `@kit/auth` (ADR-0008 **D6**). Do not copy `example-api/src/lib/better-auth.ts`.
 - Do not port `demo` / `flows` / `tasks` SQL unless the product mounts those routes.

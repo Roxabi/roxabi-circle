@@ -1,5 +1,5 @@
+import { betterAuthDrizzleSchema } from '@kit/auth/schema'
 import { foreignKey, integer, primaryKey, sqliteTable, text, unique } from 'drizzle-orm/sqlite-core'
-import { betterAuthDrizzleSchema } from './better-auth-schema'
 
 export const demoNotes = sqliteTable('demo_notes', {
   id: text('id').primaryKey(),

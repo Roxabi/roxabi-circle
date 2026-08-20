@@ -105,16 +105,16 @@
       "version": "0.0.1",
       "dependencies": {
         "@kit/core": "workspace:*",
+        "@kit/email": "workspace:*",
+        "drizzle-orm": "^0.45.2",
       },
       "devDependencies": {
+        "better-auth": "^1.6.29",
         "vitest": "^4.1.10",
       },
       "peerDependencies": {
         "better-auth": ">=1.2.0",
       },
-      "optionalPeers": [
-        "better-auth",
-      ],
     },
     "packages/comments": {
       "name": "@kit/comments",

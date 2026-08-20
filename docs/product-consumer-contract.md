@@ -66,6 +66,8 @@ Normative: [ADR-0008](./architecture/adr/0008-kit-schema-identity-product-compos
 
 Default sync: `--modules core` (0001–0008). Opt-in sets (`rbac`, `audit`, `demo`, `flows`, `tasks`) only if the product mounts those routes. Existing clones: freeze 0009–0020 domain history; `--adopt`; append `NNNN_kit_*`.
 
+Auth glue (ADR-0008 D6): import `createBetterAuth` from `@kit/auth` and tables from `@kit/auth/schema`. Do **not** copy or dual-edit `apps/example-api/src/lib/better-auth.ts`.
+
 ---
 
 ## Configuration without forking kit files
