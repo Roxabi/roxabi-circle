@@ -16,6 +16,7 @@ import { createRequireAuth, resolveDualAuth } from './require-auth'
 import {
   clearSessionCookieHeader,
   parseCookie,
+  parseSessionCookie,
   SESSION_COOKIE,
   sessionCookieHeader,
 } from './session'
@@ -283,6 +284,11 @@ describe('session cookie helpers', () => {
   it('parseCookie extracts name', () => {
     expect(parseCookie('a=1; kit_session=abc; b=2', SESSION_COOKIE)).toBe('abc')
     expect(parseCookie(null, SESSION_COOKIE)).toBeNull()
+  })
+  it('parseSessionCookie sees BA __Secure- prefix', () => {
+    expect(parseSessionCookie('__Secure-kit_session=tok', SESSION_COOKIE)).toBe('tok')
+    expect(parseSessionCookie('kit_session=tok', SESSION_COOKIE)).toBe('tok')
+    expect(parseSessionCookie('a=1', SESSION_COOKIE)).toBeNull()
   })
 })
 

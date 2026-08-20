@@ -1,4 +1,4 @@
-import { parseCookie } from '@kit/auth'
+import { parseSessionCookie } from '@kit/auth'
 import { AppError } from '@kit/core'
 import type { MiddlewareHandler } from 'hono'
 import { corsAllowlist, sessionCookieNameFromEnv } from '../lib/session-env'
@@ -33,7 +33,7 @@ export const originGuard: MiddlewareHandler<AppEnv> = async (c, next) => {
 
   const cookie = c.req.header('Cookie')
   const name = sessionCookieNameFromEnv(c.env)
-  if (parseCookie(cookie, name)) {
+  if (parseSessionCookie(cookie, name)) {
     throw AppError.forbidden('Origin required for cookie-authenticated mutations')
   }
 

@@ -35,8 +35,7 @@
 | `ENVIRONMENT=staging` | Required — never `development` |
 | `BETTER_AUTH_SECRET` | BA signing |
 | `BETTER_AUTH_URL` | Public API origin |
-| `SESSION_SECRET` / cookie config | Session (see env schema / `.dev.vars.example`) |
-| `SESSION_COOKIE_NAME` | Optional override |
+| `SESSION_COOKIE_NAME` | Optional cookie name override (default `kit_session`) |
 | `CORS_ORIGINS` | Explicit SPA origin(s) |
 | `EMAIL_TRANSPORT` | `cf` or `resend` (**not** `log`, **not** `smtp`) |
 | `EMAIL_FROM` | Staging From `@example.com` |

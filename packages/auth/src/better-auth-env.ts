@@ -59,7 +59,8 @@ function assertStrongSecret(label: string, secret: string, env: BetterAuthEnvSli
 }
 
 /**
- * SESSION_SECRET (optional residual helpers / legacy cookie utils):
+ * HMAC leftover — **not** on the Better Auth session path (use getBetterAuthSecret).
+ * Kept so existing product env inventories / tests do not break mid-inherit.
  * - Prefer real secret (min 32) always when set.
  * - Reject known kit placeholders outside development|test.
  * - Known fallback only when ENVIRONMENT is **explicitly** `development` | `test` and secret unset.

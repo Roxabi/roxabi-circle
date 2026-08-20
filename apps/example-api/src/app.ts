@@ -29,7 +29,6 @@ import type { AppEnv } from './types'
 export {
   corsAllowlist,
   environmentName,
-  getSessionSecret,
   useSecureCookie,
 } from './lib/session-env'
 export type { AppEnv }
