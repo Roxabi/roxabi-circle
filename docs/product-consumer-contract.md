@@ -75,9 +75,9 @@ Auth glue (ADR-0008 D6): import `createBetterAuth` from `@kit/auth/factory`, tab
 | Need | Do this | Not this |
 |------|---------|----------|
 | CI auto-merge | Org/repo **vars/secrets** **`CI_APP_ID`** (var) + **`CI_APP_PRIVATE_KEY`** (secret) | Edit `merge-on-green.yml`; invent other secret names |
-| Session / CORS / SMTP / CF | `apps/<product>-api/.dev.vars` + CF dashboard secrets. **`CORS_ORIGINS` required** outside `development\|test` (never `*` / `null`) | Commit secrets; edit kit examples permanently; rely on localhost CORS default in staging/prod |
+| Session / CORS / SMTP / CF | `apps/<product>-api/.dev.vars` + CF dashboard secrets. **`CORS_ORIGINS` required** outside `development\|test` (never `*` / `null`). Planes / `[env.staging]`: [`environments.md`](./environments.md) | Commit secrets; edit kit examples permanently; rely on localhost CORS default in staging/prod |
 | Public self-serve sign-up | Set `ALLOW_PUBLIC_SIGNUP=true` on the **product** Worker in `apps/<product>-api/wrangler.toml` `[env.<name>].vars` (durable). Unset / `false` = invite + admin only. SPA `/sign-up` follows `GET /health.allowPublicSignup` (UX only — BA `disableSignUp` is the gate) | Patch `example-web`; copy kit `[env.production]` (showcase hosts + open signup); rely on `.dev.vars` for remote |
-| Product Worker name / D1 / R2 | `apps/<product>-api/wrangler.toml` (**new**) | Edit `apps/example-api/wrangler.toml` |
+| Product Worker name / D1 / R2 | `apps/<product>-api/wrangler.toml` (**new**) · **two** planes, distinct ids ([`environments.md`](./environments.md)) | Edit `apps/example-api/wrangler.toml`; copy production `database_id` into `[env.staging]` |
 | Product UI routes | `apps/<product>-web/**` | Patch `example-web` into a product |
 | Product AGENTS / frame | `docs/product/AGENTS.md` or app-level AGENTS | Rewrite root `AGENTS.md` |
 | Extra CI job / product CD | `.github/workflows/product-deploy.yml` (**new**) or product CF Builds on `apps/<product>-*` | Append jobs into kit `ci.yml` · never set `KIT_SHOWCASE_DEPLOY` · never run `cf:showcase:*` |
@@ -420,6 +420,7 @@ If product build breaks after pull → fix product code or contribute a kit fix 
 | [ADR-0001](./architecture/adr/0001-primary-axis-packages-compose-apps.md) | packages compose apps |
 | [ADR-0008](./architecture/adr/0008-kit-schema-identity-product-compose.md) | Kit schema identity · compose, do not clone |
 | [`kit-schema-sync.md`](./kit-schema-sync.md) | Product D1 sync (append-only) |
+| [`environments.md`](./environments.md) | Git staging/main → Wrangler `--env` → isolated CF resources |
 | [`playbooks/start-product.md`](./playbooks/start-product.md) | Day-1 greenfield product setup + dogfood |
 | [`playbooks/fork-to-first-issue.md`](./playbooks/fork-to-first-issue.md) | Full runbook: brief → tracker → GH issue → `/dev` first ship |
 | [`product-consumer-dogfood-evidence.md`](./product-consumer-dogfood-evidence.md) | B5 live evidence (`kit-dogfood`) |

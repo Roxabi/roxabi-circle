@@ -617,7 +617,7 @@ Règles : guard first · Zod double frontière · pas de god file · packages �
 - [x] **Merge-on-green** — `.github/workflows/merge-on-green.yml` (label `reviewed` + fin CI/Secret only — pas de check_suite/sync spam ; close issues → `close-linked-issues.yml`)  
 - [x] Label **`reviewed`** créé sur le repo  
 - [x] Merge token = **GitHub App `kit-ci`** (pas de PAT) — setup : [`docs/kit-ci-app-setup.md`](docs/kit-ci-app-setup.md)  
-- [x] Créer/installer App + set `CI_APP_ID` (var) / `CI_APP_PRIVATE_KEY` (secret) — org-level live · [`docs/kit-ci-app-setup.md`](docs/kit-ci-app-setup.md) · staging: [`docs/staging-examples.md`](docs/staging-examples.md)
+- [x] Créer/installer App + set `CI_APP_ID` (var) / `CI_APP_PRIVATE_KEY` (secret) — org-level live · [`docs/ci-app-setup.md`](docs/ci-app-setup.md)
 - [ ] Branch protection / rulesets — **bloqué plan Free privé** (voir § GitHub Free)  
 - [x] Bun workspaces + Turbo  
 - [x] Biome + CI app (`validate:full` incl. build:kit + smoke:mcp) — local pre-push + GH check `ci`
@@ -655,7 +655,8 @@ PR → Secret scan green → label `reviewed` → Merge on Green (kit-ci) → me
 
 Quand la CI app existera : l’ajouter dans `workflow_run.workflows` de `merge-on-green.yml` **et** dans les required checks (si un jour Team).
 
-**Branches :** `main` (prod) · `staging` (intégration) — PRs features → `staging` ; promote `staging` → `main` (merge commit).
+**Branches :** `main` (prod) · `staging` (intégration) — PRs features → `staging` ; promote `staging` → `main` (merge commit).  
+CF mapping (named env, isolation D1/R2, cookies): [`docs/environments.md`](docs/environments.md).
 
 
 ### Suite
