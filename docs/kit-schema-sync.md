@@ -79,5 +79,5 @@ Product-owned. JSON keys (see [`templates/kit-schema-manifest.example.json`](./t
 
 ## Not this doc
 
-- Code glue: import `createBetterAuth` from `@kit/auth` (ADR-0008 **D6**). Do not copy `example-api/src/lib/better-auth.ts`.
+- Code glue: import `createBetterAuth` from `@kit/auth/factory` (ADR-0008 **D6**). Do not copy `example-api/src/lib/better-auth.ts` as the factory.
 - Do not port `demo` / `flows` / `tasks` SQL unless the product mounts those routes.

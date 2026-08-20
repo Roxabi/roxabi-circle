@@ -1,12 +1,6 @@
 export {
-  type AuthEmailPort,
-  MAGIC_LINK_EXPIRES_IN_SEC,
-  RESET_PASSWORD_TOKEN_EXPIRES_IN_SEC,
-  sendMagicLinkMail,
-  sendResetPasswordMail,
-} from './auth-email'
-export {
   allowPublicSignup,
+  assertAuthSecret,
   assertBetterAuthConfigured,
   type BetterAuthEnvSlice,
   betterAuthBaseURL,
@@ -18,11 +12,6 @@ export {
   sessionCookieNameFromEnv,
   useSecureCookie,
 } from './better-auth-env'
-export {
-  type CreateBetterAuthOpts,
-  createBetterAuth,
-  type KitBetterAuth,
-} from './better-auth-factory'
 export {
   type BetterAuthLike,
   type CreateBetterAuthSessionPortOpts,

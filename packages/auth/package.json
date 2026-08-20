@@ -14,6 +14,11 @@
       "import": "./src/better-auth-schema.ts",
       "default": "./src/better-auth-schema.ts"
     },
+    "./factory": {
+      "types": "./src/factory.ts",
+      "import": "./src/factory.ts",
+      "default": "./src/factory.ts"
+    },
     "./migrations/*": "./migrations/*"
   },
   "scripts": {
@@ -29,6 +34,11 @@
   },
   "peerDependencies": {
     "better-auth": ">=1.2.0"
+  },
+  "peerDependenciesMeta": {
+    "better-auth": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "better-auth": "^1.6.29",

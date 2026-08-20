@@ -51,11 +51,19 @@ describe('better-auth env helpers', () => {
   })
 
   it('rejects short and placeholder secrets outside dev', () => {
+    expect(() => getBetterAuthSecret({})).toThrow(AppError)
+    expect(() => getBetterAuthSecret({ ENVIRONMENT: 'production' })).toThrow(/BETTER_AUTH_SECRET/)
     expect(() => getBetterAuthSecret({ BETTER_AUTH_SECRET: 'short' })).toThrow(AppError)
     expect(() =>
       getBetterAuthSecret({
         ENVIRONMENT: 'production',
         BETTER_AUTH_SECRET: 'dev-better-auth-secret-change-me-32c!!',
+      }),
+    ).toThrow(AppError)
+    expect(() =>
+      getSessionSecret({
+        ENVIRONMENT: 'production',
+        SESSION_SECRET: 'change-me-session-secret-min-32-chars!!',
       }),
     ).toThrow(AppError)
     expect(() => getSessionSecret({ ENVIRONMENT: 'production' })).toThrow(AppError)

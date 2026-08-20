@@ -13,6 +13,7 @@ import {
   sendMagicLinkMail,
   sendResetPasswordMail,
 } from './auth-email'
+import { assertAuthSecret } from './better-auth-env'
 import type { BetterAuthLike } from './better-auth-port'
 import { betterAuthDrizzleSchema } from './better-auth-schema'
 import { sessionCookieName } from './cookie-name'
@@ -43,9 +44,14 @@ export type CreateBetterAuthOpts = {
   onFirstSession?: FirstSessionHandler
   magicLinkExpiresIn?: number
   resetPasswordTokenExpiresIn?: number
+  /** Only for explicit development|test placeholders — never production. */
+  allowKitPlaceholderSecret?: boolean
 }
 
 export function createBetterAuth(opts: CreateBetterAuthOpts): KitBetterAuth {
+  assertAuthSecret('BETTER_AUTH_SECRET', opts.secret, {
+    allowKitPlaceholder: opts.allowKitPlaceholderSecret,
+  })
   const schema = opts.schema ?? betterAuthDrizzleSchema
   const db = drizzle(opts.database as never, { schema })
   const cookieName = sessionCookieName({ name: opts.cookieName })

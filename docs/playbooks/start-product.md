@@ -11,7 +11,7 @@ Kit SQL identity is **module id + hash**, not `example-api` `NNNN_` filenames. N
 | New `apps/<product>-api` importing `@kit/*` | `cp -R apps/example-api` as happy path |
 | `bash scripts/kit-schema-sync.sh --app apps/<product>-api` after creating the app | Hand-copy `example-api/migrations` and then put domain SQL at 0009 |
 | Product SQL from `1000_` | Reuse kit 0009–0999 for domain |
-| Import `createBetterAuth` from `@kit/auth` + tables from `@kit/auth/schema` | Copy `example-api/src/lib/better-auth.ts` / `better-auth-schema.ts` |
+| Import `createBetterAuth` from `@kit/auth/factory` + tables from `@kit/auth/schema` + env helpers from `@kit/auth` | Copy `example-api/src/lib/better-auth.ts` as the BA factory / `better-auth-schema.ts` |
 | Existing clone: freeze history, `--adopt` (default core); later `--modules audit` (etc.) appends `NNNN_kit_*` | Rename applied files |
 
 **Last resort:** if you already cloned `example-api`, run `--adopt` **immediately**, then never add new domain SQL in `0001`–`0999` (frozen history stays; new domain at `1000_`).
@@ -35,7 +35,7 @@ bash scripts/kit-schema-sync.sh --app apps/<product>-api --adopt
 5. Configure CI App vars/secrets on the **product** repo if you want merge-on-green (`CI_APP_ID` / `CI_APP_PRIVATE_KEY`) — see [`docs/ci-app-setup.md`](../ci-app-setup.md).
 6. Add product apps only under `apps/<product>-*`.
 7. When `apps/<product>-api` exists: `bash scripts/kit-schema-sync.sh --app apps/<product>-api` (default `--modules core`). Last-resort clones: `--adopt` immediately (fail-closed if copied bytes drifted). Do not hand-copy `apps/example-api/migrations`. Product domain SQL starts at `1000_`.
-8. Auth: `createBetterAuth` from `@kit/auth` (per-request factory, magic-link + reset EmailPort, optional `onFirstSession`). Tables: `@kit/auth/schema`. Env mapping (secrets, CORS, `ALLOW_PUBLIC_SIGNUP`) is product Worker env — see `example-api/src/lib/better-auth.ts` only as a **thin adapter**, not a file to copy.
+8. Auth: `createBetterAuth` from `@kit/auth/factory` (per-request factory, magic-link + reset EmailPort, optional `onFirstSession`). Env helpers (`getBetterAuthSecret`, `assertBetterAuthConfigured`, `allowPublicSignup`) from `@kit/auth`. Tables: `@kit/auth/schema`. See `example-api/src/lib/better-auth.ts` only as a **thin Env adapter**, not the factory.
 9. Keep `bun run validate:full` green (kit bar). Wire product-validate when product apps exist ([`docs/templates/`](../templates/)).
 10. Cloudflare deploy profile (when shipping): copy `config/deploy.cf.example.toml` → `config/deploy.cf.local.toml` (gitignored), fill **account id** + zone/hosts — see [`docs/deploy-cloudflare.md`](../deploy-cloudflare.md). Account is never assumed by the kit.
 

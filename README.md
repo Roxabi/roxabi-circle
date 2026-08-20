@@ -75,7 +75,7 @@ bun run test:e2e:design-system
 | `@kit/core` | `AppError`, `requestId` |
 | `@kit/db` | Drizzle D1 factory |
 | `@kit/storage` | R2 helpers + light presign |
-| `@kit/auth` | Better Auth SessionPort + `sk_` helpers |
+| `@kit/auth` | SessionPort + `sk_` helpers + env helpers; BA factory at `@kit/auth/factory`, tables at `@kit/auth/schema` |
 | `@kit/ui` | shadcn Base UI shell |
 | `@kit/email` | Templates + transports `log` / `smtp` / `cf` / `resend` |
 | `@kit/i18n` | Locale engine (catalogs in apps) |

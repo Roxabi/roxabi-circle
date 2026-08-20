@@ -133,7 +133,7 @@ Invite E2E: `docs/testing.md` § org invites.
 | Flow | Code |
 |---|---|
 | Demo | `services/email.ts` → `resolveEmailPort` |
-| Password reset | BA `sendResetPassword` via `@kit/auth` `createBetterAuth` (`sendResetPasswordMail`) |
+| Password reset | BA `sendResetPassword` via `@kit/auth/factory` (`sendResetPasswordMail`) |
 | Org invite | `services/invitations.ts` + route injects port |
 
 Package: `@kit/email` — Workers path: `createEmailPort` + `build*EmailText` + `redactEmailBody`.

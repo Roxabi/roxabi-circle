@@ -40,13 +40,16 @@ describe('auth email wiring', () => {
     expect(msg.text).toContain('reset-password')
   })
 
-  it('propagates port.send failure', async () => {
+  it('propagates port.send failure on magic-link and reset', async () => {
     const port: AuthEmailPort = {
       send: vi.fn(async () => {
         throw new Error('transport down')
       }),
     }
     await expect(sendMagicLinkMail(port, { email: 'a@b.c', url: 'http://x' })).rejects.toThrow(
+      'transport down',
+    )
+    await expect(sendResetPasswordMail(port, { email: 'a@b.c', url: 'http://x' })).rejects.toThrow(
       'transport down',
     )
   })

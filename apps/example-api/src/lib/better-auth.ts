@@ -1,17 +1,17 @@
 /**
- * example-api Env adapter for `@kit/auth` createBetterAuth (ADR-0008 D6).
- * Product apps should call `createBetterAuth` from `@kit/auth` directly.
+ * example-api Env adapter for `@kit/auth/factory` (ADR-0008 D6).
+ * Product apps: import `createBetterAuth` from `@kit/auth/factory` and
+ * env helpers from `@kit/auth` — do not copy this file as the factory.
  */
 import {
   allowPublicSignup,
   assertBetterAuthConfigured,
   corsAllowlist,
-  createBetterAuth as createKitBetterAuth,
   getBetterAuthSecret,
-  type KitBetterAuth,
   sessionCookieNameFromEnv,
   useSecureCookie,
 } from '@kit/auth'
+import { createBetterAuth as createKitBetterAuth, type KitBetterAuth } from '@kit/auth/factory'
 import { betterAuthDrizzleSchema } from '@kit/auth/schema'
 import type { Env } from '../env'
 import { resolveEmailPort } from './email-port'

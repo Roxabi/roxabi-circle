@@ -37,16 +37,25 @@ export function isDevLikeEnvironment(env: BetterAuthEnvSlice): boolean {
   return name === 'development' || name === 'test'
 }
 
-function assertStrongSecret(label: string, secret: string, env: BetterAuthEnvSlice): string {
+/** Min 32 + kit-placeholder denylist. Factory calls this so products cannot skip env helpers. */
+export function assertAuthSecret(
+  label: string,
+  secret: string,
+  opts?: { allowKitPlaceholder?: boolean },
+): string {
   if (secret.length < 32) {
     throw AppError.internal(`${label} must be at least 32 characters`)
   }
-  if (WEAK_SESSION_SECRETS.has(secret) && !isDevLikeEnvironment(env)) {
+  if (WEAK_SESSION_SECRETS.has(secret) && !opts?.allowKitPlaceholder) {
     throw AppError.internal(
       `${label} is a known kit placeholder; generate a unique secret for this environment`,
     )
   }
   return secret
+}
+
+function assertStrongSecret(label: string, secret: string, env: BetterAuthEnvSlice): string {
+  return assertAuthSecret(label, secret, { allowKitPlaceholder: isDevLikeEnvironment(env) })
 }
 
 /**
@@ -124,5 +133,5 @@ export function betterAuthBaseURL(env: BetterAuthEnvSlice, requestUrl: string): 
       return 'http://localhost:8787'
     }
   }
-  throw new Error('BETTER_AUTH_URL is required outside development|test')
+  throw AppError.internal('BETTER_AUTH_URL is required outside development|test')
 }
