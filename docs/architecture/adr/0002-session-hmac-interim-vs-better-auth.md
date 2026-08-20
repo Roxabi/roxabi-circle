@@ -120,13 +120,14 @@ Added 2026-08-09. The behaviour predates this section; the rule was implemented 
 
 ### Product inject recipe (updated)
 
-1. Depend on `@kit/auth` + peer `better-auth`.
-2. Apply BA migrations (`packages/auth/migrations/*` composed into app migrations).
+1. Depend on `@kit/auth` + peer `better-auth` (peer required on the Worker that mounts BA).
+2. Apply BA migrations via `kit-schema-sync` (core set). Tables: `@kit/auth/schema`.
 3. Set `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL` (and cookie name if needed). **No** `AUTH_SESSION_ADAPTER`.
-4. Per-request: `createBetterAuth(env, baseURL)` → `c.set('betterAuth', auth)`.
+4. Per-request: `createBetterAuth({ database, secret: getBetterAuthSecret(env), baseURL, emailPort, … })` from `@kit/auth/factory`. Env helpers from `@kit/auth`. Do **not** copy `example-api/src/lib/better-auth.ts` as the factory (it is only the Env mapping example).
 5. `createBetterAuthSessionPort({ getAuth: () => c.get('betterAuth'), cookieName })` into `createRequireAuth`.
 6. Mount `auth.handler(c.req.raw)` on `/api/auth/*`.
 7. Keep `findApiKeyByPrefix` for `sk_` dual-path.
+8. Optional `onFirstSession` → product `tryFirstLogin` when audit SQL is mounted.
 
 ## Anti-patterns
 

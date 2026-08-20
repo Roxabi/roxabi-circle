@@ -1,9 +1,27 @@
 export {
+  allowPublicSignup,
+  assertAuthSecret,
+  assertBetterAuthConfigured,
+  type BetterAuthEnvSlice,
+  betterAuthBaseURL,
+  corsAllowlist,
+  environmentName,
+  getBetterAuthSecret,
+  getSessionSecret,
+  isDevLikeEnvironment,
+  sessionCookieNameFromEnv,
+  useSecureCookie,
+} from './better-auth-env'
+export {
   type BetterAuthLike,
   type CreateBetterAuthSessionPortOpts,
   createBetterAuthSessionPort,
 } from './better-auth-port'
 export { type SessionCookieNameOpts, sessionCookieName } from './cookie-name'
+export {
+  createFirstSessionAfterHook,
+  type FirstSessionHandler,
+} from './first-session-hook'
 export {
   apiKeyPrefix,
   generateApiKey,

@@ -9,6 +9,16 @@
       "import": "./src/index.ts",
       "default": "./src/index.ts"
     },
+    "./schema": {
+      "types": "./src/better-auth-schema.ts",
+      "import": "./src/better-auth-schema.ts",
+      "default": "./src/better-auth-schema.ts"
+    },
+    "./factory": {
+      "types": "./src/factory.ts",
+      "import": "./src/factory.ts",
+      "default": "./src/factory.ts"
+    },
     "./migrations/*": "./migrations/*"
   },
   "scripts": {
@@ -18,7 +28,9 @@
     "build": "echo ok"
   },
   "dependencies": {
-    "@kit/core": "workspace:*"
+    "@kit/core": "workspace:*",
+    "@kit/email": "workspace:*",
+    "drizzle-orm": "^0.45.2"
   },
   "peerDependencies": {
     "better-auth": ">=1.2.0"
@@ -29,6 +41,7 @@
     }
   },
   "devDependencies": {
+    "better-auth": "^1.6.29",
     "vitest": "^4.1.10"
   }
 }

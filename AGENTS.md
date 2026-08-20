@@ -412,7 +412,7 @@ Ref pattern : `kit-boilerplate` (`errorCodes`, `errorUtils`, `ApiError`).
 | `@kit/config` | tsconfig, Biome, Vitest presets | **P0** |
 | `@kit/db` | Drizzle D1 + migrate | **P0** |
 | `@kit/storage` | R2 put/get/presign | **P0** |
-| `@kit/auth` | Better Auth SessionPort + API keys `sk_` + org-role helpers ([ADR-0002](docs/architecture/adr/0002-session-hmac-interim-vs-better-auth.md) BA-only · [ADR-0003](docs/architecture/adr/0003-multi-tenant-rbac-modules.md)) | **P0** |
+| `@kit/auth` | SessionPort + `sk_` + org-role helpers; BA factory `@kit/auth/factory` ([ADR-0002](docs/architecture/adr/0002-session-hmac-interim-vs-better-auth.md) · [ADR-0003](docs/architecture/adr/0003-multi-tenant-rbac-modules.md) · [ADR-0008](docs/architecture/adr/0008-kit-schema-identity-product-compose.md) D6) | **P0** |
 | `@kit/types` | Zod schemas + ErrorCode | **P0** |
 | `@kit/ui` | shadcn Base UI shell | **P0** |
 | `@kit/email` | Templates + transports `log` \| `smtp` \| **`cf`** (prod default) \| `resend` (escape) — [ADR-0004](docs/architecture/adr/0004-email-transport-cf-default.md) | **P0** |
