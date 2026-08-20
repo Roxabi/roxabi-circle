@@ -61,13 +61,24 @@ describe('better-auth env helpers', () => {
         CORS_ORIGINS: 'https://app.example.com,http://127.0.0.1:5173',
       }),
     ).toThrow(/loopback/)
+    expect(() => corsAllowlist({ ENVIRONMENT: 'production', CORS_ORIGINS: 'https://*' })).toThrow(
+      /glob/,
+    )
   })
 
-  it('assertTrustedOrigins rejects * / null / empty and loopback by default', () => {
+  it('assertTrustedOrigins rejects * / globs / null / empty and loopback by default', () => {
     expect(() => assertTrustedOrigins(['*'])).toThrow(/explicit origins/)
+    expect(() => assertTrustedOrigins(['https://*'])).toThrow(/glob/)
+    expect(() => assertTrustedOrigins(['https://*.example.com'])).toThrow(/glob/)
+    expect(() => assertTrustedOrigins(['*.example.com'])).toThrow(/glob/)
     expect(() => assertTrustedOrigins(['NULL'])).toThrow(/explicit origins/)
     expect(() => assertTrustedOrigins([])).toThrow(/never empty/)
+    expect(() => assertTrustedOrigins(['https://app.example.com/app'])).toThrow(/no path/)
     expect(() => assertTrustedOrigins(['http://localhost:5173'])).toThrow(/loopback/)
+    expect(() => assertTrustedOrigins(['http://[::1]:5173'])).toThrow(/loopback/)
+    expect(() =>
+      assertTrustedOrigins(['https://app.example.com', 'http://localhost:5173']),
+    ).toThrow(/loopback/)
     expect(assertTrustedOrigins(['https://app.example.com'], { allowLoopback: false })).toEqual([
       'https://app.example.com',
     ])

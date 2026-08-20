@@ -79,8 +79,10 @@ describe('createBetterAuth', () => {
     expect(typeof auth.handler).toBe('function')
   })
 
-  it('rejects wildcard / null / empty trustedOrigins even if corsAllowlist is skipped', () => {
+  it('rejects wildcard / glob / null / empty trustedOrigins even if corsAllowlist is skipped', () => {
     expect(() => factory({ trustedOrigins: ['*'] })).toThrow(/explicit origins/)
+    expect(() => factory({ trustedOrigins: ['https://*'] })).toThrow(/glob/)
+    expect(() => factory({ trustedOrigins: ['https://*.example.com'] })).toThrow(/glob/)
     expect(() => factory({ trustedOrigins: ['https://app.example.com', 'null'] })).toThrow(
       /explicit origins/,
     )
@@ -103,6 +105,12 @@ describe('createBetterAuth', () => {
         trustedOrigins: ['http://127.0.0.1:5173'],
         emailPort: { send: vi.fn(async () => ({ ok: true, transport: 'log' })) },
         schema: betterAuthDrizzleSchema,
+      }),
+    ).toThrow(/loopback/)
+    expect(() =>
+      factory({
+        trustedOrigins: ['https://app.example.com', 'http://localhost:5173'],
+        allowLoopbackOrigins: false,
       }),
     ).toThrow(/loopback/)
     const auth = factory({

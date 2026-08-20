@@ -77,15 +77,24 @@ export function getSessionSecret(env: BetterAuthEnvSlice): string {
   )
 }
 
-function isWildcardOrNullOrigin(o: string): boolean {
+function isGlobOrNullOrigin(o: string): boolean {
   const n = o.trim().toLowerCase()
-  return n === '*' || n === 'null'
+  return n === '*' || n === 'null' || n.includes('*') || n.includes('?')
+}
+
+function isHttpOrigin(o: string): boolean {
+  try {
+    const u = new URL(o)
+    return (u.protocol === 'http:' || u.protocol === 'https:') && u.origin === o
+  } catch {
+    return false
+  }
 }
 
 function isLoopbackOrigin(o: string): boolean {
   try {
     const host = new URL(o).hostname.toLowerCase()
-    return host === 'localhost' || host === '127.0.0.1' || host === '::1'
+    return host === 'localhost' || host === '127.0.0.1' || host === '::1' || host === '[::1]'
   } catch {
     return /^(https?:\/\/)?(localhost|127\.0\.0\.1|\[::1\])(:|\/|$)/i.test(o)
   }
@@ -93,7 +102,8 @@ function isLoopbackOrigin(o: string): boolean {
 
 /**
  * Fail-closed origin list for CORS and BA `trustedOrigins`.
- * Factory calls this so products cannot skip `corsAllowlist` and pass `*`.
+ * Factory calls this so products cannot skip `corsAllowlist` and pass `*`
+ * or Better Auth globs (`https://*`, `*.example.com`).
  */
 export function assertTrustedOrigins(
   origins: readonly string[],
@@ -104,8 +114,11 @@ export function assertTrustedOrigins(
   if (list.length === 0) {
     throw AppError.internal(`${label} must be explicit origins (never empty)`)
   }
-  if (list.some(isWildcardOrNullOrigin)) {
-    throw AppError.internal(`${label} must be explicit origins (never * or null)`)
+  if (list.some(isGlobOrNullOrigin)) {
+    throw AppError.internal(`${label} must be explicit origins (never * or glob)`)
+  }
+  if (!list.every(isHttpOrigin)) {
+    throw AppError.internal(`${label} must be explicit http(s) origins (no path)`)
   }
   if (!opts?.allowLoopback && list.some(isLoopbackOrigin)) {
     throw AppError.internal(`${label} must not include loopback origins outside development|test`)

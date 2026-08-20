@@ -20,7 +20,8 @@ fi
 
 mapfile -t FILES < <(
   find "${ROOT}" \
-    \( -name wrangler.toml -o -name wrangler.json -o -name wrangler.jsonc \) \
+    \( -name wrangler.toml -o -name wrangler.json -o -name wrangler.jsonc \
+       -o -name 'wrangler.*.toml' -o -name 'wrangler.*.json' -o -name 'wrangler.*.jsonc' \) \
     -not -path '*/node_modules/*' \
     -not -path '*/.git/*' \
     -not -path '*/coverage/*' \
@@ -45,6 +46,13 @@ CHECKED=0
 for file in "${FILES[@]+"${FILES[@]}"}"; do
   [[ -n "${file:-}" ]] || continue
   config_dir="$(cd "$(dirname "$file")" && pwd -P)"
+  case "${config_dir}" in
+    "${PACKAGES}"|"${PACKAGES}"/*)
+      echo "error: ${file}: wrangler config lives under packages/ (sketch SQL apply path)" >&2
+      FAIL=1
+      continue
+      ;;
+  esac
   while IFS= read -r raw; do
     [[ -n "${raw}" ]] || continue
     CHECKED=$((CHECKED + 1))

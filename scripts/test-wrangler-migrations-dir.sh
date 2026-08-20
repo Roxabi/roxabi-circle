@@ -48,7 +48,7 @@ TMP="$(mktemp -d -t cp-wrangler-mig-XXXXXX)"
 trap 'rm -rf "$TMP"' EXIT
 
 # --- live kit tree (example-api migrations, not packages/) ---
-assert_exit "live kit tree → 0" 0 "${ROOT}" "OK"
+assert_exit "live kit tree → 0" 0 "${ROOT}" ", 2 migrations_dir"
 
 # --- fixture: app migrations_dir is relative local ---
 OK_TREE="${TMP}/ok"
@@ -85,6 +85,29 @@ cat >"${BAD_JSON}/apps/foo-api/wrangler.jsonc" <<'EOF'
 }
 EOF
 assert_exit "jsonc packages/auth/migrations → 1" 1 "${BAD_JSON}" "packages/*/migrations are sketches"
+
+# --- fixture: wrangler.json (not only jsonc) ---
+BAD_JSON_PLAIN="${TMP}/bad-json-plain"
+mkdir -p "${BAD_JSON_PLAIN}/packages/auth/migrations" "${BAD_JSON_PLAIN}/apps/foo-api"
+cat >"${BAD_JSON_PLAIN}/apps/foo-api/wrangler.json" <<'EOF'
+{
+  "name": "foo-api",
+  "d1_databases": [
+    { "binding": "DB", "migrations_dir": "../../packages/auth/migrations" }
+  ]
+}
+EOF
+assert_exit "json packages/auth/migrations → 1" 1 "${BAD_JSON_PLAIN}" "packages/*/migrations are sketches"
+
+# --- fixture: wrangler file under packages/ (default ./migrations) ---
+BAD_PKG="${TMP}/bad-pkg"
+mkdir -p "${BAD_PKG}/packages/auth/migrations"
+cat >"${BAD_PKG}/packages/auth/wrangler.toml" <<'EOF'
+name = "auth-sketch"
+[[d1_databases]]
+binding = "DB"
+EOF
+assert_exit "wrangler under packages/ → 1" 1 "${BAD_PKG}" "wrangler config lives under packages/"
 
 # --- fixture: env.production block also scanned ---
 BAD_ENV="${TMP}/bad-env"

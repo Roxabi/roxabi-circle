@@ -93,7 +93,7 @@ False green: product with real apps and only kit `validate:full` green is **not*
 ```bash
 bun install                    # prepare → lefthook install if hooksPath unset; postinstall may still force-install (see lefthook.yml)
 
-bun run validate               # lint · typecheck · test · banlist · zod-major · ts-major · extract · zero-edit · env:check
+bun run validate               # lint · typecheck · test · banlist · zod-major · ts-major · extract · zero-edit · env:check · wrangler-migrations:check
 bun run zero-edit              # product must not diverge kit paths without exception (kit = config only)
 bun run env:check              # schema ↔ .dev.vars.example (DX only)
 bun run i18n:check             # messages contract (also in turbo test)
