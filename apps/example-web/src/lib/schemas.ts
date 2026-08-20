@@ -1,4 +1,7 @@
+import { changePasswordSchema, forgotPasswordSchema, resetPasswordSchema } from '@kit/auth'
 import { z } from 'zod'
+
+export { changePasswordSchema, forgotPasswordSchema, resetPasswordSchema }
 
 /** Shared Zod schemas for TanStack Form (stack contract). */
 export const loginSchema = z.object({
@@ -16,31 +19,10 @@ export const signupSchema = z
   })
   .refine((v) => v.password === v.confirm, { path: ['confirm'], message: 'mismatch' })
 
-export const forgotPasswordSchema = z.object({
-  email: z.string().email(),
-})
-
 /** Magic-link request — email only (B-magic #59). */
 export const magicLinkSchema = z.object({
   email: z.string().email(),
 })
-
-/** BA default min password length is typically 8. */
-export const resetPasswordSchema = z
-  .object({
-    password: z.string().min(8).max(128),
-    confirm: z.string().min(1),
-  })
-  .refine((v) => v.password === v.confirm, { path: ['confirm'], message: 'mismatch' })
-
-/** Authenticated change-password (B-account #60). Checkbox is outside Zod. */
-export const changePasswordSchema = z
-  .object({
-    currentPassword: z.string().min(1),
-    newPassword: z.string().min(8).max(128),
-    confirm: z.string().min(1),
-  })
-  .refine((v) => v.newPassword === v.confirm, { path: ['confirm'], message: 'mismatch' })
 
 /** Profile display name only (email change out of scope). */
 export const profileNameSchema = z.object({

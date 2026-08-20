@@ -18,6 +18,11 @@
       "types": "./src/factory.ts",
       "import": "./src/factory.ts",
       "default": "./src/factory.ts"
+    },
+    "./react": {
+      "types": "./src/react/index.ts",
+      "import": "./src/react/index.ts",
+      "default": "./src/react/index.ts"
     }
   },
   "scripts": {
@@ -29,18 +34,46 @@
   "dependencies": {
     "@kit/core": "workspace:*",
     "@kit/email": "workspace:*",
-    "drizzle-orm": "^0.45.2"
+    "drizzle-orm": "^0.45.2",
+    "zod": "^4.4.3"
   },
   "peerDependencies": {
-    "better-auth": ">=1.2.0"
+    "@kit/ui": "workspace:*",
+    "@tanstack/react-form": "^1.12.0",
+    "better-auth": ">=1.2.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
   },
   "peerDependenciesMeta": {
+    "@kit/ui": {
+      "optional": true
+    },
+    "@tanstack/react-form": {
+      "optional": true
+    },
     "better-auth": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    },
+    "react-dom": {
       "optional": true
     }
   },
   "devDependencies": {
+    "@kit/ui": "workspace:*",
+    "@tanstack/react-form": "^1.33.5",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.4",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "@vitejs/plugin-react": "^6.0.5",
     "better-auth": "^1.6.29",
+    "happy-dom": "^20.11.2",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
     "vitest": "^4.1.10"
   }
 }

@@ -1,10 +1,22 @@
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vitest/config'
 import { makeCoverage } from '../config/vitest-coverage.mjs'
 
+const rootDir = path.dirname(fileURLToPath(import.meta.url))
+
 export default defineConfig({
+  plugins: [react()],
+  resolve: {
+    alias: {
+      '@kit/ui': path.resolve(rootDir, '../ui/src/index.ts'),
+    },
+  },
   test: {
-    environment: 'node',
-    include: ['src/**/*.test.ts'],
+    environment: 'happy-dom',
+    include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
+    setupFiles: ['./src/react/test-setup.ts'],
     coverage: makeCoverage('auth', {
       statements: 80,
       lines: 80,

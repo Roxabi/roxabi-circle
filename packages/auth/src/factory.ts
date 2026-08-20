@@ -1,6 +1,7 @@
 /**
  * Worker BA factory — import `@kit/auth/factory`, not `@kit/auth`.
  * Root barrel stays free of `better-auth` / `drizzle-orm/d1` (SPA + MCP).
+ * SPA password forms: `@kit/auth/react` (never from this Worker entry).
  */
 export {
   type AuthEmailPort,

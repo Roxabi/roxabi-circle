@@ -1,14 +1,5 @@
-import {
-  Button,
-  cn,
-  Field,
-  FieldError,
-  FieldGroup,
-  FieldLabel,
-  Input,
-  LocaleSwitcher,
-} from '@kit/ui'
-import { useForm } from '@tanstack/react-form'
+import { ResetPasswordForm } from '@kit/auth/react'
+import { Button, cn, LocaleSwitcher } from '@kit/ui'
 import { Link, useNavigate, useSearch } from '@tanstack/react-router'
 import { GalleryVerticalEnd } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
@@ -17,18 +8,17 @@ import { apiErrorToMessage, apiFetch } from '../lib/api'
 import { defaultHomePath, type MeResponse } from '../lib/auth'
 import { useLocale } from '../lib/locale'
 import { safePostAuthPath } from '../lib/safe-return-path'
-import { resetPasswordSchema } from '../lib/schemas'
 
 /**
  * Complete password reset with BA token from email callback / query.
  * Token is captured into state then stripped from the URL (history/replace).
+ * Form lives in `@kit/auth/react`; post-success navigation stays in the app.
  */
 export function ResetPasswordPage() {
   const { m, locale, setLocale, locales } = useLocale()
   const navigate = useNavigate()
   const search = useSearch({ from: '/reset-password' })
   const stripped = useRef(false)
-  // Seed from search on first paint so strip replace does not flash "missing token".
   const [token, setToken] = useState(() => search.token?.trim() ?? '')
   const [nextPath, setNextPath] = useState(() => safePostAuthPath(search.next) ?? '')
   const [linkError, setLinkError] = useState(() => search.error?.trim() || undefined)
@@ -51,54 +41,20 @@ export function ResetPasswordPage() {
     }
   }, [search.token, search.error, search.next, navigate, token])
 
-  const form = useForm({
-    defaultValues: { password: '', confirm: '' },
-    validators: {
-      onSubmit: ({ value }) => {
-        const parsed = resetPasswordSchema.safeParse(value)
-        if (parsed.success) return undefined
-        const flat = parsed.error.flatten().fieldErrors
-        return {
-          form: m.errValidation,
-          fields: {
-            password: flat.password?.[0] ? m.resetPasswordTooShort : undefined,
-            confirm: flat.confirm?.[0] ? m.resetPasswordMismatch : undefined,
-          },
-        }
-      },
-    },
-    onSubmit: async ({ value }) => {
-      if (!token) {
-        toast.error(m.error, { description: m.resetPasswordMissingToken })
-        return
-      }
-      try {
-        await apiFetch('/api/auth/reset-password', {
-          method: 'POST',
-          body: JSON.stringify({ newPassword: value.password, token }),
-        })
-        toast.success(m.resetPasswordSuccess)
-        // First-login / welcome: prefer safe next, else session home, else login
-        const preferred = safePostAuthPath(nextPath)
-        if (preferred?.startsWith('/invite/accept')) {
-          window.location.assign(preferred)
-          return
-        }
-        try {
-          // BA may auto-session after reset; try me for plane home
-          const me = await apiFetch<MeResponse>('/api/me')
-          const home =
-            preferred === '/app' || preferred === '/admin' ? preferred : defaultHomePath(me)
-          await navigate({ to: home })
-          return
-        } catch {
-          await navigate({ to: '/login' })
-        }
-      } catch (e) {
-        toast.error(m.error, { description: apiErrorToMessage(e, m) })
-      }
-    },
-  })
+  const afterReset = async () => {
+    const preferred = safePostAuthPath(nextPath)
+    if (preferred?.startsWith('/invite/accept')) {
+      window.location.assign(preferred)
+      return
+    }
+    try {
+      const me = await apiFetch<MeResponse>('/api/me')
+      const home = preferred === '/app' || preferred === '/admin' ? preferred : defaultHomePath(me)
+      await navigate({ to: home })
+    } catch {
+      await navigate({ to: '/login' })
+    }
+  }
 
   return (
     <div className="flex min-h-svh flex-col items-center justify-center gap-6 bg-background p-6 md:p-10">
@@ -131,73 +87,23 @@ export function ResetPasswordPage() {
             </Button>
           </div>
         ) : (
-          <form
-            className="flex flex-col gap-6"
-            onSubmit={(e) => {
-              e.preventDefault()
-              e.stopPropagation()
-              void form.handleSubmit()
+          <ResetPasswordForm
+            fetch={apiFetch}
+            copy={m}
+            token={token}
+            fallbackError={(e) => apiErrorToMessage(e, m)}
+            notify={{
+              success: (title, description) => toast.success(title, { description }),
+              error: (title, description) => toast.error(title, { description }),
+              message: (title, description) => toast.message(title, { description }),
             }}
-          >
-            <FieldGroup>
-              <form.Field name="password">
-                {(field) => {
-                  const err = field.state.meta.errors[0]
-                  const errId = `${field.name}-error`
-                  const invalid = Boolean(err)
-                  return (
-                    <Field>
-                      <FieldLabel htmlFor={field.name}>{m.resetPasswordNew}</FieldLabel>
-                      <Input
-                        id={field.name}
-                        type="password"
-                        autoComplete="new-password"
-                        value={field.state.value}
-                        onBlur={field.handleBlur}
-                        onChange={(e) => field.handleChange(e.target.value)}
-                        aria-invalid={invalid || undefined}
-                        aria-describedby={invalid ? errId : undefined}
-                      />
-                      {invalid ? <FieldError id={errId}>{String(err)}</FieldError> : null}
-                    </Field>
-                  )
-                }}
-              </form.Field>
-              <form.Field name="confirm">
-                {(field) => {
-                  const err = field.state.meta.errors[0]
-                  const errId = `${field.name}-error`
-                  const invalid = Boolean(err)
-                  return (
-                    <Field>
-                      <FieldLabel htmlFor={field.name}>{m.resetPasswordConfirm}</FieldLabel>
-                      <Input
-                        id={field.name}
-                        type="password"
-                        autoComplete="new-password"
-                        value={field.state.value}
-                        onBlur={field.handleBlur}
-                        onChange={(e) => field.handleChange(e.target.value)}
-                        aria-invalid={invalid || undefined}
-                        aria-describedby={invalid ? errId : undefined}
-                      />
-                      {invalid ? <FieldError id={errId}>{String(err)}</FieldError> : null}
-                    </Field>
-                  )
-                }}
-              </form.Field>
-              <form.Subscribe selector={(s) => s.isSubmitting}>
-                {(isSubmitting) => (
-                  <Button type="submit" className="w-full" disabled={isSubmitting}>
-                    {m.resetPasswordSubmit}
-                  </Button>
-                )}
-              </form.Subscribe>
+            onSuccess={() => void afterReset()}
+            loginLink={
               <Button variant="ghost" className="w-full" render={<Link to="/login" />}>
                 {m.backToLogin}
               </Button>
-            </FieldGroup>
-          </form>
+            }
+          />
         )}
       </div>
     </div>

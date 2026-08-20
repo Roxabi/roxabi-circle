@@ -65,6 +65,17 @@ export {
   roleHasCapability,
 } from './org-roles'
 export {
+  AUTH_CHANGE_PASSWORD_PATH,
+  AUTH_REQUEST_PASSWORD_RESET_PATH,
+  AUTH_RESET_PASSWORD_PATH,
+  type ChangePasswordValues,
+  changePasswordSchema,
+  type ForgotPasswordValues,
+  forgotPasswordSchema,
+  type ResetPasswordValues,
+  resetPasswordSchema,
+} from './password-schemas'
+export {
   type ApiKeyRecord,
   type AuthIdentity,
   type AuthMethod,
