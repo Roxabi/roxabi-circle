@@ -36,15 +36,30 @@ describe('better-auth env helpers', () => {
     ])
   })
 
-  it('fails closed on missing CORS_ORIGINS and on * / null outside dev', () => {
+  it('fails closed on missing CORS_ORIGINS and on * / null / loopback', () => {
     expect(() => corsAllowlist({})).toThrow(AppError)
     expect(() => corsAllowlist({ ENVIRONMENT: 'production' })).toThrow(/CORS_ORIGINS/)
-    expect(() => corsAllowlist({ ENVIRONMENT: 'staging', CORS_ORIGINS: '*' })).toThrow(
+    expect(() => corsAllowlist({ ENVIRONMENT: 'development', CORS_ORIGINS: '*' })).toThrow(
       /explicit origins/,
     )
-    expect(() => corsAllowlist({ ENVIRONMENT: 'production', CORS_ORIGINS: 'null' })).toThrow(
+    expect(() => corsAllowlist({ ENVIRONMENT: 'test', CORS_ORIGINS: 'NULL' })).toThrow(
       /explicit origins/,
     )
+    expect(() =>
+      corsAllowlist({
+        ENVIRONMENT: 'production',
+        CORS_ORIGINS: 'https://app.example.com,*',
+      }),
+    ).toThrow(/explicit origins/)
+    expect(() =>
+      corsAllowlist({ ENVIRONMENT: 'production', CORS_ORIGINS: 'http://localhost:5173' }),
+    ).toThrow(/loopback/)
+    expect(() =>
+      corsAllowlist({
+        ENVIRONMENT: 'staging',
+        CORS_ORIGINS: 'https://app.example.com,http://127.0.0.1:5173',
+      }),
+    ).toThrow(/loopback/)
   })
 
   it('public signup is off unless exactly true', () => {

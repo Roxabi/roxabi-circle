@@ -1,5 +1,6 @@
--- Better Auth organization plugin tables (SQLite / D1) — BA 1.6.x
--- Compose from package; apps apply. Includes session.active_organization_id.
+-- SKETCH / REFERENCE ONLY — NOT applied by wrangler.
+-- Applied SSoT: apps/example-api/migrations/0006_better_auth_organization.sql (kit-schema-sync).
+-- Includes session.active_organization_id.
 -- Additional kit fields on organization: kind, status (ADR-0003).
 
 ALTER TABLE "session" ADD COLUMN "active_organization_id" text;

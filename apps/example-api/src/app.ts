@@ -39,7 +39,7 @@ export function createApp() {
     cors({
       origin: (origin, c) => {
         const list = corsAllowlist(c.env)
-        if (!origin) return list[0] ?? 'http://localhost:5173'
+        if (!origin) return list[0]
         return list.includes(origin) ? origin : null
       },
       credentials: true,

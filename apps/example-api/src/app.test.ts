@@ -9,6 +9,8 @@ import { DEMO_EMAIL, DEMO_EMAIL_B, DEMO_PASSWORD, DEMO_PASSWORD_B } from './serv
 import { createMemoryEnv } from './test/memory-env'
 
 const ORIGIN = 'http://localhost:5173'
+/** Non-loopback SPA origin for staging/production env tests. */
+const SPA_ORIGIN = 'https://app.example.com'
 
 /** Cookie-authenticated mutation headers (Origin required by originGuard). */
 function sessionMutation(cookie: string): Record<string, string> {
@@ -75,7 +77,7 @@ describe('createApp shipped entry — health & errors', () => {
     const staging = createMemoryEnv({
       ENVIRONMENT: 'staging',
       SESSION_SECRET: 'staging-session-secret-at-least-32ch!',
-      CORS_ORIGINS: ORIGIN,
+      CORS_ORIGINS: SPA_ORIGIN,
     })
     const stagingRes = await app.request('/health', {}, staging)
     const stagingBody = (await stagingRes.json()) as {
@@ -88,7 +90,7 @@ describe('createApp shipped entry — health & errors', () => {
     const prod = createMemoryEnv({
       ENVIRONMENT: 'production',
       SESSION_SECRET: 'production-session-secret-at-least-32ch!',
-      CORS_ORIGINS: ORIGIN,
+      CORS_ORIGINS: SPA_ORIGIN,
     })
     const prodRes = await app.request('/health', {}, prod)
     const prodBody = (await prodRes.json()) as {
@@ -511,7 +513,7 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     const env = createMemoryEnv({
       ENVIRONMENT: 'production',
       SESSION_SECRET: 'prod-session-secret-at-least-32-chars!!',
-      CORS_ORIGINS: ORIGIN,
+      CORS_ORIGINS: SPA_ORIGIN,
       BETTER_AUTH_SECRET: undefined,
     })
     delete (env as { BETTER_AUTH_SECRET?: string }).BETTER_AUTH_SECRET
@@ -548,7 +550,7 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
       createMemoryEnv({
         ALLOW_PUBLIC_SIGNUP: 'true',
         ENVIRONMENT: 'production',
-        CORS_ORIGINS: ORIGIN,
+        CORS_ORIGINS: SPA_ORIGIN,
       }),
     )
     const onBody = (await on.json()) as { allowPublicSignup: boolean; demoLogin?: unknown }
@@ -777,7 +779,7 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     const env = createMemoryEnv({
       ENVIRONMENT: 'staging',
       SESSION_SECRET: 'staging-session-secret-at-least-32ch!',
-      CORS_ORIGINS: ORIGIN,
+      CORS_ORIGINS: SPA_ORIGIN,
     })
     const { createDb } = await import('@kit/db')
     const { schema } = await import('./db/schema')
@@ -788,7 +790,7 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
       '/api/auth/sign-in/email',
       {
         method: 'POST',
-        headers: { 'content-type': 'application/json', Origin: ORIGIN },
+        headers: { 'content-type': 'application/json', Origin: SPA_ORIGIN },
         body: JSON.stringify({ email: DEMO_EMAIL, password: DEMO_PASSWORD }),
       },
       env,
@@ -943,13 +945,13 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
       SESSION_SECRET: 'prod-session-secret-at-least-32-chars!!',
       BETTER_AUTH_SECRET: 'prod-better-auth-secret-at-least-32chars!',
       BETTER_AUTH_URL: 'https://api.example.com',
-      CORS_ORIGINS: ORIGIN,
+      CORS_ORIGINS: SPA_ORIGIN,
     })
     const login = await app.request(
       '/api/auth/sign-in/email',
       {
         method: 'POST',
-        headers: { 'content-type': 'application/json', Origin: ORIGIN },
+        headers: { 'content-type': 'application/json', Origin: SPA_ORIGIN },
         body: JSON.stringify({ email: DEMO_EMAIL, password: DEMO_PASSWORD }),
       },
       env,
@@ -1035,7 +1037,7 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     expect(res.status).toBe(200)
     const acao = res.headers.get('access-control-allow-origin')
     expect(acao).not.toBe('https://evil.example')
-    expect(acao === null || acao === '' || acao === 'null').toBe(true)
+    expect(acao).toBeNull()
 
     const ok = await app.request('/health', { headers: { Origin: 'http://localhost:5173' } }, env)
     expect(ok.headers.get('access-control-allow-origin')).toBe('http://localhost:5173')
