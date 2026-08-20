@@ -33,7 +33,9 @@ export const originGuard: MiddlewareHandler<AppEnv> = async (c, next) => {
 
   const cookie = c.req.header('Cookie')
   const name = sessionCookieNameFromEnv(c.env)
-  if (parseCookie(cookie, name)) {
+  // BA prefixes `__Secure-` when useSecureCookies is true (staging/prod).
+  // parseCookie is exact-match — check both on-wire names.
+  if (parseCookie(cookie, name) || parseCookie(cookie, `__Secure-${name}`)) {
     throw AppError.forbidden('Origin required for cookie-authenticated mutations')
   }
 

@@ -4,9 +4,10 @@ compatibility_date = "2026-07-01"
 compatibility_flags = ["nodejs_compat"]
 
 # Local bindings only. For remote deploy: set real database_id / bucket names and
-# CF secrets (SESSION_SECRET). Do NOT put ENVIRONMENT=development in deployable vars —
-# missing SESSION_SECRET + development would use the public kit HMAC fallback.
-# Local: copy .dev.vars.example → .dev.vars (ENVIRONMENT=development, SESSION_SECRET=…).
+# CF secrets (BETTER_AUTH_SECRET). Do NOT put ENVIRONMENT=development in deployable vars —
+# missing BETTER_AUTH_SECRET + development would use the public kit placeholder.
+# Local: copy .dev.vars.example → .dev.vars (ENVIRONMENT=development, BETTER_AUTH_SECRET=…).
+# SESSION_SECRET is HMAC leftover — not read on the BA session path.
 
 [[d1_databases]]
 binding = "DB"

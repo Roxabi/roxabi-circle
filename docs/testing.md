@@ -201,7 +201,7 @@ Machine-enforced today via full `validate` + `test:coverage` + package tests. Pr
 | **CP-UNAUTH** | protected mutations without auth → 401 `UNAUTHORIZED` | example-api |
 | **CP-ERR** | nested `{ error: { code, message }, requestId }`; no stack leak | `packages/core`, example-api |
 | **CP-CORS** | evil Origin not reflected; no `*` + credentials | example-api |
-| **CP-SECRET** | fail-closed `SESSION_SECRET` outside development\|test | example-api |
+| **CP-SECRET** | fail-closed `BETTER_AUTH_SECRET` outside development\|test (HMAC `SESSION_SECRET` leftover is not the live session secret) | example-api + `packages/auth` |
 | **CP-R2** | keys under intended prefix; `joinObjectKey` rejects traversal | `packages/storage`, example-api |
 | **CP-FE-CRED** | `apiFetch` always `credentials: 'include'`; maps UNAUTHORIZED | example-web |
 | **CP-MCP-REG** | live registered names / `tools/list` equals app catalogue.names; planted extra tool fails assert | `packages/mcp` catalogue unit + `bun run smoke:mcp` |

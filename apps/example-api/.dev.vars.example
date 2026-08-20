@@ -1,9 +1,9 @@
 # Copy to .dev.vars (gitignored). Placeholders only — never commit real secrets.
 # ENVIRONMENT must be set for local secret fallbacks / demo seed (not in wrangler [vars]).
 ENVIRONMENT=development
-# Optional residual — accepted only when ENVIRONMENT=development|test.
+# HMAC leftover — unused on the BA session path (env:check still inventories the Zod key).
 SESSION_SECRET=dev-session-secret-change-me-32chars!!
-# Better Auth (session stack — ADR-0002 BA-only; min 32 chars; no kit placeholders in prod)
+# Better Auth (live session stack — ADR-0002 BA-only; min 32 chars; no kit placeholders in prod)
 BETTER_AUTH_SECRET=dev-better-auth-secret-change-me-32c!!
 BETTER_AUTH_URL=http://localhost:8787
 # SESSION_COOKIE_NAME=kit_session

@@ -10,7 +10,6 @@ export {
   corsAllowlist,
   environmentName,
   getBetterAuthSecret,
-  getSessionSecret,
   isDevLikeEnvironment,
   sessionCookieNameFromEnv,
   useSecureCookie,

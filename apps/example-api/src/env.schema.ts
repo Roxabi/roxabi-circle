@@ -4,7 +4,8 @@
  * Bindings (DB, BUCKET) are Cloudflare resources — not in .dev.vars.
  * String keys must be documented in apps/example-api/.dev.vars.example.
  *
- * Runtime still uses fail-closed helpers (getSessionSecret, etc.).
+ * Live session secret is BETTER_AUTH_SECRET (getBetterAuthSecret).
+ * SESSION_SECRET / getSessionSecret is HMAC leftover — not on the BA path.
  * Inventory + env:check must use this module, not a freehand Env type.
  */
 import { z } from 'zod'
@@ -15,10 +16,10 @@ export type WorkerBindingName = (typeof WORKER_BINDINGS)[number]
 
 /**
  * Secrets + plain vars available on `c.env` as strings.
- * All optional at the type level; production requirements live in getSessionSecret / deploy.
+ * All optional at the type level; production requirements live in getBetterAuthSecret / deploy.
  */
 export const workerStringEnvSchema = z.object({
-  /** Min 32 chars in prod; see getSessionSecret(). */
+  /** HMAC leftover; unused on the BA session path. Min 32 if still set. */
   SESSION_SECRET: z.string().optional(),
   PRESIGN_MODE: z.enum(['mock', 's3']).optional(),
   /** development | test | production | staging */

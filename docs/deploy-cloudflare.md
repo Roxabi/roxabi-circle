@@ -93,7 +93,7 @@ bunx wrangler queues create boilerplate-api-demo   # optional
 
 # Runtime secrets (Worker) — once; not in git
 printf '%s' "$(openssl rand -hex 32)" | bunx wrangler secret put BETTER_AUTH_SECRET --env production
-printf '%s' "$(openssl rand -hex 32)" | bunx wrangler secret put SESSION_SECRET --env production
+# SESSION_SECRET is HMAC leftover — not required for BA sessions.
 ```
 
 First production deploy creates Workflow **`boilerplate-api-flow-run`** (`[[env.production.workflows]]` name) — no separate `wrangler` create. Showcase / this Workflow must run on **Workers Paid** (Free = 10 ms CPU/step). Cloudflare **Workflows ≠ Workers for Platforms** (WfP unsupported here).
