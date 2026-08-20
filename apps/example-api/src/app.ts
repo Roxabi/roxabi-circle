@@ -13,6 +13,7 @@ import { adminAuditRoutes } from './routes/admin-audit'
 import { adminUsersRoutes } from './routes/admin-users'
 import { authRoutes } from './routes/auth'
 import { demoRoutes } from './routes/demo'
+import { flowsRoutes } from './routes/flows'
 import { healthRoutes } from './routes/health'
 import { invitationsRoutes } from './routes/invitations'
 import { itemsRoutes } from './routes/items'
@@ -71,6 +72,7 @@ export function createApp() {
   app.route('/', notesRoutes)
   app.route('/', itemsRoutes)
   app.route('/', tasksRoutes)
+  app.route('/', flowsRoutes)
   app.route('/', uploadsRoutes)
   app.route('/', jobsRoutes)
   app.route('/', demoRoutes)
