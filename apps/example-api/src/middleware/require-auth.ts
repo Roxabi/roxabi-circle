@@ -2,7 +2,7 @@ import { createBetterAuthSessionPort, createRequireAuth } from '@kit/auth'
 import { AppError } from '@kit/core'
 import type { MiddlewareHandler } from 'hono'
 import type { KitDb } from '../lib/db-type'
-import { sessionCookieName } from '../lib/session-env'
+import { sessionCookieNameFromEnv } from '../lib/session-env'
 import * as keysRepo from '../repos/keys'
 import type { AppEnv } from '../types'
 
@@ -19,7 +19,7 @@ function dbFromContext(c: { get: (k: 'db') => KitDb | undefined }): KitDb {
  */
 export const requireAuth: MiddlewareHandler<AppEnv> = createRequireAuth((c) => {
   const db = dbFromContext(c as { get: (k: 'db') => KitDb | undefined })
-  const cookieName = sessionCookieName(c.env)
+  const cookieName = sessionCookieNameFromEnv(c.env)
   const auth = c.get('betterAuth')
   if (!auth) {
     throw AppError.internal('betterAuth not bound — withBetterAuth middleware required')

@@ -9,7 +9,7 @@ Identity = catalog **module `id` + sha256 of kit source bytes** — not the exam
 ## Source bytes
 
 Sync hashes and copies **`apps/example-api/migrations/*`** (applied SSoT).  
-`packages/*/migrations/*` are sketches until a later ADR promotes them. Do not copy sketches into a product. `@kit/auth` does not export `./migrations/*`.
+`packages/*/migrations/*` are sketches until a later ADR promotes them. Do not copy sketches into a product. `@kit/auth` does not export `./migrations/*`. Machine gate: `bun run wrangler-migrations:check` fails if any wrangler `migrations_dir` resolves under `packages/`.
 
 ## Happy path (greenfield)
 

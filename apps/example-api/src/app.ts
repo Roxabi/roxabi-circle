@@ -26,7 +26,12 @@ import { tasksRoutes } from './routes/tasks'
 import { uploadsRoutes } from './routes/uploads'
 import type { AppEnv } from './types'
 
-export { corsAllowlist, environmentName, getSecret, useSecureCookie } from './lib/session-env'
+export {
+  corsAllowlist,
+  environmentName,
+  getSessionSecret,
+  useSecureCookie,
+} from './lib/session-env'
 export type { AppEnv }
 
 /** Factory used by Worker entry and unit tests (same shipped app). */

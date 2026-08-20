@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   allowPublicSignup,
   assertBetterAuthConfigured,
+  assertTrustedOrigins,
   betterAuthBaseURL,
   corsAllowlist,
   environmentName,
@@ -60,6 +61,19 @@ describe('better-auth env helpers', () => {
         CORS_ORIGINS: 'https://app.example.com,http://127.0.0.1:5173',
       }),
     ).toThrow(/loopback/)
+  })
+
+  it('assertTrustedOrigins rejects * / null / empty and loopback by default', () => {
+    expect(() => assertTrustedOrigins(['*'])).toThrow(/explicit origins/)
+    expect(() => assertTrustedOrigins(['NULL'])).toThrow(/explicit origins/)
+    expect(() => assertTrustedOrigins([])).toThrow(/never empty/)
+    expect(() => assertTrustedOrigins(['http://localhost:5173'])).toThrow(/loopback/)
+    expect(assertTrustedOrigins(['https://app.example.com'], { allowLoopback: false })).toEqual([
+      'https://app.example.com',
+    ])
+    expect(assertTrustedOrigins(['http://localhost:5173'], { allowLoopback: true })).toEqual([
+      'http://localhost:5173',
+    ])
   })
 
   it('public signup is off unless exactly true', () => {

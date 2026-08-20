@@ -11,7 +11,7 @@ Kit SQL identity is **module id + hash**, not `example-api` `NNNN_` filenames. N
 | New `apps/<product>-api` importing `@kit/*` | `cp -R apps/example-api` as happy path |
 | `bash scripts/kit-schema-sync.sh --app apps/<product>-api` after creating the app | Hand-copy `example-api/migrations` and then put domain SQL at 0009 |
 | Product SQL from `1000_` | Reuse kit 0009–0999 for domain |
-| Import `createBetterAuth` from `@kit/auth/factory` + tables from `@kit/auth/schema` + env helpers from `@kit/auth` | Copy `example-api/src/lib/better-auth.ts` as the BA factory / `better-auth-schema.ts` |
+| Import `createBetterAuth` from `@kit/auth/factory` + tables from `@kit/auth/schema` + env helpers from `@kit/auth` | Copy `example-api/src/lib/better-auth.ts` as the BA factory / `better-auth-schema.ts` · skip `corsAllowlist` and pass `trustedOrigins: ['*']` |
 | Existing clone: freeze history, `--adopt` (default core); later `--modules audit` (etc.) appends `NNNN_kit_*` | Rename applied files |
 
 **Last resort:** if you already cloned `example-api`, run `--adopt` **immediately**, then never add new domain SQL in `0001`–`0999` (frozen history stays; new domain at `1000_`).
@@ -51,3 +51,4 @@ bash scripts/kit-schema-sync.sh --app apps/<product>-api --adopt
 - Edit kit-owned paths for product config
 - `git push upstream` from a product clone
 - Commit secrets
+- Point wrangler `migrations_dir` at `packages/*/migrations` (sketches; applied SSoT is `apps/<api>/migrations`)

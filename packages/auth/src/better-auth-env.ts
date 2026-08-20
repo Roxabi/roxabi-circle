@@ -91,28 +91,38 @@ function isLoopbackOrigin(o: string): boolean {
   }
 }
 
+/**
+ * Fail-closed origin list for CORS and BA `trustedOrigins`.
+ * Factory calls this so products cannot skip `corsAllowlist` and pass `*`.
+ */
+export function assertTrustedOrigins(
+  origins: readonly string[],
+  opts?: { allowLoopback?: boolean; label?: string },
+): string[] {
+  const label = opts?.label ?? 'trustedOrigins'
+  const list = origins.map((s) => s.trim()).filter(Boolean)
+  if (list.length === 0) {
+    throw AppError.internal(`${label} must be explicit origins (never empty)`)
+  }
+  if (list.some(isWildcardOrNullOrigin)) {
+    throw AppError.internal(`${label} must be explicit origins (never * or null)`)
+  }
+  if (!opts?.allowLoopback && list.some(isLoopbackOrigin)) {
+    throw AppError.internal(`${label} must not include loopback origins outside development|test`)
+  }
+  return list
+}
+
 export function corsAllowlist(env: BetterAuthEnvSlice): string[] {
   const raw = env.CORS_ORIGINS?.trim()
   const source = raw || (isDevLikeEnvironment(env) ? DEFAULT_CORS : '')
   if (!source) {
     throw AppError.internal('CORS_ORIGINS is required outside development|test')
   }
-  const list = source
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean)
-  if (list.length === 0) {
-    throw AppError.internal('CORS_ORIGINS is required outside development|test')
-  }
-  if (list.some(isWildcardOrNullOrigin)) {
-    throw AppError.internal('CORS_ORIGINS must be explicit origins (never * or null)')
-  }
-  if (!isDevLikeEnvironment(env) && list.some(isLoopbackOrigin)) {
-    throw AppError.internal(
-      'CORS_ORIGINS must not include loopback origins outside development|test',
-    )
-  }
-  return list
+  return assertTrustedOrigins(source.split(','), {
+    allowLoopback: isDevLikeEnvironment(env),
+    label: 'CORS_ORIGINS',
+  })
 }
 
 /** Secure cookies on HTTPS-like envs; local HTTP only for explicit development|test. */

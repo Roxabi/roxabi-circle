@@ -47,7 +47,7 @@ Machine gates here only care: product does not dual-edit kit paths; `upstream` i
 | `AGENTS.md` · root `README.md` · `docs/*` kit | **kit** | **Do not edit.** Product narrative → `docs/product/*` or `apps/<product>-*/README.md`. |
 | `scripts/` · `tooling/` · `tools/` (incl. deny-upstream, extract, banlist) | **kit** | **Do not edit.** Product helpers → `scripts/product/` only. |
 | `.dev.vars` · `.env` · CF secrets | product / env | **Never commit.** Copy from `*.example`. |
-| Wrangler product worker names / DB ids | product app | Only under **`apps/<product>-*/wrangler.toml`** (new file). |
+| Wrangler product worker names / DB ids | product app | Only under **`apps/<product>-*/wrangler.toml`** (new file). `migrations_dir` must not resolve under `packages/` (sketches). |
 
 ---
 
