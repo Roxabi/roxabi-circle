@@ -12,9 +12,10 @@ import {
   MEMBER_EMAIL,
   mintOperatorWriteOnAcme,
   ORG_ACME,
+  ORG_TEAM,
   ORIGIN,
-  operator,
   STAFF_EMAIL,
+  SUPER_EMAIL,
   seedFlowsApp,
   sessionHeaders,
 } from './test/flows-fixture'
@@ -61,6 +62,14 @@ describe('flows admin API (V1 gates + GET)', () => {
     await expectError(plans, 403, 'FORBIDDEN')
     const runs = await app.request('/api/flows/runs', { headers }, env)
     await expectError(runs, 403, 'FORBIDDEN')
+    const plan = await app.request('/api/flows/plans/plan_unknown', { headers }, env)
+    await expectError(plan, 403, 'FORBIDDEN')
+    const patch = await app.request(
+      '/api/flows/plans/plan_unknown',
+      { method: 'PATCH', headers, body: JSON.stringify({ enabled: false }) },
+      env,
+    )
+    await expectError(patch, 403, 'FORBIDDEN')
   })
 
   it('GET /api/flows/plans is 404 when flows module is off', async () => {
@@ -105,8 +114,32 @@ describe('flows admin API (V1 gates + GET)', () => {
     const stolenPlanId = 'plan_stolen_team'
     const stolenRunId = 'run_stolen_team'
     await insertTeamPlanAndRun(db, { planId: stolenPlanId, runId: stolenRunId })
+    const teamCookie = await login(app, env, MEMBER_EMAIL)
+    const teamHeaders = sessionHeaders(teamCookie, ORG_TEAM)
+    const teamPlans = await app.request('/api/flows/plans', { headers: teamHeaders }, env)
+    expect(teamPlans.status).toBe(200)
+    const teamPlanIds = ((await teamPlans.json()) as { plans: { id: string }[] }).plans.map(
+      (p) => p.id,
+    )
+    expect(teamPlanIds).toContain(stolenPlanId)
+    const teamRuns = await app.request('/api/flows/runs', { headers: teamHeaders }, env)
+    expect(teamRuns.status).toBe(200)
+    const teamRunIds = ((await teamRuns.json()) as { runs: { id: string }[] }).runs.map((r) => r.id)
+    expect(teamRunIds).toContain(stolenRunId)
+
     const cookie = await login(app, env, STAFF_EMAIL)
     const headers = sessionHeaders(cookie, ORG_ACME)
+    const acmePlans = await app.request('/api/flows/plans', { headers }, env)
+    expect(acmePlans.status).toBe(200)
+    const acmePlanIds = ((await acmePlans.json()) as { plans: { id: string }[] }).plans.map(
+      (p) => p.id,
+    )
+    expect(acmePlanIds).not.toContain(stolenPlanId)
+    const acmeRuns = await app.request('/api/flows/runs', { headers }, env)
+    expect(acmeRuns.status).toBe(200)
+    const acmeRunIds = ((await acmeRuns.json()) as { runs: { id: string }[] }).runs.map((r) => r.id)
+    expect(acmeRunIds).not.toContain(stolenRunId)
+
     const plan = await app.request(`/api/flows/plans/${stolenPlanId}`, { headers }, env)
     await expectError(plan, 404, 'NOT_FOUND')
     const run = await app.request(`/api/flows/runs/${stolenRunId}`, { headers }, env)
@@ -196,7 +229,6 @@ describe('V0 custom write non-admin (operator)', () => {
 
     const cookie = await login(app, env, MEMBER_EMAIL)
     const headers = sessionHeaders(cookie, ORG_ACME)
-    expect(operator).toBe('operator')
 
     const list = await app.request('/api/flows/plans', { headers }, env)
     expect(list.status).toBe(200)
@@ -225,6 +257,23 @@ describe('V0 custom write non-admin (operator)', () => {
       env,
     )
     await expectError(run, 403, 'FORBIDDEN')
+  })
+})
+
+describe('V0 super_admin without membership', () => {
+  it('GET /api/flows/plans is 404 for super_admin not in org', async () => {
+    const { app, env, db } = await seedFlowsApp()
+    await enableFlowsForOrgs(db, BOTH_ORGS)
+    const cookie = await login(app, env, SUPER_EMAIL)
+    const res = await app.request(
+      '/api/flows/plans',
+      { headers: sessionHeaders(cookie, ORG_ACME) },
+      env,
+    )
+    expect(res.status).toBe(404)
+    const body = (await res.json()) as { error: { code: string; message: string } }
+    expect(body.error.code).toBe('NOT_FOUND')
+    expect(body.error.message).toBe('Organization not found')
   })
 })
 

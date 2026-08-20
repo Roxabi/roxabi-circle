@@ -17,6 +17,7 @@ export const ORG_ACME = 'org_acme'
 export const ORG_TEAM = 'org_team'
 export const STAFF_EMAIL = 'staff@kit.local'
 export const MEMBER_EMAIL = 'team-owner@kit.local'
+export const SUPER_EMAIL = 'super@kit.local'
 export const BOTH_ORGS = [ORG_ACME, ORG_TEAM] as const
 /** Custom org role key — write grant, not owner/admin (T18). */
 export const operator = 'operator'

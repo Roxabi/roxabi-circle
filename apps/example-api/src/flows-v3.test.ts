@@ -1,3 +1,5 @@
+import { parseRunnerView } from '@kit/flows'
+import { eq } from 'drizzle-orm'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { flowRuns } from './db/schema'
 import { INVOKE_ONLY_PLAN_YAML } from './flows-run/fixtures'
@@ -73,7 +75,7 @@ async function postRun(
 
 describe('V3 create-run + rollup', () => {
   it('POST run with empty body or {} is 202 queued and awaits FLOW_RUN.create with exact params', async () => {
-    const { app, env, headers, planId } = await staffWithPlan()
+    const { app, env, db, headers, planId } = await staffWithPlan()
     const create = spyCreate(env)
 
     const empty = await postRun(app, env, headers, planId)
@@ -100,12 +102,30 @@ describe('V3 create-run + rollup', () => {
     expect(got.status).toBe(200)
     const gotBody = (await got.json()) as { run: { status: string } }
     expect(gotBody.run.status).toBe('queued')
+
+    const rows = await db.select().from(flowRuns).where(eq(flowRuns.id, emptyBody.run.id))
+    const snap = rows[0]?.snapshotJson
+    expect(typeof snap).toBe('string')
+    expect(snap).not.toContain('grantAudit')
+    const parsed = parseRunnerView(JSON.parse(snap as string) as unknown)
+    expect(parsed.ok).toBe(true)
+    if (parsed.ok) {
+      expect(parsed.runnerView.executionTools).toEqual(['echo'])
+    }
   })
 
   it('POST run with yaml body is 400 VALIDATION_ERROR', async () => {
     const { app, env, headers, planId } = await staffWithPlan()
     const create = spyCreate(env)
     const res = await postRun(app, env, headers, planId, JSON.stringify({ yaml: 'x' }))
+    await expectError(res, 400, 'VALIDATION_ERROR')
+    expect(create).not.toHaveBeenCalled()
+  })
+
+  it('POST run with invalid JSON is 400 VALIDATION_ERROR', async () => {
+    const { app, env, headers, planId } = await staffWithPlan()
+    const create = spyCreate(env)
+    const res = await postRun(app, env, headers, planId, '{')
     await expectError(res, 400, 'VALIDATION_ERROR')
     expect(create).not.toHaveBeenCalled()
   })
@@ -162,11 +182,8 @@ describe('V3 create-run + rollup', () => {
     const { app, env, db, headers, planId } = await staffWithPlan()
     const runId = 'run_failed_rollup'
     env.FLOW_RUN.create = vi.fn(async () => ({ id: runId, status: 'complete' }))
-    ;(env.FLOW_RUN as { get?: (id: string) => Promise<{ status: string }> }).get = vi.fn(
-      async () => ({
-        status: 'complete',
-      }),
-    )
+    const get = vi.fn(async () => ({ status: 'complete' }))
+    ;(env.FLOW_RUN as { get?: typeof get }).get = get
     const now = Date.now()
     await db
       .insert(flowRuns)
@@ -199,6 +216,7 @@ describe('V3 create-run + rollup', () => {
     const raw = JSON.stringify(body)
     expect(raw).not.toContain('complete')
     expect(raw).not.toContain('succeeded')
+    expect(get).not.toHaveBeenCalled()
   })
 
   it('POST run is 403 for org-bound sk_ Bearer', async () => {

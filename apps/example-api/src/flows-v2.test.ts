@@ -31,6 +31,55 @@ describe('V2 publish + enable', () => {
     await expectError(res, 400, 'VALIDATION_ERROR')
   })
 
+  it('POST /api/flows/plans with empty yaml is 400 VALIDATION_ERROR', async () => {
+    const { app, env, db } = await seedFlowsApp()
+    await enableFlowsForOrgs(db, BOTH_ORGS)
+    const cookie = await login(app, env, STAFF_EMAIL)
+    const res = await app.request(
+      '/api/flows/plans',
+      {
+        method: 'POST',
+        headers: sessionHeaders(cookie),
+        body: JSON.stringify({ yaml: '' }),
+      },
+      env,
+    )
+    await expectError(res, 400, 'VALIDATION_ERROR')
+  })
+
+  it('POST /api/flows/plans with net tool is 400 checkPlan issues', async () => {
+    const { app, env, db } = await seedFlowsApp()
+    await enableFlowsForOrgs(db, BOTH_ORGS)
+    const cookie = await login(app, env, STAFF_EMAIL)
+    const yaml = `flows: v0
+plan:
+  id: net-only
+permits:
+  tools:
+    - net
+tasks:
+  call_net:
+    invoke:
+      tool: net
+`
+    const res = await app.request(
+      '/api/flows/plans',
+      {
+        method: 'POST',
+        headers: sessionHeaders(cookie),
+        body: JSON.stringify({ yaml }),
+      },
+      env,
+    )
+    expect(res.status).toBe(400)
+    const body = (await res.json()) as {
+      error: { code: string; details?: { issues?: unknown[] } }
+    }
+    expect(body.error.code).toBe('VALIDATION_ERROR')
+    expect(Array.isArray(body.error.details?.issues)).toBe(true)
+    expect(body.error.details?.issues?.length).toBeGreaterThan(0)
+  })
+
   it('POST /api/flows/plans with extra grant key is 400', async () => {
     const { app, env, db } = await seedFlowsApp()
     await enableFlowsForOrgs(db, BOTH_ORGS)

@@ -1,10 +1,23 @@
+import { AppError } from '@kit/core'
 import { FLOWS_MODULE_ID } from '@kit/flows'
+import type { Context } from 'hono'
 import { Hono } from 'hono'
 import { requireModule, requireOrgContext } from '../middleware/org-context'
 import { requireAuth } from '../middleware/require-auth'
 import { requireSession } from '../middleware/require-session'
 import * as flowsService from '../services/flows'
 import type { AppEnv } from '../types'
+
+/** Blank body → `{}`. Invalid JSON → 400 (not aliased to empty). */
+async function readJsonOrEmpty(c: Context<AppEnv>): Promise<unknown> {
+  const text = await c.req.text()
+  if (!text.trim()) return {}
+  try {
+    return JSON.parse(text) as unknown
+  } catch {
+    throw AppError.validation('Invalid JSON')
+  }
+}
 
 export const flowsRoutes = new Hono<AppEnv>()
 
@@ -26,7 +39,7 @@ flowsRoutes.post('/api/flows/plans', flowsWrite, async (c) => {
     subject: c.get('subject')!,
     orgRole: c.get('orgRole'),
     platformRole: c.get('platformRole'),
-    body: await c.req.json().catch(() => null),
+    body: await readJsonOrEmpty(c),
   })
   return c.json({ plan, requestId: c.get('requestId') }, 201)
 })
@@ -46,7 +59,7 @@ flowsRoutes.patch('/api/flows/plans/:planId', flowsWrite, async (c) => {
     planId: c.req.param('planId'),
     orgRole: c.get('orgRole'),
     platformRole: c.get('platformRole'),
-    body: await c.req.json().catch(() => null),
+    body: await readJsonOrEmpty(c),
   })
   return c.json({ plan, requestId: c.get('requestId') })
 })
@@ -59,7 +72,7 @@ flowsRoutes.post('/api/flows/plans/:planId/runs', flowsWrite, async (c) => {
     orgRole: c.get('orgRole'),
     platformRole: c.get('platformRole'),
     authMethod: c.get('authMethod'),
-    body: await c.req.json().catch(() => null),
+    body: await readJsonOrEmpty(c),
   })
   return c.json({ run, requestId: c.get('requestId') }, 202)
 })

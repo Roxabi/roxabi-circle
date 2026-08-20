@@ -126,7 +126,15 @@ export async function createPlan(
     createdAt: now,
     updatedAt: now,
   }
-  await flowsRepo.insertPlan(db, row)
+  try {
+    await flowsRepo.insertPlan(db, row)
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    if (/UNIQUE|unique constraint/i.test(msg)) {
+      throw AppError.conflict('Plan already exists')
+    }
+    throw err
+  }
   return toPublicPlan(row)
 }
 
@@ -174,7 +182,7 @@ export async function createRun(
   ) {
     throw AppError.forbidden()
   }
-  parseOrThrow(createRunBodySchema, input.body ?? {})
+  parseOrThrow(createRunBodySchema, input.body)
   const existing = await flowsRepo.getPlan(db, input.planId, input.orgId)
   if (!existing) throw AppError.notFound()
   if (existing.enabled === false) {
@@ -221,7 +229,11 @@ export async function createRun(
   try {
     await env.FLOW_RUN.create({ id: runId, params: { runId, orgId: input.orgId } })
   } catch {
-    await flowsRepo.markQueuedRunCreateFailed(db, { id: runId, orgId: input.orgId })
+    try {
+      await flowsRepo.markQueuedRunCreateFailed(db, { id: runId, orgId: input.orgId })
+    } catch {
+      // Compensation miss: still 502. GET may stay queued — logged by onError.
+    }
     throw new AppError('INTERNAL_ERROR', 'Internal error', 502)
   }
   return { id: runId, status: 'queued' as const }
