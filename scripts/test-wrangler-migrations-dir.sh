@@ -47,8 +47,9 @@ echo "== CP-KIT-SCHEMA wrangler migrations_dir =="
 TMP="$(mktemp -d -t cp-wrangler-mig-XXXXXX)"
 trap 'rm -rf "$TMP"' EXIT
 
-# --- live kit tree (example-api migrations, not packages/) ---
-assert_exit "live kit tree → 0" 0 "${ROOT}" ", 2 migrations_dir"
+# --- live tree must be clean. Do not pin wrangler-file / migrations_dir
+# counts: product clones add apps/<product>-* wrangler files (LGU: 4/4).
+assert_exit "live kit tree → 0" 0 "${ROOT}" "OK"
 
 # --- fixture: app migrations_dir is relative local ---
 OK_TREE="${TMP}/ok"
@@ -123,6 +124,26 @@ binding = "DB"
 migrations_dir = "../../packages/flows/migrations"
 EOF
 assert_exit "env.production sketch dir → 1" 1 "${BAD_ENV}" "packages/*/migrations are sketches"
+
+# --- fixture: product clone extra wrangler files (web + second API) ---
+PROD="${TMP}/prod"
+mkdir -p "${PROD}/packages/auth" \
+  "${PROD}/apps/example-api/migrations" "${PROD}/apps/lgu-api/migrations" \
+  "${PROD}/apps/example-web" "${PROD}/apps/lgu-web"
+for api in example-api lgu-api; do
+  cat >"${PROD}/apps/${api}/wrangler.toml" <<EOF
+name = "${api}"
+[[d1_databases]]
+binding = "DB"
+migrations_dir = "migrations"
+[[env.production.d1_databases]]
+binding = "DB"
+migrations_dir = "migrations"
+EOF
+done
+echo 'name = "web"' >"${PROD}/apps/example-web/wrangler.toml"
+echo 'name = "web"' >"${PROD}/apps/lgu-web/wrangler.toml"
+assert_exit "product extra wrangler files → 0" 0 "${PROD}" "OK"
 
 echo "== summary: ${PASS} passed, ${FAIL} failed =="
 if [[ "${FAIL}" -ne 0 ]]; then
