@@ -83,6 +83,7 @@ Auth glue (ADR-0008 D6): import `createBetterAuth` from `@kit/auth/factory`, tab
 | Extra CI job / product CD | `.github/workflows/product-deploy.yml` (**new**) or product CF Builds on `apps/<product>-*` | Append jobs into kit `ci.yml` · never set `KIT_SHOWCASE_DEPLOY` · never run `cf:showcase:*` |
 | Deny push to kit | **Already in kit** lefthook + `scripts/deny-upstream-push.sh` | Copy-paste divergent lefthook in product |
 | Brand / design system | **Design overrides** (below) in `apps/<product>-web` | Edit `packages/ui/**` |
+| UI locales | Product `apps/<product>-web` `createI18n({ catalogs })`. **One key = no switcher** (`LocaleSwitcher` hides). Keep or drop extra catalog files accordingly | Hardcode FR/EN buttons; patch `example-web`; fork `@kit/i18n` |
 | Gate “did we touch kit paths?” | `bun run zero-edit` (in `validate` / `validate:full`) | Hope merge conflicts never happen |
 | Env completeness | Product owns inventory for `apps/<product>-*` | Treat kit `env:check` as product-wide (it is **example-api only**) |
 

@@ -220,7 +220,7 @@ Machine-enforced today via full `validate` + `test:coverage` + package tests. Pr
 | **CP-TS-MAJOR** | root `typescript` pin exclusive `^7`; leftover workspace pins (if any) must match; lock has positive `typescript@7.` and no non-allowlisted `@5`/`@6`; self-test plants inherit / dual-range / residual / missing-7 / stray-5 cases | `bun run ts-major` · `scripts/check-typescript-major.sh` · `bun run test:ts-major` (in `validate:full`) |
 | **CP-ENV** | **Kit only:** `apps/example-api` Worker string keys documented in `apps/example-api/.dev.vars.example` (SSoT Zod schema) + root Vite placeholders; no real secrets in examples. **Does not** cover product apps’ env inventories | `bun run env:check` — **DX only**, example-api scoped; not “prod secrets validated”, not product-wide |
 | **CP-LICENSE** | third-party deps on allowlist; disallowed SPDX fails | `bun run license:check` — **compliance hygiene**, not malware audit |
-| **CP-I18N** | FR/EN non-empty copy; key parity via TypeScript `Messages` | `messages.contract.test.ts` / `i18n:check` — **not** semantic/security review |
+| **CP-I18N** | Kit `example-web` FR/EN non-empty copy + key parity (`Messages`); `LocaleSwitcher` hidden when one catalog | `messages.contract.test.ts` / `i18n:check` · `packages/i18n` + `LocaleSwitcher` unit — **not** semantic/security review |
 | **CP-UI-CONTRACT** | known Base UI traps (e.g. MenuGroupContext, closed dialog) | `packages/ui` (+ design-system smoke) |
 | **CP-E2E** | BA cookie login + design-system overlays (Chromium); no Base UI contract console errors | **Local only:** `test:e2e:design-system` / `test:e2e:ci` — **not** dual-auth / IDOR / RBAC; not a CI gate |
 

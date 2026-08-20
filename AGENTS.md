@@ -394,13 +394,15 @@ Ref pattern : `kit-boilerplate` (`errorCodes`, `errorUtils`, `ApiError`).
 
 | | |
 |---|---|
-| Default | **FR** (hub Kit) |
-| Second | **EN** |
+| Config | App `createI18n({ defaultLocale, catalogs })` — **catalog keys = locales** |
+| Switcher | `@kit/ui` `LocaleSwitcher` — **hidden if `locales.length === 1`** |
+| Kit dogfood | `example-web` **FR+EN** (switch on) |
+| Product 1 langue | catalogs `{ fr }` only — no EN file, no switcher chrome |
 | Tooling | Catalogs TS app-owned + `@kit/i18n` engine (live) · **Paraglide monorepo park** (B8) |
-| Routing | path `/fr` `/en` **ou** locale cookie / `Accept-Language` |
+| Routing | path `/fr` `/en` **ou** locale cookie / `Accept-Language` (not implemented; storage key `kit.locale`) |
 | Erreurs API | **codes stables** ; copy traduite **côté UI** (pas 12 langues hardcodées backend) |
 | Emails | templates par locale (P1) |
-| Package | `@kit/i18n` **live** (engine only ; catalogs in apps) |
+| Package | `@kit/i18n` **live** (engine + `hasLocaleSwitcher` / `resolveLocale`) |
 
 ---
 
@@ -416,7 +418,7 @@ Ref pattern : `kit-boilerplate` (`errorCodes`, `errorUtils`, `ApiError`).
 | `@kit/types` | Zod schemas + ErrorCode | **P0** |
 | `@kit/ui` | shadcn Base UI shell | **P0** |
 | `@kit/email` | Templates + transports `log` \| `smtp` \| **`cf`** (prod default) \| `resend` (escape) — [ADR-0004](docs/architecture/adr/0004-email-transport-cf-default.md) | **P0** |
-| `@kit/i18n` | Locale engine only; catalogs app-owned (FR/EN live) | **P0** |
+| `@kit/i18n` | Locale engine; catalogs app-owned; 1 catalog = no switcher | **P0** |
 | `@kit/mcp` | FastMCP/SDK conventions (ping/whoami) · tools under grants when wired · **parity grant∩ with flows** | **P0** example |
 | `@kit/flows` | Pure plan engine: YAML MVP · `check` · grant∩permits · snapshot helpers ([ADR-0005](docs/architecture/adr/0005-flows-platform-agentic-workflows.md) · #16 · #27–#28); Workflows/D1/API = children #29–#31 · promote **D6 only** | **P0** incubating |
 | `@kit/tasks` | Pure task engine: stages · visibility · links · opaque scope · AudiencePort helpers ([ADR-0007](docs/architecture/adr/0007-tasks-comments-kernel.md)); D1/API dogfood later · **no resource links until resource system** | **P0** incubating |
@@ -684,7 +686,7 @@ CF mapping (named env, isolation D1/R2, cookies): [`docs/environments.md`](docs/
 
 ## Conventions Kit
 
-- **UI language default FR** · i18n EN prévu  
+- **UI language default FR** · catalogs decide locales (`example-web` FR+EN ; product may be FR-only)  
 - **Git :** jamais commit/push sans permission  
 - **Secrets :** jamais en git  
 - Org membership = SoT upload  

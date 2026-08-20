@@ -39,6 +39,7 @@ bash scripts/kit-schema-sync.sh --app apps/<product>-api --adopt
 8. Auth: `createBetterAuth` from `@kit/auth/factory` (per-request factory, magic-link + reset EmailPort, optional `onFirstSession`). Env helpers (`getBetterAuthSecret`, `assertBetterAuthConfigured`, `allowPublicSignup`) from `@kit/auth`. Tables: `@kit/auth/schema`. See `example-api/src/lib/better-auth.ts` only as a **thin Env adapter**, not the factory.
 9. Keep `bun run validate:full` green (kit bar). Wire product-validate when product apps exist ([`docs/templates/`](../templates/)).
 10. Cloudflare: copy `config/deploy.cf.example.toml` → `config/deploy.cf.local.toml` (gitignored), fill **account id** + zone/hosts. Planes / `[env.staging]` / `[env.production]` / cookies: [`docs/environments.md`](../environments.md). Showcase CD commands (kit HEAD only): [`docs/deploy-cloudflare.md`](../deploy-cloudflare.md). Account is never assumed by the kit.
+11. UI locales: `apps/<product>-web` `createI18n({ defaultLocale, catalogs })`. **Catalog keys are the locale policy.** One locale → `LocaleSwitcher` is hidden (no FR/EN chrome). Kit `example-web` dogs FR+EN; do not patch it.
 
 ## Contract
 
