@@ -78,10 +78,22 @@ export function getSessionSecret(env: BetterAuthEnvSlice): string {
 }
 
 export function corsAllowlist(env: BetterAuthEnvSlice): string[] {
-  return (env.CORS_ORIGINS || DEFAULT_CORS)
+  const raw = env.CORS_ORIGINS?.trim()
+  const source = raw || (isDevLikeEnvironment(env) ? DEFAULT_CORS : '')
+  if (!source) {
+    throw AppError.internal('CORS_ORIGINS is required outside development|test')
+  }
+  const list = source
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean)
+  if (list.length === 0) {
+    throw AppError.internal('CORS_ORIGINS is required outside development|test')
+  }
+  if (list.some((o) => o === '*' || o.toLowerCase() === 'null')) {
+    throw AppError.internal('CORS_ORIGINS must be explicit origins (never * or null)')
+  }
+  return list
 }
 
 /** Secure cookies on HTTPS-like envs; local HTTP only for explicit development|test. */

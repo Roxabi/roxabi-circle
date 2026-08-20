@@ -115,6 +115,9 @@
       "peerDependencies": {
         "better-auth": ">=1.2.0",
       },
+      "optionalPeers": [
+        "better-auth",
+      ],
     },
     "packages/comments": {
       "name": "@kit/comments",

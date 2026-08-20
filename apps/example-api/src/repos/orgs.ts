@@ -1,6 +1,6 @@
+import { baMember, baOrganization } from '@kit/auth/schema'
 import { and, eq, inArray } from 'drizzle-orm'
 import type { DrizzleD1Database } from 'drizzle-orm/d1'
-import { baMember, baOrganization } from '../db/better-auth-schema'
 import type { schema } from '../db/schema'
 
 type Db = DrizzleD1Database<typeof schema>

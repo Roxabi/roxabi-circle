@@ -9,7 +9,7 @@ Identity = catalog **module `id` + sha256 of kit source bytes** — not the exam
 ## Source bytes
 
 Sync hashes and copies **`apps/example-api/migrations/*`** (applied SSoT).  
-`packages/*/migrations/*` are sketches until a later ADR promotes them. Do not copy sketches into a product.
+`packages/*/migrations/*` are sketches until a later ADR promotes them. Do not copy sketches into a product. `@kit/auth` does not export `./migrations/*`.
 
 ## Happy path (greenfield)
 

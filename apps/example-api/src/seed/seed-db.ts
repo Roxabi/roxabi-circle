@@ -6,10 +6,10 @@
  *   with `better-auth/crypto` `hashPassword` (scrypt). Do not mix KDFs across tables.
  */
 import { hashPassword } from '@kit/auth'
+import { baAccount, baUser } from '@kit/auth/schema'
 import { hashPassword as baHashPassword } from 'better-auth/crypto'
 import { eq } from 'drizzle-orm'
 import type { DrizzleD1Database } from 'drizzle-orm/d1'
-import { baAccount, baUser } from '../db/better-auth-schema'
 import { apiKeys, demoItems, demoNotes, demoUsers, type schema } from '../db/schema'
 import * as modulesRepo from '../repos/modules'
 import * as platformRolesRepo from '../repos/platform-roles'

@@ -1,6 +1,6 @@
+import { baInvitation } from '@kit/auth/schema'
 import { and, eq } from 'drizzle-orm'
 import type { DrizzleD1Database } from 'drizzle-orm/d1'
-import { baInvitation } from '../db/better-auth-schema'
 import type { schema } from '../db/schema'
 
 type Db = DrizzleD1Database<typeof schema>

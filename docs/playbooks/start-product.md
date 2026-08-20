@@ -32,6 +32,7 @@ bash scripts/kit-schema-sync.sh --app apps/<product>-api --adopt
 3. `bun install` · ensure lefthook hooks.
 4. Copy env examples → gitignored local files only (`.dev.vars`, etc.).
    Public sign-up is **off** unless you set `ALLOW_PUBLIC_SIGNUP=true` (then SPA `/sign-up` appears). Leave unset for invite/admin-only.
+   `CORS_ORIGINS` is required outside `development|test` (never `*` / `null`; localhost default is local-only).
 5. Configure CI App vars/secrets on the **product** repo if you want merge-on-green (`CI_APP_ID` / `CI_APP_PRIVATE_KEY`) — see [`docs/ci-app-setup.md`](../ci-app-setup.md).
 6. Add product apps only under `apps/<product>-*`.
 7. When `apps/<product>-api` exists: `bash scripts/kit-schema-sync.sh --app apps/<product>-api` (default `--modules core`). Last-resort clones: `--adopt` immediately (fail-closed if copied bytes drifted). Do not hand-copy `apps/example-api/migrations`. Product domain SQL starts at `1000_`.

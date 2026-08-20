@@ -75,6 +75,7 @@ describe('createApp shipped entry — health & errors', () => {
     const staging = createMemoryEnv({
       ENVIRONMENT: 'staging',
       SESSION_SECRET: 'staging-session-secret-at-least-32ch!',
+      CORS_ORIGINS: ORIGIN,
     })
     const stagingRes = await app.request('/health', {}, staging)
     const stagingBody = (await stagingRes.json()) as {
@@ -87,6 +88,7 @@ describe('createApp shipped entry — health & errors', () => {
     const prod = createMemoryEnv({
       ENVIRONMENT: 'production',
       SESSION_SECRET: 'production-session-secret-at-least-32ch!',
+      CORS_ORIGINS: ORIGIN,
     })
     const prodRes = await app.request('/health', {}, prod)
     const prodBody = (await prodRes.json()) as {
@@ -509,6 +511,7 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     const env = createMemoryEnv({
       ENVIRONMENT: 'production',
       SESSION_SECRET: 'prod-session-secret-at-least-32-chars!!',
+      CORS_ORIGINS: ORIGIN,
       BETTER_AUTH_SECRET: undefined,
     })
     delete (env as { BETTER_AUTH_SECRET?: string }).BETTER_AUTH_SECRET
@@ -542,7 +545,11 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     const on = await app.request(
       '/health',
       {},
-      createMemoryEnv({ ALLOW_PUBLIC_SIGNUP: 'true', ENVIRONMENT: 'production' }),
+      createMemoryEnv({
+        ALLOW_PUBLIC_SIGNUP: 'true',
+        ENVIRONMENT: 'production',
+        CORS_ORIGINS: ORIGIN,
+      }),
     )
     const onBody = (await on.json()) as { allowPublicSignup: boolean; demoLogin?: unknown }
     expect(onBody.allowPublicSignup).toBe(true)
@@ -770,6 +777,7 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     const env = createMemoryEnv({
       ENVIRONMENT: 'staging',
       SESSION_SECRET: 'staging-session-secret-at-least-32ch!',
+      CORS_ORIGINS: ORIGIN,
     })
     const { createDb } = await import('@kit/db')
     const { schema } = await import('./db/schema')
@@ -935,6 +943,7 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
       SESSION_SECRET: 'prod-session-secret-at-least-32-chars!!',
       BETTER_AUTH_SECRET: 'prod-better-auth-secret-at-least-32chars!',
       BETTER_AUTH_URL: 'https://api.example.com',
+      CORS_ORIGINS: ORIGIN,
     })
     const login = await app.request(
       '/api/auth/sign-in/email',
@@ -995,6 +1004,20 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     expect(res.status).toBe(400)
     const body = (await res.json()) as { error: { code: string } }
     expect(body.error.code).toBe('VALIDATION_ERROR')
+  })
+
+  it('GET /health in production requires CORS_ORIGINS', async () => {
+    const app = createApp()
+    const env = createMemoryEnv({
+      ENVIRONMENT: 'production',
+      SESSION_SECRET: 'prod-session-secret-at-least-32-chars!!',
+      BETTER_AUTH_SECRET: 'prod-better-auth-secret-at-least-32chars!',
+      BETTER_AUTH_URL: 'https://api.example.com',
+    })
+    const res = await app.request('/health', {}, env)
+    expect(res.status).toBe(500)
+    const body = (await res.json()) as { error?: { code?: string } }
+    expect(body.error?.code).toMatch(/INTERNAL/)
   })
 
   it('CORS rejects unknown Origin (no reflect)', async () => {

@@ -95,7 +95,7 @@ describe('tasks dogfood API', () => {
     )
 
     // Promote team-reader onto acme as reader for external filter
-    const { baMember } = await import('./db/better-auth-schema')
+    const { baMember } = await import('@kit/auth/schema')
     await db.insert(baMember).values({
       id: 'mem_org_acme_user_team_reader',
       organizationId: ORG,
