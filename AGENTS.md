@@ -469,7 +469,7 @@ EMAIL_TRANSPORT=log | smtp | cf | resend
 | Tests | **Vitest** + `@cloudflare/vitest-pool-workers` | S0 |
 | E2E | **Playwright** | P1 |
 | Hooks | **Lefthook** (pre-commit Biome · **pre-push = validate:full** primary gate) + commitlint · CI = garde-fou | S0 |
-| CI | GH Actions `validate:full` (= lint · typecheck · coverage · banlist · **zod-major** · **ts-major** · **test:ts-major** · extract · **zero-edit** · import-boundary · deny-upstream · **test:kit-schema-sync** · **wrangler-migrations** · **debt** · env · license · quality-gates · **build:kit** · **smoke:mcp**) + secret-scan — **bloquant** | S0 |
+| CI | GH Actions `bun run validate:full` (SSoT: root `package.json` script — do not copy the step list here) + secret-scan — **bloquant** | S0 |
 | Security headers | HSTS, X-Frame-Options, nosniff, Referrer-Policy (ShipFast) | S0/M0 |
 | Schema validation | Zod partout (ShipFast security) | S0 |
 
@@ -757,9 +757,7 @@ Règles dures pour tout agent (humain qui drive l’IA) :
 pre-commit (Lefthook) → Biome format/lint (staged)
          ↓
 pre-push (Lefthook)   → bun run validate:full
-                        (lint · typecheck · banlist · zod-major · ts-major · test:ts-major · extract · zero-edit · import-boundary
-                         · deny-upstream · test:kit-schema-sync · debt:check · test:debt · agents-adr · env:check
-                         · coverage floors · license:check · quality-gates · build:kit · smoke:mcp)
+                        (SSoT: root package.json `validate:full` — do not copy the step list here)
          ↓
 PR CI                 → même suite (garde-fou) · secret scan
          ↓

@@ -173,6 +173,43 @@ echo 'name = "web"' >"${PROD_SKETCH}/apps/example-web/wrangler.toml"
 echo 'name = "web"' >"${PROD_SKETCH}/apps/lgu-web/wrangler.toml"
 assert_exit "product tree sketch dir → 1" 1 "${PROD_SKETCH}" "packages/*/migrations are sketches"
 
+# --- fixture: split-line JSONC migrations_dir (same-line grep used to miss this) ---
+SPLIT_JSON="${TMP}/split-json"
+mkdir -p "${SPLIT_JSON}/packages/auth/migrations" "${SPLIT_JSON}/apps/foo-api"
+cat >"${SPLIT_JSON}/apps/foo-api/wrangler.jsonc" <<'EOF'
+{
+  "name": "foo-api",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "migrations_dir":
+        "../../packages/auth/migrations"
+    }
+  ]
+}
+EOF
+assert_exit "split-line jsonc packages/auth/migrations → 1" 1 "${SPLIT_JSON}" "packages/*/migrations are sketches"
+
+# --- fixture: unparseable wrangler file ---
+BAD_PARSE="${TMP}/bad-parse"
+mkdir -p "${BAD_PARSE}/packages/auth" "${BAD_PARSE}/apps/foo-api"
+cat >"${BAD_PARSE}/apps/foo-api/wrangler.toml" <<'EOF'
+name = "foo-api"
+this is not [ valid toml {{{
+EOF
+assert_exit "unparseable wrangler.toml → 1" 1 "${BAD_PARSE}" "unparseable"
+
+# --- fixture: missing packages/ must fail (not || true) ---
+NO_PKG="${TMP}/no-pkg"
+mkdir -p "${NO_PKG}/apps/foo-api"
+cat >"${NO_PKG}/apps/foo-api/wrangler.toml" <<'EOF'
+name = "foo-api"
+[[d1_databases]]
+binding = "DB"
+migrations_dir = "migrations"
+EOF
+assert_exit "missing packages/ → 1" 1 "${NO_PKG}" "missing"
+
 echo "== summary: ${PASS} passed, ${FAIL} failed =="
 if [[ "${FAIL}" -ne 0 ]]; then
   exit 1

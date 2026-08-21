@@ -2,20 +2,27 @@
 # Fail if any wrangler config points D1 migrations_dir at packages/*/migrations.
 #
 # Applied SSoT is apps/<api>/migrations (ADR-0008). packages/*/migrations are sketches.
+# Parse TOML/JSONC with bun (not same-line grep). Unparseable files fail closed.
+# Missing packages/ fails (kit CI must see the sketch tree).
 # ROOT override: WRANGLER_MIG_ROOT (fixture trees in the self-test).
 set -euo pipefail
 
 ROOT="${WRANGLER_MIG_ROOT:-$(cd "$(dirname "$0")/.." && pwd -P)}"
-PACKAGES="$(cd "${ROOT}/packages" 2>/dev/null && pwd -P || true)"
 
 if [[ ! -d "${ROOT}" ]]; then
   echo "check-wrangler-migrations-dir: missing root ${ROOT}" >&2
   exit 1
 fi
 
-if [[ -z "${PACKAGES}" || ! -d "${PACKAGES}" ]]; then
-  echo "check-wrangler-migrations-dir: missing ${ROOT}/packages (nothing to police)" >&2
-  exit 0
+if [[ ! -d "${ROOT}/packages" ]]; then
+  echo "check-wrangler-migrations-dir: missing ${ROOT}/packages" >&2
+  exit 1
+fi
+PACKAGES="$(cd "${ROOT}/packages" && pwd -P)"
+
+if ! command -v bun >/dev/null 2>&1; then
+  echo "check-wrangler-migrations-dir: bun is required to parse wrangler configs" >&2
+  exit 1
 fi
 
 mapfile -t FILES < <(
@@ -29,15 +36,57 @@ mapfile -t FILES < <(
     | sort
 )
 
+# Print each migrations_dir string on its own line. Exit non-zero if unparseable.
 extract_dirs() {
   local file="$1"
-  # TOML: migrations_dir = "…"  | JSON(C): "migrations_dir": "…" (inline objects ok)
-  grep -E 'migrations_dir[[:space:]]*=' "$file" 2>/dev/null \
-    | sed -E 's/^.*migrations_dir[[:space:]]*=[[:space:]]*//; s/#.*//; s/^["'\'']//; s/["'\''].*$//; s/[[:space:]]*$//' \
-    || true
-  grep -E '"migrations_dir"[[:space:]]*:' "$file" 2>/dev/null \
-    | sed -E 's/^.*"migrations_dir"[[:space:]]*:[[:space:]]*//; s/^["'\'']//; s/["'\''].*$//; s/[[:space:]]*$//' \
-    || true
+  local kind
+  case "${file}" in
+    *.toml) kind=toml ;;
+    *.json | *.jsonc) kind=jsonc ;;
+    *)
+      echo "error: ${file}: unsupported wrangler suffix" >&2
+      return 1
+      ;;
+  esac
+  WRANGLER_MIG_FILE="${file}" WRANGLER_MIG_KIND="${kind}" bun -e '
+const fs = require("fs");
+const p = process.env.WRANGLER_MIG_FILE;
+const kind = process.env.WRANGLER_MIG_KIND;
+let text;
+try {
+  text = fs.readFileSync(p, "utf8");
+} catch (e) {
+  console.error("check-wrangler-migrations-dir: cannot read " + p + ": " + e);
+  process.exit(1);
+}
+let data;
+try {
+  data = kind === "toml" ? Bun.TOML.parse(text) : Bun.JSONC.parse(text);
+} catch (e) {
+  const msg = e && e.message ? e.message : String(e);
+  console.error("check-wrangler-migrations-dir: unparseable " + p + ": " + msg.split("\n")[0]);
+  process.exit(1);
+}
+function walk(v) {
+  if (v == null || typeof v !== "object") return;
+  if (Array.isArray(v)) {
+    for (const x of v) walk(x);
+    return;
+  }
+  for (const [k, val] of Object.entries(v)) {
+    if (k === "migrations_dir") {
+      if (typeof val !== "string" || val.trim() === "") {
+        console.error("check-wrangler-migrations-dir: non-string migrations_dir in " + p);
+        process.exit(1);
+      }
+      process.stdout.write(val.trim() + "\n");
+    } else {
+      walk(val);
+    }
+  }
+}
+walk(data);
+'
 }
 
 FAIL=0
@@ -45,7 +94,7 @@ CHECKED=0
 
 for file in "${FILES[@]+"${FILES[@]}"}"; do
   [[ -n "${file:-}" ]] || continue
-  config_dir="$(cd "$(dirname "$file")" && pwd -P)"
+  config_dir="$(cd "$(dirname -- "${file}")" && pwd -P)"
   case "${config_dir}" in
     "${PACKAGES}"|"${PACKAGES}"/*)
       echo "error: ${file}: wrangler config lives under packages/ (sketch SQL apply path)" >&2
@@ -53,6 +102,20 @@ for file in "${FILES[@]+"${FILES[@]}"}"; do
       continue
       ;;
   esac
+  extract_out=""
+  extract_ec=0
+  set +e
+  extract_out="$(extract_dirs "${file}" 2>&1)"
+  extract_ec=$?
+  set -e
+  if [[ "${extract_ec}" -ne 0 ]]; then
+    echo "error: ${file}: unparseable wrangler config" >&2
+    if [[ -n "${extract_out}" ]]; then
+      echo "${extract_out}" >&2
+    fi
+    FAIL=1
+    continue
+  fi
   while IFS= read -r raw; do
     [[ -n "${raw}" ]] || continue
     CHECKED=$((CHECKED + 1))
@@ -67,7 +130,7 @@ for file in "${FILES[@]+"${FILES[@]}"}"; do
         FAIL=1
         ;;
     esac
-  done < <(extract_dirs "$file")
+  done <<< "${extract_out}"
 done
 
 if [[ "${FAIL}" -ne 0 ]]; then

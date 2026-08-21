@@ -83,23 +83,24 @@ noise that gets muted — which is the same fail-open ending by a different rout
 
 | Gate | Scope | Who runs it |
 |---|---|---|
-| `bun run validate` | lint · typecheck · test · banlist · **zod-major** · **ts-major** · extract · zero-edit · env:check · wrangler-migrations:check on **kit** packages / examples | kit + product clones (kit zones) |
-| `bun run validate:full` | kit bar + import-boundary · test:import-boundary · deny-upstream · **test:kit-schema-sync** · **wrangler-migrations** · **debt:check** · **test:debt** · **test:ts-major** · agents-adr · coverage floors · license · quality-gates (file+folder) · build:kit · smoke:mcp | pre-push + kit CI — **does not** prove product apps are tested |
+| `bun run validate` | short kit loop — steps = root `package.json` `scripts.validate` | kit + product clones (kit zones) |
+| `bun run validate:full` | kit bar (pre-push + kit CI). Steps = root `package.json` `scripts["validate:full"]` only — **do not copy that list here.** Enforced by `bun run check:bar-ssot`. **Does not** prove product apps are tested | pre-push + kit CI |
 | product-validate / product-ci | product packages under `apps/<product>-*` | product repo only (copy templates; never dual-edit kit `ci.yml` / `test-coverage.sh`) |
 
 False green: product with real apps and only kit `validate:full` green is **not** product-tested.
+
 ### Commands
 
 ```bash
 bun install                    # prepare → lefthook install if hooksPath unset; postinstall may still force-install (see lefthook.yml)
 
-bun run validate               # lint · typecheck · test · banlist · zod-major · ts-major · extract · zero-edit · env:check · wrangler-migrations:check
+bun run validate               # short kit loop (package.json scripts.validate)
 bun run zero-edit              # product must not diverge kit paths without exception (kit = config only)
 bun run env:check              # schema ↔ .dev.vars.example (DX only)
 bun run i18n:check             # messages contract (also in turbo test)
 bun run license:check          # dependency SPDX allowlist (UNKNOWN = warn)
 bun run test:coverage          # floors + HTML under coverage/<pkg>/
-bun run validate:full          # kit bar (= pre-push; kit CI same) — not product apps
+bun run validate:full          # kit bar SSoT (package.json scripts["validate:full"]) — not product apps
 
 # Before opening a PR on the kit (explicit habit even if hooks installed):
 bun run validate:full
@@ -218,6 +219,7 @@ Machine-enforced today via full `validate` + `test:coverage` + package tests. Pr
 | **CP-IMPORT** | static R1–R4 import edges (packages↛apps, example-web↛example-api src / `cloudflare:workers`) after exemptions; self-test plants edges in temp tree | `bun run import-boundary` · `scripts/check-import-boundaries.ts` · `bun run test:import-boundary` (in `validate:full`) |
 | **CP-DEBT** | suppressions in `apps|packages` carry `DEBT:<slug>`; untagged + expiry (default **warn**, non-blocking); self-test plants untagged/tagged **and** expiry (stale / pin / warn) cases | `bun run debt:check` · `scripts/check-debt.ts` · `bun run test:debt` · [`debt-tracking.md`](./debt-tracking.md) (in `validate:full`) |
 | **CP-TS-MAJOR** | root `typescript` pin exclusive `^7`; leftover workspace pins (if any) must match; lock has positive `typescript@7.` and no non-allowlisted `@5`/`@6`; self-test plants inherit / dual-range / residual / missing-7 / stray-5 cases | `bun run ts-major` · `scripts/check-typescript-major.sh` · `bun run test:ts-major` (in `validate:full`) |
+| **CP-BAR-SSOT** | `AGENTS.md` / `docs/testing.md` / `lefthook.yml` do not copy the kit-bar step list; SSoT is root `package.json` `validate:full` | `bun run check:bar-ssot` · `bun run test:bar-ssot` (in `validate:full`) |
 | **CP-ENV** | **Kit only:** `apps/example-api` Worker string keys documented in `apps/example-api/.dev.vars.example` (SSoT Zod schema) + root Vite placeholders; no real secrets in examples. **Does not** cover product apps’ env inventories | `bun run env:check` — **DX only**, example-api scoped; not “prod secrets validated”, not product-wide |
 | **CP-LICENSE** | third-party deps on allowlist; disallowed SPDX fails | `bun run license:check` — **compliance hygiene**, not malware audit |
 | **CP-I18N** | Kit `example-web` FR/EN non-empty copy + key parity (`Messages`); `LocaleSwitcher` hidden when one catalog | `messages.contract.test.ts` / `i18n:check` · `packages/i18n` + `LocaleSwitcher` unit — **not** semantic/security review |
@@ -378,7 +380,7 @@ bun run --filter @kit/example-api test
 
 | Phase | Add | Gate? |
 |---|---|---|
-| **Now** | This doc · local `validate:full` · existing Vitest + floors · banlist · extract | Yes — local + CI guardrail |
+| **Now** | This doc · local `validate:full` (step list = root `package.json`) · existing Vitest + floors | Yes — local + CI guardrail |
 | **B6 / kit polish** | Playwright Chromium: login → session; me/notes smoke; keep design-system smoke | Prefer local first; CI job only when stable (watch merge-on-green “all checks” semantics) |
 | **Later** | `test:critical` filter alias for CP-\* | Convenience, not replacement for full pre-push |
 | **Later** | Mutation on `packages/auth` | Nightly/manual signal only until &lt;5 min and low noise |
