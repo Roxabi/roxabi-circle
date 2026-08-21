@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>#104 lists cursor — shapes</title>
+  <style>
+    :root { color-scheme: dark; --bg:#0b0f14; --card:#141a22; --line:#3d8bfd; --text:#e7ecf3; --muted:#8b98a8; --ok:#3ecf8e; --bad:#f07178; }
+    * { box-sizing: border-box; }
+    body { margin:0; font:14px/1.45 system-ui,sans-serif; background:var(--bg); color:var(--text); padding:2rem; }
+    h1 { font-size:1.15rem; margin:0 0 1.25rem; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:1rem; }
+    .card { background:var(--card); border:1px solid #243041; border-radius:12px; padding:1rem 1.2rem; }
+    .card.rec { border-color:var(--ok); box-shadow:0 0 24px rgba(62,207,142,.25); }
+    .card.kill { border-color:var(--bad); opacity:.85; }
+    .card h2 { margin:0 0 .4rem; font-size:.9rem; }
+    .card p { margin:0; font-size:.78rem; color:var(--muted); }
+    .tag { display:inline-block; margin-top:.75rem; font-size:.7rem; text-transform:uppercase; letter-spacing:.04em; }
+    .tag.ok { color:var(--ok); }
+    .tag.bad { color:var(--bad); }
+    .tag.muted { color:var(--muted); }
+  </style>
+</head>
+<body>
+  <h1>#104 — shape options</h1>
+  <div class="grid">
+    <div class="card rec">
+      <h2>1. @kit/types + @kit/core</h2>
+      <p>Shared listQuerySchema / ListPage + Worker cursor helpers. Dogfood audit + users. SQL stays in app.</p>
+      <span class="tag ok">recommended · M</span>
+    </div>
+    <div class="card">
+      <h2>2. Docs-only</h2>
+      <p>Write preference prose; leave offset users beside cursor audit.</p>
+      <span class="tag muted">killed by #104 promotion · S</span>
+    </div>
+    <div class="card kill">
+      <h2>3. @kit/lists package</h2>
+      <p>New package for ~4 helpers — package-axis noise; same intent as banned @kit/pagination.</p>
+      <span class="tag bad">killed · M</span>
+    </div>
+  </div>
+</body>
+</html>

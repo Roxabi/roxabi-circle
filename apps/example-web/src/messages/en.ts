@@ -179,6 +179,8 @@ export const en: Messages = {
   adminUserSubmit: 'Create and send',
   adminUserCreated: 'User created',
   adminUserSearch: 'Search…',
+  adminUserLoadMore: 'Load more',
+  adminUserLoadingMore: 'Loading more…',
   adminUserResend: 'Resend welcome',
   adminUserWelcomeResent: 'Welcome email resent',
   orgCatalogueBadge: 'catalogue',

@@ -271,7 +271,7 @@ Escape hatch : Postgres/Hyperdrive si un app dépasse D1 — documenté, pas def
 | **TanStack Router** | routes + search params typés | M3 |
 | **TanStack Query v5** | tout état serveur (pas `useEffect` fetch) | M3 |
 | **TanStack Form** + Zod | forms | M3 |
-| **TanStack Table** (+ Virtual P1) | listes admin | M3+ |
+| **TanStack Table** | listes admin selon [ADR-0010](docs/kit/architecture/adr/0010-list-page-cursor-envelope.md) · **Virtual reste P1** | M3+ |
 | **TanStack Pacer** | debounce search/upload | P1 |
 | **TanStack Start** | **optionnel** SSR/marketing only | non default |
 | TanStack DB / Store / Charts | non default (beta / alpha / deprecated) | — |

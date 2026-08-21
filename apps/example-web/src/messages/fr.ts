@@ -176,6 +176,8 @@ export type Messages = {
   adminUserSubmit: string
   adminUserCreated: string
   adminUserSearch: string
+  adminUserLoadMore: string
+  adminUserLoadingMore: string
   adminUserResend: string
   adminUserWelcomeResent: string
   orgCatalogueBadge: string
@@ -472,6 +474,8 @@ export const fr: Messages = {
   adminUserSubmit: 'Créer et envoyer',
   adminUserCreated: 'Utilisateur créé',
   adminUserSearch: 'Rechercher…',
+  adminUserLoadMore: 'Charger plus',
+  adminUserLoadingMore: 'Chargement supplémentaire…',
   adminUserResend: 'Renvoyer welcome',
   adminUserWelcomeResent: 'E-mail de bienvenue renvoyé',
   orgCatalogueBadge: 'catalogue',

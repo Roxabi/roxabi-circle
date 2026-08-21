@@ -134,6 +134,72 @@ describe('audit (B-auth-harden #61)', () => {
     expect(unauth.status).toBe(401)
   })
 
+  it('GET /api/admin/audit-events returns an opaque two-page envelope without duplicate ids', async () => {
+    const { app, env, db } = await seedEnv()
+    const cookie = await signIn(app, env, 'super@kit.local')
+    const limit = 2
+    await db.insert(auditEvents).values(
+      Array.from({ length: limit + 1 }, (_, index) => ({
+        id: `evt_cursor_${index}`,
+        createdAt: 4_000_000_000_000 - index,
+        actorUserId: 'user_super',
+        action: 'user.updated',
+        targetType: 'user',
+        targetId: `user_cursor_${index}`,
+      })),
+    )
+
+    const first = await app.request(
+      `/api/admin/audit-events?limit=${limit}`,
+      { headers: { cookie } },
+      env,
+    )
+    expect(first.status).toBe(200)
+    const firstBody = (await first.json()) as {
+      items: { id: string }[]
+      nextCursor: string | null
+      requestId: string
+    }
+    expect(firstBody).toMatchObject({
+      items: expect.any(Array),
+      nextCursor: expect.any(String),
+      requestId: expect.stringMatching(/^req_/),
+    })
+    expect(firstBody.items).toHaveLength(limit)
+    expect(firstBody.nextCursor).not.toContain(':')
+
+    const second = await app.request(
+      `/api/admin/audit-events?limit=${limit}&cursor=${encodeURIComponent(firstBody.nextCursor!)}`,
+      { headers: { cookie } },
+      env,
+    )
+    expect(second.status).toBe(200)
+    const secondBody = (await second.json()) as {
+      items: { id: string }[]
+      nextCursor: string | null
+      requestId: string
+    }
+    expect(secondBody.items.length).toBeGreaterThan(0)
+    expect(secondBody.requestId).toMatch(/^req_/)
+    const firstIds = new Set(firstBody.items.map((item) => item.id))
+    expect(secondBody.items.every((item) => !firstIds.has(item.id))).toBe(true)
+  })
+
+  it('GET /api/admin/audit-events rejects a legacy createdAt:id cursor', async () => {
+    const { app, env } = await seedEnv()
+    const cookie = await signIn(app, env, 'super@kit.local')
+    const res = await app.request(
+      '/api/admin/audit-events?cursor=123456%3Aevt_x',
+      { headers: { cookie } },
+      env,
+    )
+
+    expect(res.status).toBe(400)
+    const body = (await res.json()) as { error: { code: string }; requestId: string }
+    expect(body.error.code).toBe('VALIDATION_ERROR')
+    expect(body.requestId).toMatch(/^req_/)
+  })
+
   it('appendAudit failure logs action+requestId and returns false', async () => {
     const { db } = await seedEnv()
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {})

@@ -355,14 +355,40 @@ describe('admin users (B-users #58)', () => {
     expect(res.status).toBe(201)
   })
 
-  it('GET /api/admin/users lists users for platform actor', async () => {
+  it('GET /api/admin/users returns the cursor page envelope and ignores legacy offset', async () => {
     const { app, env } = await seedEnv()
     const cookie = await signIn(app, env, 'super@kit.local')
-    const res = await app.request('/api/admin/users', { headers: sessionMutation(cookie) }, env)
+    const res = await app.request(
+      '/api/admin/users?limit=2&offset=999',
+      { headers: sessionMutation(cookie) },
+      env,
+    )
     expect(res.status).toBe(200)
-    const body = (await res.json()) as { users: { email: string }[] }
-    expect(body.users.length).toBeGreaterThan(0)
-    expect(body.users.some((u) => u.email === 'super@kit.local')).toBe(true)
+    const body = (await res.json()) as {
+      items: { id: string; email: string }[]
+      nextCursor: string | null
+      requestId: string
+      users?: unknown
+    }
+    expect(body.users).toBeUndefined()
+    expect(body.items).toHaveLength(2)
+    expect(body.nextCursor).toEqual(expect.any(String))
+    expect(body.requestId).toMatch(/^req_/)
+
+    const next = await app.request(
+      `/api/admin/users?limit=2&cursor=${encodeURIComponent(body.nextCursor!)}`,
+      { headers: sessionMutation(cookie) },
+      env,
+    )
+    expect(next.status).toBe(200)
+    const nextBody = (await next.json()) as {
+      items: { id: string }[]
+      nextCursor: string | null
+      requestId: string
+    }
+    expect(nextBody.items.length).toBeGreaterThan(0)
+    const firstIds = new Set(body.items.map((user) => user.id))
+    expect(nextBody.items.every((user) => !firstIds.has(user.id))).toBe(true)
   })
 
   it('GET /api/admin/users — staff only sees users sharing an org (IDOR privacy)', async () => {
@@ -370,8 +396,12 @@ describe('admin users (B-users #58)', () => {
     const cookie = await signIn(app, env, 'staff@kit.local')
     const res = await app.request('/api/admin/users', { headers: sessionMutation(cookie) }, env)
     expect(res.status).toBe(200)
-    const body = (await res.json()) as { users: { email: string }[] }
-    const emails = body.users.map((u) => u.email)
+    const body = (await res.json()) as {
+      items: { email: string }[]
+      nextCursor: string | null
+      requestId: string
+    }
+    const emails = body.items.map((u) => u.email)
     // staff is on org_acme + org_beta (with team-owner), not org_solo / org_team
     expect(emails).toContain('staff@kit.local')
     expect(emails).toContain('team-owner@kit.local')
@@ -380,25 +410,67 @@ describe('admin users (B-users #58)', () => {
     expect(emails).not.toContain('team-reader@kit.local')
   })
 
-  it('GET /api/admin/users — staff pagination scopes before limit', async () => {
+  it('GET /api/admin/users — staff cursor pages scope before pagination', async () => {
     const { app, env, db } = await seedEnv()
     // Make an out-of-scope user the global newest so a naive limit-then-filter would return them
     const farFuture = new Date('2099-06-01T00:00:00.000Z')
     await db.update(baUser).set({ createdAt: farFuture }).where(eq(baUser.id, 'user_solo'))
     const cookie = await signIn(app, env, 'staff@kit.local')
-    const res = await app.request(
+    const first = await app.request(
       '/api/admin/users?limit=1',
       {
         headers: sessionMutation(cookie),
       },
       env,
     )
+    expect(first.status).toBe(200)
+    const firstBody = (await first.json()) as {
+      items: { id: string; email: string }[]
+      nextCursor: string | null
+    }
+    expect(firstBody.items).toHaveLength(1)
+    expect(firstBody.nextCursor).toEqual(expect.any(String))
+
+    const second = await app.request(
+      `/api/admin/users?limit=1&cursor=${encodeURIComponent(firstBody.nextCursor!)}`,
+      { headers: sessionMutation(cookie) },
+      env,
+    )
+    expect(second.status).toBe(200)
+    const secondBody = (await second.json()) as {
+      items: { id: string; email: string }[]
+      nextCursor: string | null
+    }
+    expect(secondBody.items).toHaveLength(1)
+    const pageIds = [...firstBody.items, ...secondBody.items].map((user) => user.id)
+    expect(new Set(pageIds).size).toBe(pageIds.length)
+    for (const user of [...firstBody.items, ...secondBody.items]) {
+      expect(['staff@kit.local', 'team-owner@kit.local']).toContain(user.email)
+      expect(user.email).not.toBe('solo@kit.local')
+    }
+  })
+
+  it('GET /api/admin/users — staff with no shared org gets an empty cursor page', async () => {
+    const { app, env, db } = await seedEnv()
+    const cookie = await signIn(app, env, 'staff@kit.local')
+    await db.delete(baMember).where(eq(baMember.userId, 'user_staff'))
+
+    const res = await app.request(
+      '/api/admin/users?limit=10',
+      {
+        headers: sessionMutation(cookie),
+      },
+      env,
+    )
     expect(res.status).toBe(200)
-    const body = (await res.json()) as { users: { email: string }[] }
-    expect(body.users).toHaveLength(1)
-    // Must be a shared-org member — never the OOS global-newest (solo@kit.local)
-    expect(body.users[0]!.email).not.toBe('solo@kit.local')
-    expect(['staff@kit.local', 'team-owner@kit.local']).toContain(body.users[0]!.email)
+    const body = (await res.json()) as {
+      items: unknown[]
+      nextCursor: string | null
+      requestId: string
+    }
+    expect(body.items).toEqual([])
+    expect(body.nextCursor).toBeNull()
+    expect(body.requestId).toMatch(/^req_/)
   })
 
   it('POST /api/admin/users — staff create with shared-org existing email → 409', async () => {
@@ -425,8 +497,8 @@ describe('admin users (B-users #58)', () => {
     const cookie = await signIn(app, env, 'super@kit.local')
     const res = await app.request('/api/admin/users', { headers: sessionMutation(cookie) }, env)
     expect(res.status).toBe(200)
-    const body = (await res.json()) as { users: { email: string }[] }
-    expect(body.users.some((u) => u.email === 'solo@kit.local')).toBe(true)
+    const body = (await res.json()) as { items: { email: string }[] }
+    expect(body.items.some((u) => u.email === 'solo@kit.local')).toBe(true)
   })
 
   it('POST /api/admin/users — staff cannot probe out-of-scope existing email (no 409)', async () => {

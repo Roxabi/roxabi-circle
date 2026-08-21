@@ -1,4 +1,5 @@
 import { AppError, parseOrThrow } from '@kit/core'
+import { listQuerySchema } from '@kit/types'
 import { Hono } from 'hono'
 import { z } from 'zod'
 import { resolveEmailPort } from '../lib/email-port'
@@ -27,10 +28,8 @@ const createSchema = z
   })
   .strict()
 
-const listSchema = z.object({
+const listSchema = listQuerySchema.extend({
   q: z.string().max(120).optional(),
-  limit: z.coerce.number().int().min(1).max(100).optional(),
-  offset: z.coerce.number().int().min(0).optional(),
 })
 
 export const adminUsersRoutes = new Hono<AppEnv>()
@@ -61,7 +60,7 @@ adminUsersRoutes.get('/api/admin/users', requirePlatformRole('super_admin', 'sta
     {
       q: c.req.query('q') ?? undefined,
       limit: c.req.query('limit') ?? undefined,
-      offset: c.req.query('offset') ?? undefined,
+      cursor: c.req.query('cursor') ?? undefined,
     },
     'Invalid query',
   )
@@ -70,12 +69,14 @@ adminUsersRoutes.get('/api/admin/users', requirePlatformRole('super_admin', 'sta
   if (platformRole !== 'super_admin' && platformRole !== 'staff') {
     throw AppError.forbidden('Platform role required')
   }
-  const users = await adminUsersService.listAdminUsers(db, {
+  const page = await adminUsersService.listAdminUsers(db, {
     actorUserId: c.get('subject')!,
     actorPlatformRole: platformRole,
-    ...data,
+    q: data.q,
+    limit: data.limit,
+    cursor: data.cursor,
   })
-  return c.json({ users, requestId: c.get('requestId') })
+  return c.json({ ...page, requestId: c.get('requestId') })
 })
 
 adminUsersRoutes.post(

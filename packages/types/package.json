@@ -16,6 +16,9 @@
     "test:coverage": "vitest run --coverage",
     "build": "echo ok"
   },
+  "dependencies": {
+    "zod": "^4.4.3"
+  },
   "devDependencies": {
     "vitest": "^4.1.10"
   }
