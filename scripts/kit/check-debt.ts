@@ -21,7 +21,7 @@ import { join, relative, resolve, sep } from 'node:path'
 
 // Gate scripts run outside Turbo task graph (same pattern as check-import-boundaries).
 // biome-ignore lint/suspicious/noUndeclaredEnvVars: not a turbo-cached task env
-const ROOT = resolve(process.env.DEBT_ROOT ?? join(import.meta.dirname, '..'))
+const ROOT = resolve(process.env.DEBT_ROOT ?? join(import.meta.dirname, '../..'))
 // biome-ignore lint/suspicious/noUndeclaredEnvVars: not a turbo-cached task env
 const UNTAGGED_MODE = (process.env.DEBT_UNTAGGED_MODE ?? 'warn').toLowerCase()
 // biome-ignore lint/suspicious/noUndeclaredEnvVars: not a turbo-cached task env

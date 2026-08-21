@@ -18,9 +18,9 @@
  */
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { WORKER_BINDINGS, WORKER_STRING_ENV_KEYS } from '../apps/example-api/src/env.schema'
+import { WORKER_BINDINGS, WORKER_STRING_ENV_KEYS } from '../../apps/example-api/src/env.schema'
 
-const ROOT = join(import.meta.dirname, '..')
+const ROOT = join(import.meta.dirname, '../..')
 const DEV_VARS_EXAMPLE = join(ROOT, 'apps/example-api/.dev.vars.example')
 const ROOT_ENV_EXAMPLE = join(ROOT, '.env.example')
 

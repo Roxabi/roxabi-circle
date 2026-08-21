@@ -21,7 +21,7 @@ import { dirname, join, normalize, relative, resolve, sep } from 'node:path'
 
 // Harness override for self-test temp trees (scripts run outside Turbo task graph).
 // biome-ignore lint/suspicious/noUndeclaredEnvVars: not a turbo-cached task env
-const ROOT = resolve(process.env.IMPORT_BOUNDARY_ROOT ?? join(import.meta.dirname, '..'))
+const ROOT = resolve(process.env.IMPORT_BOUNDARY_ROOT ?? join(import.meta.dirname, '../..'))
 
 const SOURCE_EXT = new Set(['.ts', '.tsx', '.js', '.mjs', '.cts', '.mts'])
 const SKIP_DIRS = new Set([
