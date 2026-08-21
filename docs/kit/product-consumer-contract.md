@@ -171,16 +171,12 @@ Template (kit): [`config/kit/zero-edit-exceptions.example.json`](../config/kit/z
 
 ```bash
 bun run zero-edit
-# product: compares HEAD + dirty tree to ZERO_EDIT_BASE_REF (default upstream/main)
-# kit:     validates config only (always free to evolve protected paths)
+# product: compares HEAD + dirty tree to config/product/inheritance.json → upstreamCommit
+# kit:     allowlisted origin, config valid only (no upstream diff)
 ```
 
-Env:
-
-| Var | Default | Role |
-|-----|---------|------|
-| `ZERO_EDIT_MODE` | auto (`kit` if origin URL contains `kit`) | Force `kit` \| `product` |
-| `ZERO_EDIT_BASE_REF` | `upstream/main` | Git ref the product must match on protected paths |
+Mode is auto-detected (ADR-0009): inheritance marker → product; kit-origin allowlist → kit.  
+`ZERO_EDIT_MODE` is harness-only (requires `ZERO_EDIT_HARNESS_SENTINEL`). There is **no** `ZERO_EDIT_BASE_REF`.
 
 ---
 
@@ -193,49 +189,40 @@ GitHub Actions on a **product** repo has:
 
 Kit `ci.yml` therefore:
 
-1. Checks out with **`fetch-depth: 0`** (full history — kit tip SHAs must be reachable after merge).
-2. If `github.repository` is **not** a known **kit** origin (see kit-mode list in `.github/workflows/ci.yml`):
-   - requires product file **`docs/product/kit-baseline`**
-   - exports `ZERO_EDIT_BASE_REF` from that file (single line = full SHA)
-   - verifies the SHA exists: `git rev-parse --verify "${SHA}^{commit}"`
-   - then runs `bun run validate:full`
-3. Kit origin skips the block (zero-edit **kit** mode — config only).
+1. Checks out with **`fetch-depth: 0`** (full history — inherited tip SHAs must be reachable after merge).
+2. If `config/product/inheritance.json` exists, verifies `upstreamCommit` is in history, then runs `bun run validate:full`.
+3. Kit / mirror origins (allowlist in `config/kit/zero-edit-zones.json`) run kit-mode zero-edit (no marker).
 
-### Product file: `docs/product/kit-baseline`
+### Product file: `config/product/inheritance.json`
 
-```text
-# Single line: full SHA of last-merged kit tip (upstream/main after merge).
-# Template (kit): docs/kit/templates/kit-baseline.example
-268536b3874aefd82cc795c6f1c28f445644b5af
+```json
+{
+  "version": 1,
+  "upstreamCommit": "268536b3874aefd82cc795c6f1c28f445644b5af"
+}
 ```
+
+`upstreamCommit` = full SHA of the **immediate parent tip actually merged** (e.g. silex tip for a go-silex product — not Roxabi HEAD unless that is the parent).
 
 After every `git merge upstream/main`:
 
 ```bash
-git rev-parse upstream/main > docs/product/kit-baseline
-# or: git rev-parse HEAD^{/merge.*upstream} — prefer the merged kit tip SHA
-git rev-parse upstream/main | tr -d '\n' > docs/product/kit-baseline
-echo >> docs/product/kit-baseline   # optional trailing newline is stripped by CI
+mkdir -p config/product
+node -e "const s=require('child_process').execSync('git rev-parse upstream/main',{encoding:'utf8'}).trim(); require('fs').writeFileSync('config/product/inheritance.json', JSON.stringify({version:1,upstreamCommit:s},null,2)+'\n')"
 ```
 
-Commit the file with the merge (or immediately after). Stale baseline → false zero-edit failures or silent drift against an old tip.
+Commit the file with the merge (or immediately after). Stale marker → false dual-edit failures against an old tip.
 
 ### Local / product-validate parity
 
 ```bash
-# Local clone with upstream remote — default base is fine:
+# Local and CI — same path (marker only):
 bun run zero-edit
-
-# CI-like (no upstream remote):
-export ZERO_EDIT_BASE_REF="$(tr -d '[:space:]' < docs/product/kit-baseline)"
-bun run zero-edit
-
-# Product scripts may fall back to kit-baseline when upstream is missing:
-#   apps/<product>-api/scripts/kit/product-validate.sh
 ```
 
 Do **not** dual-edit kit `ci.yml` for this — the pattern lives in the kit.  
-Do **not** rely on org secrets to fetch private `upstream` solely for zero-edit when the kit tip is already in product history after merge.
+Do **not** rely on org secrets to fetch private `upstream` solely for zero-edit when the kit tip is already in product history after merge.  
+Do **not** use `upstream/main` as the zero-edit base (stale tracking refs ≠ dual-edit — #103).
 
 ---
 
@@ -301,8 +288,8 @@ apps/<product>-api/
 apps/<product>-api/kit-schema-manifest.json  # allowed product file (kit schema manifest)
 apps/<product>-web/
 apps/<product>-mcp/
-docs/product/                              # AGENTS, frames, zero-edit-exceptions.json, kit-baseline
-docs/product/kit-baseline                  # full SHA of last-merged kit tip (required for Actions zero-edit)
+docs/product/                              # AGENTS, frames, product prose
+config/product/inheritance.json           # upstreamCommit = last-merged parent tip (required product)
 docs/product/deny-upstream.json            # multi-hop URL substrings (optional; see remotes §)
 docs/product/zero-edit-exceptions.json     # last-resort dual-edit exceptions
 .github/workflows/product-*.yml
@@ -310,7 +297,6 @@ scripts/product/                           # product helpers; not required by ki
 apps/<product>-web/src/theme/*.css         # design token overrides
 ```
 
-Template for `docs/product/kit-baseline`: [`docs/kit/templates/kit-baseline.example`](./templates/kit-baseline.example).
 
 ### Product CI (recommended DoD when product apps exist)
 
@@ -399,7 +385,7 @@ If product build breaks after pull → fix product code or contribute a kit fix 
 
 - [ ] No uncommitted product changes on kit paths  
 - [ ] `git merge upstream/main` last time only touched product paths or pure kit updates  
-- [ ] `docs/product/kit-baseline` updated to new `upstream/main` SHA (Actions zero-edit)  
+- [ ] `config/product/inheritance.json` updated to new `upstream/main` SHA  
 - [ ] Product apps don’t import from other product apps via kit packages  
 - [ ] CI vars/secrets only — no forked workflow diffs  
 - [ ] Deny-upstream hook active (kit lefthook; no product fork of the file)  

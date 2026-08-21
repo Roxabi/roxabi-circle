@@ -28,7 +28,7 @@ cd "$ROOT"
 
 echo "→ product-validate (ROOT=$ROOT)"
 
-# Product mode: kit zones clean vs upstream (or ZERO_EDIT_BASE_REF / kit-baseline in CI).
+# Product mode: kit zones clean vs upstream (or inheritance.json in CI).
 bun run zero-edit
 
 # --- replace <product> with your app package names ---

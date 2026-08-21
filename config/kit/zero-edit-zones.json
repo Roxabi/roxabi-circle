@@ -49,8 +49,6 @@
   "exceptions_file": "config/product/zero-edit-exceptions.json",
   "exceptions_example": "config/kit/zero-edit-exceptions.example.json",
   "inheritance_file": "config/product/inheritance.json",
-  "legacy_baseline_file": "docs/product/kit-baseline",
-  "base_ref_env": "ZERO_EDIT_BASE_REF",
   "mode_env": "ZERO_EDIT_MODE",
   "design_overrides": {
     "description": "Accepted zero-edit customization of the design system. Do these first; never patch packages/ui for brand tokens.",

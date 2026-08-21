@@ -4,7 +4,7 @@
 # Shipped **in the kit** so product forks need NOT edit lefthook.yml.
 #
 # Kit clone heuristic (brand-agnostic, ADR-0009):
-#   no config/product/inheritance.json AND no docs/product/kit-baseline → kit → allow
+#   no config/product/inheritance.json → kit → allow
 # Product clone:
 #   has inheritance marker (or transitional kit-baseline) → deny remote name `upstream`
 #   + optional URL substrings
@@ -73,7 +73,7 @@ read_json_substrings() {
 }
 
 # --- kit tree: no product inheritance marker → maintainer no-op ---
-if [[ ! -f "${REPO_ROOT}/config/product/inheritance.json" && ! -f "${REPO_ROOT}/docs/product/kit-baseline" ]]; then
+if [[ ! -f "${REPO_ROOT}/config/product/inheritance.json" ]]; then
   exit 0
 fi
 

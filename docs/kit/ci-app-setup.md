@@ -106,7 +106,7 @@ When spinning a product consumer (fork / new repo + `upstream` → this kit):
 5. [ ] Confirm: draft PR → **Merge on Green** log has non-empty `APP_ID` and mint succeeds (or evaluate-only until set)
 6. [ ] Product domain only under **new** `apps/<product>-*`; never patch `example-*` / `packages/*` for métier
 7. [ ] When `apps/<product>-api` exists: `bash scripts/kit/kit-schema-sync.sh --app apps/<product>-api` (default `--modules core`; last-resort clones `--adopt` immediately)
-8. [ ] Pin `docs/product/kit-baseline` (see [`product-consumer-contract.md`](./product-consumer-contract.md) § Product file)
+8. [ ] Pin `config/product/inheritance.json` (see [`product-consumer-contract.md`](./product-consumer-contract.md) § Product file)
 
 Verify **repo** credentials (this is what Free private actually uses):
 
