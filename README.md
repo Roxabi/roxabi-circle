@@ -6,12 +6,12 @@ SSoT kit for product apps that pull this repo as git `upstream` (zero-edit contr
 
 | | |
 |---|---|
-| **Start a product** | [`docs/playbooks/start-product.md`](docs/playbooks/start-product.md) · `git fetch upstream` · **push upstream = DENY** |
-| **Foundations** | [`docs/playbooks/start-project.md`](docs/playbooks/start-project.md) |
-| **First issue** | [`docs/playbooks/fork-to-first-issue.md`](docs/playbooks/fork-to-first-issue.md) |
-| **Consumer contract** | [`docs/product-consumer-contract.md`](docs/product-consumer-contract.md) |
-| **Environments / deploy** | [`docs/environments.md`](docs/environments.md) · staging + main → Wrangler `--env` |
-| **ADRs** | [0001 axis](docs/architecture/adr/0001-primary-axis-packages-compose-apps.md) · [0002 BA-only session](docs/architecture/adr/0002-session-hmac-interim-vs-better-auth.md) · [0003 multi-tenant](docs/architecture/adr/0003-multi-tenant-rbac-modules.md) · [0004 CF Email](docs/architecture/adr/0004-email-transport-cf-default.md) |
+| **Start a product** | [`docs/kit/playbooks/start-product.md`](docs/kit/playbooks/start-product.md) · `git fetch upstream` · **push upstream = DENY** |
+| **Foundations** | [`docs/kit/playbooks/start-project.md`](docs/kit/playbooks/start-project.md) |
+| **First issue** | [`docs/kit/playbooks/fork-to-first-issue.md`](docs/kit/playbooks/fork-to-first-issue.md) |
+| **Consumer contract** | [`docs/kit/product-consumer-contract.md`](docs/kit/product-consumer-contract.md) |
+| **Environments / deploy** | [`docs/kit/environments.md`](docs/kit/environments.md) · staging + main → Wrangler `--env` |
+| **ADRs** | [0001 axis](docs/kit/architecture/adr/0001-primary-axis-packages-compose-apps.md) · [0002 BA-only session](docs/kit/architecture/adr/0002-session-hmac-interim-vs-better-auth.md) · [0003 multi-tenant](docs/kit/architecture/adr/0003-multi-tenant-rbac-modules.md) · [0004 CF Email](docs/kit/architecture/adr/0004-email-transport-cf-default.md) |
 | **Agent** | [`AGENTS.md`](AGENTS.md) |
 | **Kit parent URL / lineage** | operator SSoT (outside this monorepo) |
 
@@ -38,7 +38,7 @@ cd apps/example-web && bun run dev
 # Worker mail = EMAIL_TRANSPORT=log (wrangler console, redacted). Not Mailpit.
 # Mailpit is Node @kit/email/server only — never wrangler + smtp (throws on Worker).
 # Optional Node catcher: docker compose up -d mailpit  # UI http://127.0.0.1:8025
-# See docs/email-cf-runbook.md
+# See docs/kit/email-cf-runbook.md
 
 # MCP stdio
 cd apps/mcp-example && bun run start
@@ -85,7 +85,7 @@ bun run test:e2e:design-system
 ## Quality gates
 
 Local primary gate: `bun run validate:full` (lefthook pre-push).  
-CI is the guardrail. See [`docs/testing.md`](docs/testing.md).
+CI is the guardrail. See [`docs/kit/testing.md`](docs/kit/testing.md).
 
 ## License
 

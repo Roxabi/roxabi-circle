@@ -7,7 +7,7 @@
  *   apps/example-web dev → :5173
  *
  * Usage:
- *   bun apps/example-web/scripts/setup-release-gifs.mjs
+ *   bun apps/example-web/scripts/kit/setup-release-gifs.mjs
  *   # or: bun run --filter @kit/example-web setup:release-gifs
  */
 import { accessSync, constants as fsConstants, mkdirSync } from 'node:fs'
@@ -67,4 +67,4 @@ await runAuthSetup(
   { executablePath: resolveBrowserExecutable() },
 )
 
-console.log('\nEnsuite:\n  bun apps/example-web/scripts/record-release-gifs.mjs\n')
+console.log('\nEnsuite:\n  bun apps/example-web/scripts/kit/record-release-gifs.mjs\n')

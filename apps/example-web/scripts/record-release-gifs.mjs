@@ -2,11 +2,11 @@
  * Kit dogfood — record share GIFs (local only).
  *
  * Setup once:
- *   bun apps/example-web/scripts/setup-release-gifs.mjs
+ *   bun apps/example-web/scripts/kit/setup-release-gifs.mjs
  *
  * Record:
- *   bun apps/example-web/scripts/record-release-gifs.mjs
- *   RECORD_ONLY=02-changelog bun apps/example-web/scripts/record-release-gifs.mjs
+ *   bun apps/example-web/scripts/kit/record-release-gifs.mjs
+ *   RECORD_ONLY=02-changelog bun apps/example-web/scripts/kit/record-release-gifs.mjs
  *
  * Env: PLAYWRIGHT_BASE_URL / E2E_BASE_URL, GIF_SPEED, GIF_FPS, CHROME_PATH
  * Requires: ffmpeg, ffprobe, Chromium, running app + seed.

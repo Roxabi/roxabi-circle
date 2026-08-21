@@ -29,6 +29,6 @@ Generic Playwright + ffmpeg pipeline extracted from the product pattern.
 3. Point `outDir` at product `artifacts/release-gifs/` (gitignored).
 4. Optionally copy `*-share.gif` → `public/release-gifs/` and set `gifSrc` on release notes.
 
-Kit dogfood: `apps/example-web/scripts/setup-release-gifs.mjs` + `record-release-gifs.mjs`.
+Kit dogfood: `apps/example-web/scripts/kit/setup-release-gifs.mjs` + `record-release-gifs.mjs`.
 
-See [`docs/recipes/changelog-l1.md`](../../docs/recipes/changelog-l1.md) §V2.
+See [`docs/kit/recipes/changelog-l1.md`](../../docs/kit/recipes/changelog-l1.md) §V2.

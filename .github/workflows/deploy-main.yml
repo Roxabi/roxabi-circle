@@ -1,7 +1,7 @@
 name: Deploy main
 
 # RETIRED — kit showcase CD is Cloudflare Builds (git pull + build on CF).
-# See docs/deploy-cloudflare.md and scripts/cf-builds/.
+# See docs/kit/deploy-cloudflare.md and scripts/kit/cf-builds/.
 #
 # This workflow is kept as a no-op so old workflow_run subscriptions and docs links
 # do not confuse operators. It never deploys.
@@ -14,10 +14,10 @@ on:
   workflow_dispatch:
     inputs:
       notice:
-        description: 'No-op — use Cloudflare Builds or laptop scripts (docs/deploy-cloudflare.md)'
+        description: 'No-op — use Cloudflare Builds or laptop scripts (docs/kit/deploy-cloudflare.md)'
         type: string
         required: false
-        default: 'see docs/deploy-cloudflare.md'
+        default: 'see docs/kit/deploy-cloudflare.md'
 
 permissions:
   contents: read
@@ -30,6 +30,6 @@ jobs:
       - name: Point operators at CF Builds
         run: |
           echo "::notice::Showcase CD is Cloudflare Builds, not GitHub Actions."
-          echo "Docs: docs/deploy-cloudflare.md"
-          echo "Scripts: scripts/cf-builds/"
+          echo "Docs: docs/kit/deploy-cloudflare.md"
+          echo "Scripts: scripts/kit/cf-builds/"
           exit 0

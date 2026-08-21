@@ -7,9 +7,9 @@
     "dev": "bun run src/index.ts",
     "start": "bun run src/index.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "vitest run && bun run scripts/stdio-smoke.mjs",
+    "test": "vitest run && bun run scripts/kit/stdio-smoke.mjs",
     "test:coverage": "vitest run --coverage",
-    "smoke:stdio": "bun run scripts/stdio-smoke.mjs",
+    "smoke:stdio": "bun run scripts/kit/stdio-smoke.mjs",
     "build": "echo ok"
   },
   "dependencies": {

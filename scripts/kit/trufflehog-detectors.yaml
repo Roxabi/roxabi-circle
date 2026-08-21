@@ -1,0 +1,30 @@
+# Custom TruffleHog detectors for secrets this kit issues itself.
+#
+# WHY THIS FILE EXISTS
+# TruffleHog verifies a finding by calling the issuing provider's API. A `sk_` key minted by
+# this kit has no such provider, so its findings are necessarily *unverified* — which means
+# `--only-verified` discards them silently. Adding a detector without dropping that flag
+# gives a green scan and no coverage: the worst possible outcome.
+#
+# MEASURED (trufflehog 3.96.0, fixture `sk_` + 48 hex chars):
+#   --only-verified                          → unverified_secrets: 0   (finding discarded)
+#   no flag / --results=…,unverified         → unverified_secrets: 1   (Detector Type: CustomRegex)
+#   this config over the whole repo, no flag → unverified_secrets: 0   (no false positives)
+#
+# => Any run using this config MUST NOT pass `--only-verified`.
+#    Runs that keep `--only-verified` (generic detectors) must NOT use this config.
+#    That is why scripts/kit/trufflehog-check.sh and the workflows invoke TruffleHog twice.
+#
+# FORMAT (packages/auth/src/keys.ts — generateApiKey)
+#   `sk_` + 24 random bytes rendered as lowercase hex = exactly 48 hex chars (51 total).
+#   The fixed length is what keeps false positives near zero: the repo's own fake test keys
+#   are 16 and 24 hex chars (app.test.ts, admin-users.test.ts) and deliberately do not match.
+#
+# If the key format ever changes (unique prefix + checksum is under discussion), update the
+# regex here in the same change — a stale pattern here fails open, silently.
+detectors:
+  - name: kit-sk-api-key
+    keywords:
+      - sk_
+    regex:
+      key: '\bsk_[0-9a-f]{48}\b'

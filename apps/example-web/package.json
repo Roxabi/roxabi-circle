@@ -10,9 +10,9 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "test:e2e:design-system": "bun scripts/e2e-design-system.mjs",
-    "setup:release-gifs": "bun scripts/setup-release-gifs.mjs",
-    "record:release-gifs": "bun scripts/record-release-gifs.mjs"
+    "test:e2e:design-system": "bun scripts/kit/e2e-design-system.mjs",
+    "setup:release-gifs": "bun scripts/kit/setup-release-gifs.mjs",
+    "record:release-gifs": "bun scripts/kit/record-release-gifs.mjs"
   },
   "dependencies": {
     "@kit/api-client": "workspace:*",

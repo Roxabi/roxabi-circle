@@ -9,7 +9,7 @@
  *   4. Chromium: Playwright-managed (default) or CHROME_PATH / system Chrome
  *
  * Usage:
- *   bun apps/example-web/scripts/e2e-design-system.mjs
+ *   bun apps/example-web/scripts/kit/e2e-design-system.mjs
  *   # or: bun run --filter @kit/example-web test:e2e:design-system
  *
  * Env:

@@ -81,10 +81,10 @@ artifacts:
   plans: artifacts/plans
   goals: artifacts/goals
 standards:
-  testing: docs/testing.md
-  product_contract: docs/product-consumer-contract.md
-  observability: docs/observability.md
-  architecture: docs/architecture/adr/
+  testing: docs/kit/testing.md
+  product_contract: docs/kit/product-consumer-contract.md
+  observability: docs/kit/observability.md
+  architecture: docs/kit/architecture/adr/
   issue_management: AGENTS.md
   dev_process: AGENTS.md
   contributing: README.md

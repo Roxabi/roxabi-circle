@@ -1,7 +1,7 @@
 # Dependabot Auto-merge — label patch/minor PRs `reviewed` so merge-on-green can land them.
 # Majors are left unlabeled (human review).
 # Token: GitHub App kit-ci (same as merge-on-green) — GITHUB_TOKEN cannot re-trigger workflows.
-# Setup: docs/kit-ci-app-setup.md
+# Setup: docs/kit/kit-ci-app-setup.md
 name: Dependabot Auto-merge
 
 on:
@@ -28,7 +28,7 @@ jobs:
             echo "enabled=true" >> "$GITHUB_OUTPUT"
           else
             echo "enabled=false" >> "$GITHUB_OUTPUT"
-            echo "::notice title=kit-ci not configured::Dependabot auto-label OFF. Set CI_APP_ID + CI_APP_PRIVATE_KEY — docs/kit-ci-app-setup.md"
+            echo "::notice title=kit-ci not configured::Dependabot auto-label OFF. Set CI_APP_ID + CI_APP_PRIVATE_KEY — docs/kit/kit-ci-app-setup.md"
           fi
 
       - name: Mint app token (kit-ci)

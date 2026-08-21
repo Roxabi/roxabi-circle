@@ -9,7 +9,7 @@
  *   @import "./theme/product-tokens.css";  // :root { --primary: … }
  *
  * Compose product shells in apps/<product>-web/src/components (wrap @kit/ui).
- * See docs/product-consumer-contract.md + config/zero-edit-zones.json design_overrides.
+ * See docs/kit/product-consumer-contract.md + config/kit/zero-edit-zones.json design_overrides.
  */
 
 /* Monorepo content detection — package + app sources */

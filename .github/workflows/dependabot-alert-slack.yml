@@ -6,7 +6,7 @@
 # Dependabot security PRs + manual workflow_dispatch (smoke / catch-up).
 #
 # Channel: C0BDAPS2MG8 · secret: SLACK_FLINT_BOT_TOKEN · var: SLACK_CHANNEL_BUGS_ALERT
-# Docs: docs/security-dependabot.md
+# Docs: docs/kit/security-dependabot.md
 name: Dependabot alert → Slack
 
 on:
@@ -103,7 +103,7 @@ jobs:
                       print(
                           "::warning::Dependabot Alerts API 403 (Resource not accessible by integration). "
                           "Add GitHub App permission **Dependabot alerts: Read** on kit-ci "
-                          "(+ re-approve install), see docs/kit-ci-app-setup.md. "
+                          "(+ re-approve install), see docs/kit/kit-ci-app-setup.md. "
                           "Security Dependabot *PR* notifications still work without this."
                       )
                       raise SystemExit(0)
