@@ -67,7 +67,7 @@ jobs:
     timeout-minutes: 25
     steps:
       # Pin SHAs (supply-chain); tags float.
-      # fetch-depth 0: product zero-edit needs kit baseline commit reachable (docs/product/kit-baseline).
+      # fetch-depth 0: product zero-edit needs inheritance commit reachable (ADR-0009).
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
@@ -79,21 +79,20 @@ jobs:
       - name: Install
         run: bun install --frozen-lockfile
 
-      # Kit origin: zero-edit kit mode (config only). Product clones: no upstream remote on
-      # Actions — point ZERO_EDIT_BASE_REF at last-merged kit tip (docs/product/kit-baseline).
-      # See docs/product-consumer-contract.md § CI zero-edit base.
+      # Kit origin: zero-edit kit mode (allowlist). Product: checker reads
+      # config/product/inheritance.json only (ADR-0009 / #107).
+      # See docs/kit/product-consumer-contract.md.
       - name: Validate full
         run: |
           set -euo pipefail
-          # Brand-agnostic: product trees ship docs/product/kit-baseline; kit trees do not.
-          if [[ -f docs/product/kit-baseline ]]; then
-            export ZERO_EDIT_BASE_REF
-            ZERO_EDIT_BASE_REF="$(tr -d '[:space:]' < docs/product/kit-baseline)"
-            if ! git rev-parse --verify "${ZERO_EDIT_BASE_REF}^{commit}" >/dev/null 2>&1; then
-              echo "::error::kit-baseline ${ZERO_EDIT_BASE_REF} not in history — fetch-depth/full history or re-merge upstream"
+          # Preflight: inherited tip must be in history (checker never auto-fetches).
+          if [[ -f config/product/inheritance.json ]]; then
+            SHA="$(node -e "const j=require('./config/product/inheritance.json'); process.stdout.write(String(j.upstreamCommit||'').trim())")"
+            if ! git rev-parse --verify "${SHA}^{commit}" >/dev/null 2>&1; then
+              echo "::error::inheritance upstreamCommit ${SHA} not in history — deepen checkout or re-merge upstream"
               exit 1
             fi
-            echo "ZERO_EDIT_BASE_REF=${ZERO_EDIT_BASE_REF}"
+            echo "inheritance upstreamCommit=${SHA}"
           fi
           bun run validate:full
 
@@ -110,7 +109,7 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
-  # Showcase CD = Cloudflare Builds (git pull), not GH deploy. See docs/deploy-cloudflare.md.
+  # Showcase CD = Cloudflare Builds (git pull), not GH deploy. See docs/kit/deploy-cloudflare.md.
   # Browser e2e is local-only (Free CI minutes + flake risk).
   # Local: bun run test:e2e:design-system (servers up) or bun run test:e2e:ci (one-shot).
-  # Not in validate:full / Lefthook. See docs/testing.md CP-E2E.
+  # Not in validate:full / Lefthook. See docs/kit/testing.md CP-E2E.

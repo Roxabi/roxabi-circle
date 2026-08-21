@@ -59,7 +59,7 @@ export const INPUT_BUDGET = {
 } as const
 
 /**
- * Kit demo tool names for docs/tests only — **not** the smoke expected-set.
+ * Kit demo tool names for docs/kit/tests only — **not** the smoke expected-set.
  * Product apps own their catalogue; mcp-example exports catalogue.names for smoke.
  */
 export const DEFAULT_EXAMPLE_TOOL_NAMES = ['ping', 'whoami'] as const

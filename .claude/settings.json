@@ -83,7 +83,7 @@
           {
             "type": "command",
             "timeout": 60,
-            "command": "bash \"${CLAUDE_PROJECT_DIR}/scripts/ccc-index-if-ready.sh\""
+            "command": "bash \"${CLAUDE_PROJECT_DIR}/scripts/kit/ccc-index-if-ready.sh\""
           }
         ]
       }
@@ -95,7 +95,7 @@
           {
             "type": "command",
             "timeout": 30,
-            "command": "bash \"${CLAUDE_PROJECT_DIR}/scripts/ccc-index-if-ready.sh\""
+            "command": "bash \"${CLAUDE_PROJECT_DIR}/scripts/kit/ccc-index-if-ready.sh\""
           }
         ]
       }
@@ -107,7 +107,7 @@
           {
             "type": "command",
             "timeout": 10,
-            "command": "bash \"${CLAUDE_PROJECT_DIR}/scripts/semctx-guard-if-present.sh\""
+            "command": "bash \"${CLAUDE_PROJECT_DIR}/scripts/kit/semctx-guard-if-present.sh\""
           }
         ]
       }

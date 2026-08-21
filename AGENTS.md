@@ -5,9 +5,9 @@
 | | |
 |---|---|
 | **What** | Extractible multi-tenant **capability kernel** kit: packages + `apps/example-*` + CI + auth/UI/MCP/flows · products compose · *Company OS+++* = product narrative only |
-| **Product consumers** | Greenfield products via git `upstream` → kit · [`start-product.md`](docs/playbooks/start-product.md) · [`fork-to-first-issue.md`](docs/playbooks/fork-to-first-issue.md) |
+| **Product consumers** | Greenfield products via git `upstream` → kit · [`start-product.md`](docs/kit/playbooks/start-product.md) · [`fork-to-first-issue.md`](docs/kit/playbooks/fork-to-first-issue.md) |
 | **Status** | Kit live **2026-07-13** · products pull via `git fetch upstream` |
-| **Platform JTBD proof (SSoT)** | [`docs/architecture/platform-proof.md`](docs/architecture/platform-proof.md) — when D2+D3+second compose are met |
+| **Platform JTBD proof (SSoT)** | [`docs/kit/architecture/platform-proof.md`](docs/kit/architecture/platform-proof.md) — when D2+D3+second compose are met |
 | **Stack SSoT** | section ci-dessous (figée **2026-07-12**, amendée BA-only / multi-tenant A / CF Email / i18n) |
 | **Org remotes / HEAD vs mirror** | **Not in this repo** — operator SSoT `~/projects/ssot/chemin-a-kit-lineage.ssot.md` |
 
@@ -17,7 +17,7 @@
 
 Ce monorepo est le **boilerplate Chemin A** : conventions + CI + auth + UI kit + MCP + libs SaaS.
 
-**Règle de conflit (normative) :** quand kit extractibility vs direction plateforme vs product frame divergent → **JTBD-dev + bar machine + [ADR-0001](docs/architecture/adr/0001-primary-axis-packages-compose-apps.md) gagnent**. La direction n’est **pas** un backlog d’implémentation sans issue/ADR.
+**Règle de conflit (normative) :** quand kit extractibility vs direction plateforme vs product frame divergent → **JTBD-dev + bar machine + [ADR-0001](docs/kit/architecture/adr/0001-primary-axis-packages-compose-apps.md) gagnent**. La direction n’est **pas** un backlog d’implémentation sans issue/ADR.
 
 ### Direction — multi-tenant capability kernel
 
@@ -30,14 +30,14 @@ Ce monorepo est le **boilerplate Chemin A** : conventions + CI + auth + UI kit +
 
 | Pile | Kit (`@kit/*`) | App (example / product) | Promote gate |
 |---|---|---|---|
-| **SaaS** | auth, core, db, ui, storage, email, i18n, types | `MODULE_IDS`, routes, seed, domain | [ADR-0001](docs/architecture/adr/0001-primary-axis-packages-compose-apps.md) + [ADR-0003](docs/architecture/adr/0003-multi-tenant-rbac-modules.md) |
-| **Workflow** | `@kit/flows` (+ later `flows-ui`) | plans YAML, tools, Workflows bind, D1 wire | [ADR-0005](docs/architecture/adr/0005-flows-platform-agentic-workflows.md) **D6** |
+| **SaaS** | auth, core, db, ui, storage, email, i18n, types | `MODULE_IDS`, routes, seed, domain | [ADR-0001](docs/kit/architecture/adr/0001-primary-axis-packages-compose-apps.md) + [ADR-0003](docs/kit/architecture/adr/0003-multi-tenant-rbac-modules.md) |
+| **Workflow** | `@kit/flows` (+ later `flows-ui`) | plans YAML, tools, Workflows bind, D1 wire | [ADR-0005](docs/kit/architecture/adr/0005-flows-platform-agentic-workflows.md) **D6** |
 | **Agents** | `@kit/mcp` conventions ; shared tool registry / agent loop **only if ≥2 call sites** | product tools, MCP server ; code-mode **product-opt-in only** | **same D6 class · after flows runner proven** — no `@kit/agents` before evidence |
 
 ```text
 Phase (normative order — not aspiration):
   1. SaaS kernel     (now)
-  2. Workflows       (P0 incubating — [ADR-0005](docs/architecture/adr/0005-flows-platform-agentic-workflows.md) children)
+  2. Workflows       (P0 incubating — [ADR-0005](docs/kit/architecture/adr/0005-flows-platform-agentic-workflows.md) children)
   3. Agents org-aware (after durable create-run + meter + dogfood)
      code-mode = product footnote only · never kit default
 ```
@@ -47,7 +47,7 @@ Phase (normative order — not aspiration):
 | Niveau | Unit | Scope |
 |---|---|---|
 | **Deploy** | Product Worker (DB · bindings · secrets) | Un product = un espace d’orgs |
-| **Tenant** | `organization` ([ADR-0003](docs/architecture/adr/0003-multi-tenant-rbac-modules.md)) | Solo = org 1 member |
+| **Tenant** | `organization` ([ADR-0003](docs/kit/architecture/adr/0003-multi-tenant-rbac-modules.md)) | Solo = org 1 member |
 | **Actor / audit** | user · agent · run | Nested **under** org grants |
 | **Time** | run **snapshot** immutable | TOCTOU fail-closed |
 
@@ -71,10 +71,10 @@ Phase (normative order — not aspiration):
 **JTBD-platform (direction — falsifiable) :**  
 > *Un product compose le kernel multi-tenant ; une org y exécute au moins un plan gouverné (grant∩permits · snapshot · admin gate) ; un second product compose sans forker le runner.*
 
-**SSoT preuve platform :** [`docs/architecture/platform-proof.md`](docs/architecture/platform-proof.md) (bars D1–D3 · second compose · tenant nommé · status met/not).  
+**SSoT preuve platform :** [`docs/kit/architecture/platform-proof.md`](docs/kit/architecture/platform-proof.md) (bars D1–D3 · second compose · tenant nommé · status met/not).  
 **Non-claim :** multi-tenant Phase A + pure `@kit/flows` + MCP example **≠** platform JTBD met · **≠** « Company OS » shippé.
 
-**Gouvernance =** grants mint server-side · `check` before first token · snapshot immuable · side effects HITL principal-bound · budgets metered · promote package only with dogfood + second call site ([ADR-0005](docs/architecture/adr/0005-flows-platform-agentic-workflows.md) D4/D6).
+**Gouvernance =** grants mint server-side · `check` before first token · snapshot immuable · side effects HITL principal-bound · budgets metered · promote package only with dogfood + second call site ([ADR-0005](docs/kit/architecture/adr/0005-flows-platform-agentic-workflows.md) D4/D6).
 #### Invariants (direction — reviewable)
 
 1. **Grants = sole max power** — plan/MCP permits may only **narrow** ; never expand.  
@@ -94,7 +94,7 @@ Phase (normative order — not aspiration):
 | AI Gateway budgets | runtime meter + hard abort ; static ceilings necessary ≠ sufficient |
 | capability connectors | tools only when kit wrappers enforce ; no `net` / `r2` advertised until then |
 
-**≠ Cloudflare OS :** productivity OS *interne* / fork-per-company / gadgets sandboxed. **On n’embarque pas** CF OS dans le kit ([ADR-0005](docs/architecture/adr/0005-flows-platform-agentic-workflows.md) OOS). Deploy interne optionnel **hors** monorepo kit.
+**≠ Cloudflare OS :** productivity OS *interne* / fork-per-company / gadgets sandboxed. **On n’embarque pas** CF OS dans le kit ([ADR-0005](docs/kit/architecture/adr/0005-flows-platform-agentic-workflows.md) OOS). Deploy interne optionnel **hors** monorepo kit.
 
 **Anti-isomorphism test :** si un changement fait du kit un **host productivity OS** (gadget shell, per-file apps, ambient code-load default) plutôt que des packages products compose → **out of scope**. Non-goals bloquent la *forme*, pas seulement le nom.
 
@@ -123,13 +123,13 @@ Phase (normative order — not aspiration):
 | Priorité | Livrable | Intention |
 |---|---|---|
 | **P0** | **Kit Chemin A** | `packages/*` + `apps/example-*` verts · 0 string métier · bar machine — **gagne toujours** vs platform growth |
-| **P0 incubating** | **Flows** | `@kit/flows` + [ADR-0005](docs/architecture/adr/0005-flows-platform-agentic-workflows.md) children (#29–#31…) — promote D6 only |
-| **P0 incubating** | **Tasks + comments** | `@kit/tasks` + `@kit/comments` ([ADR-0007](docs/architecture/adr/0007-tasks-comments-kernel.md)) — pure shipped; example dogfood next · promote after first product compose |
+| **P0 incubating** | **Flows** | `@kit/flows` + [ADR-0005](docs/kit/architecture/adr/0005-flows-platform-agentic-workflows.md) children (#29–#31…) — promote D6 only |
+| **P0 incubating** | **Tasks + comments** | `@kit/tasks` + `@kit/comments` ([ADR-0007](docs/kit/architecture/adr/0007-tasks-comments-kernel.md)) — pure shipped; example dogfood next · promote after first product compose |
 | **After flows evidence** | **Agents org-aware** | Same grant∩ + registryVersion as flows · no new agent package without second call site |
 | **Hors scope** | Apps métier (`apps/share-*`, etc.) | Repos product |
 | **Hors scope** | Cloudflare OS as kit · code-mode kit default | Product opt-in or external deploy |
 
-**P2 later (not day-1) :** shared tool-registry SSOT types MCP∩flows when second consumer needs it · module catalogue ids `flows` / later `agents` under [ADR-0003](docs/architecture/adr/0003-multi-tenant-rbac-modules.md) · optional **future agents ADR** only when agent loop / code-mode becomes real scope with evidence.
+**P2 later (not day-1) :** shared tool-registry SSOT types MCP∩flows when second consumer needs it · module catalogue ids `flows` / later `agents` under [ADR-0003](docs/kit/architecture/adr/0003-multi-tenant-rbac-modules.md) · optional **future agents ADR** only when agent loop / code-mode becomes real scope with evidence.
 
 ### Downstream product apps
 
@@ -142,7 +142,7 @@ Which clone is canonical HEAD vs mirror = **operator lineage** (ssot), not kit d
 
 #### Contrat consumer (obligatoire) — zero-edit upstream + push DENY
 
-**SSoT technique (kit) :** [`docs/product-consumer-contract.md`](docs/product-consumer-contract.md)  
+**SSoT technique (kit) :** [`docs/kit/product-consumer-contract.md`](docs/kit/product-consumer-contract.md)  
 **SSoT topologie remotes (operator) :** `~/projects/ssot/chemin-a-kit-lineage.ssot.md`
 
 Tout repo **produit** qui prend ce kit comme `upstream` **doit** :
@@ -154,7 +154,7 @@ Tout repo **produit** qui prend ce kit comme `upstream` **doit** :
    ```
 2. **Ne pas modifier les fichiers kit** pour configurer le produit (CI, lefthook, package.json racine, `packages/*`, `apps/example-*`).  
    Config = **vars/secrets GH**, **`.dev.vars`**, apps **`apps/<product>-*`** (fichiers **nouveaux**).
-3. **Deny push kit** : livré **dans le kit** (`scripts/deny-upstream-push.sh` + lefthook pre-push) — no-op sur clones kit ; bloque product → parent.  
+3. **Deny push kit** : livré **dans le kit** (`scripts/kit/deny-upstream-push.sh` + lefthook pre-push) — no-op sur clones kit ; bloque product → parent.  
    **Ne pas forker** une copie divergente dans le product.
 4. **Jamais** `git push upstream` / `LEFTHOOK=0 git push upstream` depuis un clone **produit**.
 5. Kit shared : coder les changements partagés sur un **clone kit** (voir lineage operator pour lequel est HEAD).
@@ -167,9 +167,9 @@ Tout repo **produit** qui prend ce kit comme `upstream` **doit** :
 | Exception zero-edit time-boxed (dernier recours) | Dual-edit permanent sans ticket / `expires` |
 | Vars `CI_APP_*` (merge-on-green), secrets CF | Commit de secrets / wrangler prod dans le kit |
 
-Gate machine: `bun run zero-edit` · SSoT [`docs/product-consumer-contract.md`](docs/product-consumer-contract.md) · `config/zero-edit-zones.json`.
+Gate machine: `bun run zero-edit` · SSoT [`docs/kit/product-consumer-contract.md`](docs/kit/product-consumer-contract.md) · `config/kit/zero-edit-zones.json`.
 
-**D1 schema — compose, do not clone** ([ADR-0008](docs/architecture/adr/0008-kit-schema-identity-product-compose.md) · [`docs/kit-schema-sync.md`](docs/kit-schema-sync.md)):
+**D1 schema — compose, do not clone** ([ADR-0008](docs/kit/architecture/adr/0008-kit-schema-identity-product-compose.md) · [`docs/kit/kit-schema-sync.md`](docs/kit/kit-schema-sync.md)):
 
 | Produit | Interdit |
 |---|---|
@@ -238,7 +238,7 @@ apps/share-*          = produit (exclu à l’extraction)
 ```
 
 **shadcn (juil. 2026) :** default primitives = **Base UI** (`@base-ui/react`). Pin un engine dans `components.json`.  
-Ref : [changelog Base UI default](https://ui.shadcn.com/docs/changelog/2026-07-base-ui-default)
+Ref : [changelog Base UI default](https://ui.shadcn.com/docs/kit/changelog/2026-07-base-ui-default)
 
 ---
 
@@ -298,7 +298,7 @@ Escape hatch : Postgres/Hyperdrive si un app dépasse D1 — documenté, pas def
 | Élément | Choix | Quand |
 |---|---|---|
 | Sessions UI (cible) | **Better Auth** sur **Hono** (GitHub + org membership) | **M3** |
-| Sessions UI (**aujourd’hui**) | **Better Auth** cookies via `@kit/auth` SessionPort — [ADR-0002](docs/architecture/adr/0002-session-hmac-interim-vs-better-auth.md) (HMAC **retired**) | kit |
+| Sessions UI (**aujourd’hui**) | **Better Auth** cookies via `@kit/auth` SessionPort — [ADR-0002](docs/kit/architecture/adr/0002-session-hmac-interim-vs-better-auth.md) (HMAC **retired**) | kit |
 | API keys machine | `sk_…` hash en D1, **per-user** | B1+ bootstrap |
 | Guards (kit) | Hono middleware dual-path `requireAuth` (Bearer **ou** cookie) dans `example-api` | B1+ |
 | Guards (cible package) | `requireSession` / `requireApiKey` dans `@kit/auth` | M3 / promote |
@@ -319,7 +319,7 @@ Escape hatch : Postgres/Hyperdrive si un app dépasse D1 — documenté, pas def
 
 **Non-default :** Clerk.
 
-**[ADR-0002](docs/architecture/adr/0002-session-hmac-interim-vs-better-auth.md) (2026-07-30) :** session navigateur = **Better Auth only** (HMAC retiré). Dual-path restant = cookie session **\|** Bearer `sk_`. Pattern : **1 instance auth / request** (bindings) + `SessionPort`.
+**[ADR-0002](docs/kit/architecture/adr/0002-session-hmac-interim-vs-better-auth.md) (2026-07-30) :** session navigateur = **Better Auth only** (HMAC retiré). Dual-path restant = cookie session **\|** Bearer `sk_`. Pattern : **1 instance auth / request** (bindings) + `SessionPort`.
 
 #### Auth matrix (kit dogfood)
 
@@ -414,15 +414,15 @@ Ref pattern : `kit-boilerplate` (`errorCodes`, `errorUtils`, `ApiError`).
 | `@kit/config` | tsconfig, Biome, Vitest presets | **P0** |
 | `@kit/db` | Drizzle D1 + migrate | **P0** |
 | `@kit/storage` | R2 put/get/presign | **P0** |
-| `@kit/auth` | SessionPort + `sk_` + org-role helpers; BA factory `@kit/auth/factory`; SPA password forms `@kit/auth/react` (forgot / reset / change — pages stay in the app) ([ADR-0002](docs/architecture/adr/0002-session-hmac-interim-vs-better-auth.md) · [ADR-0003](docs/architecture/adr/0003-multi-tenant-rbac-modules.md) · [ADR-0008](docs/architecture/adr/0008-kit-schema-identity-product-compose.md) D6) | **P0** |
+| `@kit/auth` | SessionPort + `sk_` + org-role helpers; BA factory `@kit/auth/factory`; SPA password forms `@kit/auth/react` (forgot / reset / change — pages stay in the app) ([ADR-0002](docs/kit/architecture/adr/0002-session-hmac-interim-vs-better-auth.md) · [ADR-0003](docs/kit/architecture/adr/0003-multi-tenant-rbac-modules.md) · [ADR-0008](docs/kit/architecture/adr/0008-kit-schema-identity-product-compose.md) D6) | **P0** |
 | `@kit/types` | Zod schemas + ErrorCode | **P0** |
 | `@kit/ui` | shadcn Base UI shell | **P0** |
-| `@kit/email` | Templates + transports `log` \| `smtp` \| **`cf`** (prod default) \| `resend` (escape) — [ADR-0004](docs/architecture/adr/0004-email-transport-cf-default.md) | **P0** |
+| `@kit/email` | Templates + transports `log` \| `smtp` \| **`cf`** (prod default) \| `resend` (escape) — [ADR-0004](docs/kit/architecture/adr/0004-email-transport-cf-default.md) | **P0** |
 | `@kit/i18n` | Locale engine; catalogs app-owned; 1 catalog = no switcher | **P0** |
 | `@kit/mcp` | FastMCP/SDK conventions (ping/whoami) · tools under grants when wired · **parity grant∩ with flows** | **P0** example |
-| `@kit/flows` | Pure plan engine: YAML MVP · `check` · grant∩permits · snapshot helpers ([ADR-0005](docs/architecture/adr/0005-flows-platform-agentic-workflows.md) · #16 · #27–#28); Workflows/D1/API = children #29–#31 · promote **D6 only** | **P0** incubating |
-| `@kit/tasks` | Pure task engine: stages · visibility · links · opaque scope · AudiencePort helpers ([ADR-0007](docs/architecture/adr/0007-tasks-comments-kernel.md)); D1/API dogfood later · **no resource links until resource system** | **P0** incubating |
-| `@kit/comments` | Pure multi-target comments (`target_type`+`target_id`, visibility) — compose with tasks + product entities ([ADR-0007](docs/architecture/adr/0007-tasks-comments-kernel.md)) | **P0** incubating |
+| `@kit/flows` | Pure plan engine: YAML MVP · `check` · grant∩permits · snapshot helpers ([ADR-0005](docs/kit/architecture/adr/0005-flows-platform-agentic-workflows.md) · #16 · #27–#28); Workflows/D1/API = children #29–#31 · promote **D6 only** | **P0** incubating |
+| `@kit/tasks` | Pure task engine: stages · visibility · links · opaque scope · AudiencePort helpers ([ADR-0007](docs/kit/architecture/adr/0007-tasks-comments-kernel.md)); D1/API dogfood later · **no resource links until resource system** | **P0** incubating |
+| `@kit/comments` | Pure multi-target comments (`target_type`+`target_id`, visibility) — compose with tasks + product entities ([ADR-0007](docs/kit/architecture/adr/0007-tasks-comments-kernel.md)) | **P0** incubating |
 | *(no `@kit/agents` yet)* | Agent loop / code-mode → **after** flows runner evidence · optional future agents ADR · product code-mode only | blocked until D6 |
 | `@kit/rate-limit` | D1/KV / CF binding | P1 |
 | `@kit/audit` | append-only events | P1 |
@@ -435,7 +435,7 @@ Ref pattern : `kit-boilerplate` (`errorCodes`, `errorUtils`, `ApiError`).
 
 ---
 
-### H2. Email — transport par environnement ([ADR-0004](docs/architecture/adr/0004-email-transport-cf-default.md))
+### H2. Email — transport par environnement ([ADR-0004](docs/kit/architecture/adr/0004-email-transport-cf-default.md))
 
 | Env | Transport | UI / inspection |
 |---|---|---|
@@ -615,11 +615,11 @@ Règles : guard first · Zod double frontière · pas de god file · packages �
 ### S0 / M0
 
 - [x] **PR template sécu** — `.github/PULL_REQUEST_TEMPLATE.md`  
-- [x] **Secret scan** — **local primary** `scripts/trufflehog-check.sh` (lefthook pre-commit/pre-push: unpushed commits + staged; exclude SSoT) · **CI secondary** `.github/workflows/secret-scan.yml` (diff base/head + same exclude)  
+- [x] **Secret scan** — **local primary** `scripts/kit/trufflehog-check.sh` (lefthook pre-commit/pre-push: unpushed commits + staged; exclude SSoT) · **CI secondary** `.github/workflows/secret-scan.yml` (diff base/head + same exclude)  
 - [x] **Merge-on-green** — `.github/workflows/merge-on-green.yml` (label `reviewed` + fin CI/Secret only — pas de check_suite/sync spam ; close issues → `close-linked-issues.yml`)  
 - [x] Label **`reviewed`** créé sur le repo  
-- [x] Merge token = **GitHub App `kit-ci`** (pas de PAT) — setup : [`docs/kit-ci-app-setup.md`](docs/kit-ci-app-setup.md)  
-- [x] Créer/installer App + set `CI_APP_ID` (var) / `CI_APP_PRIVATE_KEY` (secret) — org-level live · [`docs/ci-app-setup.md`](docs/ci-app-setup.md)
+- [x] Merge token = **GitHub App `kit-ci`** (pas de PAT) — setup : [`docs/kit/kit-ci-app-setup.md`](docs/kit/kit-ci-app-setup.md)  
+- [x] Créer/installer App + set `CI_APP_ID` (var) / `CI_APP_PRIVATE_KEY` (secret) — org-level live · [`docs/kit/ci-app-setup.md`](docs/kit/ci-app-setup.md)
 - [ ] Branch protection / rulesets — **bloqué plan Free privé** (voir § GitHub Free)  
 - [x] Bun workspaces + Turbo  
 - [x] Biome + CI app (`validate:full` incl. build:kit + smoke:mcp) — local pre-push + GH check `ci`
@@ -627,7 +627,7 @@ Règles : guard first · Zod double frontière · pas de god file · packages �
 - [x] Vitest (core + auth + example-api paths critiques + floors)  
 - [x] D1 migrations versionnées (`apps/example-api/migrations`)  
 - [x] `.dev.vars.example` sans secrets  
-- [x] Lefthook + conventional commits + **pre-push `validate:full`** (local primary; CI guardrail) · [`docs/testing.md`](docs/testing.md)  
+- [x] Lefthook + conventional commits + **pre-push `validate:full`** (local primary; CI guardrail) · [`docs/kit/testing.md`](docs/kit/testing.md)  
 
 - [x] Security headers de base (`security-headers` middleware)  
 
@@ -647,7 +647,7 @@ Règles : guard first · Zod double frontière · pas de god file · packages �
 | Variable | `CI_APP_ID` |
 | Secret | `CI_APP_PRIVATE_KEY` |
 
-Runbook : [`docs/kit-ci-app-setup.md`](docs/kit-ci-app-setup.md).
+Runbook : [`docs/kit/kit-ci-app-setup.md`](docs/kit/kit-ci-app-setup.md).
 
 **Flux merge (aligné operator Free private / example-site, App token) :**
 
@@ -658,26 +658,26 @@ PR → Secret scan green → label `reviewed` → Merge on Green (kit-ci) → me
 Quand la CI app existera : l’ajouter dans `workflow_run.workflows` de `merge-on-green.yml` **et** dans les required checks (si un jour Team).
 
 **Branches :** `main` (prod) · `staging` (intégration) — PRs features → `staging` ; promote `staging` → `main` (merge commit).  
-CF mapping (named env, isolation D1/R2, cookies): [`docs/environments.md`](docs/environments.md).
+CF mapping (named env, isolation D1/R2, cookies): [`docs/kit/environments.md`](docs/kit/environments.md).
 
 
 ### Suite
 
-- [x] **Better Auth + cookies (session)** — BA-only ([ADR-0002](docs/architecture/adr/0002-session-hmac-interim-vs-better-auth.md), HMAC retired) · dual credential cookie \| Bearer `sk_` · GitHub OAuth product still later  
+- [x] **Better Auth + cookies (session)** — BA-only ([ADR-0002](docs/kit/architecture/adr/0002-session-hmac-interim-vs-better-auth.md), HMAC retired) · dual credential cookie \| Bearer `sk_` · GitHub OAuth product still later  
 - [x] packages/ui Base UI + example-web (kit shell live · `/admin` + `/app` shells)  
 - [x] i18n FR/EN catalogs (`@kit/i18n` engine + app catalogs ; Paraglide monorepo **park** B8)  
-- [x] **Multi-tenant Phase A** — orgs, platform RBAC, dual-level modules ([ADR-0003](docs/architecture/adr/0003-multi-tenant-rbac-modules.md) · GH #11)  
+- [x] **Multi-tenant Phase A** — orgs, platform RBAC, dual-level modules ([ADR-0003](docs/kit/architecture/adr/0003-multi-tenant-rbac-modules.md) · GH #11)  
 - [x] **Multi-tenant UX A4** — shells + kit invites + password reset (GH #15)  
-- [x] **Email CF prod transport** — `@kit/email` `log`\|`smtp`\|`cf`\|`resend` + staging allowlist ([ADR-0004](docs/architecture/adr/0004-email-transport-cf-default.md) · GH #21)  
+- [x] **Email CF prod transport** — `@kit/email` `log`\|`smtp`\|`cf`\|`resend` + staging allowlist ([ADR-0004](docs/kit/architecture/adr/0004-email-transport-cf-default.md) · GH #21)  
 - [x] **RBAC Phase B (API + tests + minimal UI)** — custom org roles + module grants (GH #22 · )  
 - [ ] FastMCP product tools + skill (hors kit strings)  
-- [ ] **Flows platform** — epic [#16](https://github.com/Roxabi/roxabi-boilerplate-cf/issues/16) · [ADR-0005](docs/architecture/adr/0005-flows-platform-agentic-workflows.md) · children #27–#36  
-- [x] **B8 park decisions** — Paraglide / Plausible / TanStack Start-as-default park · **patchlog L1 shipping** (GH #107 · [`docs/recipes/changelog-l1.md`](docs/recipes/changelog-l1.md)) · L2 package still park ([`docs/park-decisions-b8.md`](docs/park-decisions-b8.md) · GH #20)  
+- [ ] **Flows platform** — epic [#16](https://github.com/Roxabi/roxabi-boilerplate-cf/issues/16) · [ADR-0005](docs/kit/architecture/adr/0005-flows-platform-agentic-workflows.md) · children #27–#36  
+- [x] **B8 park decisions** — Paraglide / Plausible / TanStack Start-as-default park · **patchlog L1 shipping** (GH #107 · [`docs/kit/recipes/changelog-l1.md`](docs/kit/recipes/changelog-l1.md)) · L2 package still park ([`docs/kit/park-decisions-b8.md`](docs/kit/park-decisions-b8.md) · GH #20)  
 - [ ] **Plausible** SPA recipe — hub `analytics.example.com` multi-sites (**park** DR-B8-05 — unpark when public SPA needs it)  
 - [ ] Sentry + Better Stack (prod) — B7 A3 **parked** (revisit later)  
 - [ ] CodeRabbit (ou équiv.) sur PR — B7 A4 **parked** (revisit later)  
 - [x] Playwright e2e — **local only** (`test:e2e:design-system` / `test:e2e:ci`; no default GHA job · PR #96)  
-- [x] Consumer dogfood zero-edit (B5 · GH #71) — playbook + harness shipped; **live product-mode evidence filled** 2026-08-13 (`roxabi-circle` @ kit `628d942`, [`docs/product-consumer-dogfood-evidence.md`](docs/product-consumer-dogfood-evidence.md))
+- [x] Consumer dogfood zero-edit (B5 · GH #71) — playbook + harness shipped; **live product-mode evidence filled** 2026-08-13 (`roxabi-circle` @ kit `628d942`, [`docs/kit/product-consumer-dogfood-evidence.md`](docs/kit/product-consumer-dogfood-evidence.md))
 - [ ] Extract dry-run « suite green after drop product » (aujourd’hui structure + banlist)
 
 **Critère extractible :** supprimer `apps/share-*` → examples + packages verts, 0 string métier share.
@@ -741,7 +741,7 @@ Règles dures pour tout agent (humain qui drive l’IA) :
 | Fichiers | `.dev.vars` / `.env` **gitignored** · seul `.env.example` / `.dev.vars.example` **placeholders** |
 | Inventaire | Vaultwarden / Keychain — pas dans le repo, pas dans le transcript agent |
 | CI | secrets GitHub Actions / CF · jamais loggés |
-| Scan | **local** `scripts/trufflehog-check.sh` (primary, before remote) + **CI** `secret-scan.yml` (diff base/head, secondary) + org GH secret scanning |
+| Scan | **local** `scripts/kit/trufflehog-check.sh` (primary, before remote) + **CI** `secret-scan.yml` (diff base/head, secondary) + org GH secret scanning |
 | Agents cloud | ne pas uploader le repo avec `.dev.vars` non ignoré · vérifier ignore avant partage zip |
 | Prod keys | mint UI only · rotation documentée · recheck org |
 
@@ -749,7 +749,7 @@ Règles dures pour tout agent (humain qui drive l’IA) :
 
 ### 4. Gates techniques (machine, pas confiance)
 
-**SSoT tests :** [`docs/testing.md`](docs/testing.md) — tests efficaces + ownership axial + inventaire CP-\*.
+**SSoT tests :** [`docs/kit/testing.md`](docs/kit/testing.md) — tests efficaces + ownership axial + inventaire CP-\*.
 
 **Doctrine ops :** la **validation locale (pre-push) est le vrai gate**. La CI GitHub est un **garde-fou** (hooks skippés, machine sale) — un push ne doit partir **que** si `validate:full` est vert en local. CI rouge = incident process, pas le flux normal de debug.
 
@@ -886,8 +886,8 @@ bun run --filter @kit/example-web dev
 
 | Doc | Rôle |
 |---|---|
-| [`docs/testing.md`](docs/testing.md) | Stratégie tests · CP-\* · local-first gates |
+| [`docs/kit/testing.md`](docs/kit/testing.md) | Stratégie tests · CP-\* · local-first gates |
 | `~/projects/other-boilerplate` | Ref mono Bun/Turbo/qualité |
-| [shipfa.st/docs/extras](https://shipfa.st/docs/extras) | Assets / indices features |
+| [shipfa.st/docs/kit/extras](https://shipfa.st/docs/kit/extras) | Assets / indices features |
 | [punkpeye/fastmcp](https://github.com/punkpeye/fastmcp) | MCP framework TS + edge |
 | `vps-services/services/shlink` | `s.example.com` |

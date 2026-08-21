@@ -53,8 +53,8 @@ name = "example-api-flow-run"
 class_name = "FlowRunWorkflow"
 
 # ── production (kit showcase — resource ids are not secrets) ─────────
-# Account / zone: operator local config (config/deploy.cf.local.toml).
-# CD: Cloudflare Workers Builds (git pull) — scripts/cf-builds/ + docs/deploy-cloudflare.md
+# Account / zone: operator local config (config/kit/deploy.cf.local.toml).
+# CD: Cloudflare Workers Builds (git pull) — scripts/kit/cf-builds/ + docs/kit/deploy-cloudflare.md
 # Do NOT set ENVIRONMENT=development here.
 
 [env.production]

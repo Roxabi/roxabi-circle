@@ -9,8 +9,8 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "db:migrate": "wrangler d1 migrations apply example-api-local --local",
-    "db:seed": "bun scripts/seed-local.ts",
-    "db:seed:reset": "bun scripts/seed-local.ts --reset",
+    "db:seed": "bun scripts/kit/seed-local.ts",
+    "db:seed:reset": "bun scripts/kit/seed-local.ts --reset",
     "db:reset": "bun run db:migrate && bun run db:seed:reset",
     "build": "wrangler deploy --dry-run --outdir=dist"
   },

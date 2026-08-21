@@ -5,7 +5,7 @@
 #
 # IMPORTANT: cooldown applies to VERSION updates only — NOT security/CVE updates.
 # Security alerts open immediately; Slack: .github/workflows/dependabot-alert-slack.yml
-# See docs/security-dependabot.md
+# See docs/kit/security-dependabot.md
 #
 # Grouping policy (kit deps waves 2026-08):
 # - patch/minor bun → bun-dependencies
