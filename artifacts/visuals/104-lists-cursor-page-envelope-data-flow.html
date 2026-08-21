@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>#104 lists cursor — data flow</title>
+  <style>
+    :root { color-scheme: dark; --bg:#0b0f14; --card:#141a22; --line:#3d8bfd; --text:#e7ecf3; --muted:#8b98a8; --ok:#3ecf8e; }
+    * { box-sizing: border-box; }
+    body { margin:0; font:14px/1.45 system-ui,sans-serif; background:var(--bg); color:var(--text); padding:2rem; }
+    h1 { font-size:1.15rem; margin:0 0 1.5rem; }
+    .row { display:flex; flex-wrap:wrap; gap:1rem; align-items:stretch; justify-content:center; }
+    .node { background:var(--card); border:1px solid #243041; border-radius:12px; padding:1rem 1.25rem; min-width:140px; max-width:220px; }
+    .node.hub { border-color:var(--line); box-shadow:0 0 28px rgba(61,139,253,.35); }
+    .node h2 { margin:0 0 .35rem; font-size:.85rem; color:var(--line); }
+    .node p { margin:0; font-size:.78rem; color:var(--muted); }
+    .arrow { display:flex; align-items:center; color:var(--line); font-size:1.4rem; opacity:.85; }
+    .legend { margin-top:2rem; color:var(--muted); font-size:.8rem; }
+    code { color:var(--ok); }
+  </style>
+</head>
+<body>
+  <h1>#104 — opaque cursor list envelope</h1>
+  <div class="row">
+    <div class="node"><h2>Query</h2><p><code>limit</code> · <code>cursor?</code> · <code>q?</code><br/>listQuerySchema</p></div>
+    <div class="arrow">→</div>
+    <div class="node hub"><h2>Route</h2><p>clampListLimit<br/>decodeListCursor</p></div>
+    <div class="arrow">→</div>
+    <div class="node"><h2>Scope</h2><p>staff allowlist<br/><strong>before</strong> keyset</p></div>
+    <div class="arrow">→</div>
+    <div class="node hub"><h2>Repo</h2><p>ORDER BY createdAt,id<br/>keyset WHERE · limit+1</p></div>
+  </div>
+  <div class="row" style="margin-top:1.5rem">
+    <div class="node hub"><h2>takeListPage</h2><p>items[0..limit)<br/>encode last keyset</p></div>
+    <div class="arrow">→</div>
+    <div class="node"><h2>Wire</h2><p><code>{ items, nextCursor, requestId }</code></p></div>
+    <div class="arrow">→</div>
+    <div class="node"><h2>Web</h2><p>/admin/users<br/>Load more · q resets</p></div>
+  </div>
+  <p class="legend">Malformed cursor → VALIDATION_ERROR. Well-formed client seek allowed (not a security boundary). Notes dump = demo exception.</p>
+</body>
+</html>
