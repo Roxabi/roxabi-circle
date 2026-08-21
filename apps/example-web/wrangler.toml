@@ -1,5 +1,5 @@
 # Static SPA for kit showcase (Cloudflare Pages project "boilerplate").
-# CD: Pages git build — scripts/cf-builds/web-build.sh (see docs/deploy-cloudflare.md).
+# CD: Pages git build — scripts/kit/cf-builds/web-build.sh (see docs/kit/deploy-cloudflare.md).
 # Break-glass: bun run build && wrangler pages deploy dist --project-name=boilerplate --branch=main
 # Custom domain: boilerplate.roxabi.dev
 name = "boilerplate"

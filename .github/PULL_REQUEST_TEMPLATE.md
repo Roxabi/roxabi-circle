@@ -62,18 +62,18 @@ See `AGENTS.md` § *Sécurité & bon usage de l’IA*.
 
 ## Quality checklist
 
-See [`docs/testing.md`](../docs/testing.md) (local-first gates, CP-\* paths, ownership).
+See [`docs/kit/testing.md`](../docs/kit/testing.md) (local-first gates, CP-\* paths, ownership).
 
 - [ ] PR title follows [Conventional Commits](https://www.conventionalcommits.org/)
 - [ ] Self-review done on the full diff
 - [ ] Tests added/updated for behaviour change — map to **CP-\*** / suite names when auth, IDOR, storage, errors, FE credentials
 - [ ] **`bun run validate:full` green locally** before push (primary gate; CI is guardrail only)
-- [ ] Docs / `AGENTS.md` / `docs/testing.md` updated if stack or test policy changed
+- [ ] Docs / `AGENTS.md` / `docs/kit/testing.md` updated if stack or test policy changed
 - [ ] Dual-mission: product code stays out of kit packages (`packages/*` has no share-domain strings)
 
 ## Critical paths touched (if any)
 
-<!-- From docs/testing.md — tick what this PR affects; name the test file(s) in Test plan -->
+<!-- From docs/kit/testing.md — tick what this PR affects; name the test file(s) in Test plan -->
 
 - [ ] CP-AUTH-\* (session / keys / dual)
 - [ ] CP-IDOR / CP-UNAUTH (new or changed protected resource)

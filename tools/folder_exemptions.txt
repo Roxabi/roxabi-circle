@@ -1,7 +1,7 @@
 # Folder size exemptions — direct .ts/.tsx children per directory.
 # Format: <path>  # <N> files — <tracking> <rationale>
 # Declared N is a local cap: growth past N fails the gate.
-# Prefer splitting over raising caps. See docs/debt-tracking.md.
+# Prefer splitting over raising caps. See docs/kit/debt-tracking.md.
 
 # shadcn Base UI primitives (generated-ish shell; brand via CSS tokens)
 packages/ui/src/components/ui  # 50 files — shadcn primitives kit shell; split only with UI redesign
