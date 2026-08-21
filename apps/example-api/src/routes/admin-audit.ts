@@ -1,15 +1,10 @@
 import { AppError, parseOrThrow } from '@kit/core'
+import { listQuerySchema } from '@kit/types'
 import { Hono } from 'hono'
-import { z } from 'zod'
 import { requirePlatformRole } from '../middleware/org-context'
 import { requireAuth } from '../middleware/require-auth'
 import * as auditService from '../services/audit'
 import type { AppEnv } from '../types'
-
-const listSchema = z.object({
-  limit: z.coerce.number().int().min(1).max(100).optional(),
-  cursor: z.string().max(200).optional(),
-})
 
 export const adminAuditRoutes = new Hono<AppEnv>()
 
@@ -18,7 +13,7 @@ adminAuditRoutes.use('/api/admin/audit-events/*', requireAuth)
 
 adminAuditRoutes.get('/api/admin/audit-events', requirePlatformRole('super_admin'), async (c) => {
   const data = parseOrThrow(
-    listSchema,
+    listQuerySchema,
     {
       limit: c.req.query('limit') ?? undefined,
       cursor: c.req.query('cursor') ?? undefined,

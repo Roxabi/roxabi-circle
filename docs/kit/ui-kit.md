@@ -72,6 +72,16 @@ Installed via `bunx --bun shadcn@latest add sidebar-07` into `packages/ui`:
 | `@tanstack/react-hotkeys` | Shortcuts (`HotkeysProvider` in `main.tsx`; notes `Mod+Shift+N`) |
 | `@tanstack/markdown` | Markdown render (`@tanstack/markdown/react` on note body) |
 
+### List data shapes
+
+| Data shape | Default |
+|------------|---------|
+| Unbounded catalogue | Cursor envelope `{ items, nextCursor, requestId }` |
+| Small lookup or documented demo-size data | Known-small dump or hard cap |
+| Aggregate or insights | Server-side aggregate, not browser reduction over paged rows |
+
+The notes dump is a documented demo-size exception. If it becomes an unbounded catalogue, migrate it to the cursor envelope. Contract and trade-offs: [ADR-0010](architecture/adr/0010-list-page-cursor-envelope.md).
+
 ## Related
 
 - Stack: `AGENTS.md` § UI / packages · `.claude/stack.yml`
