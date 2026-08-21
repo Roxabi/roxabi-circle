@@ -455,6 +455,24 @@ else
     "exit=${RUN_EC} out=$(echo "${RUN_OUT}" | tr '\n' ' ')"
 fi
 
+# --- 10b: refuse relative --app apps/example-* (same fail-closed) ---
+echo "-- 10b refuse relative example-* --"
+run_sync --app "apps/example-api" --modules core
+if [[ "${RUN_EC}" -eq 1 && "${RUN_OUT}" == *"refuse apps/example-"* \
+  && "$(sql_count "${KIT_SQL}")" == "${sql_ex}" ]]; then
+  pass "10b refuse --app apps/example-api (relative)"
+else
+  fail_case "10b refuse --app apps/example-api (relative)" \
+    "exit=${RUN_EC} out=$(echo "${RUN_OUT}" | tr '\n' ' ')"
+fi
+run_sync --app "apps/example-web" --modules core
+if [[ "${RUN_EC}" -eq 1 && "${RUN_OUT}" == *"refuse apps/example-"* ]]; then
+  pass "10b refuse --app apps/example-web"
+else
+  fail_case "10b refuse --app apps/example-web" \
+    "exit=${RUN_EC} out=$(echo "${RUN_OUT}" | tr '\n' ' ')"
+fi
+
 # --- 11b: --modules all,typo still validates the typo ---
 echo "-- 11b all+typo --"
 run_sync --app "${A8}" --modules all,nope

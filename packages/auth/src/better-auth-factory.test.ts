@@ -80,12 +80,10 @@ describe('createBetterAuth', () => {
   })
 
   it('rejects wildcard / glob / null / empty trustedOrigins even if corsAllowlist is skipped', () => {
-    expect(() => factory({ trustedOrigins: ['*'] })).toThrow(/explicit origins/)
+    expect(() => factory({ trustedOrigins: ['*'] })).toThrow(/glob|\*/)
     expect(() => factory({ trustedOrigins: ['https://*'] })).toThrow(/glob/)
     expect(() => factory({ trustedOrigins: ['https://*.example.com'] })).toThrow(/glob/)
-    expect(() => factory({ trustedOrigins: ['https://app.example.com', 'null'] })).toThrow(
-      /explicit origins/,
-    )
+    expect(() => factory({ trustedOrigins: ['https://app.example.com', 'null'] })).toThrow(/null/)
     expect(() => factory({ trustedOrigins: [] })).toThrow(/never empty/)
     expect(() => factory({ trustedOrigins: ['  ', ''] })).toThrow(/never empty/)
   })
@@ -110,6 +108,12 @@ describe('createBetterAuth', () => {
     expect(() =>
       factory({
         trustedOrigins: ['https://app.example.com', 'http://localhost:5173'],
+        allowLoopbackOrigins: false,
+      }),
+    ).toThrow(/loopback/)
+    expect(() =>
+      factory({
+        trustedOrigins: ['http://127.0.0.2:5173'],
         allowLoopbackOrigins: false,
       }),
     ).toThrow(/loopback/)

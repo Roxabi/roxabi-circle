@@ -41,17 +41,15 @@ describe('better-auth env helpers', () => {
     expect(() => corsAllowlist({})).toThrow(AppError)
     expect(() => corsAllowlist({ ENVIRONMENT: 'production' })).toThrow(/CORS_ORIGINS/)
     expect(() => corsAllowlist({ ENVIRONMENT: 'development', CORS_ORIGINS: '*' })).toThrow(
-      /explicit origins/,
+      /glob|\*/,
     )
-    expect(() => corsAllowlist({ ENVIRONMENT: 'test', CORS_ORIGINS: 'NULL' })).toThrow(
-      /explicit origins/,
-    )
+    expect(() => corsAllowlist({ ENVIRONMENT: 'test', CORS_ORIGINS: 'NULL' })).toThrow(/null/)
     expect(() =>
       corsAllowlist({
         ENVIRONMENT: 'production',
         CORS_ORIGINS: 'https://app.example.com,*',
       }),
-    ).toThrow(/explicit origins/)
+    ).toThrow(/glob|\*/)
     expect(() =>
       corsAllowlist({ ENVIRONMENT: 'production', CORS_ORIGINS: 'http://localhost:5173' }),
     ).toThrow(/loopback/)
@@ -67,15 +65,17 @@ describe('better-auth env helpers', () => {
   })
 
   it('assertTrustedOrigins rejects * / globs / null / empty and loopback by default', () => {
-    expect(() => assertTrustedOrigins(['*'])).toThrow(/explicit origins/)
+    expect(() => assertTrustedOrigins(['*'])).toThrow(/glob|\*/)
     expect(() => assertTrustedOrigins(['https://*'])).toThrow(/glob/)
     expect(() => assertTrustedOrigins(['https://*.example.com'])).toThrow(/glob/)
     expect(() => assertTrustedOrigins(['*.example.com'])).toThrow(/glob/)
-    expect(() => assertTrustedOrigins(['NULL'])).toThrow(/explicit origins/)
+    expect(() => assertTrustedOrigins(['NULL'])).toThrow(/null/)
     expect(() => assertTrustedOrigins([])).toThrow(/never empty/)
     expect(() => assertTrustedOrigins(['https://app.example.com/app'])).toThrow(/no path/)
     expect(() => assertTrustedOrigins(['http://localhost:5173'])).toThrow(/loopback/)
+    expect(() => assertTrustedOrigins(['http://127.0.0.2:5173'])).toThrow(/loopback/)
     expect(() => assertTrustedOrigins(['http://[::1]:5173'])).toThrow(/loopback/)
+    expect(() => assertTrustedOrigins(['http://[::ffff:7f00:2]:5173'])).toThrow(/loopback/)
     expect(() =>
       assertTrustedOrigins(['https://app.example.com', 'http://localhost:5173']),
     ).toThrow(/loopback/)
