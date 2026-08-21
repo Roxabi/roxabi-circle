@@ -80,8 +80,8 @@ jobs:
         run: bun install --frozen-lockfile
 
       # Kit origin: zero-edit kit mode (allowlist). Product: checker reads
-      # config/product/inheritance.json (or transitional docs/product/kit-baseline).
-      # See docs/kit/product-consumer-contract.md · ADR-0009.
+      # config/product/inheritance.json only (ADR-0009 / #107).
+      # See docs/kit/product-consumer-contract.md.
       - name: Validate full
         run: |
           set -euo pipefail
@@ -93,13 +93,6 @@ jobs:
               exit 1
             fi
             echo "inheritance upstreamCommit=${SHA}"
-          elif [[ -f docs/product/kit-baseline ]]; then
-            SHA="$(tr -d '[:space:]' < docs/product/kit-baseline)"
-            if ! git rev-parse --verify "${SHA}^{commit}" >/dev/null 2>&1; then
-              echo "::error::kit-baseline ${SHA} not in history — deepen checkout or re-merge upstream"
-              exit 1
-            fi
-            echo "legacy kit-baseline=${SHA}"
           fi
           bun run validate:full
 

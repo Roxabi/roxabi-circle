@@ -83,18 +83,7 @@ if [[ "$MODE" == "--self-sim" ]]; then
   # Positive: clean product tree vs inheritance tip
   run_gates "$TMP/product"
 
-  # #103: even if ZERO_EDIT_BASE_REF wrongly points at a name, disagreeing env must fail-closed
-  # (not silently use upstream). Marker remains SSoT.
-  set +e
-  ZERO_EDIT_ROOT="$TMP/product" ZERO_EDIT_BASE_REF=upstream/main \
-    bash "$ROOT/scripts/kit/check-zero-edit-zones.sh"
-  env_disagree=$?
-  set -e
-  if [[ "$env_disagree" -eq 0 ]]; then
-    echo "FAIL: expected disagreeing ZERO_EDIT_BASE_REF=upstream/main to fail" >&2
-    exit 1
-  fi
-  echo "dogfood: disagreeing ZERO_EDIT_BASE_REF correctly failed"
+  # #103: base is inheritance.json only (ZERO_EDIT_BASE_REF removed in #107)
 
   # Negative: protected-path dual-edit must fail
   echo "/* dogfood dual-edit probe */" >>package.json
@@ -106,7 +95,7 @@ if [[ "$MODE" == "--self-sim" ]]; then
     echo "FAIL: expected zero-edit to fail after package.json dual-edit" >&2
     exit 1
   fi
-  echo "dogfood self-sim: OK (inheritance base + dual-edit fail + no_push + #103 env disagree)"
+  echo "dogfood self-sim: OK (inheritance base + dual-edit fail + no_push)"
   exit 0
 fi
 

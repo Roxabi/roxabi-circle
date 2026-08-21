@@ -24,7 +24,6 @@ if [[ ! -f "$ZONES_FILE" ]]; then
 fi
 
 export ROOT ZONES_FILE
-export ZERO_EDIT_BASE_REF="${ZERO_EDIT_BASE_REF:-}"
 export ZERO_EDIT_MODE="${ZERO_EDIT_MODE:-}"
 export ZERO_EDIT_HARNESS_SENTINEL="${ZERO_EDIT_HARNESS_SENTINEL:-}"
 
@@ -136,9 +135,7 @@ if (!Array.isArray(zones.protected_prefixes) || !Array.isArray(zones.protected_f
 }
 
 const inheritanceFile = zones.inheritance_file || 'config/product/inheritance.json'
-const legacyBaselineFile = zones.legacy_baseline_file || 'docs/product/kit-baseline'
 const inheritancePath = join(root, inheritanceFile)
-const legacyPath = join(root, legacyBaselineFile)
 const allowlist = new Set(zones.kit_origin_allowlist || [])
 
 const originUrl = git(['remote', 'get-url', 'origin'], { allowFail: true })
@@ -149,7 +146,6 @@ const onAllowlist = identity !== '' && allowlist.has(identity)
 
 const inheritanceDoc = loadJson(inheritancePath, 'inheritance')
 const hasInheritance = Boolean(inheritanceDoc?.upstreamCommit)
-const hasLegacy = existsSync(legacyPath)
 
 // Mode resolution (ADR-0009 D5)
 let mode
@@ -166,10 +162,10 @@ if (modeEnv) {
     )
   }
   mode = modeEnv
-} else if (hasInheritance || hasLegacy) {
+} else if (hasInheritance) {
   if (onAllowlist) {
     die(
-      `inheritance/legacy marker present on kit-allowlisted origin "${identity}" — mirrors/kits must not carry product markers`,
+      `inheritance marker present on kit-allowlisted origin "${identity}" — mirrors/kits must not carry product markers`,
     )
   }
   mode = 'product'
@@ -289,50 +285,23 @@ if (mode !== 'product') {
   die(`unknown mode "${mode}" (use kit|product)`)
 }
 
-// Resolve base (ADR-0009 D4) — never upstream/main
-function readLegacySha() {
-  const raw = readFileSync(legacyPath, 'utf8').replace(/[#].*$/gm, '').trim()
-  const line = raw.split(/\s+/).find(Boolean)
-  return line || ''
-}
-
+// Resolve base (ADR-0009 D4 / #107) — inheritance.json only; never upstream/main
 let baseRef = ''
-let baseSource = ''
+let baseSource = inheritanceFile
 
-if (hasInheritance) {
+if (!hasInheritance) {
+  die(`product mode requires ${inheritanceFile} with upstreamCommit (full SHA)`)
+}
+{
   const sha = String(inheritanceDoc.upstreamCommit || '').trim()
   if (!/^[0-9a-f]{40}$/i.test(sha)) {
     die(`${inheritanceFile}: upstreamCommit must be a full 40-char SHA`)
   }
   baseRef = sha
-  baseSource = inheritanceFile
 }
 
-if (hasLegacy) {
-  const legacySha = readLegacySha()
-  if (!/^[0-9a-f]{40}$/i.test(legacySha)) {
-    die(`${legacyBaselineFile}: expected full SHA, got "${legacySha}"`)
-  }
-  if (hasInheritance && legacySha.toLowerCase() !== baseRef.toLowerCase()) {
-    die(
-      `inheritance (${baseRef}) disagrees with legacy kit-baseline (${legacySha}) — fix or remove one`,
-    )
-  }
-  if (!hasInheritance) {
-    baseRef = legacySha
-    baseSource = legacyBaselineFile
-  }
-}
-
-if (!baseRef) {
-  die(`product mode requires ${inheritanceFile} (or transitional ${legacyBaselineFile})`)
-}
-
-const envBase = (process.env.ZERO_EDIT_BASE_REF || '').trim()
-if (envBase && envBase !== baseRef) {
-  die(
-    `ZERO_EDIT_BASE_REF (${envBase}) disagrees with resolved base ${baseRef} from ${baseSource}`,
-  )
+if ((process.env.ZERO_EDIT_BASE_REF || '').trim()) {
+  die('ZERO_EDIT_BASE_REF is removed (#107) — use config/product/inheritance.json only')
 }
 
 if (!refExists(baseRef)) {

@@ -122,7 +122,7 @@ set -euo pipefail
 remote_name="${1:-}"
 remote_url="${2:-}"
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
-if [[ ! -f "${REPO_ROOT}/config/product/inheritance.json" && ! -f "${REPO_ROOT}/docs/product/kit-baseline" ]]; then exit 0; fi
+if [[ ! -f "${REPO_ROOT}/config/product/inheritance.json" ]]; then exit 0; fi
 # intentionally weakened: no name=upstream deny
 exit 0
 STRIP
