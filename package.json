@@ -47,6 +47,7 @@
     "dogfood:zero-edit": "bash scripts/dogfood-zero-edit.sh --self-sim",
     "test:deny-upstream": "bash scripts/test-deny-upstream.sh",
     "test:kit-schema-sync": "bash scripts/test-kit-schema-sync.sh",
+    "test:falsify": "bash scripts/test-falsify.sh",
     "wrangler-migrations:check": "bash scripts/check-wrangler-migrations-dir.sh",
     "test:wrangler-migrations": "bash scripts/test-wrangler-migrations-dir.sh"
   },

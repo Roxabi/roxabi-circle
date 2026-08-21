@@ -92,12 +92,55 @@ function isHttpOrigin(o: string): boolean {
   }
 }
 
+function stripHostDecorations(hostname: string): string {
+  let h = hostname.toLowerCase()
+  if (h.startsWith('[') && h.endsWith(']')) h = h.slice(1, -1)
+  const zone = h.indexOf('%')
+  return zone === -1 ? h : h.slice(0, zone)
+}
+
+function isIpv4Loopback(host: string): boolean {
+  const parts = host.split('.')
+  if (parts.length !== 4) return false
+  const octets: number[] = []
+  for (const p of parts) {
+    if (!/^\d{1,3}$/.test(p)) return false
+    const n = Number(p)
+    if (n > 255) return false
+    octets.push(n)
+  }
+  return octets[0] === 127
+}
+
+/** IPv4-mapped IPv6 carrying a dotted or hex 32-bit suffix (`::ffff:7f00:2`). */
+function ipv4FromMapped6(host: string): string | undefined {
+  const dotted = /^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/.exec(host)
+  if (dotted) return dotted[1]
+  const hex = /^(?:(?:0:){0,5}|::)ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/.exec(host)
+  if (!hex) return undefined
+  const hi = Number.parseInt(hex[1], 16)
+  const lo = Number.parseInt(hex[2], 16)
+  return `${(hi >> 8) & 255}.${hi & 255}.${(lo >> 8) & 255}.${lo & 255}`
+}
+
+/**
+ * Loopback classifier (not a hostname denylist): IPv4 127/8, IPv6 ::1,
+ * IPv4-mapped IPv6 127/8, DNS `localhost` / RFC 6761 `.localhost`.
+ */
+function isLoopbackHost(hostname: string): boolean {
+  const host = stripHostDecorations(hostname)
+  if (host === 'localhost' || host.endsWith('.localhost')) return true
+  if (host === '::1' || host === '0:0:0:0:0:0:0:1') return true
+  const mapped = ipv4FromMapped6(host)
+  if (mapped) return isIpv4Loopback(mapped)
+  return isIpv4Loopback(host)
+}
+
 function isLoopbackOrigin(o: string): boolean {
   try {
-    const host = new URL(o).hostname.toLowerCase()
-    return host === 'localhost' || host === '127.0.0.1' || host === '::1' || host === '[::1]'
+    return isLoopbackHost(new URL(o).hostname)
   } catch {
-    return /^(https?:\/\/)?(localhost|127\.0\.0\.1|\[::1\])(:|\/|$)/i.test(o)
+    return false
   }
 }
 

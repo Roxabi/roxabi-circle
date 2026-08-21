@@ -75,7 +75,9 @@ describe('better-auth env helpers', () => {
     expect(() => assertTrustedOrigins([])).toThrow(/never empty/)
     expect(() => assertTrustedOrigins(['https://app.example.com/app'])).toThrow(/no path/)
     expect(() => assertTrustedOrigins(['http://localhost:5173'])).toThrow(/loopback/)
+    expect(() => assertTrustedOrigins(['http://127.0.0.2:5173'])).toThrow(/loopback/)
     expect(() => assertTrustedOrigins(['http://[::1]:5173'])).toThrow(/loopback/)
+    expect(() => assertTrustedOrigins(['http://[::ffff:7f00:2]:5173'])).toThrow(/loopback/)
     expect(() =>
       assertTrustedOrigins(['https://app.example.com', 'http://localhost:5173']),
     ).toThrow(/loopback/)

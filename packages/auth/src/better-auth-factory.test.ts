@@ -113,6 +113,12 @@ describe('createBetterAuth', () => {
         allowLoopbackOrigins: false,
       }),
     ).toThrow(/loopback/)
+    expect(() =>
+      factory({
+        trustedOrigins: ['http://127.0.0.2:5173'],
+        allowLoopbackOrigins: false,
+      }),
+    ).toThrow(/loopback/)
     const auth = factory({
       trustedOrigins: ['https://app.example.com'],
       allowLoopbackOrigins: false,
