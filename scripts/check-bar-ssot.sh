@@ -3,11 +3,13 @@
 #
 # SSoT for the step list is root package.json scripts["validate:full"].
 # Tokenize that script on `bun run <name>` / `&&`. Naming the script is allowed.
-# A bullet / middot / comma inventory of inner names is not. Heuristic: ≥
-# THRESHOLD of those tokens on one line (or a middot-wrapped continuation).
+# A CP row listing inner names without the bar name is allowed. Heuristic: the
+# line/block mentions `validate:full` AND ≥ THRESHOLD of those tokens (or a
+# middot-wrapped continuation of that).
 #
 # lefthook pre-push and CI (when present) must invoke `bun run validate:full`
-# by name (extra flags ok; copying inner steps is not).
+# by name as the command (optional `run:` prefix; extra flags ok). A substring
+# inside `echo "…"` or a comment is not an invoke. Copying inner steps is not.
 #
 # Override: BAR_SSOT_ROOT (fixture trees in the self-test).
 set -euo pipefail
@@ -118,14 +120,23 @@ is_list_continuation() {
   return 1
 }
 
+mentions_validate_full() {
+  local text="$1"
+  [[ "${text}" == *'validate:full'* ]]
+}
+
+# Command invoke: optional YAML list dash + optional `run:` prefix, then
+# `bun run validate:full`. Not a substring inside echo/comments.
 line_invokes_validate_full() {
   local stripped="$1"
   [[ "${stripped}" == \#* ]] && return 1
-  local padded=" ${stripped} "
-  case "${padded}" in
-    *[!A-Za-z0-9_:-]bun\ run\ validate:full[!A-Za-z0-9_:-]*) return 0 ;;
-  esac
-  return 1
+  if [[ "${stripped}" == -* ]]; then
+    stripped="${stripped#-}"
+    stripped="${stripped#"${stripped%%[![:space:]]*}"}"
+  fi
+  [[ "${stripped}" == \#* ]] && return 1
+  local re='^(run:[[:space:]]*)?bun[[:space:]]+run[[:space:]]+validate:full([[:space:]]|$)'
+  [[ "${stripped}" =~ ${re} ]]
 }
 
 FAIL=0
@@ -149,7 +160,7 @@ for rel in "${FILES[@]}"; do
     local bn
     [[ "${lines}" -gt 1 ]] || return 0
     bn="$(marker_count "${text}")"
-    if [[ "${bn}" -ge "${THRESHOLD}" ]]; then
+    if [[ "${bn}" -ge "${THRESHOLD}" ]] && mentions_validate_full "${text}"; then
       echo "error: ${rel}:${at}: wrapped validate:full step list belongs in package.json" >&2
       echo "  ${text}" >&2
       FAIL=1
@@ -159,7 +170,7 @@ for rel in "${FILES[@]}"; do
     ln=$((ln + 1))
     line="${line%$'\r'}"
     n="$(marker_count "${line}")"
-    if [[ "${n}" -ge "${THRESHOLD}" ]]; then
+    if [[ "${n}" -ge "${THRESHOLD}" ]] && mentions_validate_full "${line}"; then
       echo "error: ${rel}:${ln}: validate:full step list belongs in package.json" >&2
       echo "  ${line}" >&2
       FAIL=1

@@ -45,6 +45,11 @@ describe('assertTrustedOrigins loopback classifier', () => {
     'http://[::1]:5173',
     'http://[::ffff:7f00:1]',
     'http://[::ffff:7f00:2]:5173',
+    // WHATWG keeps hex mapped unspecified; dotted `::ffff:0.0.0.0` rewrites (not an origin).
+    'http://[::ffff:0:0]',
+    'http://[::ffff:0:0]:5173',
+    // WHATWG serializes IPv4-compatible `::127.0.0.1` as `::7f00:1` (dotted form rewrites).
+    'http://[::7f00:1]:5173',
     'http://localhost.',
     'http://127.0.0.1.',
     'http://0.0.0.0',

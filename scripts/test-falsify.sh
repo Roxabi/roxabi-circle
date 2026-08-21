@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
-# CP-FALSIFY — mechanical canary: oracle tests MUST fail if glob/null origin
-# checks are neutered. Restores the source even on failure (trap).
+# CP-FALSIFY — mechanical canary: oracle tests MUST fail (non-zero) if
+# isGlobOrNullOrigin is neutered. Restores the source even on failure (trap).
+# Oracle is exit status only — do not grep the failure snippet for glob|null
+# (neutered globs fail isHttpOrigin with "no path", which never mentions those).
 set -euo pipefail
 
 unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR 2>/dev/null || true
@@ -79,15 +81,11 @@ if [[ "${GOT}" -eq 0 ]]; then
   exit 1
 fi
 
-if ! printf '%s\n' "${OUT}" | grep -qiE 'glob|null'; then
-  echo "FAIL: oracle failure output must mention glob or null" >&2
-  echo "${OUT}" >&2
-  exit 1
-fi
-
+set +e
 SNIP="$(
-  printf '%s\n' "${OUT}" | grep -E 'AssertionError|FAIL |toThrow|Error:|glob|null' | head -n 8 | tr '\n' ' '
+  printf '%s\n' "${OUT}" | grep -E 'AssertionError|FAIL |toThrow|Error:' | head -n 8 | tr '\n' ' '
 )"
+set -e
 if [[ -z "${SNIP}" ]]; then
   SNIP="$(printf '%s\n' "${OUT}" | tail -n 20 | tr '\n' ' ')"
 fi
