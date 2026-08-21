@@ -45,7 +45,7 @@ assert_exit() {
 
 seed_ok() {
   local tree="$1"
-  mkdir -p "${tree}/docs"
+  mkdir -p "${tree}/docs/kit"
   cat >"${tree}/package.json" <<'EOF'
 {
   "scripts": {

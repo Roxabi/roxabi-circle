@@ -9,7 +9,7 @@
 # Exclude SSoT: scripts/kit/trufflehog-exclude-paths.txt
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
 
 EXCLUDE_SRC="${ROOT}/scripts/kit/trufflehog-exclude-paths.txt"

@@ -4,7 +4,7 @@
 # Does NOT belong in validate:full / Lefthook pre-push.
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
 
 API_PORT="${E2E_API_PORT:-8787}"
