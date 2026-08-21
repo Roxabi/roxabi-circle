@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "description": "ADR-0009: kit paths under {config,scripts,docs}/kit; product under */product; root protected_files debt until #110.",
+  "description": "ADR-0009: kit paths under {config,scripts,docs}/kit; product under */product; root protected_files debt until #110; bun.lock intentionally not protected (product workspace co-ownership \u2014 see #110).",
   "protected_prefixes": [
     "packages/",
     "apps/example-api/",
@@ -15,7 +15,6 @@
   "protected_files": [
     "lefthook.yml",
     "package.json",
-    "bun.lock",
     "turbo.jsonc",
     "biome.json",
     "tsconfig.json",
@@ -74,7 +73,7 @@
       {
         "id": "product-assets",
         "where": "apps/<product>-web/public/** or app assets",
-        "how": "Favicon, OG, logo live in the product app — not packages/ui."
+        "how": "Favicon, OG, logo live in the product app \u2014 not packages/ui."
       }
     ]
   }
