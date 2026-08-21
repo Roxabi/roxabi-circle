@@ -156,7 +156,7 @@ Floors are enforced by Vitest (`packages/config/vitest-coverage.mjs` + per-packa
 | **`packages/*`** | Public API of the capability (crypto, AppError, `joinObjectKey`, UI primitive contracts, MCP allowlist) | Share product scenarios (artefact, slug 409, private_key product mode) |
 | **`apps/example-*`** | Composition: Hono + D1/R2, dual auth wire, demo IDOR, CORS, cookies, design-system smoke | Re-implement package crypto N times |
 | **`apps/share-*` (P1 later)** | Product risks (upload modes, zip-slip, org membership, serve) | Forks of `@kit/*` stacks |
-| **`scripts/*` / `tools/*`** | Architecture gates: banlist, extract, zero-edit, env:check, license:check, coverage | Domain behaviour |
+| **`scripts/*` / `tools/*`** | Architecture gates (kit-bar script names live in root `package.json`, not here) | Domain behaviour |
 
 ### Design-system e2e (local only)
 
@@ -211,15 +211,16 @@ Machine-enforced today via full `validate` + `test:coverage` + package tests. Pr
 | **CP-MCP-BUDGET** | oversized input rejected before handler body (execute not called) | `packages/mcp` unit budget cases |
 | **CP-MCP** (legacy row) | same family as above — prefer CP-MCP-* | kept for old links |
 | **CP-BAN** | no product-share strings in packages / examples | `scripts/check-banned-strings.sh` |
-| **CP-EXTRACT** | structural extractability: required tree, banlist, import graph, orphan packages, ADRs (does **not** re-run lint/typecheck/test after a simulated drop) | `scripts/extract-dry-run.sh` |
+| **CP-EXTRACT** | structural extractability: required tree, share-string scan, import graph, orphan packages, ADRs (does **not** re-run the unit/type gates after a simulated drop) | `scripts/extract-dry-run.sh` |
 | **CP-ZERO-EDIT** | product consumers do not dual-edit kit paths; design overrides preferred; exceptions time-boxed + ticketed | `scripts/check-zero-edit-zones.sh` · `config/zero-edit-zones.json` · [`product-consumer-contract.md`](./product-consumer-contract.md) |
 | **CP-DENY** | multi-hop deny-upstream: kit origin no-op; product blocks remote name `upstream`, kit URL substring, and product/env-extended chassis substrings; weaken name-guard fails harness | `bun run test:deny-upstream` · `scripts/test-deny-upstream.sh` · `scripts/deny-upstream-push.sh` (in `validate:full`) |
-| **CP-KIT-SCHEMA** | kit D1 modules identified by catalog id + sha256; product appends `NNNN_kit_<id>.sql` and never reuses an applied `NNNN`; adopt matches raw clones; mutated published id fails; wrangler `migrations_dir` never resolves under `packages/` (live-tree harness: exit 0 + `check-wrangler-migrations-dir: OK` + ≥1 wrangler file — not a pinned count; product-shaped extra files still fail-closed on a sketch dir) | `bun run test:kit-schema-sync` · `scripts/kit-schema-sync.sh` · `bun run wrangler-migrations:check` · `bun run test:wrangler-migrations` · [ADR-0008](./architecture/adr/0008-kit-schema-identity-product-compose.md) (in `validate:full`) |
+| **CP-KIT-SCHEMA** | kit D1 modules identified by catalog id + sha256; product appends `NNNN_kit_<id>.sql` and never reuses an applied `NNNN`; adopt matches raw clones; mutated published id fails; wrangler `migrations_dir` never resolves under `packages/` (live-tree harness: exit 0 + `check-wrangler-migrations-dir: OK` + ≥1 wrangler file — not a pinned count; product-shaped extra files still fail-closed on a sketch dir) | `bun run test:kit-schema-sync` · `scripts/kit-schema-sync.sh` · `bun run wrangler-migrations:check` · [ADR-0008](./architecture/adr/0008-kit-schema-identity-product-compose.md) (in `validate:full`) |
 | **CP-KIT-AUTH** | products import `createBetterAuth` from `@kit/auth/factory` (signup default off, secure cookies, magic/reset EmailPort, secret denylist); factory `trustedOrigins` reject `*` / `null` / empty even if `corsAllowlist` is skipped; env helpers fail-closed including `CORS_ORIGINS` outside dev | `packages/auth` unit (`better-auth-env`, `auth-email`, `first-session-hook`, factory options) · example-api magic-link / audit / CORS dogfood |
 | **CP-IMPORT** | static R1–R4 import edges (packages↛apps, example-web↛example-api src / `cloudflare:workers`) after exemptions; self-test plants edges in temp tree | `bun run import-boundary` · `scripts/check-import-boundaries.ts` · `bun run test:import-boundary` (in `validate:full`) |
 | **CP-DEBT** | suppressions in `apps|packages` carry `DEBT:<slug>`; untagged + expiry (default **warn**, non-blocking); self-test plants untagged/tagged **and** expiry (stale / pin / warn) cases | `bun run debt:check` · `scripts/check-debt.ts` · `bun run test:debt` · [`debt-tracking.md`](./debt-tracking.md) (in `validate:full`) |
 | **CP-TS-MAJOR** | root `typescript` pin exclusive `^7`; leftover workspace pins (if any) must match; lock has positive `typescript@7.` and no non-allowlisted `@5`/`@6`; self-test plants inherit / dual-range / residual / missing-7 / stray-5 cases | `bun run ts-major` · `scripts/check-typescript-major.sh` · `bun run test:ts-major` (in `validate:full`) |
 | **CP-BAR-SSOT** | `AGENTS.md` / `docs/testing.md` / `lefthook.yml` do not copy the kit-bar step list; SSoT is root `package.json` `validate:full` | `bun run check:bar-ssot` · `bun run test:bar-ssot` (in `validate:full`) |
+| **CP-FALSIFY** | oracle tests fail when `isGlobOrNullOrigin` is neutered AND the failure snippet mentions glob or null | `bun run test:falsify` |
 | **CP-ENV** | **Kit only:** `apps/example-api` Worker string keys documented in `apps/example-api/.dev.vars.example` (SSoT Zod schema) + root Vite placeholders; no real secrets in examples. **Does not** cover product apps’ env inventories | `bun run env:check` — **DX only**, example-api scoped; not “prod secrets validated”, not product-wide |
 | **CP-LICENSE** | third-party deps on allowlist; disallowed SPDX fails | `bun run license:check` — **compliance hygiene**, not malware audit |
 | **CP-I18N** | Kit `example-web` FR/EN non-empty copy + key parity (`Messages`); `LocaleSwitcher` hidden when one catalog | `messages.contract.test.ts` / `i18n:check` · `packages/i18n` + `LocaleSwitcher` unit — **not** semantic/security review |
@@ -333,7 +334,7 @@ Avoid pure “mock every repo” theatre unless a bug proves the need.
         ├──────────────────────┤
         │  package units       │  auth, core, storage, types, mcp, ui contracts
         ├──────────────────────┤
-        │  architecture scripts│  banlist · extract · zero-edit · import-boundary · env:check · license (full)
+        │  architecture scripts│  kit-bar scripts (names in root package.json — do not copy here)
         └──────────────────────┘
 ```
 

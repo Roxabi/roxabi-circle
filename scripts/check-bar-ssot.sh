@@ -2,9 +2,12 @@
 # Fail if AGENTS.md, docs/testing.md, or lefthook.yml re-enumerate validate:full.
 #
 # SSoT for the step list is root package.json scripts["validate:full"].
-# Naming the script is allowed. A bullet / middot / comma inventory of inner
-# steps is not. Heuristic: several of banlist, zod-major, test:kit-schema-sync,
-# wrangler-migrations on one line (or a middot-wrapped continuation).
+# Tokenize that script on `bun run <name>` / `&&`. Naming the script is allowed.
+# A bullet / middot / comma inventory of inner names is not. Heuristic: ≥
+# THRESHOLD of those tokens on one line (or a middot-wrapped continuation).
+#
+# lefthook pre-push and CI (when present) must invoke `bun run validate:full`
+# by name (extra flags ok; copying inner steps is not).
 #
 # Override: BAR_SSOT_ROOT (fixture trees in the self-test).
 set -euo pipefail
@@ -17,12 +20,6 @@ FILES=(
   lefthook.yml
 )
 
-MARKERS=(
-  banlist
-  zod-major
-  test:kit-schema-sync
-  wrangler-migrations
-)
 THRESHOLD=3
 
 if [[ ! -d "${ROOT}" ]]; then
@@ -30,13 +27,75 @@ if [[ ! -d "${ROOT}" ]]; then
   exit 1
 fi
 
+PKG="${ROOT}/package.json"
+if [[ ! -f "${PKG}" ]]; then
+  echo "check-bar-ssot: missing package.json" >&2
+  exit 1
+fi
+
+if ! command -v bun >/dev/null 2>&1; then
+  echo "check-bar-ssot: bun is required to parse package.json" >&2
+  exit 1
+fi
+
+TOKEN_ERR="$(mktemp)"
+TOKEN_OUT=""
+TOKEN_EC=0
+set +e
+TOKEN_OUT="$(
+  BAR_SSOT_PKG="${PKG}" bun -e '
+const fs = require("fs");
+const p = process.env.BAR_SSOT_PKG;
+let j;
+try {
+  j = JSON.parse(fs.readFileSync(p, "utf8"));
+} catch (e) {
+  console.error("check-bar-ssot: unparseable package.json");
+  process.exit(1);
+}
+const s = j && j.scripts && j.scripts["validate:full"];
+if (typeof s !== "string" || !s.trim()) {
+  console.error("check-bar-ssot: missing scripts[\"validate:full\"]");
+  process.exit(1);
+}
+const names = [];
+const re = /bun run ([^\s&]+)/g;
+let m;
+while ((m = re.exec(s))) names.push(m[1]);
+if (names.length === 0) {
+  console.error("check-bar-ssot: validate:full has no bun run <name> tokens");
+  process.exit(1);
+}
+for (const n of names) process.stdout.write(n + "\n");
+' 2>"${TOKEN_ERR}"
+)"
+TOKEN_EC=$?
+set -e
+if [[ "${TOKEN_EC}" -ne 0 ]]; then
+  echo "check-bar-ssot: cannot read scripts[\"validate:full\"]" >&2
+  if [[ -s "${TOKEN_ERR}" ]]; then
+    cat "${TOKEN_ERR}" >&2
+  fi
+  rm -f "${TOKEN_ERR}"
+  exit 1
+fi
+rm -f "${TOKEN_ERR}"
+
+mapfile -t TOKENS <<< "${TOKEN_OUT}"
+if [[ "${#TOKENS[@]}" -eq 0 ]]; then
+  echo "check-bar-ssot: validate:full has no bun run <name> tokens" >&2
+  exit 1
+fi
+
 marker_count() {
   local text="$1"
   local n=0 m
-  for m in "${MARKERS[@]}"; do
-    if [[ "${text}" == *"${m}"* ]]; then
-      n=$((n + 1))
-    fi
+  local padded=" ${text} "
+  for m in "${TOKENS[@]}"; do
+    [[ -n "${m}" ]] || continue
+    case "${padded}" in
+      *[!A-Za-z0-9_:-]"${m}"[!A-Za-z0-9_:-]*) n=$((n + 1)) ;;
+    esac
   done
   printf '%s' "${n}"
 }
@@ -55,6 +114,16 @@ is_list_continuation() {
   esac
   case "${cur_stripped}" in
     '·'* | ','*) return 0 ;;
+  esac
+  return 1
+}
+
+line_invokes_validate_full() {
+  local stripped="$1"
+  [[ "${stripped}" == \#* ]] && return 1
+  local padded=" ${stripped} "
+  case "${padded}" in
+    *[!A-Za-z0-9_:-]bun\ run\ validate:full[!A-Za-z0-9_:-]*) return 0 ;;
   esac
   return 1
 }
@@ -107,6 +176,45 @@ for rel in "${FILES[@]}"; do
   done <"${path}"
   flush_block "${block}" "${block_ln}" "${block_n}"
 done
+
+LEFTHOOK="${ROOT}/lefthook.yml"
+if [[ -f "${LEFTHOOK}" ]]; then
+  pre_push="$(awk '
+    /^pre-push:[[:space:]]*$/ {grab=1; print; next}
+    grab && /^[A-Za-z0-9_-]+:/ {exit}
+    grab {print}
+  ' "${LEFTHOOK}")"
+  found=0
+  while IFS= read -r line || [[ -n "${line}" ]]; do
+    line="${line%$'\r'}"
+    stripped="${line#"${line%%[![:space:]]*}"}"
+    if line_invokes_validate_full "${stripped}"; then
+      found=1
+      break
+    fi
+  done <<< "${pre_push}"
+  if [[ "${found}" -eq 0 ]]; then
+    echo "error: lefthook.yml: pre-push must invoke bun run validate:full by name" >&2
+    FAIL=1
+  fi
+fi
+
+CI="${ROOT}/.github/workflows/ci.yml"
+if [[ -f "${CI}" ]]; then
+  found=0
+  while IFS= read -r line || [[ -n "${line}" ]]; do
+    line="${line%$'\r'}"
+    stripped="${line#"${line%%[![:space:]]*}"}"
+    if line_invokes_validate_full "${stripped}"; then
+      found=1
+      break
+    fi
+  done <"${CI}"
+  if [[ "${found}" -eq 0 ]]; then
+    echo "error: .github/workflows/ci.yml: full-bar job must invoke bun run validate:full by name" >&2
+    FAIL=1
+  fi
+fi
 
 if [[ "${FAIL}" -ne 0 ]]; then
   echo "check-bar-ssot: FAIL (SSoT is package.json scripts[\"validate:full\"])" >&2

@@ -46,6 +46,13 @@ assert_exit() {
 seed_ok() {
   local tree="$1"
   mkdir -p "${tree}/docs"
+  cat >"${tree}/package.json" <<'EOF'
+{
+  "scripts": {
+    "validate:full": "bun run lint && bun run typecheck && bun run banlist && bun run zod-major && bun run ts-major && bun run import-boundary && bun run test:kit-schema-sync && bun run wrangler-migrations:check && bun run zero-edit && bun run extract-dry-run"
+  }
+}
+EOF
   cat >"${tree}/AGENTS.md" <<'EOF'
 # kit
 pre-push runs `bun run validate:full` (SSoT: root package.json).
@@ -99,6 +106,24 @@ cat >"${TWO}/docs/testing.md" <<'EOF'
 | **CP-KIT-SCHEMA** | sync + wrangler | `bun run test:kit-schema-sync` · `bun run wrangler-migrations:check` |
 EOF
 assert_exit "two markers on a CP row → 0" 0 "${TWO}" "check-bar-ssot: OK"
+
+NEW_MARKERS="${TMP}/new-markers"
+seed_ok "${NEW_MARKERS}"
+cat >"${NEW_MARKERS}/AGENTS.md" <<'EOF'
+# kit
+CI = validate:full (= lint · typecheck · ts-major · import-boundary)
+EOF
+assert_exit "middot list of other validate:full names → 1" 1 "${NEW_MARKERS}" "step list belongs in package.json"
+
+BAD_LH="${TMP}/bad-lefthook"
+seed_ok "${BAD_LH}"
+cat >"${BAD_LH}/lefthook.yml" <<'EOF'
+pre-push:
+  commands:
+    validate-full:
+      run: bun run lint && bun run typecheck && bun run ts-major && bun run import-boundary
+EOF
+assert_exit "lefthook copies inner steps → 1" 1 "${BAD_LH}" "by name"
 
 MISSING="${TMP}/missing"
 mkdir -p "${MISSING}"

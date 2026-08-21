@@ -86,7 +86,10 @@ function isGlobOrNullOrigin(o: string): boolean {
 function isHttpOrigin(o: string): boolean {
   try {
     const u = new URL(o)
-    return (u.protocol === 'http:' || u.protocol === 'https:') && u.origin === o
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return false
+    if (u.origin === o) return true
+    // URL parser drops trailing FQDN dots on IPv4 hosts (`http://127.0.0.1.`).
+    return u.origin === o.replace(/\.+(?=:\d+$|$)/, '')
   } catch {
     return false
   }
@@ -96,7 +99,9 @@ function stripHostDecorations(hostname: string): string {
   let h = hostname.toLowerCase()
   if (h.startsWith('[') && h.endsWith(']')) h = h.slice(1, -1)
   const zone = h.indexOf('%')
-  return zone === -1 ? h : h.slice(0, zone)
+  if (zone !== -1) h = h.slice(0, zone)
+  while (h.endsWith('.')) h = h.slice(0, -1)
+  return h
 }
 
 function isIpv4Loopback(host: string): boolean {
@@ -125,12 +130,14 @@ function ipv4FromMapped6(host: string): string | undefined {
 
 /**
  * Loopback classifier (not a hostname denylist): IPv4 127/8, IPv6 ::1,
- * IPv4-mapped IPv6 127/8, DNS `localhost` / RFC 6761 `.localhost`.
+ * IPv4-mapped IPv6 127/8, DNS `localhost` / RFC 6761 `.localhost`,
+ * trailing-dot FQDN forms, and unspecified `0.0.0.0` / `::`.
  */
 function isLoopbackHost(hostname: string): boolean {
   const host = stripHostDecorations(hostname)
   if (host === 'localhost' || host.endsWith('.localhost')) return true
   if (host === '::1' || host === '0:0:0:0:0:0:0:1') return true
+  if (host === '0.0.0.0' || host === '::' || host === '0:0:0:0:0:0:0:0') return true
   const mapped = ipv4FromMapped6(host)
   if (mapped) return isIpv4Loopback(mapped)
   return isIpv4Loopback(host)
@@ -159,7 +166,12 @@ export function assertTrustedOrigins(
     throw AppError.internal(`${label} must be explicit origins (never empty)`)
   }
   if (list.some(isGlobOrNullOrigin)) {
-    throw AppError.internal(`${label} must be explicit origins (never * or glob)`)
+    const nullish = list.some((o) => o.trim().toLowerCase() === 'null')
+    throw AppError.internal(
+      nullish
+        ? `${label} must never include a null origin`
+        : `${label} must be explicit origins (never * or glob)`,
+    )
   }
   if (!list.every(isHttpOrigin)) {
     throw AppError.internal(`${label} must be explicit http(s) origins (no path)`)

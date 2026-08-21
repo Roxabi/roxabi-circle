@@ -67,30 +67,44 @@ try {
   console.error("check-wrangler-migrations-dir: unparseable " + p + ": " + msg.split("\n")[0]);
   process.exit(1);
 }
-function walk(v) {
-  if (v == null || typeof v !== "object") return;
-  if (Array.isArray(v)) {
-    for (const x of v) walk(x);
+function emitBinding(binding) {
+  if (binding == null || typeof binding !== "object" || Array.isArray(binding)) return;
+  const val = Object.prototype.hasOwnProperty.call(binding, "migrations_dir")
+    ? binding.migrations_dir
+    : undefined;
+  if (val == null || (typeof val === "string" && val.trim() === "")) {
+    process.stdout.write("migrations\n");
     return;
   }
-  for (const [k, val] of Object.entries(v)) {
-    if (k === "migrations_dir") {
-      if (typeof val !== "string" || val.trim() === "") {
-        console.error("check-wrangler-migrations-dir: non-string migrations_dir in " + p);
-        process.exit(1);
+  if (typeof val !== "string") {
+    console.error("check-wrangler-migrations-dir: non-string migrations_dir in " + p);
+    process.exit(1);
+  }
+  process.stdout.write(val.trim() + "\n");
+}
+function walkD1(data) {
+  if (data == null || typeof data !== "object" || Array.isArray(data)) return;
+  if (Array.isArray(data.d1_databases)) {
+    for (const b of data.d1_databases) emitBinding(b);
+  }
+  const env = data.env;
+  if (env != null && typeof env === "object" && !Array.isArray(env)) {
+    for (const ev of Object.values(env)) {
+      if (ev == null || typeof ev !== "object" || Array.isArray(ev)) continue;
+      if (Array.isArray(ev.d1_databases)) {
+        for (const b of ev.d1_databases) emitBinding(b);
       }
-      process.stdout.write(val.trim() + "\n");
-    } else {
-      walk(val);
     }
   }
 }
-walk(data);
+walkD1(data);
 '
 }
 
 FAIL=0
 CHECKED=0
+ERRF="$(mktemp)"
+trap 'rm -f "${ERRF}"' EXIT
 
 for file in "${FILES[@]+"${FILES[@]}"}"; do
   [[ -n "${file:-}" ]] || continue
@@ -105,13 +119,13 @@ for file in "${FILES[@]+"${FILES[@]}"}"; do
   extract_out=""
   extract_ec=0
   set +e
-  extract_out="$(extract_dirs "${file}" 2>&1)"
+  extract_out="$(extract_dirs "${file}" 2>"${ERRF}")"
   extract_ec=$?
   set -e
   if [[ "${extract_ec}" -ne 0 ]]; then
     echo "error: ${file}: unparseable wrangler config" >&2
-    if [[ -n "${extract_out}" ]]; then
-      echo "${extract_out}" >&2
+    if [[ -s "${ERRF}" ]]; then
+      cat "${ERRF}" >&2
     fi
     FAIL=1
     continue
