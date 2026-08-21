@@ -1,6 +1,6 @@
 ---
 title: "feat(lists): kit cursor page envelope + example dogfood"
-description: "Opaque keyset cursor list contract in @kit/types + @kit/core; dogfood admin users + audit; ADR-0009."
+description: "Opaque keyset cursor list contract in @kit/types + @kit/core; dogfood admin users + audit; ADR-0010."
 type: spec
 status: approved
 issue: 104
@@ -9,24 +9,34 @@ tier: F-lite
 
 ## Context
 
-**Promoted from:** [lists cursor page envelope frame](../frames/104-lists-cursor-page-envelope-frame.md) (approved, F-lite)
-**GitHub issue:** [#104](https://github.com/Roxabi/roxabi-boilerplate-cf/issues/104)
-**Refs:** ADR-0001 (≥2 call sites) · `admin-users` offset · `admin-audit` `createdAt:id` cursor · AGENTS TanStack Table / Virtual P1
+**Promoted from:** [lists cursor page envelope frame](../frames/104-lists-cursor-page-envelope-frame.md) (approved, F-lite)  
+**GitHub issue:** [#104](https://github.com/Roxabi/roxabi-boilerplate-cf/issues/104)  
+**Refs:** [ADR-0001](../../docs/kit/architecture/adr/0001-primary-axis-packages-compose-apps.md) (≥2 call sites) · [ADR-0010](../../docs/kit/architecture/adr/0010-list-page-cursor-envelope.md) · `admin-users` offset · `admin-audit` `createdAt:id` cursor · AGENTS TanStack Table / Virtual P1
+
+This refresh incorporates the approved design deltas but returns the specification to **draft** until human re-approval.
 
 ## Intent
 
-`example-api` already ships two divergent list contracts (`limit`+`offset`+`{ users }` vs `limit`+`cursor`+`{ items, nextCursor }`) plus a notes dump. Products (LGU catalogues) are about to invent a third flavour. The kit must own one opaque-cursor envelope before consumers freeze on offset or dump-all.
+`example-api` already ships two divergent list contracts (`limit` + `offset` + `{ users }` versus `limit` + `cursor` + `{ items, nextCursor }`) plus a notes dump. These are copyable kit behaviors. The kit must own one opaque-cursor envelope before consumers freeze on offset, dump-all, or another pagination flavor.
 
-Why now: LGU already windows dumps client-side; promote in kit HEAD, products pull via `upstream`.
+Why now: LGU already windows dumps client-side. The contract must first be promoted and dogfooded in kit HEAD; product implementation remains outside this issue and pulls later through `upstream`.
+
+Product-lead disposition is accepted:
+
+- well-formed client-minted seek cursors are acceptable because cursors are not authorization boundaries;
+- the notes dump may remain a documented demo-size exception;
+- LGU implementation remains out of scope.
 
 ## Goal
 
-Migrated admin users/audit list routes (and any **new** kit list routes) use `{ items, nextCursor, requestId }` with opaque cursors; helpers live in `@kit/types` + `@kit/core`; short ADR + `docs/ui-kit.md` data-shape rule; example-web admin users pages via `nextCursor` (no silent 50-truncation).
+Migrated admin users and audit list routes—and any **new** kit catalogue list routes—use the wire envelope `{ items, nextCursor, requestId }` with opaque keyset cursors.
+
+Reusable schemas and types live in `@kit/types`; Worker-safe cursor, limit, and page extraction helpers live in `@kit/core`. SQL, authorization, endpoint-specific keyset validation, and DTO mapping remain app-owned. `example-web` admin users uses `useInfiniteQuery` and an app-owned, localized Load more control so the list is no longer silently truncated at 50 rows.
 
 ## Users
 
-- **Primary:** kit maintainer shipping extractible list helpers + `example-*` dogfood.
-- **Secondary:** product engineers who `git fetch upstream` and apply the envelope on catalogue routes only.
+- **Primary:** kit maintainers shipping extractible list helpers and `example-*` dogfood.
+- **Secondary:** product engineers who pull the kit through `upstream` and later apply the envelope to product catalogue routes.
 
 ## Expected Behavior
 
@@ -34,37 +44,46 @@ Migrated admin users/audit list routes (and any **new** kit list routes) use `{ 
 
 | Piece | Behavior |
 |-------|----------|
-| Query | `limit` (1–100, default **50** via helper) + optional `cursor` (max **512**) + optional conventional `q` |
-| Envelope (wire) | `{ items, nextCursor, requestId }` — `nextCursor === null` ⇒ last page. `requestId` stays route/middleware-owned — **not** part of `ListPage<T>` |
-| Cursor | Opaque-by-convention string (base64url JSON keyset). **Not** a security boundary: well-formed client-minted keysets seek to that position (same class as today’s public `ts:id`). Public `createdAt:id` concat **retired** on audit (rejected as invalid) |
-| Malformed cursor | Wrong encoding / non-object payload → `AppError.validation` → `VALIDATION_ERROR`; message generic; **no** keyset / schema leak. ≠ “client seek” (seek is allowed) |
-| Offset | **Not** the kit default; drop from admin-users query schema |
-| `total` | Not default (D1 table scan) |
-| Resource keys | `{ users }` forbidden on **new** kit lists; admin-users migrates to `items` |
-| SQL | Repo owns `ORDER BY` + keyset `WHERE` + fetch `limit+1`; helpers do **not** build SQL |
-| Package | No new `@kit/pagination` — schemas in `@kit/types` (add `zod` dep if missing), helpers in `@kit/core` |
-| Premise narrow | This ticket hardens **admin catalogues** (users + audit). Notes dump remains a documented demo exception (not a third pagination API) |
+| Query | `limit` (1–100, default **50** via helper), optional `cursor` (max **512**), and optional conventional `q` |
+| Envelope (wire) | `{ items, nextCursor, requestId }`; `nextCursor === null` means the last page |
+| `ListPage<T>` | `{ items, nextCursor }` only; `requestId` remains route/middleware-owned |
+| Cursor | Opaque-by-convention base64url JSON keyset; not an authorization or security boundary |
+| Encoding | Unicode-safe and Worker-compatible through Web APIs (`TextEncoder`, `TextDecoder`, `btoa`, `atob`); no Node `Buffer` |
+| Generic decode | Verifies base64url/JSON and returns a generic keyset record or throws `AppError.validation` |
+| Endpoint validation | Runs after generic decode and validates the exact endpoint keyset shape before SQL |
+| Malformed cursor | Wrong encoding, non-object payload, wrong endpoint keys/types, or legacy audit `createdAt:id` → `VALIDATION_ERROR`; generic message with no keyset/schema leak |
+| Offset | Not the kit default; removed from the admin-users query schema |
+| `total` | Not included by default because it implies a D1 scan |
+| Resource keys | `{ users }` is forbidden on new kit lists; admin users migrates to `items` |
+| SQL | Repository owns stable ordering, keyset predicate, authorization scope, and `limit+1` fetch |
+| Package | No new `@kit/pagination`; schemas/types live in `@kit/types`, mechanics in `@kit/core` |
+| Premise | This issue hardens admin users and audit. Notes remains a documented demo-size exception |
 
 ### Data-shape rule (ADR + docs)
 
 | Shape | Contract |
 |-------|----------|
-| Unbounded catalogue (users, audit, notes-if-grown, product catalogues) | cursor + `items` |
-| Small lookup (roles, a dozen creators) | hard cap + optional `q`; dump OK under the cap |
-| Aggregate / insights | **not a list** — server aggregates; do not page rows for the browser to reduce |
+| Unbounded catalogue (users, audit, notes if it grows, future product catalogues) | Cursor + `items` |
+| Small lookup or documented demo-size data | Hard cap or known-small dump; optional `q` |
+| Aggregate or insights | Not a list; aggregate on the server instead of paging rows for browser reduction |
 
 ### Helpers
 
 ```ts
 // @kit/types
-listQuerySchema  // { limit?: number, cursor?: string, q?: string }
-// limit: coerce int 1..=100 optional; cursor: string max 512 optional; q optional
-type ListPage<T> = { items: T[]; nextCursor: string | null }  // wire adds requestId separately
+listQuerySchema
+// { limit?: number, cursor?: string, q?: string }
+// limit: coerced integer 1..100; cursor: string max 512; q: optional
+
+type ListPage<T> = {
+  items: T[]
+  nextCursor: string | null
+}
 
 // @kit/core
-clampListLimit(n: number | undefined): number  // default 50, max 100, min 1
+clampListLimit(n: number | undefined): number
 encodeListCursor(keyset: Record<string, string | number>): string
-decodeListCursor(cursor: string): Record<string, string | number>  // throws AppError.validation
+decodeListCursor(cursor: string): Record<string, string | number>
 takeListPage<T>(
   rows: T[],
   limit: number,
@@ -72,37 +91,82 @@ takeListPage<T>(
 ): ListPage<T>
 ```
 
-`takeListPage`: rows must already be fetched with `limit+1`. Returns `items = rows[0..limit)` and `nextCursor` from last kept row via `keysetOf` (or `null` if `rows.length ≤ limit`). Call sites (audit + users services/repos) **must** fetch `limit+1` — helper math alone does not prove no silent EOF.
+`encodeListCursor` and `decodeListCursor` use Web APIs only. UTF-8 bytes are converted safely around `btoa`/`atob`; implementations must not depend on `Buffer`.
 
-**Keyset value encoding (frozen):** temporal fields in the keyset are **epoch milliseconds** (`number`). BA `Date` / ISO strings convert at the boundary before `encodeListCursor` / SQL compare. Do not mix ISO strings and ms in the same keyset.
+`decodeListCursor` performs only generic decoding. Each endpoint then validates its exact keyset before constructing SQL:
 
-**`q` + cursor:** UI resets cursor when `q` changes. API does **not** bind `q` into the cursor this ticket — unbound `q`+stale cursor is accepted (same class as seek). Document in ADR.
+- payload has exactly `createdAt` and `id`;
+- `createdAt` is a finite epoch-millisecond number;
+- `id` is a non-empty string;
+- unusable or unexpected values never reach repository predicates.
+
+`takeListPage` receives raw repository rows already fetched with `limit+1`. It retains `rows.slice(0, limit)` and derives `nextCursor` from the final retained raw row when another row exists. DTO mapping happens only afterward.
+
+Temporal cursor values are frozen as finite epoch milliseconds. Better Auth `Date` values convert to epoch milliseconds for cursor creation and SQL comparison; response DTOs continue to expose `createdAt` as ISO strings.
+
+The UI resets pagination when `q` changes. The API does not bind `q` into the cursor in this issue, so a valid cursor may be reused with another query as a permitted seek.
 
 ### Dogfood
 
-1. **admin-audit** — switch to helpers + shared `listQuerySchema` (or `.extend`); stop exporting `createdAt:id` (old format → `VALIDATION_ERROR`). Round-trip `nextCursor` tested; fixture with `limit+1` rows ⇒ non-null cursor.
-2. **admin-users** — migrate offset → cursor; response `{ items, nextCursor, requestId }`. Repo: drop `offset`; `ORDER BY createdAt DESC, id DESC` + keyset `WHERE` matching that order; fetch `limit+1`. Staff scope applied **before** keyset page (not page-then-filter). Drop `offset` from query schema. Tests: staff-before-page rewritten; **staff + cursor continuation never returns out-of-scope ids**; users `nextCursor` page-2 round-trip; `limit+1` fixture ⇒ non-null cursor.
-3. **example-web `/admin/users`** — consume `items` + `nextCursor`; Load more button in the **app** (one call site → no `@kit/ui` `LoadMore` this ticket). Changing `q` resets cursor / refetch from start. Stop silent default-50 truncation.
-4. **notes** — stay dump under implicit demo size; document in `docs/ui-kit.md` as **demo exception** under the lookup/demo-size rule (premise = admin catalogues, not “every example list”). No kit `LoadMore`.
-5. **ADR-0009** — short, non-axial: list pages = opaque-by-convention cursor envelope; client seek allowed; concurrent-write skip/dup tradeoff; unbound `q`+cursor; consumer note for catalogues vs insights.
-6. **Docs pointers (with V5):** `docs/ui-kit.md` data-shape table; AGENTS TanStack Table row → ADR-0009; Virtual still P1.
+1. **admin-audit**
+   - Adopt the shared query schema and helpers.
+   - Fetch `limit+1`.
+   - Validate the decoded endpoint keyset before SQL.
+   - Retire and explicitly reject public `createdAt:id` cursors.
+   - Return `{ items, nextCursor, requestId }`.
+   - Test continuation round trips and non-null cursors from `limit+1` fixtures.
 
-### Breaking (acceptable)
+2. **admin-users**
+   - Extend `listQuerySchema` to preserve `q: z.string().max(120).optional()`.
+   - Remove `offset`.
+   - Order by `createdAt DESC, id DESC`.
+   - Apply the matching lexicographic keyset predicate.
+   - Apply staff visibility before keyset pagination.
+   - Fetch `limit+1`.
+   - Cut the page and create the cursor from raw rows before mapping `Date` values to ISO response DTOs.
+   - Return `{ items, nextCursor, requestId }`.
+   - Test page-two round trips and staff isolation across continuation pages.
+
+3. **example-web `/admin/users`**
+   - Use `useInfiniteQuery`.
+   - Pass `nextCursor` as the next `pageParam`.
+   - Flatten returned pages for rendering.
+   - Include `q` in the query key so search changes restart pagination.
+   - Render an app-owned Load more button while `nextCursor` is non-null.
+   - Add FR and EN Load more copy to the app-owned catalogues.
+   - Do not add an `@kit/ui` `LoadMore` component.
+
+4. **notes**
+   - Keep the dump as a documented demo-size exception.
+   - Document that growth into an unbounded catalogue requires the cursor envelope.
+
+5. **ADR-0010**
+   - Use `docs/kit/architecture/adr/0010-list-page-cursor-envelope.md`.
+   - Record the opaque keyset envelope, Worker-safe encoding, raw-row paging rule, endpoint validation boundary, accepted client seek, unbound `q`, and concurrent-write trade-offs.
+
+6. **Docs pointers**
+   - Add the data-shape rule to `docs/ui-kit.md`.
+   - Point the AGENTS TanStack Table guidance to ADR-0010.
+   - Keep TanStack Virtual at P1.
+
+### Breaking changes (acceptable)
 
 | Surface | Break |
-|---------|--------|
-| `GET /api/admin/users` | `offset` removed; body `{ users }` → `{ items, nextCursor }` |
-| `GET /api/admin/audit-events` | cursor encoding opaque (old `createdAt:id` rejected as invalid) |
+|---------|-------|
+| `GET /api/admin/users` | `offset` removed; `{ users, requestId }` becomes `{ items, nextCursor, requestId }` |
+| `GET /api/admin/audit-events` | Existing public `createdAt:id` cursors are rejected; wire remains `{ items, nextCursor, requestId }` |
 
 ## Out of Scope
 
-- LGU `/api/base`, `/api/tournages`, BaseExplorer palier — product after upstream pull
+- LGU `/api/base`, `/api/tournages`, BaseExplorer palier, or any other product implementation
 - Numbered offset pages with `total`
-- Infinite-scroll / IntersectionObserver in `@kit/ui`
-- `@tanstack/react-virtual` package (still AGENTS P1; recipe “virtualize in the app”)
-- Changing tiny lookups (`GET /api/orgs`, roles) unless they already page
-- Flows admin pagination (#31) unless already in tree and cheap
-- Generic Drizzle pager / shared `WHERE` builder
+- Infinite scroll or `IntersectionObserver` in `@kit/ui`
+- `@tanstack/react-virtual` adoption
+- Changing tiny lookups such as `GET /api/orgs` or roles unless they already page
+- Flows admin pagination; defer it unconditionally
+- Generic Drizzle pager or shared `WHERE` builder
+- Authenticated or encrypted cursors
+- Snapshot pagination or guarantees against concurrent-write skips/duplicates
 
 ## Data Model & Consumers
 
@@ -110,11 +174,13 @@ takeListPage<T>(
 
 | Type | Fields | Frozen / mutable |
 |------|--------|------------------|
-| `ListPage<T>` | `items: T[]`, `nextCursor: string \| null` | kit contract frozen this issue |
-| List query | `limit?`, `cursor?`, `q?` | `q` name conventional; filter SQL app-owned |
-| Cursor payload | `Record<string, string \| number>` | kit-private; never in public docs as wire format |
-| Audit keyset | `createdAt` (epoch ms) + `id` | same columns; wire encoding opaque |
-| Users keyset | `createdAt` (epoch ms) + `id` | **required** `ORDER BY createdAt DESC, id DESC` + matching keyset `WHERE`; drop `offset` |
+| `ListPage<T>` | `items: T[]`, `nextCursor: string \| null` | Kit contract frozen by this issue; intentionally omits `requestId` |
+| Wire envelope | `items`, `nextCursor`, `requestId` | Consistent across migrated routes |
+| List query | `limit?`, `cursor?`, `q?` | `q` conventional; admin users extends it with max 120 |
+| Generic cursor payload | `Record<string, string \| number>` | Internal decoded form |
+| Audit keyset | exact `createdAt` finite epoch ms + non-empty `id` | Endpoint-validated after generic decode |
+| Users keyset | exact `createdAt` finite epoch ms + non-empty `id` | Matches `createdAt DESC, id DESC` |
+| Response timestamps | ISO strings | DTO representation only; never cursor temporal representation |
 
 No new D1 tables.
 
@@ -122,12 +188,12 @@ No new D1 tables.
 
 | Consumer | Fields | Status |
 |----------|--------|--------|
-| `admin-audit` service/route | `limit`, `cursor`, `items`, `nextCursor` | **this issue** |
-| `admin-users` service/route + repo | cursor page; staff scope before page | **this issue** |
-| `example-web` `/admin/users` | `items`, `nextCursor`, Load more | **this issue** |
-| `GET /api/notes` | dump | **document only** |
-| Product catalogues (LGU…) | same envelope | **after** upstream — not this ticket |
-| `@kit/ui` `LoadMore` | — | **deferred** (need 2 example-web sites) |
+| `admin-audit` service/route | `limit`, `cursor`, `items`, `nextCursor`, `requestId` | This issue |
+| `admin-users` route/service/repository | Cursor page; `q` max 120; staff scope before page | This issue |
+| `example-web` `/admin/users` | Flattened infinite-query pages and Load more | This issue |
+| `GET /api/notes` | Demo-size dump | Document only |
+| Product catalogues, including LGU | Same envelope after upstream adoption | Outside this issue |
+| `@kit/ui` `LoadMore` | None | Deferred until justified by another call site |
 
 ## Breadboard
 
@@ -135,67 +201,96 @@ No new D1 tables.
 
 | ID | Affordance | Handler | Data |
 |----|------------|---------|------|
-| A1 | `listQuerySchema` + `ListPage<T>` | `@kit/types` exports | Zod (cursor max 512) + type |
-| A2 | `clampListLimit` / encode / decode / `takeListPage` | `@kit/core` | opaque-by-convention; malformed → validation |
-| A3 | `GET /api/admin/audit-events?limit&cursor` | `admin-audit` → service (`limit+1` fetch) | `{ items, nextCursor, requestId }` |
-| A4 | `GET /api/admin/users?limit&cursor&q` | repo keyset + staff scope → service → route | `{ items, nextCursor, requestId }` |
-| A5 | Malformed cursor (incl. legacy `createdAt:id`) | `decodeListCursor` + wired routes | `VALIDATION_ERROR` |
+| A1 | `listQuerySchema` + `ListPage<T>` | `@kit/types` exports | Zod query schema and page type without `requestId` |
+| A2 | Clamp, encode, decode, page extraction | `@kit/core` | Worker-safe base64url; malformed input fails closed |
+| A3 | Audit keyset validation | Audit route/service after generic decode | Exact finite `createdAt` + non-empty `id` |
+| A4 | `GET /api/admin/audit-events?limit&cursor` | Audit route → service/repository | `{ items, nextCursor, requestId }` |
+| A5 | Admin-users schema extension | Admin-users route | Shared schema extended with `q` max 120 |
+| A6 | Users keyset validation and query | Staff scope → keyset predicate → `limit+1` | Raw rows ordered by `createdAt DESC, id DESC` |
+| A7 | `GET /api/admin/users?limit&cursor&q` | Repository → service → route | `{ items, nextCursor, requestId }` |
+| A8 | Malformed or legacy cursor | Generic decode then endpoint schema | `VALIDATION_ERROR` without decoded details |
 
 ### UI
 
 | ID | Affordance | Handler | Data |
 |----|------------|---------|------|
-| U1 | Admin users table | `example-web` `/admin/users` | `items` from page 1 |
-| U2 | Load more | app button + query append / page stack | `nextCursor` until `null` |
-| U3 | Search `q` | existing search input | resets cursor / refetch from start |
+| U1 | Admin users table | `useInfiniteQuery` | Flattened `items` from all loaded pages |
+| U2 | Load more | App-owned button | `fetchNextPage()` using `nextCursor` as `pageParam` |
+| U3 | Search `q` | Existing search input and query key | New query starts from the first page |
+| U4 | Localized continuation copy | App FR/EN catalogues | French and English Load more labels |
 
 ### Docs / ADR
 
 | ID | Affordance | Handler | Data |
 |----|------------|---------|------|
-| D1 | ADR-0009 | `docs/architecture/adr/0009-…` | cursor envelope + data-shape rule |
-| D2 | `docs/ui-kit.md` | catalogue vs lookup vs aggregate; notes dump OK; virtualize in app | pointers |
-| D3 | AGENTS.md TanStack Table row | list envelope → ADR-0009; Virtual still P1 | one-line |
+| D1 | ADR-0010 | `docs/kit/architecture/adr/0010-list-page-cursor-envelope.md` | Contract, validation boundary, raw-row paging, trade-offs |
+| D2 | `docs/ui-kit.md` | Catalogue versus lookup/demo versus aggregate | Notes exception and app virtualization guidance |
+| D3 | AGENTS TanStack Table guidance | Link to ADR-0010 | Virtual remains P1 |
 
 ## Slices
 
 | # | Slice | Demo | Affordance IDs |
 |---|-------|------|----------------|
-| V1 | Types + core helpers + unit tests (`zod` on `@kit/types` if needed) | malformed decode fail-closed; clamp 50/100/1; `takeListPage` math | A1, A2, A5 (helper) |
-| V2 | ADR-0009 file | ADR committed (seek / concurrent / `q`+cursor notes) | D1 |
-| V3 | Wire audit + users API + rewrite tests | audit + users round-trip; staff×cursor; route `limit+1`; legacy cursor reject | A3, A4, A5 (wired) |
-| V4 | example-web admin users | Load more; `q` resets cursor; no silent 50 cut | U1, U2, U3 |
-| V5 | Docs polish | `ui-kit.md` data-shape + notes demo exception; AGENTS → ADR-0009 | D2, D3 |
+| V1 | Types + Worker-safe core helpers + unit tests | Unicode base64url round trip without `Buffer`; malformed decode fails closed; clamp and page math verified | A1, A2, A8 |
+| V2 | ADR-0010 | Decision records client seek, endpoint validation, raw-row paging, concurrent writes, and unbound `q` | D1 |
+| V3 | Wire audit + users API and rewrite tests | Exact keyset validation; `limit+1`; route round trips; staff × cursor isolation; legacy cursor rejection | A3–A8 |
+| V4 | `example-web` admin users | `useInfiniteQuery`; flattened pages; localized Load more; `q` resets pagination | U1–U4 |
+| V5 | Docs polish | Data-shape rule, notes exception, AGENTS pointer to ADR-0010 | D2, D3 |
 
 ## Success Criteria
 
-- [ ] `listQuerySchema` + `ListPage<T>` exported from `@kit/types` (`cursor` max 512; `zod` dep if needed)
-- [ ] `clampListLimit` / `encodeListCursor` / `decodeListCursor` / `takeListPage` exported from `@kit/core`
-- [ ] Malformed cursor (bad base64url / non-object / legacy audit `createdAt:id`) → `VALIDATION_ERROR` (tested); message has no keyset / schema leak
-- [ ] `clampListLimit` default 50 / max 100 / min 1 (tested)
-- [ ] `takeListPage`: exactly `limit` rows ⇒ `nextCursor === null`; `limit+1` ⇒ cursor set (tested)
-- [ ] Audit **and** users services fetch `limit+1`; with `limit+1` fixtures, `nextCursor` is non-null (tested — not helper-only)
-- [ ] `GET /api/admin/audit-events` uses helpers; `nextCursor` round-trip tested
-- [ ] `GET /api/admin/users` is cursor, not offset; repo uses `ORDER BY createdAt DESC, id DESC` + keyset `WHERE`; staff scope before page (existing test rewritten)
-- [ ] Staff + cursor continuation never returns out-of-scope user ids; empty shared-org set → `{ items: [], nextCursor: null }` under cursor too (tested)
-- [ ] Users `nextCursor` page-2 round-trip tested
-- [ ] Wire responses are `{ items, nextCursor, requestId }` — no `{ users }` / `offset` on these routes (`ListPage` type omits `requestId` by design)
-- [ ] example-web `/admin/users` lists via `nextCursor` (Load more); changing `q` resets cursor; no silent default-50 truncation
-- [ ] Notes remain dump; `docs/ui-kit.md` documents demo-size dump exception + catalogue vs lookup vs aggregate
-- [ ] ADR-0009 shipped (opaque-by-convention, client seek allowed, concurrent skip/dup, unbound `q`+cursor); AGENTS TanStack Table row points at it (Virtual still P1)
-- [ ] No `@kit/ui` `LoadMore` this ticket (only one example-web call site)
-- [ ] 0 product business strings in `packages/*`
-- [ ] lint, typecheck, and package / example-api tests green for touched surfaces
+- [ ] `listQuerySchema` and `ListPage<T>` are exported from `@kit/types`; `ListPage<T>` contains only `items` and `nextCursor`
+- [ ] `listQuerySchema` supports a coerced integer limit from 1 to 100, cursor max 512, and optional conventional `q`
+- [ ] Admin users extends the shared schema to enforce `q` max 120
+- [ ] `clampListLimit`, `encodeListCursor`, `decodeListCursor`, and `takeListPage` are exported from `@kit/core`
+- [ ] Cursor encoding is Unicode-safe and Worker-compatible through Web APIs; implementation and tests do not rely on `Buffer`
+- [ ] Generic decode rejects bad base64url, invalid JSON, and non-object payloads with `VALIDATION_ERROR`
+- [ ] Audit and users validate their exact `createdAt`/`id` keyset after generic decode and before SQL
+- [ ] Endpoint keysets require a finite epoch-millisecond `createdAt`, a non-empty string `id`, and no unexpected fields
+- [ ] Cursor validation errors use a generic message with no decoded keyset or schema leak
+- [ ] Legacy audit `createdAt:id` cursors are rejected with `VALIDATION_ERROR`
+- [ ] `clampListLimit` defaults to 50 and clamps to the 1–100 range
+- [ ] Exactly `limit` fetched rows produce `nextCursor === null`; `limit+1` rows produce a cursor
+- [ ] Audit and users repositories/services both fetch `limit+1`; call-site tests prove a non-null cursor from `limit+1` fixtures
+- [ ] Pages and cursors are derived from raw repository rows before DTO mapping
+- [ ] Cursor `createdAt` values use finite epoch milliseconds; response DTO `createdAt` values remain ISO strings
+- [ ] `GET /api/admin/audit-events` returns `{ items, nextCursor, requestId }` and continuation round trips
+- [ ] `GET /api/admin/users` removes offset and returns `{ items, nextCursor, requestId }`
+- [ ] Users ordering is `createdAt DESC, id DESC` with a symmetric lexicographic keyset predicate
+- [ ] Staff authorization scope is applied before keyset pagination
+- [ ] Staff continuation pages never return out-of-scope user IDs
+- [ ] Empty staff scope returns `{ items: [], nextCursor: null, requestId }`
+- [ ] `example-web` admin users uses `useInfiniteQuery`, `nextCursor` as `pageParam`, and flattened pages
+- [ ] Changing `q` restarts pagination because `q` is included in the query key
+- [ ] FR and EN Load more copy exists in the app-owned catalogues
+- [ ] No `@kit/ui` `LoadMore` component is introduced
+- [ ] Notes remains a documented demo-size dump exception
+- [ ] ADR-0010 exists at `docs/kit/architecture/adr/0010-list-page-cursor-envelope.md`
+- [ ] ADR-0010 records accepted client seek, unbound `q`, and concurrent skip/duplicate behavior
+- [ ] `docs/ui-kit.md` documents catalogue, lookup/demo-size, and aggregate shapes
+- [ ] AGENTS list guidance points to ADR-0010 while TanStack Virtual remains P1
+- [ ] Flows pagination receives no implementation in this issue
+- [ ] LGU receives no implementation or product-domain code in this issue
+- [ ] No product business strings are added under `packages/*`
+- [ ] Lint, typecheck, and touched package/example tests are green
 
 ## Edge Cases
 
 | Case | Handling |
 |------|----------|
-| Empty page | `{ items: [], nextCursor: null }` |
-| Exactly `limit` rows at DB | after `limit+1` fetch → `nextCursor === null` |
-| `limit+1` rows fetched | keep `limit`; set opaque cursor from last kept |
-| Malformed / legacy `createdAt:id` cursor | `VALIDATION_ERROR`, generic message |
-| Well-formed client-minted keyset | **allowed seek** — not a validation error; ADR states not a security boundary |
-| Staff with empty shared-org set | empty `items`, `nextCursor: null` (scope before page, with or without cursor) |
-| `q` change mid-scroll | UI resets cursor; fetch from start. API unbound `q`+stale cursor accepted (ADR) |
-| Concurrent inserts mid-scroll | keyset may skip/dup — accept; ADR documents tradeoff (no `total`) |
+| Empty page | Wire returns `{ items: [], nextCursor: null, requestId }` |
+| Exactly `limit` rows fetched | `nextCursor === null` |
+| `limit+1` rows fetched | Keep `limit`; derive cursor from the last retained raw row |
+| Unicode keyset value | Worker-safe Web API encoding round-trips correctly |
+| Malformed base64url or JSON | `VALIDATION_ERROR` with generic message |
+| Generic object with wrong endpoint keys/types | Endpoint validation rejects it before SQL |
+| Non-finite or non-numeric `createdAt` | Endpoint validation rejects it |
+| Empty `id` | Endpoint validation rejects it |
+| Legacy audit `createdAt:id` cursor | Rejected as `VALIDATION_ERROR` |
+| Well-formed client-minted keyset | Allowed seek inside the already-authorized result set |
+| Better Auth `Date` | Convert to epoch milliseconds for cursor/SQL; map to ISO only in response DTO |
+| Staff with no shared organizations | Empty page before pagination, with or without a cursor |
+| `q` change after pages loaded | New `useInfiniteQuery` key starts from the first page |
+| Stale cursor reused with another `q` | Accepted as client seek; cursor is not query-bound |
+| Concurrent inserts or deletes | Pages may skip or duplicate rows; no snapshot or `total` guarantee |
+| Notes remains a dump | Accepted while it remains explicitly demo-sized; migrate if it becomes an unbounded catalogue |
