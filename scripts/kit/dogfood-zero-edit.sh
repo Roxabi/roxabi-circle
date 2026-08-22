@@ -23,9 +23,12 @@ MODE="${1:-}"
 ZERO_SCRIPT="$ROOT/scripts/kit/check-zero-edit-zones.sh"
 BAN_SCRIPT="$ROOT/scripts/kit/check-banned-strings.sh"
 DENY_SCRIPT="$ROOT/scripts/kit/deny-upstream-push.sh"
+SELF_SIM_MIRROR_IDENTITY="go-silex/silex-boilerplate"
+SELF_SIM_PRODUCT_IDENTITY="example/acme-product"
 
 run_gates() {
   local tree="$1"
+  local gh_identity="${2:-}"
   local zero_script ban_script
   if [[ -f "$tree/scripts/kit/check-zero-edit-zones.sh" ]]; then
     zero_script="$tree/scripts/kit/check-zero-edit-zones.sh"
@@ -40,8 +43,28 @@ run_gates() {
     echo "NOTE: using kit banlist script with ZERO_EDIT_ROOT=$tree"
   fi
 
-  ZERO_EDIT_ROOT="$tree" bash "$zero_script"
+  if [[ -n "$gh_identity" ]]; then
+    ZERO_EDIT_ROOT="$tree" GITHUB_REPOSITORY="$gh_identity" bash "$zero_script"
+  else
+    ZERO_EDIT_ROOT="$tree" bash "$zero_script"
+  fi
   ZERO_EDIT_ROOT="$tree" bash "$ban_script"
+}
+
+run_zero_edit_capture() {
+  local tree="$1"
+  local gh_identity="${2:-}"
+  local zero_script
+  if [[ -f "$tree/scripts/kit/check-zero-edit-zones.sh" ]]; then
+    zero_script="$tree/scripts/kit/check-zero-edit-zones.sh"
+  else
+    zero_script="$ZERO_SCRIPT"
+  fi
+  if [[ -n "$gh_identity" ]]; then
+    ZERO_EDIT_ROOT="$tree" GITHUB_REPOSITORY="$gh_identity" bash "$zero_script" 2>&1
+  else
+    ZERO_EDIT_ROOT="$tree" bash "$zero_script" 2>&1
+  fi
 }
 
 assert_no_push() {
@@ -138,8 +161,8 @@ run_self_sim_chain() {
     echo "FAIL: mirror must not carry product inheritance marker" >&2
     exit 1
   fi
-  run_gates "$work/mirror"
-  run_gates "$work/product"
+  run_gates "$work/mirror" "$SELF_SIM_MIRROR_IDENTITY"
+  run_gates "$work/product" "$SELF_SIM_PRODUCT_IDENTITY"
 
   STALE_HITS="$(git -C "$work/product" diff --name-only "$STALE_REF" HEAD -- README.md package.json 2>/dev/null || true)"
   if [[ -z "$STALE_HITS" ]]; then
@@ -150,11 +173,27 @@ run_self_sim_chain() {
 
   echo "/* dogfood dual-edit probe */" >>"$work/product/package.json"
   set +e
-  ZERO_EDIT_ROOT="$work/product" bash "$ZERO_SCRIPT"
-  local neg=$?
+  neg_out="$(run_zero_edit_capture "$work/product" "$SELF_SIM_PRODUCT_IDENTITY")"
+  neg=$?
   set -e
   if [[ "$neg" -eq 0 ]]; then
     echo "FAIL: expected zero-edit to fail after package.json dual-edit" >&2
+    echo "$neg_out" >&2
+    exit 1
+  fi
+  if [[ "$neg_out" != *"mode=product identity=${SELF_SIM_PRODUCT_IDENTITY}"* ]]; then
+    echo "FAIL: negative zero-edit must run in product mode with fixture identity (got contamination from outer GITHUB_REPOSITORY?)" >&2
+    echo "$neg_out" >&2
+    exit 1
+  fi
+  if [[ "$neg_out" == *"inheritance marker present on kit-allowlisted origin"* ]]; then
+    echo "FAIL: negative test failed for identity contamination, not dual-edit" >&2
+    echo "$neg_out" >&2
+    exit 1
+  fi
+  if [[ "$neg_out" != *"FORBIDDEN package.json"* ]]; then
+    echo "FAIL: negative test must fail specifically on FORBIDDEN package.json" >&2
+    echo "$neg_out" >&2
     exit 1
   fi
 
