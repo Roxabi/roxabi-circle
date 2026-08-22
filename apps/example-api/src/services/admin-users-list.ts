@@ -3,7 +3,13 @@
  * Staff scope is applied **before** keyset pagination (not filter-after-page).
  */
 import type { PlatformRole } from '@kit/auth'
-import { AppError, clampListLimit, decodeListCursor, takeListPage } from '@kit/core'
+import {
+  AppError,
+  clampListLimit,
+  decodeListCursor,
+  isRepresentableEpochMs,
+  takeListPage,
+} from '@kit/core'
 import type { ListPage } from '@kit/types'
 import type { DrizzleD1Database } from 'drizzle-orm/d1'
 import type { schema } from '../db/schema'
@@ -37,7 +43,7 @@ function parseCreatedAtIdKeyset(cursor: string): { createdAt: number; id: string
   }
   const createdAt = decoded.createdAt
   const id = decoded.id
-  if (typeof createdAt !== 'number' || !Number.isFinite(createdAt)) {
+  if (typeof createdAt !== 'number' || !isRepresentableEpochMs(createdAt)) {
     throw AppError.validation('Invalid cursor')
   }
   if (typeof id !== 'string' || id.length === 0) {

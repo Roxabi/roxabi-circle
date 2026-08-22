@@ -17,9 +17,10 @@ Thumbs.db
 .env.*
 !.env.example
 
-# Cloudflare deploy profile (operator-local; template is config/deploy.cf.example.toml)
+# Cloudflare deploy profile (operator-local; template is config/kit/deploy.cf.example.toml)
+config/kit/deploy.cf.local.toml
+# Legacy path (pre ADR-0009 kit namespace) — keep ignored so old local files stay untracked
 config/deploy.cf.local.toml
-
 
 # Node / build (future Worker)
 node_modules/

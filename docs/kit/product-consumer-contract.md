@@ -151,7 +151,7 @@ Example product entry CSS:
 When there is **no** viable design override or product path, and shipping cannot wait for an upstream PR, the product may diverge on a **specific kit path** only if registered in:
 
 ```text
-docs/product/zero-edit-exceptions.json   # PRODUCT repo only (new path → zero dual-edit)
+config/product/zero-edit-exceptions.json   # PRODUCT repo only
 ```
 
 Template (kit): [`config/kit/zero-edit-exceptions.example.json`](../config/kit/zero-edit-exceptions.example.json).
@@ -291,7 +291,7 @@ apps/<product>-mcp/
 docs/product/                              # AGENTS, frames, product prose
 config/product/inheritance.json           # upstreamCommit = last-merged parent tip (required product)
 docs/product/deny-upstream.json            # multi-hop URL substrings (optional; see remotes §)
-docs/product/zero-edit-exceptions.json     # last-resort dual-edit exceptions
+config/product/zero-edit-exceptions.json     # last-resort dual-edit exceptions
 .github/workflows/product-*.yml
 scripts/product/                           # product helpers; not required by kit
 apps/<product>-web/src/theme/*.css         # design token overrides
@@ -334,8 +334,8 @@ bun run --filter @kit/<product>-web test
 bun run --filter @kit/<product>-api build   # e.g. wrangler dry-run
 ```
 
-Workflow job: checkout → setup-bun → `bun install --frozen-lockfile` → `bash scripts/product/validate.sh`  
-(with `ZERO_EDIT_BASE_REF` from `docs/product/kit-baseline` when no `upstream` remote — see template).
+Workflow job: checkout with **`fetch-depth: 0`** → setup-bun → `bun install --frozen-lockfile` → `bash scripts/product/validate.sh`
+(`bun run zero-edit` reads `config/product/inheritance.json` — same path as local lefthook; see template).
 
 Do **not** add a kit workflow that filters product package names (it would go red on bare kit clones).  
 Do **not** commit live `product-*.yml` into the **kit** repo under `.github/workflows/` — only into product repos.
@@ -410,4 +410,4 @@ If product build breaks after pull → fix product code or contribute a kit fix 
 | [`environments.md`](./environments.md) | Git staging/main → Wrangler `--env` → isolated CF resources |
 | [`playbooks/start-product.md`](./playbooks/start-product.md) | Day-1 greenfield product setup + dogfood |
 | [`playbooks/fork-to-first-issue.md`](./playbooks/fork-to-first-issue.md) | Full runbook: brief → tracker → GH issue → `/dev` first ship |
-| [`product-consumer-dogfood-evidence.md`](./product-consumer-dogfood-evidence.md) | B5 live evidence (`kit-dogfood`) |
+| [`product-consumer-dogfood-evidence.md`](./product-consumer-dogfood-evidence.md) | B5 evidence (self-sim current; live product historical) |

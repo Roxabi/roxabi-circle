@@ -1,4 +1,5 @@
 import { baMember, baUser, baVerification } from '@kit/auth/schema'
+import { encodeListCursor, MAX_REPRESENTABLE_EPOCH_MS, MIN_REPRESENTABLE_EPOCH_MS } from '@kit/core'
 import { createDb } from '@kit/db'
 import { eq, like } from 'drizzle-orm'
 import { describe, expect, it } from 'vitest'
@@ -389,6 +390,62 @@ describe('admin users (B-users #58)', () => {
     expect(nextBody.items.length).toBeGreaterThan(0)
     const firstIds = new Set(body.items.map((user) => user.id))
     expect(nextBody.items.every((user) => !firstIds.has(user.id))).toBe(true)
+  })
+
+  it('GET /api/admin/users rejects out-of-range and fractional cursor createdAt values', async () => {
+    const { app, env } = await seedEnv()
+    const cookie = await signIn(app, env, 'super@kit.local')
+    const invalidCursors = [
+      encodeListCursor({ createdAt: 1e300, id: 'abc' }),
+      encodeListCursor({ createdAt: -1e300, id: 'abc' }),
+      encodeListCursor({ createdAt: 1_754_000_000_123.5, id: 'abc' }),
+      encodeListCursor({ createdAt: MIN_REPRESENTABLE_EPOCH_MS - 1, id: 'abc' }),
+      encodeListCursor({ createdAt: MAX_REPRESENTABLE_EPOCH_MS + 1, id: 'abc' }),
+    ]
+
+    for (const cursor of invalidCursors) {
+      const res = await app.request(
+        `/api/admin/users?cursor=${encodeURIComponent(cursor)}`,
+        { headers: sessionMutation(cookie) },
+        env,
+      )
+      expect(res.status).toBe(400)
+      const body = (await res.json()) as { error: { code: string; message: string } }
+      expect(body.error.code).toBe('VALIDATION_ERROR')
+      expect(body.error.message).not.toContain('createdAt')
+    }
+  })
+
+  it('GET /api/admin/users accepts representable boundary cursor createdAt values', async () => {
+    const { app, env } = await seedEnv()
+    const cookie = await signIn(app, env, 'super@kit.local')
+
+    const minCursor = encodeListCursor({
+      createdAt: MIN_REPRESENTABLE_EPOCH_MS,
+      id: 'boundary-user',
+    })
+    const minRes = await app.request(
+      `/api/admin/users?cursor=${encodeURIComponent(minCursor)}`,
+      { headers: sessionMutation(cookie) },
+      env,
+    )
+    expect(minRes.status).toBe(200)
+    const minBody = (await minRes.json()) as { items: unknown[]; nextCursor: string | null }
+    expect(minBody.items).toEqual([])
+    expect(minBody.nextCursor).toBeNull()
+
+    const maxCursor = encodeListCursor({
+      createdAt: MAX_REPRESENTABLE_EPOCH_MS,
+      id: 'boundary-user',
+    })
+    const maxRes = await app.request(
+      `/api/admin/users?cursor=${encodeURIComponent(maxCursor)}`,
+      { headers: sessionMutation(cookie) },
+      env,
+    )
+    expect(maxRes.status).toBe(200)
+    const maxBody = (await maxRes.json()) as { items: unknown[]; nextCursor: string | null }
+    expect(maxBody.items.length).toBeGreaterThan(0)
   })
 
   it('GET /api/admin/users — staff only sees users sharing an org (IDOR privacy)', async () => {

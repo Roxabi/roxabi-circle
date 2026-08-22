@@ -1,4 +1,10 @@
-import { AppError, clampListLimit, decodeListCursor, takeListPage } from '@kit/core'
+import {
+  AppError,
+  clampListLimit,
+  decodeListCursor,
+  isRepresentableEpochMs,
+  takeListPage,
+} from '@kit/core'
 import type { KitDb } from '../lib/db-type'
 import * as auditRepo from '../repos/audit'
 
@@ -199,7 +205,7 @@ function parseCreatedAtIdKeyset(cursor: string): { createdAt: number; id: string
   }
   const createdAt = decoded.createdAt
   const id = decoded.id
-  if (typeof createdAt !== 'number' || !Number.isFinite(createdAt)) {
+  if (typeof createdAt !== 'number' || !isRepresentableEpochMs(createdAt)) {
     throw AppError.validation('Invalid cursor')
   }
   if (typeof id !== 'string' || id.length === 0) {
