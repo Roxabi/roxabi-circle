@@ -211,15 +211,36 @@ run_self_sim_chain() {
 if [[ "$MODE" == "--self-sim" ]]; then
   TMP="$(mktemp -d -t kit-dogfood-XXXXXX)"
   trap 'rm -rf "$TMP"' EXIT
-  SOURCE_HEAD="$(git -C "$ROOT" rev-parse HEAD)"
+  SOURCE_ROOT="$ROOT"
   SOURCE_BRANCH="$(git -C "$ROOT" branch --show-current || true)"
+
+  # A product checkout carries product-owned paths and an inheritance marker, so it
+  # cannot seed the kit→mirror fixture directly. Re-run the kit contract from the
+  # exact parent tip the product inherited instead.
+  if [[ -f "$ROOT/config/product/inheritance.json" ]]; then
+    SOURCE_HEAD="$(
+      node -e "const j=require(process.argv[1]); process.stdout.write(String(j.upstreamCommit || '').trim())" \
+        "$ROOT/config/product/inheritance.json"
+    )"
+    if [[ ! "$SOURCE_HEAD" =~ ^[0-9a-fA-F]{40}$ ]] ||
+      ! git -C "$ROOT" rev-parse --verify "${SOURCE_HEAD}^{commit}" >/dev/null 2>&1; then
+      echo "FAIL: product inheritance marker does not reference a local commit" >&2
+      exit 1
+    fi
+    git clone --no-checkout "file://$ROOT" "$TMP/parent-src"
+    git -C "$TMP/parent-src" checkout -q --detach "$SOURCE_HEAD"
+    SOURCE_ROOT="$TMP/parent-src"
+    SOURCE_BRANCH="inherited-parent"
+  else
+    SOURCE_HEAD="$(git -C "$ROOT" rev-parse HEAD)"
+  fi
   echo "== dogfood: self-sim in $TMP (source_head=${SOURCE_HEAD:0:12} branch=${SOURCE_BRANCH:-detached}) =="
 
-  run_self_sim_chain "$ROOT" "$TMP/primary" "primary"
+  run_self_sim_chain "$SOURCE_ROOT" "$TMP/primary" "primary"
 
   # Detached-HEAD source probe — does not alter the real checkout.
   echo "== dogfood: detached-HEAD source probe =="
-  git clone --no-checkout "file://$ROOT" "$TMP/detached-src"
+  git clone --no-checkout "file://$SOURCE_ROOT" "$TMP/detached-src"
   git -C "$TMP/detached-src" checkout -q --detach "$SOURCE_HEAD"
   if [[ -n "$(git -C "$TMP/detached-src" branch --show-current)" ]]; then
     echo "FAIL: detached-src fixture is not detached" >&2
