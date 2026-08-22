@@ -86,6 +86,7 @@ Auth glue (ADR-0008 D6): import `createBetterAuth` from `@kit/auth/factory`, tab
 | UI locales | Product `apps/<product>-web` `createI18n({ catalogs })`. **One key = no switcher** (`LocaleSwitcher` hides). Keep or drop extra catalog files accordingly | Hardcode FR/EN buttons; patch `example-web`; fork `@kit/i18n` |
 | Gate “did we touch kit paths?” | `bun run zero-edit` (in `validate` / `validate:full`) | Hope merge conflicts never happen |
 | Env completeness | Product owns inventory for `apps/<product>-*` | Treat kit `env:check` as product-wide (it is **example-api only**) |
+| File-length god-file cap | `config/product/file_exemptions.txt` (copy [`config/kit/file_exemptions.example.txt`](../config/kit/file_exemptions.example.txt)). Paths only under `apps/<product>-{api,web,mcp}/` with an explicit `# N lines` cap. **One commit** deletes product rows from `tools/file_exemptions.txt` and adds them here. product-validate must not export `QG_FILE_MAX` / `QG_FILE_EXEMPTIONS` | Edit `tools/file_exemptions.txt`; wildcard / cap-less / `packages/*` / `apps/example-*` lines |
 
 ---
 
@@ -292,6 +293,7 @@ docs/product/                              # AGENTS, frames, product prose
 config/product/inheritance.json           # upstreamCommit = last-merged parent tip (required product)
 docs/product/deny-upstream.json            # multi-hop URL substrings (optional; see remotes §)
 config/product/zero-edit-exceptions.json     # last-resort dual-edit exceptions
+config/product/file_exemptions.txt         # product-owned file-length caps (optional)
 .github/workflows/product-*.yml
 scripts/product/                           # product helpers; not required by kit
 apps/<product>-web/src/theme/*.css         # design token overrides
