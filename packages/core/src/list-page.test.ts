@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import { AppError } from './errors'
-import { clampListLimit, decodeListCursor, encodeListCursor, takeListPage } from './list-page'
+import {
+  clampListLimit,
+  decodeListCursor,
+  encodeListCursor,
+  isRepresentableEpochMs,
+  MAX_REPRESENTABLE_EPOCH_MS,
+  MIN_REPRESENTABLE_EPOCH_MS,
+  takeListPage,
+} from './list-page'
 
 function base64Url(value: string): string {
   return btoa(value).replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/, '')
@@ -20,6 +28,26 @@ function expectInvalidCursor(cursor: string): string {
     return appError.message
   }
 }
+
+describe('isRepresentableEpochMs', () => {
+  it('accepts integer milliseconds within the Date representable range', () => {
+    expect(isRepresentableEpochMs(0)).toBe(true)
+    expect(isRepresentableEpochMs(1_754_000_000_123)).toBe(true)
+    expect(isRepresentableEpochMs(MIN_REPRESENTABLE_EPOCH_MS)).toBe(true)
+    expect(isRepresentableEpochMs(MAX_REPRESENTABLE_EPOCH_MS)).toBe(true)
+  })
+
+  it('rejects non-finite, fractional, and out-of-range values', () => {
+    expect(isRepresentableEpochMs(Number.NaN)).toBe(false)
+    expect(isRepresentableEpochMs(Number.POSITIVE_INFINITY)).toBe(false)
+    expect(isRepresentableEpochMs(Number.NEGATIVE_INFINITY)).toBe(false)
+    expect(isRepresentableEpochMs(1.5)).toBe(false)
+    expect(isRepresentableEpochMs(1e300)).toBe(false)
+    expect(isRepresentableEpochMs(-1e300)).toBe(false)
+    expect(isRepresentableEpochMs(MIN_REPRESENTABLE_EPOCH_MS - 1)).toBe(false)
+    expect(isRepresentableEpochMs(MAX_REPRESENTABLE_EPOCH_MS + 1)).toBe(false)
+  })
+})
 
 describe('clampListLimit', () => {
   it('defaults to 50 and clamps to the inclusive 1..100 range', () => {

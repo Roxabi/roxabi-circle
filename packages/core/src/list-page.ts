@@ -5,6 +5,20 @@ const DEFAULT_LIMIT = 50
 const MAX_LIMIT = 100
 const INVALID_CURSOR_MESSAGE = 'Invalid cursor'
 
+/** ECMA-262 `Date` representable range (inclusive), in epoch milliseconds. */
+export const MIN_REPRESENTABLE_EPOCH_MS = -8_640_000_000_000_000
+export const MAX_REPRESENTABLE_EPOCH_MS = 8_640_000_000_000_000
+
+/** Finite integer epoch milliseconds that `Date` can represent (cursor/SQL temporal fields). */
+export function isRepresentableEpochMs(value: number): boolean {
+  return (
+    Number.isFinite(value) &&
+    Number.isInteger(value) &&
+    value >= MIN_REPRESENTABLE_EPOCH_MS &&
+    value <= MAX_REPRESENTABLE_EPOCH_MS
+  )
+}
+
 export function clampListLimit(n: number | undefined): number {
   if (n == null || !Number.isFinite(n)) return DEFAULT_LIMIT
   return Math.min(MAX_LIMIT, Math.max(1, Math.trunc(n)))

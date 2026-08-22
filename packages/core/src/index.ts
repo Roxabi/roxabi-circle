@@ -5,6 +5,9 @@ export {
   clampListLimit,
   decodeListCursor,
   encodeListCursor,
+  isRepresentableEpochMs,
+  MAX_REPRESENTABLE_EPOCH_MS,
+  MIN_REPRESENTABLE_EPOCH_MS,
   takeListPage,
 } from './list-page'
 export { createLogger, type LogFields, type Logger, type LogLevel } from './logger'

@@ -45,13 +45,14 @@ jobs:
       - name: Install
         run: bun install --frozen-lockfile
 
-      # Product CI on Actions usually has no `upstream` remote — pin kit tip for zero-edit.
+      # Product CI on Actions has no `upstream` remote — zero-edit uses
+      # config/product/inheritance.json (full history required above).
       - name: Product validate
         run: |
           set -euo pipefail
-          if [[ -f docs/product/kit-baseline ]]; then
-            export ZERO_EDIT_BASE_REF
-            ZERO_EDIT_BASE_REF="$(tr -d '[:space:]' < docs/product/kit-baseline)"
+          if [[ ! -f config/product/inheritance.json ]]; then
+            echo "::error::missing config/product/inheritance.json — pin upstreamCommit after merge upstream"
+            exit 1
           fi
           # Prefer scripts/product/validate.sh; fall back to app-local path.
           if [[ -f scripts/product/validate.sh ]]; then

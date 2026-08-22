@@ -76,6 +76,7 @@ export {
   resetPasswordSchema,
 } from './password-schemas'
 export {
+  type ApiKeyAuthIdentity,
   type ApiKeyRecord,
   type AuthIdentity,
   type AuthMethod,
@@ -83,6 +84,7 @@ export {
   type DualAuthPorts,
   type RequireAuthContext,
   resolveDualAuth,
+  type SessionAuthIdentity,
 } from './require-auth'
 export {
   clearSessionCookieHeader,
