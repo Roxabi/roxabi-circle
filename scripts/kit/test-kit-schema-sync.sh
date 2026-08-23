@@ -264,22 +264,20 @@ else
     "exit=${RUN_EC} sql=$(sql_count "${A1B}/migrations") out=$(echo "${RUN_OUT}" | tr '\n' ' ')"
 fi
 
-# --- 2: 0001-0008 + --modules core appends Better Auth 1.7 ---
+# --- 2: 0001-0008 + --modules core records 8, writes 0 ---
 echo "-- 2 core clone 0001-0008 --"
 A2="${TMP}/case2"
 copy_sql_range "${A2}/migrations" 1 8
 run_sync --app "${A2}" --modules core
-if [[ "${RUN_EC}" -eq 0 && "$(manifest_count "${A2}/kit-schema-manifest.json")" == "${#CORE_IDS[@]}" \
-  && "$(sql_count "${A2}/migrations")" == "9" \
-  && -f "${A2}/migrations/0009_kit_better_auth_1_7.sql" ]]; then
-  pass "2 core records ${#CORE_IDS[@]} and appends Better Auth 1.7"
+if [[ "${RUN_EC}" -eq 0 && "$(manifest_count "${A2}/kit-schema-manifest.json")" == "${#CORE_IDS[@]}" && "$(sql_count "${A2}/migrations")" == "8" ]]; then
+  pass "2 core records ${#CORE_IDS[@]} writes 0"
 else
-  fail_case "2 core records ${#CORE_IDS[@]} and appends Better Auth 1.7" \
+  fail_case "2 core records ${#CORE_IDS[@]} writes 0" \
     "exit=${RUN_EC} modules=$(manifest_count "${A2}/kit-schema-manifest.json") sql=$(sql_count "${A2}/migrations") out=$(echo "${RUN_OUT}" | tr '\n' ' ')"
 fi
 
-# --- 3: isolated tree --modules core,audit appends audit after Better Auth 1.7 ---
-echo "-- 3 append audit after Better Auth 1.7 --"
+# --- 3: isolated tree --modules core,audit appends 0009_kit_rate_limit_audit.sql ---
+echo "-- 3 append audit as 0009_kit_* --"
 A3="${TMP}/case3"
 copy_sql_range "${A3}/migrations" 1 8
 run_sync --app "${A3}" --modules core
@@ -287,19 +285,19 @@ if [[ "${RUN_EC}" -ne 0 ]]; then
   fail_case "3 seed core" "exit=${RUN_EC} out=$(echo "${RUN_OUT}" | tr '\n' ' ')"
 fi
 run_sync --app "${A3}" --modules core,audit
-want3="${A3}/migrations/0010_kit_rate_limit_audit.sql"
+want3="${A3}/migrations/0009_kit_rate_limit_audit.sql"
 expected_appended "${TMP}/expected-audit.sql" "rate_limit_audit" \
   "${KIT_SQL}/0010_rate_limit_audit.sql" \
   "apps/example-api/migrations/0010_rate_limit_audit.sql"
-if [[ "${RUN_EC}" -eq 0 && -f "${want3}" && "$(sql_count "${A3}/migrations")" == "10" ]] \
+if [[ "${RUN_EC}" -eq 0 && -f "${want3}" && "$(sql_count "${A3}/migrations")" == "9" ]] \
   && cmp -s "${want3}" "${TMP}/expected-audit.sql"; then
-  pass "3 writes 0010_kit_rate_limit_audit.sql (header + kit 0010)"
+  pass "3 writes 0009_kit_rate_limit_audit.sql (header + kit 0010)"
 else
-  fail_case "3 writes 0010_kit_rate_limit_audit.sql" \
+  fail_case "3 writes 0009_kit_rate_limit_audit.sql" \
     "exit=${RUN_EC} sql=$(sql_count "${A3}/migrations") out=$(echo "${RUN_OUT}" | tr '\n' ' ')"
 fi
 run_sync --app "${A3}" --modules core,audit
-if [[ "${RUN_EC}" -eq 0 && "$(sql_count "${A3}/migrations")" == "10" ]]; then
+if [[ "${RUN_EC}" -eq 0 && "$(sql_count "${A3}/migrations")" == "9" ]]; then
   pass "3 second run writes 0"
 else
   fail_case "3 second run writes 0" \
@@ -311,12 +309,12 @@ echo "-- 3b header recovery --"
 cp "${want3}" "${TMP}/audit-before-header.sql"
 rm -f "${A3}/kit-schema-manifest.json"
 run_sync --app "${A3}" --modules core,audit
-if [[ "${RUN_EC}" -eq 0 && "$(sql_count "${A3}/migrations")" == "10" ]] \
+if [[ "${RUN_EC}" -eq 0 && "$(sql_count "${A3}/migrations")" == "9" ]] \
   && cmp -s "${want3}" "${TMP}/audit-before-header.sql" \
-  && [[ "$(manifest_field "${A3}/kit-schema-manifest.json" rate_limit_audit productFile)" == "migrations/0010_kit_rate_limit_audit.sql" ]]; then
-  pass "3b header recovery records existing 0010_kit_* writes 0"
+  && [[ "$(manifest_field "${A3}/kit-schema-manifest.json" rate_limit_audit productFile)" == "migrations/0009_kit_rate_limit_audit.sql" ]]; then
+  pass "3b header recovery records existing 0009_kit_* writes 0"
 else
-  fail_case "3b header recovery records existing 0010_kit_*" \
+  fail_case "3b header recovery records existing 0009_kit_*" \
     "exit=${RUN_EC} sql=$(sql_count "${A3}/migrations") out=$(echo "${RUN_OUT}" | tr '\n' ' ')"
 fi
 
@@ -360,20 +358,17 @@ else
     "exit=${RUN_EC} sql=$(sql_count "${A5}/migrations") out=$(echo "${RUN_OUT}" | tr '\n' ' ')"
 fi
 
-# --- 6: dry-run prints filenames, does not create them ---
+# --- 6: dry-run prints filename, does not create it ---
 echo "-- 6 dry-run --"
 A6="${TMP}/case6"
 copy_sql_range "${A6}/migrations" 1 8
 run_sync --app "${A6}" --modules core,audit --dry-run
 if [[ "${RUN_EC}" -eq 0 && "${RUN_OUT}" == *"0009_kit_rate_limit_audit.sql"* \
-  && "${RUN_OUT}" == *"0010_kit_better_auth_1_7.sql"* \
-  && ! -f "${A6}/migrations/0009_kit_rate_limit_audit.sql" \
-  && ! -f "${A6}/migrations/0010_kit_better_auth_1_7.sql" \
-  && "$(sql_count "${A6}/migrations")" == "8" \
+  && ! -f "${A6}/migrations/0009_kit_rate_limit_audit.sql" && "$(sql_count "${A6}/migrations")" == "8" \
   && ! -f "${A6}/kit-schema-manifest.json" ]]; then
-  pass "6 dry-run prints Better Auth 1.7 then audit and writes nothing"
+  pass "6 dry-run prints 0009_kit_rate_limit_audit.sql and writes nothing"
 else
-  fail_case "6 dry-run prints planned files, writes nothing" \
+  fail_case "6 dry-run prints planned file, writes nothing" \
     "exit=${RUN_EC} sql=$(sql_count "${A6}/migrations") out=$(echo "${RUN_OUT}" | tr '\n' ' ')"
 fi
 
@@ -550,13 +545,13 @@ if [[ "${RUN_EC}" -ne 0 ]]; then
   fail_case "14 seed core" "exit=${RUN_EC}"
 fi
 run_sync --app "${A14}" --modules core,audit
-printf '\n-- smuggled\n' >>"${A14}/migrations/0010_kit_rate_limit_audit.sql"
+printf '\n-- smuggled\n' >>"${A14}/migrations/0009_kit_rate_limit_audit.sql"
 rm -f "${A14}/kit-schema-manifest.json"
 sql_before14="$(sql_count "${A14}/migrations")"
 run_sync --app "${A14}" --modules core,audit
 if [[ "${RUN_EC}" -eq 1 && "${RUN_OUT}" == *"headed rate_limit_audit drifted"* \
   && "$(sql_count "${A14}/migrations")" == "${sql_before14}" \
-  && ! -f "${A14}/migrations/0011_kit_rate_limit_audit.sql" ]]; then
+  && ! -f "${A14}/migrations/0010_kit_rate_limit_audit.sql" ]]; then
   pass "14 headed body drifted dies, no append"
 else
   fail_case "14 headed body drifted dies, no append" \

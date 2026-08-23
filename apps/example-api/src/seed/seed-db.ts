@@ -69,7 +69,6 @@ export async function seedBaDemoUsers(
       id: `acc_${u.id}`,
       accountId: u.id,
       providerId: 'credential',
-      issuer: 'local:credential',
       userId: u.id,
       password: passwordHash,
       createdAt: now,
