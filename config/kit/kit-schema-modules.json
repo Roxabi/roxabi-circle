@@ -79,6 +79,12 @@
       "file": "0013_tasks_comments.sql",
       "set": "tasks",
       "kitSha256": "723ec5cbf3c2d60185ac6050b913bac7a7d0e5bf02483d4d92f397a8e1584ce3"
+    },
+    {
+      "id": "better_auth_1_7_additive",
+      "file": "0014_better_auth_1_7_additive.sql",
+      "set": "core",
+      "kitSha256": "871945468b5e8573a5dd2097b37ecf0c24219f487bba21b8662b74d2924e5da0"
     }
   ]
 }

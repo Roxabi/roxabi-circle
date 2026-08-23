@@ -68,6 +68,7 @@ export async function seedTenancyDemo(
         id: `acc_${p.id}`,
         accountId: p.id,
         providerId: 'credential',
+        issuer: 'local:credential',
         userId: p.id,
         password: passwordHash,
         createdAt: now,
