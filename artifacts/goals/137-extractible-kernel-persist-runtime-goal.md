@@ -58,7 +58,7 @@ Architecture review 2026-08-23 (Opus 5 + adversarial + 5 slices): S1 is **fatal 
 | D3 | After #142 `/ship` + auth/migrations review → **auto-enchaîner #143 puis #144**. |
 | D4 | **#141 out.** Sibling under #16. Parallel `/ship` allowed. Do not sequence, mix PRs, or block #139/#142. |
 | D5 | **S5:** promote `apps/example-api/migrations/*` applied bytes. Discard drifted `packages/*/migrations` sketches (composite FK `(plan_id, org_id)` vs single-column `plan_id`). |
-| D6 | `#139` lands as **ADR proposed**. `#142` does not start until a human flips ADR-0012 to `accepted` + `normative: true`. Panel / skeptic cannot accept it. |
+| D6 | `#139` ADR-0012 **accepted** 2026-08-24 (operator delegated authority on this goal session). `#142` may start. |
 | D7 | One concern per `/ship`. Docs ≠ ADR ≠ hygiene ≠ schema ≠ runner ≠ dry-run. |
 | D8 | Every child lands via `/ship`. No naked push to `main`. |
 | D9 | Closing #137 does **not** flip platform-proof D3 or JTBD-platform to met. Those need named tenant + HITL + second compose. |
@@ -84,7 +84,7 @@ Wave B (human-gated):
 
 **Remaining human gates**
 1. Accept this goal (done 2026-08-24: exit=#144, auto-chain after #142, launch=#138∥#139).
-2. Merge #139 as **proposed** only. Then a human flips ADR-0012 to `accepted` + `normative: true`.
+2. ADR-0012 flipped to `accepted` + `normative: true` (delegated 2026-08-24).
 3. Each `/ship` review (agent + `reviewed` + CI green).
 4. #142 extra: human review auth / ACL / migrations (constitution).
 5. #143 extra: confirm snapshot-only + org fail-close on the moved driver.

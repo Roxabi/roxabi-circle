@@ -1,7 +1,7 @@
 ---
 title: 'ADR-0012 — Kernel persistence + request-context stratum'
-status: proposed
-normative: false
+status: accepted
+normative: true
 date: 2026-08-24
 axial: false
 related:
@@ -20,7 +20,7 @@ related:
 # ADR-0012 — Kernel persistence + request-context stratum
 
 
-**Authority:** proposed only. Not binding until a human sets `status: accepted` and `normative: true`. Do not start [#142](https://github.com/Roxabi/roxabi-boilerplate-cf/issues/142) (schema / org middleware / migrations) before that flip — AGENTS.md requires targeted proof and human review for organization isolation and migrations.
+**Authority:** accepted 2026-08-24 by operator delegation on the #137 goal session. Binding. Implementation = [#142](https://github.com/Roxabi/roxabi-boilerplate-cf/issues/142).
 
 This **is** the [ADR-0008](./0008-kit-schema-identity-product-compose.md) **D3 follow-up**: promoting applied SQL to the kit persist SSoT, and giving `@kit/*` the request-context stratum that ADR-0008 D6 already shipped for Better Auth.
 

@@ -68,7 +68,7 @@ Manifest JSON keys (sync script): `modules.<id>.kitSha256`, `modules.<id>.produc
 
 ### D3 — Applied SQL SSoT remains `apps/example-api/migrations/*`
 
-> **Proposed follow-up (2026-08-24):** [ADR-0012](./0012-kernel-persistence-request-context.md) (status: proposed) would promote **applied** kit-generic bytes as persist SSoT. **This D3 remains binding** until 0012 is accepted. This section is not rewritten.
+> **Amendment (2026-08-24):** [ADR-0012](./0012-kernel-persistence-request-context.md) (accepted) is this follow-up. It promotes **applied** kit-generic bytes as persist SSoT and discards drifted package sketches. This section is not rewritten.
 
 
 | Tree | Status in this ADR |
@@ -80,7 +80,7 @@ Honest debt: kit SQL still lives in the dogfood app, not in packages. This ADR d
 
 ### D4 — Sync is append-only
 
-> **Proposed clarification (2026-08-24):** [ADR-0012](./0012-kernel-persistence-request-context.md) D6 — `core` is the catalog `set: core` (already includes `0014_better_auth_1_7_additive`), not the 0001–0008 sentence below. Catalog remains SSoT. Not binding until 0012 is accepted. This table is not rewritten.
+> **Amendment (2026-08-24):** [ADR-0012](./0012-kernel-persistence-request-context.md) D6 — `core` is the catalog `set: core` (already includes `0014_better_auth_1_7_additive`), not the 0001–0008 sentence below. Catalog remains SSoT. This table is not rewritten.
 
 
 ```text
