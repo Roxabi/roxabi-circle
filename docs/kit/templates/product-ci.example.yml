@@ -54,9 +54,6 @@ jobs:
             echo "::error::missing config/product/inheritance.json — pin upstreamCommit after merge upstream"
             exit 1
           fi
-          if [[ ! -f docs/product/deny-upstream.json ]]; then
-            echo "::warning::missing docs/product/deny-upstream.json — deny-upstream only blocks the remote named upstream. Multi-hop products (parent = mirror) must list the grandparent repo slug so a remote named roxabi/head cannot push to kit HEAD."
-          fi
           # Prefer scripts/product/validate.sh; fall back to app-local path.
           if [[ -f scripts/product/validate.sh ]]; then
             bash scripts/product/validate.sh
