@@ -48,7 +48,9 @@ merge-on-green (label reviewed + checks)
 confirm against the issuing provider's API. A `sk_` key **this kit mints itself** has no such
 provider, so it is always an *unverified* finding — and that flag discards it **silently**.
 
-Measured on trufflehog 3.96.0 with a real-format fixture (`sk_` + 48 lowercase hex):
+Measured on trufflehog 3.96.0 (#51 dual-pass — still true). Length-anchor fixtures
+(3.97.0: `sk_<48hex>Z` hits, `sk_<49hex>` does not) live in
+[`scripts/kit/trufflehog-detectors.yaml`](../../scripts/kit/trufflehog-detectors.yaml).
 
 | Invocation | Result |
 |---|---|
@@ -61,14 +63,16 @@ without it. Adding the detector while keeping the flag yields a green scan and z
 the failure mode is invisible, which is why this is written down rather than left to the diff.
 Do **not** merge the two invocations, and do **not** add `--only-verified` to the custom pass.
 
-Scope: both passes are **diff-scoped** (PR base…head; locally, commits after the origin base),
-so neither sees a secret that was force-pushed out of the window or predates the gates.
-[`secret-scan-history.yml`](../../.github/workflows/secret-scan-history.yml) covers full history on
-a weekly schedule. Rationale + regex: [`scripts/kit/trufflehog-detectors.yaml`](../../scripts/kit/trufflehog-detectors.yaml).
+Scope: both passes are **diff-scoped** (PR base…head; locally, commits after the origin base).
+A secret force-pushed out of that window, or committed before the gates existed, is **not**
+scanned — full-history job dropped (budget). Force-push on the current ref falls back to a
+full scan of that run. `sk_<48hex>Z` is detected, `sk_<49hex>` is not. Rationale + regex:
+[`scripts/kit/trufflehog-detectors.yaml`](../../scripts/kit/trufflehog-detectors.yaml).
 
 **Where local-first does not reach.** The scan is the one gate whose local and CI forms are not
-the same command: locally `scripts/kit/trufflehog-check.sh` invokes the binary directly, while CI goes
-through the TruffleHog **action**, which prepends `--fail --no-update --github-actions` of its own.
+the same command: locally `scripts/kit/trufflehog-check.sh` runs a **repo-pinned** binary
+(`.cache/trufflehog/<ver>/`, never `PATH`); CI goes through the TruffleHog **action**, which
+prepends `--fail --no-update --github-actions` of its own.
 An argument that is valid locally can therefore be rejected in CI — measured: adding `--fail` to
 `extra_args` duplicates the injected one and TruffleHog exits **1** with
 `error: flag 'fail' cannot be repeated`, before scanning anything. A green `validate:full`

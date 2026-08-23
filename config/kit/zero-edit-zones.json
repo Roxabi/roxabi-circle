@@ -34,7 +34,6 @@
     ".github/workflows/ci.yml",
     ".github/workflows/deploy-main.yml",
     ".github/workflows/secret-scan.yml",
-    ".github/workflows/secret-scan-history.yml",
     ".github/workflows/merge-on-green.yml",
     ".github/workflows/pr-title.yml",
     ".github/workflows/dependabot-automerge.yml",
