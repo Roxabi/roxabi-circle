@@ -3,7 +3,7 @@ title: 'ADR-0002 — SessionPort: Better Auth only + Bearer sk_ dual-path'
 status: accepted
 normative: true
 date: 2026-07-12
-amended: 2026-08-09
+amended: 2026-08-23
 supersedes_notes: >
   2026-07-15: Better Auth first-class via AUTH_SESSION_ADAPTER.
   2026-07-30: HMAC session path retired — no upstream product consumers;
@@ -11,6 +11,7 @@ supersedes_notes: >
   Bearer sk_ dual-path unchanged.
   2026-08-09: D6 added — constant-time comparison made explicit for the sk_ verify
   path (was implemented but unstated, so nothing owned the rule).
+  2026-08-23: D6 non-goal — lookup-path timing is not claimed (#52).
 related:
   - docs/kit/architecture/adr/0003-multi-tenant-rbac-modules.md
   - GitHub epic #14 (B2 HMAC cut)
@@ -104,6 +105,13 @@ Added 2026-08-09. The behaviour predates this section; the rule was implemented 
 - Length mismatch returns `false` **before** the byte loop — an accepted, documented leak of
   digest *length* only, which is a constant for a given algorithm.
 
+- **Non-goal — lookup-path timing.** D6 governs the comparison primitive only. The credential
+  *lookup* path is not constant-time and is not claimed to be: after the prefix lookup, 0 to 2
+  further D1 queries run depending on the record's shape (unknown prefix / no org / inactive org
+  / no membership / org-bound). Reviews must not read D6 as a lookup-path guarantee. If a lookup
+  ever distinguishes something an attacker does *not* already possess, that is a finding to fix
+  at the call site — not a reason to add a ceiling nobody can hold.
+
 ## Consequences
 
 ### Positive
@@ -139,10 +147,12 @@ Added 2026-08-09. The behaviour predates this section; the rule was implemented 
 - Forking session crypto per app instead of `SessionPort`
 - Using `hashApiKey` for user passwords
 - Claiming “full BA” while leaving HMAC in Quick Start
+- Reading D6 as a lookup-path constant-time guarantee
 
 ## Related
 
 - [ADR-0001](./0001-primary-axis-packages-compose-apps.md) — packages compose apps  
 - [ADR-0003](./0003-multi-tenant-rbac-modules.md) — multi-tenant (BA org spine)  
-- `packages/auth/src/session-port.ts`, `better-auth-port.ts`, `require-auth.ts`, `cookie-name.ts`  
-- GitHub epic **#14** (B2 HMAC cut / BA-only) · historical #5 Better Auth dual-path land
+- `packages/auth/src/session-port.ts`, `better-auth-port.ts`, `require-auth.ts`, `cookie-name.ts`
+- `apps/example-api/src/middleware/require-auth.ts` — `findKeyRecord` (lookup path; not D6)
+- GitHub epic **#14** (B2 HMAC cut / BA-only) · historical #5 Better Auth dual-path land · #52
