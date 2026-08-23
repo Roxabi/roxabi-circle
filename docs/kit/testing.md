@@ -63,12 +63,16 @@ Do **not** merge the two invocations, and do **not** add `--only-verified` to th
 
 Scope: both passes are **diff-scoped** (PR base…head; locally, commits after the origin base),
 so neither sees a secret that was force-pushed out of the window or predates the gates.
-[`secret-scan-history.yml`](../../.github/workflows/secret-scan-history.yml) covers full history on
-a weekly schedule. Rationale + regex: [`scripts/kit/trufflehog-detectors.yaml`](../../scripts/kit/trufflehog-detectors.yaml).
+[`secret-scan-history.yml`](../../.github/workflows/secret-scan-history.yml) covers full history
+on a weekly cron + `workflow_dispatch`. A silent 60-day schedule disablement is detected by
+the PR scan (freshness assert), not by a push trigger. Force-push falls back to a full scan;
+`sk_<48hex>Z` is detected, `sk_<49hex>` is not. Rationale + regex:
+[`scripts/kit/trufflehog-detectors.yaml`](../../scripts/kit/trufflehog-detectors.yaml).
 
 **Where local-first does not reach.** The scan is the one gate whose local and CI forms are not
-the same command: locally `scripts/kit/trufflehog-check.sh` invokes the binary directly, while CI goes
-through the TruffleHog **action**, which prepends `--fail --no-update --github-actions` of its own.
+the same command: locally `scripts/kit/trufflehog-check.sh` runs a **repo-pinned** binary
+(`.cache/trufflehog/<ver>/`, never `PATH`); CI goes through the TruffleHog **action**, which
+prepends `--fail --no-update --github-actions` of its own.
 An argument that is valid locally can therefore be rejected in CI — measured: adding `--fail` to
 `extra_args` duplicates the injected one and TruffleHog exits **1** with
 `error: flag 'fail' cannot be repeated`, before scanning anything. A green `validate:full`

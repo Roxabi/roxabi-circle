@@ -1,0 +1,9 @@
+# SSoT: local fetch (scripts/kit/trufflehog-check.sh) + CI action pin.
+# Bump version + checksums + action_sha together. Checksums from
+# https://github.com/trufflesecurity/trufflehog/releases/download/v<ver>/trufflehog_<ver>_checksums.txt
+version=3.97.0
+action_sha=bcfcf73aaf4759d4dadc2783177c245a02792318
+sha256_darwin_amd64=037e4aeb197870555ff515432bb5f1f2c98dce5f1214631a689112b5e0e4c9fd
+sha256_darwin_arm64=ad0a99bd48d6df80eabab24d11d0fd771e245fc55ed347f943cafb5e5f497c5c
+sha256_linux_amd64=62224de2f9dd7cd418800feb953760a302ed2f82a7c547fe1146a4874fb179e4
+sha256_linux_arm64=f48f57e3d4343377865b1b64653f96d381d61a7792d89d026e85524732039fde
