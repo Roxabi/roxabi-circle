@@ -48,7 +48,9 @@ merge-on-green (label reviewed + checks)
 confirm against the issuing provider's API. A `sk_` key **this kit mints itself** has no such
 provider, so it is always an *unverified* finding — and that flag discards it **silently**.
 
-Measured on trufflehog 3.96.0 with a real-format fixture (`sk_` + 48 lowercase hex):
+Measured on trufflehog 3.96.0 (#51 dual-pass — still true). Length-anchor fixtures
+(3.97.0: `sk_<48hex>Z` hits, `sk_<49hex>` does not) live in
+[`scripts/kit/trufflehog-detectors.yaml`](../../scripts/kit/trufflehog-detectors.yaml).
 
 | Invocation | Result |
 |---|---|

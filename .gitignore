@@ -67,4 +67,4 @@ artifacts/release-gifs/*
 trufflehog-exclude.txt
 
 # Repo-pinned trufflehog binary (scripts/kit/trufflehog-check.sh)
-.cache/
+/.cache/trufflehog/

@@ -33,8 +33,8 @@ THOG_VERSION="$(pin_get version)"
 THOG_ACTION_SHA="$(pin_get action_sha)"
 
 assert_action_pin() {
-  local wf want uses
-  want="trufflesecurity/trufflehog@${THOG_ACTION_SHA} # v${THOG_VERSION}"
+  local wf want n
+  want="uses: trufflesecurity/trufflehog@${THOG_ACTION_SHA} # v${THOG_VERSION}"
   for wf in \
     "${ROOT}/.github/workflows/secret-scan.yml" \
     "${ROOT}/.github/workflows/secret-scan-history.yml"; do
@@ -42,15 +42,10 @@ assert_action_pin() {
       echo >&2 "ERROR: missing workflow ${wf}"
       exit 1
     }
-    uses="$(grep -E 'uses:[[:space:]]*trufflesecurity/trufflehog@' "$wf" || true)"
-    [ -n "$uses" ] || {
-      echo >&2 "ERROR: ${wf} has no trufflehog action pin"
-      exit 1
-    }
-    if printf '%s\n' "$uses" | grep -vF "uses: ${want}" | grep -q .; then
-      echo >&2 "ERROR: ${wf} trufflehog pin drifted from ${PIN}"
-      echo >&2 "  want uses: ${want}"
-      echo >&2 "$uses"
+    n="$(grep -cE "^[[:space:]]+${want}\$" "$wf" || true)"
+    if [ "$n" -ne 2 ]; then
+      echo >&2 "ERROR: ${wf} want exactly 2 pins: ${want} (got ${n})"
+      grep -nE 'trufflesecurity/trufflehog@' "$wf" >&2 || true
       exit 1
     fi
   done
@@ -66,7 +61,8 @@ EXCLUDE_SRC="${ROOT}/scripts/kit/trufflehog-exclude-paths.txt"
 DETECTORS_SRC="${ROOT}/scripts/kit/trufflehog-detectors.yaml"
 excl=$(mktemp)
 staged_list=$(mktemp)
-trap 'rm -f "$excl" "$staged_list"' EXIT
+tmp=""
+trap 'rm -f "$excl" "$staged_list"; rm -rf "${tmp:-}"' EXIT
 
 if [ -f "$EXCLUDE_SRC" ]; then
   grep -vE '^\s*(#|$)' "$EXCLUDE_SRC" > "$excl" || true
@@ -121,25 +117,25 @@ file_sha256() {
 }
 
 ensure_repo_trufflehog() {
-  local target archive want tmp dir url sha
+  local target archive want dir url sha bin_want got
   target="$(thog_target)" || exit 1
   want="$(thog_archive_sha256 "$target")" || {
     echo >&2 "ERROR: no checksum pin for ${target}"
     exit 1
   }
+  bin_want="$(pin_get "sha256_bin_${target}")"
   dir="${ROOT}/.cache/trufflehog/${THOG_VERSION}/${target}"
   THOG="${dir}/trufflehog"
   if [ -s "$THOG" ]; then
-    thog_ver="$("$THOG" --version 2>&1 || true)"
-    if printf '%s' "$thog_ver" | grep -qF "$THOG_VERSION"; then
+    got="$(file_sha256 "$THOG")"
+    if [ "$got" = "$bin_want" ]; then
       return 0
     fi
+    echo >&2 "trufflehog: cached binary hash mismatch — re-fetching"
   fi
   archive="trufflehog_${THOG_VERSION}_${target}.tar.gz"
   url="https://github.com/trufflesecurity/trufflehog/releases/download/v${THOG_VERSION}/${archive}"
   tmp="$(mktemp -d "${TMPDIR:-/tmp}/thog-pin.XXXXXX")"
-  # shellcheck disable=SC2064
-  trap 'rm -rf "$tmp"' RETURN
   echo "trufflehog: fetching pinned v${THOG_VERSION} (${target})"
   if command -v curl >/dev/null 2>&1; then
     curl -fsSL --retry 3 -o "${tmp}/${archive}" "$url"
@@ -160,9 +156,11 @@ ensure_repo_trufflehog() {
   mkdir -p "$dir"
   mv -f "${tmp}/trufflehog" "$THOG"
   chmod +x "$THOG"
-  thog_ver="$("$THOG" --version 2>&1 || true)"
-  if [ ! -s "$THOG" ] || ! printf '%s' "$thog_ver" | grep -qF "$THOG_VERSION"; then
-    echo >&2 "ERROR: pinned trufflehog is not runnable (${THOG}: ${thog_ver:-empty})"
+  got="$(file_sha256 "$THOG")"
+  if [ "$got" != "$bin_want" ]; then
+    echo >&2 "ERROR: extracted trufflehog hash mismatch (${target})"
+    echo >&2 "  want ${bin_want}"
+    echo >&2 "  got  ${got}"
     exit 1
   fi
 }
