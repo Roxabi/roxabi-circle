@@ -18,18 +18,10 @@
 # kit-only pre-push dogfood (kit tree exits 0 before remote checks).
 
 pre-commit:
-  parallel: true
   commands:
-    biome:
-      # Format + lint staged only (fast)
-      run: bunx biome check --write --staged --no-errors-on-unmatched --files-ignore-unknown=true
-      stage_fixed: true
-    file-length:
-      # Staged TS/TSX under apps/ + packages/ (max 300; kit + product registers)
-      run: env -u QG_FILE_EXEMPTIONS -u QG_FILE_MAX -u QG_FILE_ROOTS -u QG_FILE_PRODUCT_EXEMPTIONS QG_FILE_MODE=staged bash scripts/kit/check_file_length.sh
-    # Primary secret gate (before GitHub) — staged files + unpushed commits
-    trufflehog:
-      run: bash scripts/kit/trufflehog-check.sh
+    kit:
+      # One process so EXIT restores the index if file-length/trufflehog fail (#148).
+      run: bash scripts/kit/lefthook-pre-commit.sh
 
 commit-msg:
   commands:
