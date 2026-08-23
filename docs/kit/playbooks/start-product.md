@@ -20,14 +20,31 @@ Kit SQL identity is **module id + hash**, not `example-api` `NNNN_` filenames. N
 bash scripts/kit/kit-schema-sync.sh --app apps/<product>-api --adopt
 ```
 
+## Which parent to clone
+
+Clone the **immediate** parent. URLs live in operator lineage, not in this repo.
+
+| Product lives under | Clone / `upstream` | `inheritance.json` pins |
+|---|---|---|
+| Roxabi | kit HEAD (`roxabi-boilerplate-cf`) | HEAD tip just pushed |
+| go-silex | kit **mirror** (`silex-boilerplate`) | **mirror** tip just pushed — never a Roxabi HEAD SHA |
+
+| Repo | `inheritance.json` | Why |
+|---|---|---|
+| Kit HEAD | **absent** | kit mode |
+| Mirror | **absent** | allowlisted kit mode. A marker here is a hard error. Mirror `upstream` = HEAD and **may** push for kit contribute. |
+| Product | **required** | product mode. `upstream` = immediate parent, push URL `no_push`. |
+
+Pinning a HEAD SHA while the tree inherited the mirror (or the reverse) is a failed start: missing object, or zero-edit diffs the wrong parent. Mirror ≡ HEAD is an operator sync concern, not a product gate ([ADR-0009](../architecture/adr/0009-kit-namespace-polarity-inheritance-marker.md) D4/D8).
+
 ## Day-0 checklist
 
 **GitHub Fork is DENY.** Not because polarity gates fail: `deny-upstream` is a no-op only when `config/product/inheritance.json` is absent; `zero-edit` is product-mode whenever that marker exists and origin is **not** in `kit_origin_allowlist`. A fork named `org/<product>` plus the marker works. A fork that keeps a kit slug without a marker fails closed (`cannot classify`) — it does not silently stay in kit-mode. The reason to refuse the Fork button is the **GitHub fork network**: PRs default to the kit parent, and private visibility plus deletion stay coupled to that parent. Start from an empty product repo.
 
 1. Create an **empty** private product repo `org/<product>`. Do not GitHub-fork this kit.
-2. Inherit history without keeping the kit as `origin`:
+2. Inherit history from the **immediate parent** (table above), without keeping that parent as `origin`:
    ```bash
-   git clone <kit-parent-url> <product>
+   git clone <immediate-parent-url> <product>
    cd <product>
    git remote rename origin upstream
    git remote add origin <product-repo-url>
@@ -66,6 +83,7 @@ bash scripts/kit/kit-schema-sync.sh --app apps/<product>-api --adopt
 
 - Use the GitHub **Fork** button on this repo (fork network, not polarity)
 - Skip `config/product/inheritance.json` on day-0
+- Pin a HEAD SHA when `upstream` is the mirror (or the reverse)
 - Edit kit-owned paths for product config
 - `git push upstream` from a product clone
 - Commit secrets
