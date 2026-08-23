@@ -271,7 +271,7 @@ copy_sql_range "${A2}/migrations" 1 8
 run_sync --app "${A2}" --modules core
 if [[ "${RUN_EC}" -eq 0 && "$(manifest_count "${A2}/kit-schema-manifest.json")" == "${#CORE_IDS[@]}" \
   && "$(sql_count "${A2}/migrations")" == "9" \
-  && -f "${A2}/migrations/0009_kit_better_auth_1_7.sql" ]]; then
+  && -f "${A2}/migrations/0009_kit_better_auth_1_7_additive.sql" ]]; then
   pass "2 core records ${#CORE_IDS[@]} and appends Better Auth 1.7"
 else
   fail_case "2 core records ${#CORE_IDS[@]} and appends Better Auth 1.7" \
@@ -366,9 +366,9 @@ A6="${TMP}/case6"
 copy_sql_range "${A6}/migrations" 1 8
 run_sync --app "${A6}" --modules core,audit --dry-run
 if [[ "${RUN_EC}" -eq 0 && "${RUN_OUT}" == *"0009_kit_rate_limit_audit.sql"* \
-  && "${RUN_OUT}" == *"0010_kit_better_auth_1_7.sql"* \
+  && "${RUN_OUT}" == *"0010_kit_better_auth_1_7_additive.sql"* \
   && ! -f "${A6}/migrations/0009_kit_rate_limit_audit.sql" \
-  && ! -f "${A6}/migrations/0010_kit_better_auth_1_7.sql" \
+  && ! -f "${A6}/migrations/0010_kit_better_auth_1_7_additive.sql" \
   && "$(sql_count "${A6}/migrations")" == "8" \
   && ! -f "${A6}/kit-schema-manifest.json" ]]; then
   pass "6 dry-run prints Better Auth 1.7 then audit and writes nothing"

@@ -47,7 +47,7 @@ describe('D1 migrations', () => {
     const sqlite = new Database(':memory:')
     expect(files).toContain('0001_init.sql')
     expect(files).toContain('0002_api_keys_prefix.sql')
-    expect(files).toContain('0014_better_auth_1_7.sql')
+    expect(files).toContain('0014_better_auth_1_7_additive.sql')
     applyThrough(sqlite, files.at(-1)!)
     const cols = sqlite.prepare(`PRAGMA table_info(api_keys)`).all() as { name: string }[]
     const names = cols.map((c) => c.name)
@@ -85,7 +85,7 @@ describe('D1 migrations', () => {
       .pluck()
       .get()
 
-    applyMigration(sqlite, '0014_better_auth_1_7.sql')
+    applyMigration(sqlite, '0014_better_auth_1_7_additive.sql')
 
     const rootPageAfter = sqlite
       .prepare(`SELECT rootpage FROM sqlite_schema WHERE type = 'table' AND name = 'account'`)
@@ -138,7 +138,7 @@ describe('D1 migrations', () => {
       )
       .run()
 
-    expect(() => applyMigration(sqlite, '0014_better_auth_1_7.sql')).toThrow(/NOT NULL/)
+    expect(() => applyMigration(sqlite, '0014_better_auth_1_7_additive.sql')).toThrow(/NOT NULL/)
 
     const accountCols = sqlite.prepare(`PRAGMA table_info(account)`).all() as { name: string }[]
     expect(accountCols.map((column) => column.name)).not.toContain('issuer')
@@ -151,7 +151,7 @@ describe('D1 migrations', () => {
     applyThrough(sqlite, '0013_tasks_comments.sql')
     insertLegacyAccount(sqlite, { providerId: 'github' })
 
-    expect(() => applyMigration(sqlite, '0014_better_auth_1_7.sql')).toThrow(/NOT NULL/)
+    expect(() => applyMigration(sqlite, '0014_better_auth_1_7_additive.sql')).toThrow(/NOT NULL/)
     const accountCols = sqlite.prepare(`PRAGMA table_info(account)`).all() as { name: string }[]
     expect(accountCols.map((column) => column.name)).not.toContain('issuer')
     sqlite.close()
