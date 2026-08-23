@@ -85,15 +85,15 @@ echo "== CP-FILE-LENGTH matrix =="
 TMP="$(mktemp -d -t cp-file-length-XXXXXX)"
 trap 'rm -rf "$TMP"' EXIT
 
-# --- allow under cap ---
+# --- allow: 300 < lines ≤ N (priced path; 10-line plants would pass without merge) ---
 ALLOW="${TMP}/allow"
 make_repo "${ALLOW}"
 mkdir -p "${ALLOW}/tools" "${ALLOW}/config/product"
 : >"${ALLOW}/tools/file_exemptions.txt"
-write_n_lines "${ALLOW}/apps/acme-web/src/god.tsx" 10
+write_n_lines "${ALLOW}/apps/acme-web/src/god.tsx" 350
 printf '%s\n' "apps/acme-web/src/god.tsx  # 400 lines — ticket test" \
   >"${ALLOW}/config/product/file_exemptions.txt"
-assert_exit "allow apps/acme-web under cap → 0" 0 "" \
+assert_exit "allow 350 lines under product cap 400 → 0" 0 "" \
   run_checker "${ALLOW}" tree
 
 # --- over declared cap ---
@@ -112,13 +112,14 @@ refuse_path() {
   local name="$1"
   local path="$2"
   local tag="$3"
+  local expect="${4:-not a product-app path}"
   local dir="${TMP}/${tag}"
   make_repo "${dir}"
   mkdir -p "${dir}/tools" "${dir}/config/product"
   : >"${dir}/tools/file_exemptions.txt"
   printf '%s\n' "${path}  # 999 lines — should fail" \
     >"${dir}/config/product/file_exemptions.txt"
-  assert_exit "${name}" 1 "not a product-app path" \
+  assert_exit "${name}" 1 "${expect}" \
     run_checker "${dir}" tree
 }
 
@@ -128,8 +129,8 @@ refuse_path "refuse apps/example-web-branded/..." "apps/example-web-branded/src/
 refuse_path "refuse apps/mcp-example/..." "apps/mcp-example/src/index.ts" "mcp"
 refuse_path "refuse unsuffixed apps/acme/..." "apps/acme/foo.ts" "unsuf"
 refuse_path "refuse tools/..." "tools/check_file_length.sh" "tools"
-refuse_path "refuse .. traversal" "apps/acme-web/../../packages/ui/src/components/ui/sidebar.tsx" "dotdot"
-refuse_path "refuse leading ./" "./apps/acme-web/src/god.tsx" "dotslash"
+refuse_path "refuse .. traversal" "apps/acme-web/../../packages/ui/src/components/ui/sidebar.tsx" "dotdot" "non-canonical"
+refuse_path "refuse leading ./" "./apps/acme-web/src/god.tsx" "dotslash" "non-canonical"
 
 # --- missing cap ---
 NOCAP="${TMP}/nocap"
@@ -218,8 +219,7 @@ assert_exit "staged TS + worktree-only product line → 1" 1 "max 300" \
 STAGEDOK="${TMP}/stagedok"
 make_repo "${STAGEDOK}"
 mkdir -p "${STAGEDOK}/tools" "${STAGEDOK}/config/product"
-: >"${STAGEDOK}/tools/file_exemptions.txt"
-write_n_lines "${STAGEDOK}/apps/acme-web/src/god.tsx" 10
+write_n_lines "${STAGEDOK}/apps/acme-web/src/god.tsx" 350
 printf '%s\n' "apps/acme-web/src/god.tsx  # 400 lines — indexed" \
   >"${STAGEDOK}/config/product/file_exemptions.txt"
 git --git-dir="${STAGEDOK}/.git" --work-tree="${STAGEDOK}" add \
@@ -231,8 +231,7 @@ assert_exit "staged allow under cap → 0" 0 "" \
 BOTH="${TMP}/both"
 make_repo "${BOTH}"
 mkdir -p "${BOTH}/tools" "${BOTH}/config/product"
-: >"${BOTH}/tools/file_exemptions.txt"
-write_n_lines "${BOTH}/apps/acme-web/src/god.tsx" 8
+write_n_lines "${BOTH}/apps/acme-web/src/god.tsx" 350
 printf '%s\n' "apps/acme-web/src/god.tsx  # 400 lines — both" \
   >"${BOTH}/config/product/file_exemptions.txt"
 git --git-dir="${BOTH}/.git" --work-tree="${BOTH}" add \

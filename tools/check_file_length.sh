@@ -36,6 +36,8 @@ QG_EXEMPT_UNIT="lines"
 FAIL=0
 MERGED=""
 PRODUCT_APPLY=""
+SEEN_FILE=""
+KIT_PATHS=""
 
 # shellcheck source=check_lib.sh
 . "$LIB_DIR/check_lib.sh"
@@ -43,8 +45,26 @@ PRODUCT_APPLY=""
 cleanup_temps() {
   [ -n "${MERGED:-}" ] && rm -f "$MERGED"
   [ -n "${PRODUCT_APPLY:-}" ] && rm -f "$PRODUCT_APPLY"
+  [ -n "${SEEN_FILE:-}" ] && rm -f "$SEEN_FILE"
+  [ -n "${KIT_PATHS:-}" ] && rm -f "$KIT_PATHS"
+  return 0
 }
 trap cleanup_temps EXIT
+
+product_path_canonical() {
+  local p="$1" part
+  case "$p" in
+    /* | ./*) return 1 ;;
+  esac
+  local IFS=/
+  # shellcheck disable=SC2086
+  for part in $p; do
+    [ -n "$part" ] || return 1
+    [ "$part" != "." ] || return 1
+    [ "$part" != ".." ] || return 1
+  done
+  return 0
+}
 
 product_app_ok() {
   local p="$1" first name part
@@ -106,17 +126,19 @@ validate_product_file() {
   local display="${2:-$1}"
   [ -f "$src" ] || return 0
 
-  EXEMPT_FILE="$src"
-  assert_exempt_no_spaces
+  if awk '/^[[:space:]]*#/ { next } NF > 2 && $2 !~ /^#/ { found = 1 } END { exit !found }' "$src"; then
+    echo "ERROR: $display: exemption path contains spaces" >&2
+    FAIL=1
+    return
+  fi
 
   local line path
-  local seen_file kit_paths
-  seen_file="$(mktemp)"
-  kit_paths="$(mktemp)"
+  SEEN_FILE="$(mktemp)"
+  KIT_PATHS="$(mktemp)"
   if [ -f "$KIT_FILE" ]; then
-    awk '/^[[:space:]]*#/ || NF == 0 { next } { print $1 }' "$KIT_FILE" >"$kit_paths"
+    awk '/^[[:space:]]*#/ || NF == 0 { next } { print $1 }' "$KIT_FILE" >"$KIT_PATHS"
   else
-    : >"$kit_paths"
+    : >"$KIT_PATHS"
   fi
 
   while IFS= read -r line || [ -n "$line" ]; do
@@ -126,6 +148,11 @@ validate_product_file() {
     path="$(printf '%s\n' "$line" | awk '{ print $1 }')"
     if product_path_has_glob "$path"; then
       echo "ERROR: $display: $path — wildcard product exemption" >&2
+      FAIL=1
+      continue
+    fi
+    if ! product_path_canonical "$path"; then
+      echo "ERROR: $display: $path — non-canonical" >&2
       FAIL=1
       continue
     fi
@@ -139,20 +166,18 @@ validate_product_file() {
       FAIL=1
       continue
     fi
-    if awk -v p="$path" '$1 == p { found = 1 } END { exit !found }' "$kit_paths"; then
+    if P="$path" awk '$1 == ENVIRON["P"] { found = 1 } END { exit !found }' "$KIT_PATHS"; then
       echo "ERROR: $display: $path — duplicate vs kit" >&2
       FAIL=1
       continue
     fi
-    if awk -v p="$path" '$1 == p { found = 1 } END { exit !found }' "$seen_file"; then
+    if P="$path" awk '$1 == ENVIRON["P"] { found = 1 } END { exit !found }' "$SEEN_FILE"; then
       echo "ERROR: $display: $path — duplicate" >&2
       FAIL=1
       continue
     fi
-    printf '%s\n' "$path" >>"$seen_file"
+    printf '%s\n' "$path" >>"$SEEN_FILE"
   done <"$src"
-
-  rm -f "$seen_file" "$kit_paths"
 }
 
 load_product_apply() {
