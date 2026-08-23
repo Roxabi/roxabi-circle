@@ -212,7 +212,7 @@ After every `git merge upstream/main`:
 
 ```bash
 mkdir -p config/product
-node -e "const s=require('child_process').execSync('git rev-parse upstream/main',{encoding:'utf8'}).trim(); require('fs').writeFileSync('config/product/inheritance.json', JSON.stringify({version:1,upstreamCommit:s},null,2)+'\n')"
+printf '{\n  "version": 1,\n  "upstreamCommit": "%s"\n}\n' "$(git rev-parse upstream/main)" > config/product/inheritance.json
 ```
 
 Commit the file with the merge (or immediately after). Stale marker → false dual-edit failures against an old tip.
@@ -248,12 +248,10 @@ git remote set-url --push upstream no_push
 | **`upstream`** | Immediate kit parent — **fetch-only** on products |
 | **`pushUrl`** | Must be `no_push` on the parent remote for products |
 
-Kit pre-push runs `scripts/kit/deny-upstream-push.sh` (lefthook; **do not dual-edit** the script in the product):
-
 | Context | Behavior |
 |---------|----------|
-| **Kit clone** (`origin` matches a kit slug known to the script) | **No-op** — maintainers may push any remote |
-| **Product** | Denies remote name **`upstream`**, URLs matching builtin kit substrings, and any **extended** URL substring (below) |
+| **Kit clone** (no `config/product/inheritance.json`) | **No-op** — maintainers may push any remote |
+| **Product** (marker present) | Denies remote name **`upstream`** and any URL matching the substring denylist (below) |
 
 **Multi-hop / private chassis** (product extends without forking the kit script):
 
@@ -270,7 +268,7 @@ Do **not** hardcode product chassis names into kit defaults. Prefer full chassis
 
 **Client-side only:** this hook is UX / footgun prevention. `LEFTHOOK=0` and `git push --no-verify` still bypass it. Real kit integrity = **GitHub write ACLs** (product has no write to boilerplate / chassis). Proof: `bun run test:deny-upstream` (**CP-DENY** in [`testing.md`](./testing.md)).
 
-**Misconfiguration:** if product `origin` still points at the kit, the script stays in kit no-op mode — fix remotes (topology table above). GitHub Fork of a kit repo produces this state; it is **DENY** ([`start-product.md`](./playbooks/start-product.md)).
+**Misconfiguration:** a product without `inheritance.json` is treated as a kit clone (`deny-upstream` no-op). If origin is also not in `kit_origin_allowlist`, `zero-edit` fails closed (`cannot classify`). GitHub Fork of a kit repo is still **DENY**: PRs default to the kit parent and private/deletion stay coupled to that network ([`start-product.md`](./playbooks/start-product.md)).
 
 ## Git branches
 

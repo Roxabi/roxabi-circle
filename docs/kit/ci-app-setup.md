@@ -90,7 +90,7 @@ Workflow **files** live on each branch. If you change secret **names** or mint s
 ### New product repo from this kit (checklist)
 
 Full **zero-edit** contract: [`product-consumer-contract.md`](./product-consumer-contract.md).  
-**Runbook:** [`playbooks/start-product.md`](./playbooks/start-product.md) — GitHub Fork is **DENY**.
+**Runbook:** [`playbooks/start-product.md`](./playbooks/start-product.md) — GitHub Fork is **DENY** (fork network, not polarity).
 
 When spinning a product consumer (empty product repo + inherited kit history + `upstream` fetch-only):
 
