@@ -2,12 +2,12 @@
 # Dry-run extractability check for Chemin A kit.
 #
 # Modes (EXTRACT_MODE):
-#   kit   (default) — banlist examples + packages; warn if product apps exist but do not fail
+#   kit   (default) — allowlisted example/mcp apps only; residency + temp compose proof
 #   mono  — dual-mission monorepo: product apps allowed; banlist still covers packages + examples only
-#   strict — legacy kit-only: fail if apps/share-* present
+#   strict — same allowlist as kit (legacy name)
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+ROOT="${EXTRACT_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}"
 cd "$ROOT"
 
 MODE="${EXTRACT_MODE:-kit}"
@@ -51,6 +51,32 @@ for f in "${required[@]}"; do
     exit 1
   fi
 done
+
+KIT_APP_ALLOW=(
+  example-api
+  example-web
+  example-web-branded
+  mcp-example
+)
+
+if [[ "$MODE" == "kit" || "$MODE" == "strict" ]]; then
+  echo "== extract-dry-run: product-app allowlist (kit/strict) =="
+  for app_dir in apps/*/; do
+    [[ -d "$app_dir" ]] || continue
+    app_name="$(basename "$app_dir")"
+    allowed=0
+    for ok in "${KIT_APP_ALLOW[@]}"; do
+      if [[ "$app_name" == "$ok" ]]; then
+        allowed=1
+        break
+      fi
+    done
+    if [[ "$allowed" -eq 0 ]]; then
+      echo "UNEXPECTED app (not in kit allowlist): apps/$app_name" >&2
+      exit 1
+    fi
+  done
+fi
 
 product_found=0
 for product_app in apps/share-api apps/share-web; do
@@ -109,6 +135,11 @@ search_q '@kit/i18n' apps/example-web || {
   echo "example-web must import @kit/i18n" >&2
   exit 1
 }
+search_q '@kit/api-client' apps/example-web || {
+  echo "example-web must import @kit/api-client" >&2
+  exit 1
+}
+
 
 echo "== extract-dry-run: no orphan workspace packages (optional hard-fail) =="
 # Packages under packages/* must be referenced outside their own dir (except config tooling).
@@ -192,5 +223,12 @@ if [[ ! -f docs/kit/architecture/adr/0002-session-hmac-interim-vs-better-auth.md
   echo "MISSING: ADR-0002 session HMAC interim" >&2
   exit 1
 fi
+
+
+echo "== extract-dry-run: residency (kit tables + org policy) =="
+bun scripts/kit/extract-residency.ts
+
+echo "== extract-dry-run: temp compose proof (typecheck + org 200/404) =="
+bun scripts/kit/extract-compose-proof.ts
 
 echo "extract-dry-run: OK (mode=${MODE})"
