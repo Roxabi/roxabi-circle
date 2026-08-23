@@ -45,7 +45,7 @@ assert_exit() {
 
 seed_ok() {
   local tree="$1"
-  mkdir -p "${tree}/docs/kit"
+  mkdir -p "${tree}/docs/kit/standards" "${tree}/docs/kit/processes"
   cat >"${tree}/package.json" <<'EOF'
 {
   "scripts": {
@@ -59,6 +59,18 @@ pre-push runs `bun run validate:full` (SSoT: root package.json).
 EOF
   cat >"${tree}/docs/kit/testing.md" <<'EOF'
 # testing
+Primary bar: `bun run validate:full`.
+EOF
+  cat >"${tree}/docs/kit/README.md" <<'EOF'
+# docs
+Primary bar: `bun run validate:full`.
+EOF
+  cat >"${tree}/docs/kit/standards/stack.md" <<'EOF'
+# stack
+Primary bar: `bun run validate:full`.
+EOF
+  cat >"${tree}/docs/kit/processes/dev-process.md" <<'EOF'
+# development process
 Primary bar: `bun run validate:full`.
 EOF
   cat >"${tree}/lefthook.yml" <<'EOF'
@@ -87,6 +99,14 @@ cat >"${BAD_LINE}/AGENTS.md" <<'EOF'
 CI = validate:full (= lint · typecheck · banlist · zod-major · test:kit-schema-sync · wrangler-migrations)
 EOF
 assert_exit "single-line inventory → 1" 1 "${BAD_LINE}" "step list belongs in package.json"
+
+BAD_STANDARD="${TMP}/bad-standard"
+seed_ok "${BAD_STANDARD}"
+cat >"${BAD_STANDARD}/docs/kit/standards/stack.md" <<'EOF'
+# stack
+CI = validate:full (= lint · typecheck · banlist · zod-major)
+EOF
+assert_exit "normative stack inventory → 1" 1 "${BAD_STANDARD}" "step list belongs in package.json"
 
 BAD_WRAP="${TMP}/bad-wrap"
 seed_ok "${BAD_WRAP}"

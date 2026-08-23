@@ -86,7 +86,7 @@ Auth glue (ADR-0008 D6): import `createBetterAuth` from `@kit/auth/factory`, tab
 | UI locales | Product `apps/<product>-web` `createI18n({ catalogs })`. **One key = no switcher** (`LocaleSwitcher` hides). Keep or drop extra catalog files accordingly | Hardcode FR/EN buttons; patch `example-web`; fork `@kit/i18n` |
 | Gate “did we touch kit paths?” | `bun run zero-edit` (in `validate` / `validate:full`) | Hope merge conflicts never happen |
 | Env completeness | Product owns inventory for `apps/<product>-*` | Treat kit `env:check` as product-wide (it is **example-api only**) |
-| File-length god-file cap | `config/product/file_exemptions.txt` (copy [`config/kit/file_exemptions.example.txt`](../config/kit/file_exemptions.example.txt)). Paths only under `apps/<product>-{api,web,mcp}/` with an explicit `# N lines` cap. **One commit** deletes product rows from `config/kit/file_exemptions.txt` and adds them here. product-validate must not export `QG_FILE_MAX` / `QG_FILE_EXEMPTIONS` | Edit `config/kit/file_exemptions.txt`; wildcard / cap-less / `packages/*` / `apps/example-*` lines |
+| File-length god-file cap | `config/product/file_exemptions.txt` (copy [`config/kit/file_exemptions.example.txt`](../../config/kit/file_exemptions.example.txt)). Paths only under `apps/<product>-{api,web,mcp}/` with an explicit `# N lines` cap. **One commit** deletes product rows from `config/kit/file_exemptions.txt` and adds them here. product-validate must not export `QG_FILE_MAX` / `QG_FILE_EXEMPTIONS` | Edit `config/kit/file_exemptions.txt`; wildcard / cap-less / `packages/*` / `apps/example-*` lines |
 | File-length / folder / import exemptions | Kit registers: `config/kit/*_exemptions.txt`. Product caps: `config/product/*_exemptions.txt` (optional). Helpers: `scripts/product/`. Never add files under `tools/` ([ADR-0011](./architecture/adr/0011-tools-fold-scripts-config-polarity.md)) | Edit `tools/*`; put product scripts in `tools/` |
 
 ---
@@ -106,7 +106,7 @@ Kit workflows read fixed credential names. The **App** is org-local; the **names
 | Map App ID/PEM to **`CI_APP_ID` / `CI_APP_PRIVATE_KEY`** | Rename to `Kit_CI_*` or `MYORG_CI_*` without forking workflows |
 | Leave unset until ready — job stays **evaluate-only** (manual merge) | Edit `merge-on-green.yml` to soft-fail differently |
 
-Setup detail: [`docs/kit/kit-ci-app-setup.md`](./kit-ci-app-setup.md). Bootstrap narrative: [`docs/kit/playbooks/start-product.md`](./playbooks/start-product.md).
+Setup detail: [`docs/kit/ci-app-setup.md`](./ci-app-setup.md). Bootstrap narrative: [`docs/kit/playbooks/start-product.md`](./playbooks/start-product.md).
 
 > Historical note: kit briefly used `Kit_CI_APP_*`; canonical names are **`CI_APP_*`** only.
 
@@ -156,7 +156,7 @@ When there is **no** viable design override or product path, and shipping cannot
 config/product/zero-edit-exceptions.json   # PRODUCT repo only
 ```
 
-Template (kit): [`config/kit/zero-edit-exceptions.example.json`](../config/kit/zero-edit-exceptions.example.json).
+Template (kit): [`config/kit/zero-edit-exceptions.example.json`](../../config/kit/zero-edit-exceptions.example.json).
 
 | Field | Rule |
 |-------|------|
@@ -278,7 +278,7 @@ Do **not** hardcode product chassis names into kit defaults. Prefer full chassis
 2. Point `origin` at product; add `upstream` fetch-only (above).
 3. `bun install` (prepare wires lefthook only if `core.hooksPath` is unset; note residual package postinstall `install -f` — see `lefthook.yml` header).
 4. Copy env examples → gitignored local files only.
-5. Ensure **kit-ci** (org var/secret) or accept manual merge — see [`kit-ci-app-setup.md`](./kit-ci-app-setup.md).
+5. Ensure **kit-ci** (org var/secret) or accept manual merge — see [`ci-app-setup.md`](./ci-app-setup.md).
 6. Add product apps under `apps/<product>-*` only.
 7. When `apps/<product>-api` exists: `bash scripts/kit/kit-schema-sync.sh --app apps/<product>-api` (default `--modules core`). Last-resort clones: `--adopt` immediately. Product domain SQL starts at `1000_`.
 8. Keep `bun run validate:full` green (kit bar). When `apps/<product>-*` exist, also wire product-validate / product-ci (see Product CI DoD below).
@@ -402,11 +402,11 @@ If product build breaks after pull → fix product code or contribute a kit fix 
 
 | Doc | Role |
 |-----|------|
-| [`AGENTS.md`](../AGENTS.md) | Kit dual-mission + consumer DENY push |
-| [`kit-ci-app-setup.md`](./kit-ci-app-setup.md) | CI App; new product repo CI checklist |
-| [`config/kit/zero-edit-zones.json`](../config/kit/zero-edit-zones.json) | Protected paths + design_overrides SSoT |
-| [`config/kit/zero-edit-exceptions.example.json`](../config/kit/zero-edit-exceptions.example.json) | Exception schema template |
-| [`scripts/kit/check-zero-edit-zones.sh`](../scripts/kit/check-zero-edit-zones.sh) | Gate implementation |
+| [`AGENTS.md`](../../AGENTS.md) | Kit-only constitution + consumer DENY push |
+| [`ci-app-setup.md`](./ci-app-setup.md) | CI App; new product repo CI checklist |
+| [`config/kit/zero-edit-zones.json`](../../config/kit/zero-edit-zones.json) | Protected paths + design_overrides SSoT |
+| [`config/kit/zero-edit-exceptions.example.json`](../../config/kit/zero-edit-exceptions.example.json) | Exception schema template |
+| [`scripts/kit/check-zero-edit-zones.sh`](../../scripts/kit/check-zero-edit-zones.sh) | Gate implementation |
 | [ADR-0001](./architecture/adr/0001-primary-axis-packages-compose-apps.md) | packages compose apps |
 | [ADR-0008](./architecture/adr/0008-kit-schema-identity-product-compose.md) | Kit schema identity · compose, do not clone |
 | [`kit-schema-sync.md`](./kit-schema-sync.md) | Product D1 sync (append-only) |

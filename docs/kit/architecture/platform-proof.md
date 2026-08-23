@@ -20,7 +20,7 @@ Not a roadmap, not an ADR, not an issue-bound working note.
 |---|---|
 | **Kit language (normative)** | Multi-tenant **capability kernel** — packages products compose |
 | **Product / stretch alias** | *Company OS+++* — product-facing only · never kit ship claim |
-| **Machine P0 (always wins)** | JTBD-dev — green `example-*` · banlist · zero-edit · [AGENTS.md](../../AGENTS.md) |
+| **Machine P0 (always wins)** | JTBD-dev — green `example-*` · banlist · zero-edit · [AGENTS.md](../../../AGENTS.md) |
 | **This doc** | Falsifiable bars for **JTBD-platform** only |
 
 **Conflict rule:** kit extractibility + bar machine + [ADR-0001](./adr/0001-primary-axis-packages-compose-apps.md) beat this proof if they conflict. Proof **does not** authorize new packages without [ADR-0005](./adr/0005-flows-platform-agentic-workflows.md) **D6**.
@@ -118,7 +118,8 @@ All of the following on the **named dogfood tenant** (not only unit tests in pur
 
 ## Invariants (pointer)
 
-Normative short list lives in [AGENTS.md](../../AGENTS.md) § Direction · Invariants.  
+Normative short list lives in [AGENTS.md](../../../AGENTS.md), under
+“Direction — multi-tenant capability kernel” and “Seven invariants”.
 Normative security detail for flows: [ADR-0005](./adr/0005-flows-platform-agentic-workflows.md) D3–D6.
 
 Steal patterns only with multi-tenant rebind (grants ∩ permits ∩ registry · principal HITL · metered AI Gateway · enforced connectors).
