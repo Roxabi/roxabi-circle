@@ -163,3 +163,24 @@ export const betterAuthDrizzleSchema = {
   member: baMember,
   invitation: baInvitation,
 }
+
+export {
+  apiKeys,
+  auditEvents,
+  kitModules,
+  organizationModules,
+  organizationRoleModuleGrants,
+  organizationRoles,
+  platformModules,
+  rateLimitBuckets,
+  tenancyDrizzleSchema,
+  userPlatformRoles,
+} from './tenancy-schema'
+
+import { tenancyDrizzleSchema } from './tenancy-schema'
+
+/** Better Auth + kit tenancy/RBAC tables for Drizzle compose. */
+export const kitAuthSchema = {
+  ...betterAuthDrizzleSchema,
+  ...tenancyDrizzleSchema,
+}
