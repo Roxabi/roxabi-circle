@@ -1,6 +1,6 @@
 ---
 title: "Goal — Extractible kernel persist+runtime stratum"
-status: ready-for-goal
+status: done
 priority: P0
 date: 2026-08-24
 repo: Roxabi/roxabi-boilerplate-cf
@@ -171,17 +171,14 @@ Goal **exits** when **all** are true:
 - `/dev` on the epic or F-full children
 - Kitchen-sink PR (#142+#143+#144)
 - Folding #141 into this close definition
-- Baking ADR-0012 as accepted, or starting #142, without an explicit human accept
+- Accepting ADR-0012 or starting #142 without a recorded human accept (accept happened 2026-08-24; #142–#144 shipped)
 - Declaring JTBD-platform met from example-api
 - Creating `@kit/tenancy` / putting tables in `@kit/db` without ADR
 - Leaving drifted sketches on a hashable promote path
 
 
 ## Next command
-```text
-#138  /ship PR #146          ← Wave A, merge anytime
-#139  /ship PR #147          ← Wave B start: ADR proposed, then STOP
-#140  optional ∥ Wave A
-#141  optional sibling #16 — not this goal
-#142  FORBIDDEN until ADR-0012 accepted by a human
-```
+
+Closed 2026-08-24. Children: #138 #139 #140 #142 #143 #144. Sibling #141 stays under #16.
+
+ADR-0012 is `accepted` + `normative: true`. Do not treat `#142 FORBIDDEN` as live — that gate fired, then #142 shipped.
