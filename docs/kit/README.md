@@ -63,7 +63,7 @@ This is the central index for every Markdown document under `docs/kit`. Use it t
 
 - [Start a product](./playbooks/start-product.md) — create a zero-edit consumer of the kit.
 - [Start project foundations](./playbooks/start-project.md) — establish the project baseline.
-- [From inherited kit to first issue](./playbooks/fork-to-first-issue.md) — progress from inherited kit to a shipped product issue.
+- [From inherited kit to first issue](./playbooks/inherit-to-first-issue.md) — progress from inherited kit to a shipped product issue.
 
 ## Evidence, status and decision logs
 

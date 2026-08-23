@@ -422,5 +422,5 @@ If product build breaks after pull → fix product code or contribute a kit fix 
 | [`kit-schema-sync.md`](./kit-schema-sync.md) | Product D1 sync (append-only) |
 | [`environments.md`](./environments.md) | Git staging/main → Wrangler `--env` → isolated CF resources |
 | [`playbooks/start-product.md`](./playbooks/start-product.md) | Day-1 greenfield product setup + dogfood |
-| [`playbooks/fork-to-first-issue.md`](./playbooks/fork-to-first-issue.md) | Full runbook: brief → tracker → GH issue → `/dev` first ship |
+| [`playbooks/inherit-to-first-issue.md`](./playbooks/inherit-to-first-issue.md) | Full runbook: brief → tracker → GH issue → `/dev` first ship |
 | [`product-consumer-dogfood-evidence.md`](./product-consumer-dogfood-evidence.md) | B5 evidence (self-sim current; live product historical) |

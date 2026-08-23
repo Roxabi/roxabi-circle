@@ -152,7 +152,7 @@ If both marker and legacy exist and disagree → **fail**.
 | Marker present on kit-allowlisted origin | **error** |
 | No marker + unknown / product-shaped origin | **error** (never silent kit) |
 
-**Allowlist SSoT:** machine list in `config/kit/zero-edit-zones.json` (post-move) with at least the Roxabi kit repo id. Additional mirrors (e.g. `go-silex/silex-boilerplate`) are **operator-extended entries** in that file when the mirror is first published — not inferred from remote topology docs outside the kit. Extractibility: a fork without the mirror entry still works for direct Roxabi consumers; Silex products need the mirror row after inherit.
+**Allowlist SSoT:** machine list in `config/kit/zero-edit-zones.json` (post-move) with at least the Roxabi kit repo id. Additional mirrors (e.g. `go-silex/silex-boilerplate`) are **operator-extended entries** in that file when the mirror is first published — not inferred from remote topology docs outside the kit. Extractibility: a Roxabi-direct product (no mirror row) still classifies once `inheritance.json` is present; go-silex products need the mirror row after inherit.
 
 CI prefers `github.repository`; local normalizes `origin` URL.
 
