@@ -60,7 +60,7 @@ jobs:
 
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version-file: package.json
 
       - name: Fetch semctx CLI (bundle autonome, pas d'install)
         run: |

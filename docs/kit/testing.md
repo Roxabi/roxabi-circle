@@ -1,6 +1,6 @@
 # Testing strategy — Chemin A kit
 
-SSoT for **how we test** this monorepo. Complements [`AGENTS.md`](../AGENTS.md) (stack, security) and axial [ADR-0001](architecture/adr/0001-primary-axis-packages-compose-apps.md) / dual-credential [ADR-0002](architecture/adr/0002-session-hmac-interim-vs-better-auth.md) (Better Auth session **\|** Bearer `sk_`; HMAC retired).
+SSoT for **how we test** this monorepo. Complements the [`AGENTS.md`](../../AGENTS.md) constitution, [documentation index](./README.md), [development process](./processes/dev-process.md), [stack standard](./standards/stack.md), axial [ADR-0001](architecture/adr/0001-primary-axis-packages-compose-apps.md) and dual-credential [ADR-0002](architecture/adr/0002-session-hmac-interim-vs-better-auth.md).
 
 ---
 
@@ -63,8 +63,8 @@ Do **not** merge the two invocations, and do **not** add `--only-verified` to th
 
 Scope: both passes are **diff-scoped** (PR base…head; locally, commits after the origin base),
 so neither sees a secret that was force-pushed out of the window or predates the gates.
-[`secret-scan-history.yml`](../.github/workflows/secret-scan-history.yml) covers full history on
-a weekly schedule. Rationale + regex: [`scripts/kit/trufflehog-detectors.yaml`](../scripts/kit/trufflehog-detectors.yaml).
+[`secret-scan-history.yml`](../../.github/workflows/secret-scan-history.yml) covers full history on
+a weekly schedule. Rationale + regex: [`scripts/kit/trufflehog-detectors.yaml`](../../scripts/kit/trufflehog-detectors.yaml).
 
 **Where local-first does not reach.** The scan is the one gate whose local and CI forms are not
 the same command: locally `scripts/kit/trufflehog-check.sh` invokes the binary directly, while CI goes
@@ -130,7 +130,7 @@ npm rebuild better-sqlite3
 bun run validate:full
 ```
 
-Goal 002 exit evidence (2026-08-03) recorded this once — see [`artifacts/reviews/002-goal-exit-evidence.md`](../artifacts/reviews/002-goal-exit-evidence.md).
+Historical Goal 002 exit evidence recorded this ABI mismatch; that historical evidence file is no longer in this repository.
 
 ---
 
@@ -145,7 +145,7 @@ Floors are enforced by Vitest (`packages/config/vitest-coverage.mjs` + per-packa
 | **T2** | `@kit/ui`, `example-web` (page chrome) | **ui ~17/17/16/23** · **web 10/10/20/12** | Low % OK **iff** contract suites green; do not chase Button coverage; Vitest 4 remapping (#21) |
 | **T3** | `email` thin, mcp-example smoke | soft / special (e.g. funcs 0% mcp-example) | Document, don’t pretend product security |
 
-**Vitest 4 remapping (#21):** Same sources/tests produce lower stmt/branch % under Vitest 4.1.x v8 than 3.2.x. Floors were recalibrated just under measured values with before/after evidence in [`artifacts/notes/21-vitest-vite-inventory.md`](../artifacts/notes/21-vitest-vite-inventory.md). **% is a ratchet, not the story.** The story is **critical paths** below.
+**Vitest 4 remapping (#21):** Same sources/tests produce lower stmt/branch % under Vitest 4.1.x v8 than 3.2.x. Floors were recalibrated just under measured values with before/after evidence in [`artifacts/notes/21-vitest-vite-inventory.md`](../../artifacts/notes/21-vitest-vite-inventory.md). **% is a ratchet, not the story.** The story is **critical paths** below.
 
 ---
 
@@ -222,6 +222,8 @@ Machine-enforced today via full `validate` + `test:coverage` + package tests. Pr
 | **CP-FOLDER-SIZE** | folder density ≤40 or declared cap; product register `config/product/folder_exemptions.txt` is optional, product-app paths only, explicit `# N files` | `bun run folder-size:check` · `bun run test:folder-size` (in `validate:full`) |
 | **CP-DEBT** | suppressions in `apps|packages` carry `DEBT:<slug>`; untagged + expiry (default **warn**, non-blocking); self-test plants untagged/tagged **and** expiry (stale / pin / warn) cases | `bun run debt:check` · `scripts/kit/check-debt.ts` · `bun run test:debt` · [`debt-tracking.md`](./debt-tracking.md) (in `validate:full`) |
 | **CP-TS-MAJOR** | root `typescript` pin exclusive `^7`; leftover workspace pins (if any) must match; lock has positive `typescript@7.` and no non-allowlisted `@5`/`@6`; self-test plants inherit / dual-range / residual / missing-7 / stray-5 cases | `bun run ts-major` · `scripts/kit/check-typescript-major.sh` · `bun run test:ts-major` (in `validate:full`) |
+| **CP-DOC-HYGIENE** | every `docs/kit/**/*.md` document is indexed; owned internal Markdown links resolve; required documentation homes and `standards.*` targets exist | `bun run doc:check` · `scripts/kit/check-doc-hygiene.ts` · `bun run test:doc-hygiene` (in `validate:full`) |
+| **CP-BUN-VERSION** | `package.json#packageManager` is the only Bun version declaration; stack metadata and workflows may name Bun without pinning a second version | `bun run bun-version:check` · `scripts/kit/check-bun-version.ts` · `bun run test:bun-version` (in `validate:full`) |
 | **CP-BAR-SSOT** | `AGENTS.md` / `docs/kit/testing.md` / `lefthook.yml` do not copy the kit-bar step list; SSoT is root `package.json` `validate:full` | `bun run check:bar-ssot` · `bun run test:bar-ssot` (in `validate:full`) |
 | **CP-FALSIFY** | healthy oracle baseline; assertion failures (not import/0-test infra) when `isGlobOrNullOrigin` neutered; restore + re-green | `bun run test:falsify` · `bash scripts/kit/test-falsify.sh --self-test` |
 | **CP-ENV** | **Kit only:** `apps/example-api` Worker string keys documented in `apps/example-api/.dev.vars.example` (SSoT Zod schema) + root Vite placeholders; no real secrets in examples. **Does not** cover product apps’ env inventories | `bun run env:check` — **DX only**, example-api scoped; not “prod secrets validated”, not product-wide |
@@ -359,7 +361,7 @@ Avoid pure “mock every repo” theatre unless a bug proves the need.
 
 ## PR expectations
 
-Use [`.github/PULL_REQUEST_TEMPLATE.md`](../.github/PULL_REQUEST_TEMPLATE.md).
+Use [`.github/PULL_REQUEST_TEMPLATE.md`](../../.github/PULL_REQUEST_TEMPLATE.md).
 
 | Touched area | Expected |
 |---|---|
@@ -410,7 +412,7 @@ bun run --filter @kit/example-api test
 
 | Doc | Role |
 |---|---|
-| [AGENTS.md](../AGENTS.md) | Stack, dual-mission, security for AI |
-| [README.md](../README.md) | Dev quickstart, credentials, coverage table |
+| [AGENTS.md](../../AGENTS.md) | Kit-only constitution, precedence, seven invariants and hard agent rules |
+| [README.md](../../README.md) | Dev quickstart, credentials, coverage table |
 | [ADR-0001](architecture/adr/0001-primary-axis-packages-compose-apps.md) | Primary axis packages → apps |
 | [ADR-0002](architecture/adr/0002-session-hmac-interim-vs-better-auth.md) | BA-only session + Bearer `sk_` dual-path (HMAC retired) |

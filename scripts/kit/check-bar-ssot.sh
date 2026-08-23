@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Fail if AGENTS.md, docs/kit/testing.md, or lefthook.yml re-enumerate validate:full.
+# Fail if agent rules, normative docs, or lefthook re-enumerate validate:full.
 #
 # SSoT for the step list is root package.json scripts["validate:full"].
 # Tokenize that script on `bun run <name>` / `&&`. Naming the script is allowed.
@@ -18,6 +18,9 @@ ROOT="${BAR_SSOT_ROOT:-$(cd "$(dirname "$0")/../.." && pwd -P)}"
 
 FILES=(
   AGENTS.md
+  docs/kit/README.md
+  docs/kit/standards/stack.md
+  docs/kit/processes/dev-process.md
   docs/kit/testing.md
   lefthook.yml
 )
