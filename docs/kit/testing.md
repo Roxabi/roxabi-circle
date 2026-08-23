@@ -63,12 +63,10 @@ without it. Adding the detector while keeping the flag yields a green scan and z
 the failure mode is invisible, which is why this is written down rather than left to the diff.
 Do **not** merge the two invocations, and do **not** add `--only-verified` to the custom pass.
 
-Scope: both passes are **diff-scoped** (PR base…head; locally, commits after the origin base),
-so neither sees a secret that was force-pushed out of the window or predates the gates.
-[`secret-scan-history.yml`](../../.github/workflows/secret-scan-history.yml) covers full history
-on a weekly cron + `workflow_dispatch`. A silent 60-day schedule disablement is detected by
-the PR scan (freshness assert), not by a push trigger. Force-push falls back to a full scan;
-`sk_<48hex>Z` is detected, `sk_<49hex>` is not. Rationale + regex:
+Scope: both passes are **diff-scoped** (PR base…head; locally, commits after the origin base).
+A secret force-pushed out of that window, or committed before the gates existed, is **not**
+scanned — full-history job dropped (budget). Force-push on the current ref falls back to a
+full scan of that run. `sk_<48hex>Z` is detected, `sk_<49hex>` is not. Rationale + regex:
 [`scripts/kit/trufflehog-detectors.yaml`](../../scripts/kit/trufflehog-detectors.yaml).
 
 **Where local-first does not reach.** The scan is the one gate whose local and CI forms are not

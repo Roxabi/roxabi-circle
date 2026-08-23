@@ -36,8 +36,7 @@ assert_action_pin() {
   local wf want n
   want="uses: trufflesecurity/trufflehog@${THOG_ACTION_SHA} # v${THOG_VERSION}"
   for wf in \
-    "${ROOT}/.github/workflows/secret-scan.yml" \
-    "${ROOT}/.github/workflows/secret-scan-history.yml"; do
+    "${ROOT}/.github/workflows/secret-scan.yml"; do
     [ -f "$wf" ] || {
       echo >&2 "ERROR: missing workflow ${wf}"
       exit 1
