@@ -113,20 +113,46 @@ assert_exit "5 product + innocent remote → 0" 0 \
     -C "${PRODUCT}" \
     bash "${SCRIPT}" "origin" "file://${PRODUCT}"
 
-# --- row 6: kit tree + kit remotes file still no-op (no marker) ---
-mkdir -p "${KIT}/config/kit"
-printf '%s\n' '{"urlSubstrings":["roxabi-boilerplate-cf"]}' >"${KIT}/config/kit/deny-upstream-remotes.json"
-assert_exit "6 kit tree + kit remotes file + named roxabi → 0" 0 \
+# --- rows 6–13: shipped kit remotes file (copy, do not rewrite the payload) ---
+KIT_DENY="${ROOT}/config/kit/deny-upstream-remotes.json"
+if [[ ! -f "${KIT_DENY}" ]] || ! grep -q '"Roxabi/roxabi-boilerplate-cf"' "${KIT_DENY}"; then
+  echo "FAIL: shipped ${KIT_DENY} missing or lacks Roxabi/roxabi-boilerplate-cf" >&2
+  exit 1
+fi
+mkdir -p "${KIT}/config/kit" "${PRODUCT}/config/kit"
+cp "${KIT_DENY}" "${KIT}/config/kit/deny-upstream-remotes.json"
+cp "${KIT_DENY}" "${PRODUCT}/config/kit/deny-upstream-remotes.json"
+assert_exit "6 kit tree + shipped remotes file + named roxabi → 0" 0 \
   env -u GIT_DIR -u GIT_WORK_TREE -u GIT_COMMON_DIR -C "${KIT}" \
     bash "${SCRIPT}" "roxabi" "git@github.com:Roxabi/roxabi-boilerplate-cf.git"
-
-# --- row 7: product inherits kit remotes file → deny HEAD URL under any name ---
-mkdir -p "${PRODUCT}/config/kit"
-printf '%s\n' '{"urlSubstrings":["roxabi-boilerplate-cf"]}' >"${PRODUCT}/config/kit/deny-upstream-remotes.json"
-assert_exit "7 product + inherited kit remotes + named roxabi → 1" 1 \
+assert_exit "7 product + shipped remotes + ssh .git → 1" 1 \
   env -u GIT_DIR -u GIT_WORK_TREE -u GIT_COMMON_DIR -u DENY_UPSTREAM_URL_SUBSTRINGS \
     -C "${PRODUCT}" \
     bash "${SCRIPT}" "roxabi" "git@github.com:Roxabi/roxabi-boilerplate-cf.git"
+assert_exit "8 product + shipped remotes + https .git → 1" 1 \
+  env -u GIT_DIR -u GIT_WORK_TREE -u GIT_COMMON_DIR -u DENY_UPSTREAM_URL_SUBSTRINGS \
+    -C "${PRODUCT}" \
+    bash "${SCRIPT}" "roxabi" "https://github.com/Roxabi/roxabi-boilerplate-cf.git"
+assert_exit "9 product + shipped remotes + https no suffix → 1" 1 \
+  env -u GIT_DIR -u GIT_WORK_TREE -u GIT_COMMON_DIR -u DENY_UPSTREAM_URL_SUBSTRINGS \
+    -C "${PRODUCT}" \
+    bash "${SCRIPT}" "roxabi" "https://github.com/Roxabi/roxabi-boilerplate-cf"
+assert_exit "10 product + shipped remotes + mixed-case https → 1" 1 \
+  env -u GIT_DIR -u GIT_WORK_TREE -u GIT_COMMON_DIR -u DENY_UPSTREAM_URL_SUBSTRINGS \
+    -C "${PRODUCT}" \
+    bash "${SCRIPT}" "roxabi" "https://github.com/Roxabi/Roxabi-Boilerplate-CF"
+assert_exit "11 product + shipped remotes + scp non-git user → 1" 1 \
+  env -u GIT_DIR -u GIT_WORK_TREE -u GIT_COMMON_DIR -u DENY_UPSTREAM_URL_SUBSTRINGS \
+    -C "${PRODUCT}" \
+    bash "${SCRIPT}" "roxabi" "mick@github.com:Roxabi/roxabi-boilerplate-cf"
+assert_exit "12 product + shipped remotes + scp host-only → 1" 1 \
+  env -u GIT_DIR -u GIT_WORK_TREE -u GIT_COMMON_DIR -u DENY_UPSTREAM_URL_SUBSTRINGS \
+    -C "${PRODUCT}" \
+    bash "${SCRIPT}" "roxabi" "github.com:Roxabi/roxabi-boilerplate-cf"
+assert_exit "13 product + shipped remotes + sibling origin → 0" 0 \
+  env -u GIT_DIR -u GIT_WORK_TREE -u GIT_COMMON_DIR -u DENY_UPSTREAM_URL_SUBSTRINGS \
+    -C "${PRODUCT}" \
+    bash "${SCRIPT}" "origin" "git@github.com:Roxabi/roxabi-boilerplate-cf-circle.git"
 
 # --- weaken probe: without name=upstream guard, name-only push is allowed ---
 echo "== weaken probe (name=upstream) =="

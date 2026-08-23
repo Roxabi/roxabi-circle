@@ -38,6 +38,45 @@ deny() {
   exit 1
 }
 
+# Lowercase owner/repo from a git remote URL. Empty if not that shape.
+normalize_owner_repo() {
+  local u="${1:-}"
+  u="${u#"${u%%[![:space:]]*}"}"
+  u="${u%"${u##*[![:space:]]}"}"
+  u="${u%%\?*}"
+  u="${u%%#*}"
+  u="${u%/}"
+  u="${u%.git}"
+  local path=""
+  if [[ "${u}" == ssh://* ]]; then
+    path="${u#ssh://}"
+    path="${path#*@}"
+    path="${path#*/}"
+  elif [[ "${u}" == http://* || "${u}" == https://* ]]; then
+    path="${u#*://}"
+    path="${path#*/}"
+  elif [[ "${u}" != *://* && "${u}" == *:* ]]; then
+    # scp-style: [user@]host:owner/repo — user is not always git
+    path="${u#*:}"
+  elif [[ "${u}" == */* ]]; then
+    path="${u}"
+  else
+    return 0
+  fi
+  path="${path#/}"
+  local owner="${path%%/*}"
+  local rest="${path#*/}"
+  local repo="${rest%%/*}"
+  if [[ -z "${owner}" || -z "${repo}" || "${owner}" == "${path}" ]]; then
+    return 0
+  fi
+  printf '%s/%s' "$(printf '%s' "${owner}" | tr '[:upper:]' '[:lower:]')" "$(printf '%s' "${repo}" | tr '[:upper:]' '[:lower:]')"
+}
+
+is_owner_repo_token() {
+  [[ "${1}" =~ ^[^[:space:]/]+/[^[:space:]/]+$ ]]
+}
+
 # Collect urlSubstrings from a JSON file via Bun (missing/invalid → empty, warn once).
 # Prints one substring per line (trimmed, non-empty).
 read_json_substrings() {
@@ -101,9 +140,17 @@ if [[ "${remote_name}" == "upstream" ]]; then
   deny
 fi
 
-# Product: never push to URL matching any deny substring (case-sensitive)
+# Product: owner/repo entries match the normalized identity (exact, case-insensitive).
+# Other entries stay raw URL substrings (private chassis).
+remote_id="$(normalize_owner_repo "${remote_url}")"
 for s in "${SUBSTRINGS[@]}"; do
-  if [[ -n "${s}" && "${remote_url}" == *"${s}"* ]]; then
+  [[ -z "${s}" ]] && continue
+  if is_owner_repo_token "${s}"; then
+    entry_id="$(normalize_owner_repo "${s}")"
+    if [[ -n "${remote_id}" && -n "${entry_id}" && "${remote_id}" == "${entry_id}" ]]; then
+      deny
+    fi
+  elif [[ "${remote_url}" == *"${s}"* ]]; then
     deny
   fi
 done
