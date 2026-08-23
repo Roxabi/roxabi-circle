@@ -202,7 +202,7 @@ Ref pattern : `kit-boilerplate` (`errorCodes`, `errorUtils`, `ApiError`).
 | `@kit/ui` | shadcn Base UI shell | **P0** |
 | `@kit/email` | Templates + transports `log` \| `smtp` \| **`cf`** (prod default) \| `resend` (escape) — [ADR-0004](../architecture/adr/0004-email-transport-cf-default.md) | **P0** |
 | `@kit/i18n` | Locale engine; catalogs app-owned; 1 catalog = no switcher | **P0** |
-| `@kit/mcp` | FastMCP/SDK conventions (ping/whoami) · tools under grants when wired · **parity grant∩ with flows** | **P0** example |
+| `@kit/mcp` | FastMCP/SDK conventions (logging, sk_, registry, ping/whoami) — grant∩ unbuilt; catalogue is never authorization | **P0** example |
 | `@kit/flows` | Pure plan engine: YAML MVP · `check` · grant∩permits · snapshot helpers ([ADR-0005](../architecture/adr/0005-flows-platform-agentic-workflows.md) · #16 · #27–#28); Workflows/D1/API = children #29–#31 · promote **D6 only** | **P0** incubating |
 | `@kit/tasks` | Pure task engine: stages · visibility · links · opaque scope · AudiencePort helpers ([ADR-0007](../architecture/adr/0007-tasks-comments-kernel.md)); D1/API dogfood later · **no resource links until resource system** | **P0** incubating |
 | `@kit/comments` | Pure multi-target comments (`target_type`+`target_id`, visibility) — compose with tasks + product entities ([ADR-0007](../architecture/adr/0007-tasks-comments-kernel.md)) | **P0** incubating |

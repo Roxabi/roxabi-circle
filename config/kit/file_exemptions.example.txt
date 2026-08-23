@@ -1,7 +1,7 @@
 # Product file-length exemptions — copy to config/product/file_exemptions.txt
 # Format: <path>  # <N> lines — <tracking> <rationale>
 # Allowed paths: apps/<product>-{api,web,mcp}/** only.
-# Kit paths (packages/, apps/example-*, tools/) are refused.
+# Kit paths (packages/, apps/example-*, tooling/) are refused.
 # Caps are local: growth past N fails the gate. No wildcards. No cap-less lines.
 # Cutover: one commit deletes product rows from tools/file_exemptions.txt
 # and adds them here (listing the same path in both files fails).

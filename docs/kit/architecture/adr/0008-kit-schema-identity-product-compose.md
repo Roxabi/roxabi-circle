@@ -80,16 +80,14 @@ Honest debt: kit SQL still lives in the dogfood app, not in packages. This ADR d
 
 ### D4 — Sync is append-only
 
-> **Amendment (2026-08-24):** [ADR-0012](./0012-kernel-persistence-request-context.md) D6 — `core` is the catalog `set: core` (already includes `0014_better_auth_1_7_additive`), not the 0001–0008 sentence below. Catalog remains SSoT. This table is not rewritten.
+> **Amendment (2026-08-24 / #140):** `core` is the catalog `set: core` (includes `0014_better_auth_1_7_additive` and `0015_api_keys_org_not_null`). Catalog remains SSoT.
 
 
 ```text
 scripts/kit/kit-schema-sync.sh --app apps/<product>-api [--modules core|all|<sets>]
 ```
 
-| Rule | |
-|------|--|
-| Default | `--modules core` = example-api **0001–0008** |
+| Default | `--modules core` = catalog `set: core` (includes 0015_api_keys_org_not_null; SSoT) |
 | Opt-in sets | `rbac` · `audit` · `demo` · `flows` · `tasks` (catalog is SSoT for ids/files) |
 | `all` | Every catalogued module — **not** the default; skip sets the product does not mount |
 | Write | Append a **new** local file + manifest row |
@@ -100,7 +98,7 @@ Set ↔ current applied files (catalog remains SSoT):
 
 | Set | example-api today |
 |-----|-------------------|
-| `core` | `0001`–`0008` |
+| `core` | 0001–0015 (catalog SSoT) |
 | `rbac` | `0009_organization_roles_grants.sql` |
 | `audit` | `0010_rate_limit_audit.sql` |
 | `demo` | `0011_demo_items.sql` |

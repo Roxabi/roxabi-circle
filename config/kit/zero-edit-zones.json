@@ -9,8 +9,7 @@
     "config/kit/",
     "scripts/kit/",
     "docs/kit/",
-    "tooling/",
-    "tools/"
+    "tooling/"
   ],
   "protected_files": [
     "lefthook.yml",

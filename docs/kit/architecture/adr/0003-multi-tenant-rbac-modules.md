@@ -189,13 +189,12 @@ Migrate existing `kit_modules` → `platform_modules` (`enabled` → `available`
 
 | Layer | Rule |
 |---|---|
-| SPA UX | BA active organization allowed as default |
-| Authorization | **Explicit org id** preferred (path `/orgs/:orgId/...`); else validated header (e.g. `X-Org-Id`) |
-| Resolution order | path → header → active org |
-| Mismatch | **403** (never silent wrong-tenant write) |
+| SPA UX | BA active organization allowed as default (UX only) |
+| Authorization | **Explicit org id** preferred (path `/orgs/:orgId/...`); else validated header (`X-Org-Id`) |
+| Resolution order | path || header (no BA active-org fallback) |
+| Mismatch | **403** (never silent wrong-tenant write; fail-closed) |
 | Every data query | `WHERE organization_id = ?` fail-closed |
-| **Amendment (ADR-0012 / #142)** | D8 org-scope rules apply to kit-generic tenant tables only. Example-only dogfood tables (`demo_notes`, `demo_items`, `demo_users`) remain subject-scoped via `subject` column and are outside D8 org middleware — not promoted to `@kit/*/schema`. |
-
+| **Amendment (INV-05 / #140)** | Implementation is path || header, mismatch 403, no BA active-org fallback. Fail-closed. #142 dogfood-table amendment kept. |
 ### D9 — Super_admin support semantics
 
 | Operation | Default |

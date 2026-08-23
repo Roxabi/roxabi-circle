@@ -10,8 +10,8 @@ export const apiKeys = sqliteTable('api_keys', {
   /** Lookup index — first 12 chars of plaintext sk_ (never the full key). */
   keyPrefix: text('key_prefix').notNull().unique(),
   subject: text('subject').notNull(),
-  /** ADR-0003 — multi-tenant keys are org-bound. */
-  organizationId: text('organization_id'),
+  /** ADR-0003 D11 + INV-04 — multi-tenant keys are org-bound (enforced NOT NULL after 0015 cleanup/revoke). */
+  organizationId: text('organization_id').notNull(),
   name: text('name'),
   createdAt: integer('created_at', { mode: 'number' }).notNull(),
   expiresAt: integer('expires_at', { mode: 'number' }),
