@@ -18,18 +18,22 @@
 # kit-only pre-push dogfood (kit tree exits 0 before remote checks).
 
 pre-commit:
-  parallel: true
+  # Sequential: snapshot index → other gates → restore index + biome ACMR (#148).
+  parallel: false
   commands:
-    biome:
-      # Format + lint staged only (fast)
-      run: bunx biome check --write --staged --no-errors-on-unmatched --files-ignore-unknown=true
-      stage_fixed: true
+    snapshot-deletes:
+      priority: 1
+      run: bash scripts/kit/lefthook-snapshot-deletes.sh
     file-length:
+      priority: 10
       # Staged TS/TSX under apps/ + packages/ (max 300; kit + product registers)
       run: env -u QG_FILE_EXEMPTIONS -u QG_FILE_MAX -u QG_FILE_ROOTS -u QG_FILE_PRODUCT_EXEMPTIONS QG_FILE_MODE=staged bash scripts/kit/check_file_length.sh
-    # Primary secret gate (before GitHub) — staged files + unpushed commits
     trufflehog:
+      priority: 10
       run: bash scripts/kit/trufflehog-check.sh
+    restore-deletes:
+      priority: 99
+      run: bash scripts/kit/lefthook-restore-deletes.sh
 
 commit-msg:
   commands:
