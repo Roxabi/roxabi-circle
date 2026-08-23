@@ -1,12 +1,10 @@
 #!/usr/bin/env bash
-# Restore the pre-leftover index, then format ACMR only (#148).
+# Put back the pre-leftover index (#148). No biome here — caller decides.
 set -euo pipefail
 gd="$(git rev-parse --git-dir)"
 tree_file="${gd}/lefthook-index-tree"
-here="$(cd "$(dirname "$0")" && pwd)"
-if [ -f "$tree_file" ]; then
-  tree="$(cat "$tree_file")"
-  rm -f "$tree_file"
-  [ -n "$tree" ] && git read-tree "$tree"
-fi
-bash "${here}/lefthook-biome-staged.sh"
+[ -f "$tree_file" ] || exit 0
+tree="$(cat "$tree_file")"
+rm -f "$tree_file"
+[ -n "$tree" ] || exit 0
+git read-tree "$tree"
