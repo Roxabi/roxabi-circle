@@ -15,12 +15,23 @@ fail=0
 run_pkg() {
   local dir="$1"
   local name
+  local log
+  local pkg_failed=0
   name="$(basename "$dir")"
+  log="$(mktemp)"
   echo ""
   echo "════════════════════════════════════════"
   echo " coverage: $name ($dir)"
   echo "════════════════════════════════════════"
-  if (cd "$dir" && bunx vitest run --coverage); then
+  if ! (cd "$dir" && bunx vitest run --coverage 2>&1 | tee "$log"); then
+    pkg_failed=1
+  fi
+  if grep -Fq "Excluding it from coverage." "$log"; then
+    echo "✗ $name silently excluded a file from coverage" >&2
+    pkg_failed=1
+  fi
+  rm -f "$log"
+  if [[ "$pkg_failed" -eq 0 ]]; then
     echo "✓ $name"
   else
     echo "✗ $name FAILED" >&2
