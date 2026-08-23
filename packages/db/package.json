@@ -23,6 +23,6 @@
     "@cloudflare/workers-types": "^4.20250620.0",
     "@types/better-sqlite3": "^9.6.0",
     "better-sqlite3": "^13.0.2",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.11"
   }
 }
