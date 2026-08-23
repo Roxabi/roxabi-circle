@@ -10,7 +10,7 @@ Cloudflare SaaS monorepo kit built with Bun, Turborepo, Workers/Hono, D1/R2, Tan
 | Read the agent constitution | [`AGENTS.md`](AGENTS.md) |
 | Start a product | [`docs/kit/playbooks/start-product.md`](docs/kit/playbooks/start-product.md) |
 | Establish project foundations | [`docs/kit/playbooks/start-project.md`](docs/kit/playbooks/start-project.md) |
-| Ship the first issue | [`docs/kit/playbooks/fork-to-first-issue.md`](docs/kit/playbooks/fork-to-first-issue.md) |
+| Ship the first issue | [`docs/kit/playbooks/inherit-to-first-issue.md`](docs/kit/playbooks/inherit-to-first-issue.md) |
 | Apply the zero-edit consumer contract | [`docs/kit/product-consumer-contract.md`](docs/kit/product-consumer-contract.md) |
 | Understand stack and architecture | [`docs/kit/standards/stack.md`](docs/kit/standards/stack.md) · [`docs/kit/architecture/index.md`](docs/kit/architecture/index.md) |
 | Test or verify a change | [`docs/kit/testing.md`](docs/kit/testing.md) |

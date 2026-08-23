@@ -253,7 +253,7 @@ git remote set-url --push upstream no_push
 | **Kit clone** (no `config/product/inheritance.json`) | **No-op** — maintainers may push any remote |
 | **Product** (marker present) | Denies remote name **`upstream`** and any URL matching the substring denylist (below) |
 
-**Multi-hop / private chassis** (product extends without forking the kit script):
+**Extra chassis** (optional): `deny-upstream` has no product-side brand builtins. Kit HEAD ships `config/kit/deny-upstream-remotes.json` with **only** the HEAD slug. Products inherit it and never list kit HEAD. The mirror must not edit that file (`config/kit/` is protected; a mirror patch conflicts on every HEAD inherit). The immediate parent is already denied via the remote name `upstream`. Use `docs/product/deny-upstream.json` only for an extra private chassis. Adding a remote to kit HEAD remains a topology bug.
 
 ```bash
 # Runtime (session / CI / direnv) — comma-separated, trimmed; prefer repo-unique slugs
@@ -264,7 +264,7 @@ export DENY_UPSTREAM_URL_SUBSTRINGS=my-private-chassis
 # { "urlSubstrings": ["my-private-chassis"] }
 ```
 
-Do **not** hardcode product chassis names into kit defaults. Prefer full chassis repo slugs (not generic tokens like `api`).
+Do **not** hardcode product chassis names into kit defaults. Prefer full repo slugs (not generic tokens like `api`).
 
 **Client-side only:** this hook is UX / footgun prevention. `LEFTHOOK=0` and `git push --no-verify` still bypass it. Real kit integrity = **GitHub write ACLs** (product has no write to boilerplate / chassis). Proof: `bun run test:deny-upstream` (**CP-DENY** in [`testing.md`](./testing.md)).
 
@@ -284,7 +284,7 @@ Pull kit updates from `upstream/main` into the product branch you are integratin
 ## Day-1 product bootstrap (no kit file edits)
 
 1. Create an **empty** private repo `org/<product>`. Do **not** GitHub-fork the kit. `origin` must be this product URL.
-2. Inherit kit history by renaming the kit remote to `upstream` (fetch-only) and pushing `main` to product `origin`. Commit `config/product/inheritance.json` on day-0 ([`start-product.md`](./playbooks/start-product.md)).
+2. Inherit the **immediate parent** (Roxabi → HEAD, go-silex → mirror): rename that remote to `upstream` (fetch-only) and push `main` to product `origin`. Commit `config/product/inheritance.json` on day-0 pinning that parent tip ([`start-product.md`](./playbooks/start-product.md)).
 3. `bun install` (prepare wires lefthook only if `core.hooksPath` is unset; note residual package postinstall `install -f` — see `lefthook.yml` header).
 4. Copy env examples → gitignored local files only.
 5. Ensure **kit-ci** (org var/secret) or accept manual merge — see [`ci-app-setup.md`](./ci-app-setup.md).
@@ -301,7 +301,7 @@ apps/<product>-web/
 apps/<product>-mcp/
 docs/product/                              # AGENTS, frames, product prose
 config/product/inheritance.json           # upstreamCommit = last-merged parent tip (required product)
-docs/product/deny-upstream.json            # multi-hop URL substrings (optional; see remotes §)
+docs/product/deny-upstream.json            # extra private chassis slugs (optional; not kit HEAD)
 config/product/zero-edit-exceptions.json     # last-resort dual-edit exceptions
 config/product/file_exemptions.txt         # product-owned file-length caps (optional)
 .github/workflows/product-*.yml
@@ -422,5 +422,5 @@ If product build breaks after pull → fix product code or contribute a kit fix 
 | [`kit-schema-sync.md`](./kit-schema-sync.md) | Product D1 sync (append-only) |
 | [`environments.md`](./environments.md) | Git staging/main → Wrangler `--env` → isolated CF resources |
 | [`playbooks/start-product.md`](./playbooks/start-product.md) | Day-1 greenfield product setup + dogfood |
-| [`playbooks/fork-to-first-issue.md`](./playbooks/fork-to-first-issue.md) | Full runbook: brief → tracker → GH issue → `/dev` first ship |
+| [`playbooks/inherit-to-first-issue.md`](./playbooks/inherit-to-first-issue.md) | Full runbook: brief → tracker → GH issue → `/dev` first ship |
 | [`product-consumer-dogfood-evidence.md`](./product-consumer-dogfood-evidence.md) | B5 evidence (self-sim current; live product historical) |

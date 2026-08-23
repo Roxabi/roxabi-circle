@@ -92,17 +92,17 @@ Workflow **files** live on each branch. If you change secret **names** or mint s
 Full **zero-edit** contract: [`product-consumer-contract.md`](./product-consumer-contract.md).  
 **Runbook:** [`playbooks/start-product.md`](./playbooks/start-product.md) — GitHub Fork is **DENY** (fork network, not polarity).
 
-When spinning a product consumer (empty product repo + inherited kit history + `upstream` fetch-only):
+When spinning a product consumer (empty product repo + inherited **immediate parent** history + `upstream` fetch-only):
 
 1. [ ] Create an **empty** GitHub private repo (under `your-org` **or** a foreign org — see below). Do **not** use the Fork button.
-2. [ ] Clone kit, rename `origin` → `upstream`, add product `origin`, push `main` (**no kit file edits**):
+2. [ ] Clone the **immediate parent** (Roxabi → kit HEAD, go-silex → mirror), rename `origin` → `upstream`, add product `origin`, push `main` (**no kit file edits**):
    ```bash
    git remote rename origin upstream
    git remote add origin git@github.com:your-org/<product>.git
    git remote set-url --push upstream no_push
    git push -u origin main
    ```
-3. [ ] Commit `config/product/inheritance.json` (see [`product-consumer-contract.md`](./product-consumer-contract.md) § Product file)
+3. [ ] Commit `config/product/inheritance.json` pinning that parent tip (see [`product-consumer-contract.md`](./product-consumer-contract.md) § Product file)
 4. [ ] `bun install` (hooks via prepare if no `core.hooksPath`) · copy `.dev.vars.example` → gitignored local only
 5. [ ] **CI App (mandatory on Free private):** set **repo-level** `CI_APP_ID` + `CI_APP_PRIVATE_KEY` (commands above) — **never** edit `merge-on-green.yml`
 6. [ ] Confirm: draft PR → **Merge on Green** log has non-empty `APP_ID` and mint succeeds (or evaluate-only until set)

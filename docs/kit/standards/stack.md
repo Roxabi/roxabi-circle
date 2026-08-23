@@ -351,7 +351,7 @@ kit/
 |---|---|
 | `packages/*` | kit only (optional modules) |
 | `apps/example-*` | prouve kit seul |
-| `apps/<product>-*` | product repos (fork `upstream`); never dual-edit kit paths |
+| `apps/<product>-*` | product repos (inherit immediate parent as fetch-only `upstream`); never dual-edit kit paths |
 
 ### Phasage (boilerplate-first)
 

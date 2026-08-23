@@ -35,7 +35,7 @@ Clone the **immediate** parent. URLs live in operator lineage, not in this repo.
 | Mirror | **absent** | allowlisted kit mode. A marker here is a hard error. Mirror `upstream` = HEAD and **may** push for kit contribute. |
 | Product | **required** | product mode. `upstream` = immediate parent, push URL `no_push`. |
 
-Pinning a HEAD SHA while the tree inherited the mirror (or the reverse) is a failed start: missing object, or zero-edit diffs the wrong parent. Mirror ≡ HEAD is an operator sync concern, not a product gate ([ADR-0009](../architecture/adr/0009-kit-namespace-polarity-inheritance-marker.md) D4/D8).
+A product has one parent. go-silex products never add a remote to kit HEAD. Kit HEAD ships `config/kit/deny-upstream-remotes.json` with **only** the HEAD slug; products inherit it and do not name the grandparent. The mirror must **not** edit that file (`config/kit/` is zero-edit protected — a mirror edit would conflict on every HEAD sync). The product's parent (the mirror) is already blocked by the remote name `upstream`. Pinning a HEAD SHA while the tree inherited the mirror (or the reverse) is a failed start. Mirror ≡ HEAD is an operator sync concern, not a product gate ([ADR-0009](../architecture/adr/0009-kit-namespace-polarity-inheritance-marker.md) D4/D8).
 
 ## Day-0 checklist
 
@@ -84,6 +84,7 @@ Pinning a HEAD SHA while the tree inherited the mirror (or the reverse) is a fai
 - Use the GitHub **Fork** button on this repo (fork network, not polarity)
 - Skip `config/product/inheritance.json` on day-0
 - Pin a HEAD SHA when `upstream` is the mirror (or the reverse)
+- Add a remote from a product to kit HEAD. The product talks only to its immediate parent.
 - Edit kit-owned paths for product config
 - `git push upstream` from a product clone
 - Commit secrets
