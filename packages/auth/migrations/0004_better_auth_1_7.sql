@@ -1,5 +1,5 @@
 -- SKETCH / REFERENCE ONLY — NOT applied by wrangler.
--- Applied SSoT: apps/example-api/migrations/0014_better_auth_1_7.sql (kit-schema-sync).
+-- Applied SSoT: apps/example-api/migrations/0014_better_auth_1_7_additive.sql (kit-schema-sync).
 -- Better Auth 1.7 scopes account identities by (issuer, account_id).
 -- Keep the database compatible with the previous Worker during deployment:
 -- legacy inserts omit issuer and receive the credential default.
