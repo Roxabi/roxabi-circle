@@ -6,7 +6,7 @@ GitHub CI = **quality only** (`validate:full`). GH does **not** ship the showcas
 
 | Related | Role |
 |---------|------|
-| [`environments.md`](./environments.md) | **SSoT** git `staging`/`main` → Wrangler `--env` → CF isolation (all apps) |
+| [`environments.md`](./environments.md) | **SSoT** product git `staging`/`main` → Wrangler `--env` → CF isolation (kit HEAD is `main` only) |
 | [`config/kit/deploy.cf.example.toml`](../../config/kit/deploy.cf.example.toml) | Operator profile template (account/hosts; gitignored local copy) |
 | [`scripts/kit/cf-builds/`](../../scripts/kit/cf-builds/) | Install / migrate / deploy / SPA build scripts used by CF Builds |
 | [`email-cf-runbook.md`](./email-cf-runbook.md) | Email Sending |
@@ -56,7 +56,7 @@ Workers Builds / Pages trigger on **push to `main`**. They do **not** natively w
 | CF Builds | `KIT_SHOWCASE_DEPLOY=1` · commands §3–4 · **main only** |
 | Live | `/health` + SPA 200 |
 
-### Product / fork — deploy *your* product
+### Product consumer — deploy *your* product
 
 Showcase scripts refuse without `KIT_SHOWCASE_DEPLOY=1` and refuse non-`main`.
 
@@ -190,7 +190,7 @@ Public email sign-up is **opt-in** (`ALLOW_PUBLIC_SIGNUP=true`):
 | `GET /health` | `allowPublicSignup: false` | `true` |
 | SPA | no CTA · `/sign-up` redirects to `/login` | `/sign-up` + link from `/login` |
 
-Showcase production sets `ALLOW_PUBLIC_SIGNUP=true` (intentional dogfood). Product forks leave the var **unset or false** unless they want open registration — do not copy the showcase block.
+Showcase production sets `ALLOW_PUBLIC_SIGNUP=true` (intentional dogfood). Product consumers leave the var **unset or false** unless they want open registration — do not copy the showcase block.
 
 Auth-sensitive BA paths already hit **D1 fixed-window rate limit** (e.g. **20 / IP / 15 min** on sign-in / sign-up / magic-link / reset — see `apps/example-api/src/routes/auth.ts` + `lib/rate-limit.ts`). Enough for dogfood; not a full WAF.
 

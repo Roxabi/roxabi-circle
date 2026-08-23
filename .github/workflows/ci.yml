@@ -3,10 +3,10 @@ name: CI
 # Gate qualité (`bun run validate:full`). Ne déploie pas.
 #
 # Quand ça tourne :
-#   - pull_request → staging|main  = gate avant merge (ready only; draft skipped)
-#   - push staging|main            = suite seulement si commit nu (classify=naked)
-#   - workflow_dispatch            = secours manuel
-# Pas de CI sur feat/* sans PR vers staging|main.
+#   - pull_request → main (kit HEAD) or staging|main (product consumers that inherit this file)
+#   - push main / staging        = suite seulement si commit nu (classify=naked)
+#   - workflow_dispatch          = secours manuel
+# Kit HEAD has no staging branch. Keep the staging trigger so products need not edit kit CI.
 # Draft PRs: no heavy CI (ready_for_review starts the gate).
 # Processed PR merge → skip suite (effects = Cloudflare Builds). Naked push → run suite.
 # ~/projects/ssot/conventions.ssot.md § CI landing

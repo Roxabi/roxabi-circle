@@ -22,13 +22,28 @@ bash scripts/kit/kit-schema-sync.sh --app apps/<product>-api --adopt
 
 ## Day-0 checklist
 
-1. Create a **private product repo** (empty or cloned from kit history).
-2. Remotes:
+**GitHub Fork is DENY.** The Fork button leaves `origin` on a kit slug, so `deny-upstream` is a no-op and `zero-edit` stays in kit-mode. Do not use it.
+
+1. Create an **empty** private product repo `org/<product>`. Its `origin` URL must not be a GitHub fork of an allowlisted kit (`roxabi-boilerplate-cf`, `silex-boilerplate`).
+2. Inherit history without keeping the kit as `origin`:
    ```bash
-   # origin = product
-   git remote add upstream <kit parent-url>   # operator-owned URL
+   git clone <kit-parent-url> <product>
+   cd <product>
+   git remote rename origin upstream
+   git remote add origin <product-repo-url>
    git remote set-url --push upstream no_push
+   git push -u origin main
    ```
+   Then pin the inherited tip and create **product** `staging`:
+   ```bash
+   mkdir -p config/product
+   node -e "const s=require('child_process').execSync('git rev-parse upstream/main',{encoding:'utf8'}).trim(); require('fs').writeFileSync('config/product/inheritance.json', JSON.stringify({version:1,upstreamCommit:s},null,2)+'\n')"
+   git add config/product/inheritance.json
+   git commit -m "chore(product): pin kit inheritance"
+   git branch staging
+   git push -u origin staging
+   ```
+   The kit parent has no `staging` branch. `origin` must stay the product URL — if it still matches a kit slug, polarity gates stay in kit-mode.
 3. `bun install` · ensure lefthook hooks.
 4. Copy env examples → gitignored local files only (`.dev.vars`, etc.).
    Public sign-up is **off** unless you set `ALLOW_PUBLIC_SIGNUP=true` (then SPA `/sign-up` appears). Leave unset for invite/admin-only.
@@ -49,6 +64,8 @@ bash scripts/kit/kit-schema-sync.sh --app apps/<product>-api --adopt
 
 ## Never
 
+- Use the GitHub **Fork** button on this repo
+- Leave `origin` pointing at a kit slug
 - Edit kit-owned paths for product config
 - `git push upstream` from a product clone
 - Commit secrets

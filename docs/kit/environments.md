@@ -1,6 +1,6 @@
 # Environments & deploy (local · staging · main)
 
-**SSoT** for how this kit (and product forks) map **git branches** → **Wrangler named envs** → **Cloudflare resources**.
+**SSoT** for how **product consumers** map **git branches** → **Wrangler named envs** → **Cloudflare resources**. Kit HEAD is trunk/`main` only.
 
 | Related | Role |
 |---------|------|
@@ -18,8 +18,10 @@
 |---------|--------|
 | Protocol (this page) | Normative |
 | Kit `apps/example-*/wrangler.toml` | Top-level = **local** · `[env.production]` = showcase · **no** `[env.staging]` |
-| Kit CD (`scripts/kit/cf-builds/*`) | Refuses any branch ≠ `main` · **always** `--env production`. Copying it onto git `staging` writes **production** D1 |
+| Kit git | **`main` only.** There is no kit `staging` branch. Do not create one on the kit to “match the docs”. |
+| Kit CD (`scripts/kit/cf-builds/*`) | Refuses any branch ≠ `main` · **always** `--env production`. Copying it onto a product `staging` branch writes **production** D1 |
 | Product `apps/<product>-*` | Owns `[env.staging]` / `[env.production]` (new files, zero-edit) |
+| Product git | Create `staging` on the **product** repo. Inherited kit workflows already listen on `staging\|main`. |
 
 Provisioning kit example staging is **B4**. Products do not wait — they add `[env.staging]` in **product** wrangler and **product** CD.
 
@@ -104,7 +106,7 @@ feature PR
 | **staging-train** | `staging`; `/promote` → `main` | git `staging` | git `main` |
 | **trunk + staging pin** | `main`; optional `staging` fast-forwarded from `main` | git `staging` (pin) | git `main` |
 
-Kit `AGENTS.md` default is staging-train. Kit **showcase CD** is trunk/`main` only until B4.
+**Who uses which model:** kit HEAD = trunk/`main` only (no kit `staging`). Product consumers = **staging-train** by default: create `staging` after start, land PRs there, promote to `main`. Kit showcase CD stays `main` only until B4.
 
 ### Builds (product) — two projects, never one Worker’s “non-production”
 

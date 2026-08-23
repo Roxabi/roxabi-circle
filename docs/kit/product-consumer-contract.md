@@ -270,14 +270,23 @@ Do **not** hardcode product chassis names into kit defaults. Prefer full chassis
 
 **Client-side only:** this hook is UX / footgun prevention. `LEFTHOOK=0` and `git push --no-verify` still bypass it. Real kit integrity = **GitHub write ACLs** (product has no write to boilerplate / chassis). Proof: `bun run test:deny-upstream` (**CP-DENY** in [`testing.md`](./testing.md)).
 
-**Misconfiguration:** if product `origin` still points at the kit, the script stays in kit no-op mode — fix remotes (topology table above).
+**Misconfiguration:** if product `origin` still points at the kit, the script stays in kit no-op mode — fix remotes (topology table above). GitHub Fork of a kit repo produces this state; it is **DENY** ([`start-product.md`](./playbooks/start-product.md)).
+
+## Git branches
+
+| Repo | Branches |
+|---|---|
+| Kit HEAD | **`main` only.** There is no kit `staging`. Kit PRs target `main`. |
+| Product | Create `staging` after start. Feature PRs land on product `staging`; promote to product `main`. Inherited kit workflows already listen on `staging\|main` — do not edit `ci.yml` to add that trigger. |
+
+Pull kit updates from `upstream/main` into the product branch you are integrating (`staging` first).
 
 ---
 
 ## Day-1 product bootstrap (no kit file edits)
 
-1. Create private repo `org/<product>` (empty or from kit history).
-2. Point `origin` at product; add `upstream` fetch-only (above).
+1. Create an **empty** private repo `org/<product>`. Do **not** GitHub-fork the kit. `origin` must be this product URL.
+2. Inherit kit history by renaming the kit remote to `upstream` (fetch-only) and pushing `main` to product `origin`. Commit `config/product/inheritance.json` on day-0 ([`start-product.md`](./playbooks/start-product.md)).
 3. `bun install` (prepare wires lefthook only if `core.hooksPath` is unset; note residual package postinstall `install -f` — see `lefthook.yml` header).
 4. Copy env examples → gitignored local files only.
 5. Ensure **kit-ci** (org var/secret) or accept manual merge — see [`ci-app-setup.md`](./ci-app-setup.md).

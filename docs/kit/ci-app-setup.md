@@ -90,23 +90,24 @@ Workflow **files** live on each branch. If you change secret **names** or mint s
 ### New product repo from this kit (checklist)
 
 Full **zero-edit** contract: [`product-consumer-contract.md`](./product-consumer-contract.md).  
-**Runbook (fork / greenfield):** [`playbooks/start-product.md`](./playbooks/start-product.md).
+**Runbook:** [`playbooks/start-product.md`](./playbooks/start-product.md) — GitHub Fork is **DENY**.
 
-When spinning a product consumer (fork / new repo + `upstream` → this kit):
+When spinning a product consumer (empty product repo + inherited kit history + `upstream` fetch-only):
 
-1. [ ] Create GitHub private repo (under `your-org` **or** a foreign org — see below)
-2. [ ] Clone kit as starting point; set remotes (**no kit file edits**):
+1. [ ] Create an **empty** GitHub private repo (under `your-org` **or** a foreign org — see below). Do **not** use the Fork button.
+2. [ ] Clone kit, rename `origin` → `upstream`, add product `origin`, push `main` (**no kit file edits**):
    ```bash
-   git remote add upstream git@github.com:kit-parent.git
+   git remote rename origin upstream
+   git remote add origin git@github.com:your-org/<product>.git
    git remote set-url --push upstream no_push
-   # deny-upstream is already in kit lefthook — do not copy a divergent hook
+   git push -u origin main
    ```
-3. [ ] `bun install` (hooks via prepare if no `core.hooksPath`) · copy `.dev.vars.example` → gitignored local only
-4. [ ] **CI App (mandatory on Free private):** set **repo-level** `CI_APP_ID` + `CI_APP_PRIVATE_KEY` (commands above) — **never** edit `merge-on-green.yml`
-5. [ ] Confirm: draft PR → **Merge on Green** log has non-empty `APP_ID` and mint succeeds (or evaluate-only until set)
-6. [ ] Product domain only under **new** `apps/<product>-*`; never patch `example-*` / `packages/*` for métier
-7. [ ] When `apps/<product>-api` exists: `bash scripts/kit/kit-schema-sync.sh --app apps/<product>-api` (default `--modules core`; last-resort clones `--adopt` immediately)
-8. [ ] Pin `config/product/inheritance.json` (see [`product-consumer-contract.md`](./product-consumer-contract.md) § Product file)
+3. [ ] Commit `config/product/inheritance.json` (see [`product-consumer-contract.md`](./product-consumer-contract.md) § Product file)
+4. [ ] `bun install` (hooks via prepare if no `core.hooksPath`) · copy `.dev.vars.example` → gitignored local only
+5. [ ] **CI App (mandatory on Free private):** set **repo-level** `CI_APP_ID` + `CI_APP_PRIVATE_KEY` (commands above) — **never** edit `merge-on-green.yml`
+6. [ ] Confirm: draft PR → **Merge on Green** log has non-empty `APP_ID` and mint succeeds (or evaluate-only until set)
+7. [ ] Product domain only under **new** `apps/<product>-*`; never patch `example-*` / `packages/*` for métier
+8. [ ] When `apps/<product>-api` exists: `bash scripts/kit/kit-schema-sync.sh --app apps/<product>-api` (default `--modules core`; last-resort clones `--adopt` immediately)
 
 Verify **repo** credentials (this is what Free private actually uses):
 
@@ -144,9 +145,9 @@ Do **not** use obsolete `Kit_CI_APP_*` names — workflows read **`CI_APP_*` onl
 
 ## 5. Smoke test
 
-1. Open a tiny PR to `staging` (docs typo)
+1. Kit HEAD: open a tiny PR to `main`. Product consumer: open it to `staging` (create that branch on the product; it does not exist on the kit).
 2. Wait for **Secret scan** green
-3. `gh pr edit <n> -R kit-parent --add-label reviewed`
+3. `gh pr edit <n> -R <this-repo> --add-label reviewed`
 4. Expect **Merge on Green** to merge with a **merge commit**
 5. Check run log: mint step succeeds; merge attributed to **`kit-ci[bot]`**
 
@@ -175,7 +176,7 @@ If mint fails with *private-key must be set*: secret not visible to the repo (in
 
 ## Related
 
-- Environments (git staging/main → Wrangler → CF): [`docs/kit/environments.md`](./environments.md)
+- Environments (product git staging/main → Wrangler → CF; kit HEAD is `main` only): [`docs/kit/environments.md`](./environments.md)
 - Cloudflare deploy (account-agnostic + local profile): [`docs/kit/deploy-cloudflare.md`](./deploy-cloudflare.md)
 - Staging examples deploy: [`docs/kit/staging-examples.md`](./staging-examples.md)
 - Product start playbook: [`docs/kit/playbooks/start-product.md`](./playbooks/start-product.md)
