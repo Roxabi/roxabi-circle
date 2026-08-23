@@ -194,6 +194,7 @@ Migrate existing `kit_modules` → `platform_modules` (`enabled` → `available`
 | Resolution order | path → header → active org |
 | Mismatch | **403** (never silent wrong-tenant write) |
 | Every data query | `WHERE organization_id = ?` fail-closed |
+| **Amendment (ADR-0012 / #142)** | D8 org-scope rules apply to kit-generic tenant tables only. Example-only dogfood tables (`demo_notes`, `demo_items`, `demo_users`) remain subject-scoped via `subject` column and are outside D8 org middleware — not promoted to `@kit/*/schema`. |
 
 ### D9 — Super_admin support semantics
 
@@ -298,16 +299,5 @@ IDOR / cross-role tests are a **quality gate** for tenant routes (see consensus 
 - `platform_role` settable via invite, signup body, or org-admin APIs.
 - Staff listing/acting on all orgs without membership.
 - Super_admin write-all default inside `requireOrgContext`.
-- Subject-global API keys across multiple orgs.
-- Authorizing mutations from BA active-org cookie alone (no path/header re-check).
-- Module enablement only in BA static AC statements (no D1 available/enabled).
-- Empty `@kit/rbac` package “for later”.
-- Copying share-frame `private_acl` / GitHub org recheck as kit multi-tenant spine.
 
-## Related
-
-- [ADR-0001](./0001-primary-axis-packages-compose-apps.md) — packages compose apps  
-- [ADR-0002](./0002-session-hmac-interim-vs-better-auth.md) — BA-only session + `sk_` dual-path  
-- Consensus: operator archive  
-
-- Phase A modules: `platform_modules` / `organization_modules` (legacy `kit_modules` migrated in #11)
+[Showing lines 1-300 of 314. Use :301 to continue]

@@ -120,6 +120,7 @@
         "@vitejs/plugin-react": "^6.1.0",
         "better-auth": "^1.7.1",
         "happy-dom": "^20.11.6",
+        "hono": "^4.11.7",
         "react": "^19.2.8",
         "react-dom": "^19.2.8",
         "vitest": "^4.1.11",
@@ -128,6 +129,7 @@
         "@kit/ui": "workspace:*",
         "@tanstack/react-form": "^1.12.0",
         "better-auth": ">=1.2.0",
+        "hono": ">=4.0.0",
         "react": "^19.0.0",
         "react-dom": "^19.0.0",
       },
@@ -135,6 +137,7 @@
         "@kit/ui",
         "@tanstack/react-form",
         "better-auth",
+        "hono",
         "react",
         "react-dom",
       ],
@@ -143,6 +146,7 @@
       "name": "@kit/comments",
       "version": "0.0.1",
       "dependencies": {
+        "drizzle-orm": "^0.45.2",
         "zod": "^4.4.3",
       },
       "devDependencies": {
@@ -188,6 +192,7 @@
       "name": "@kit/flows",
       "version": "0.0.1",
       "dependencies": {
+        "drizzle-orm": "^0.45.2",
         "yaml": "^2.8.0",
         "zod": "^4.4.3",
       },
@@ -225,6 +230,7 @@
       "name": "@kit/tasks",
       "version": "0.0.1",
       "dependencies": {
+        "drizzle-orm": "^0.45.2",
         "zod": "^4.4.3",
       },
       "devDependencies": {
