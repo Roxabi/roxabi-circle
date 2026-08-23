@@ -36,7 +36,7 @@
     "env:check": "bun run scripts/kit/check-env-sync.ts",
     "i18n:check": "bun run --filter @kit/example-web test -- src/messages/messages.contract.test.ts",
     "license:check": "bun run scripts/kit/licenseChecker.ts",
-    "quality-gates:check": "env -u QG_FILE_EXEMPTIONS -u QG_FILE_MAX -u QG_FILE_ROOTS -u QG_FILE_PRODUCT_EXEMPTIONS QG_FILE_MODE=tree bash scripts/kit/check_file_length.sh && bash scripts/kit/check_folder_size.sh",
+    "quality-gates:check": "env -u QG_FILE_EXEMPTIONS -u QG_FILE_MAX -u QG_FILE_ROOTS -u QG_FILE_PRODUCT_EXEMPTIONS QG_FILE_MODE=tree bash scripts/kit/check_file_length.sh && env -u QG_FOLDER_EXEMPTIONS -u QG_FOLDER_MAX -u QG_FOLDER_ROOTS -u QG_FOLDER_PRODUCT_EXEMPTIONS bash scripts/kit/check_folder_size.sh",
     "validate": "bun run lint && bun run typecheck && bun run test && bun run banlist && bun run zod-major && bun run ts-major && bun run extract-dry-run && bun run zero-edit && bun run env:check && bun run wrangler-migrations:check",
     "build:kit": "turbo run build --filter=@kit/example-api --filter=@kit/example-web",
     "cf:showcase:install": "bash scripts/kit/cf-builds/install-monorepo.sh",

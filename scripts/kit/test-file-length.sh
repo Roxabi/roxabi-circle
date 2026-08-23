@@ -230,7 +230,8 @@ assert_exit "staged allow under cap → 0" 0 "" \
 # --- same allow + kit-path refuse in both modes ---
 BOTH="${TMP}/both"
 make_repo "${BOTH}"
-mkdir -p "${BOTH}/tools" "${BOTH}/config/product"
+mkdir -p "${BOTH}/config/kit" "${BOTH}/config/product"
+: >"${BOTH}/config/kit/file_exemptions.txt"
 write_n_lines "${BOTH}/apps/acme-web/src/god.tsx" 350
 printf '%s\n' "apps/acme-web/src/god.tsx  # 400 lines — both" \
   >"${BOTH}/config/product/file_exemptions.txt"
