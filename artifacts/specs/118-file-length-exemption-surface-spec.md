@@ -90,9 +90,9 @@ Order is load-bearing. Runs at script top level **before** `case "$MODE"` (same 
 7. Cap check: exempt file with `lines > N` fails. Non-exempt file with `lines > 300` fails. Over-cap stderr names the **register that granted the cap** (`config/product/file_exemptions.txt` vs `tools/file_exemptions.txt`). Never tell a product operator to update the kit file for a product cap.
 8. Staged vs tree still differ on **which TypeScript files are scanned**. Product validation (step 3) is identical.
 
-No env flag that disables the kit register. This is not zero-edit “product mode” and not a `QG_FILE_MODE` value. Presence of the product file is the only extra input.
+No product-mode env flag. This is not zero-edit “product mode” and not a `QG_FILE_MODE` value. Presence of the product file is the only extra **product** input.
 
-`QG_FILE_EXEMPTIONS`, `QG_FILE_PRODUCT_EXEMPTIONS`, `QG_FILE_MAX`, `QG_FILE_ROOTS` are **harness-only**. Live invocations (`lefthook.yml` file-length, `quality-gates:check`) set only `QG_FILE_MODE` and must `env -u` the other `QG_FILE_*` vars so ambient shell exports cannot replace the kit register. Honor those vars only when a harness sentinel file exists (same class as `ZERO_EDIT_HARNESS_SENTINEL`). Products create the default path; they do not export `QG_FILE_PRODUCT_EXEMPTIONS`. Consumer contract: product-validate / product CI must not export `QG_FILE_MAX` or `QG_FILE_EXEMPTIONS`.
+`QG_FILE_EXEMPTIONS`, `QG_FILE_PRODUCT_EXEMPTIONS`, `QG_FILE_MAX`, `QG_FILE_ROOTS` are **harness convenience**. Live leftover / `quality-gates:check` set only `QG_FILE_MODE` and `env -u` the others — **best-effort** against an inherited `export`, not a BASH_ENV-proof pin. A plant that re-exports those vars (or `LEFTHOOK=0`) is the same class as skipping leftover. The live pin is: kit-owned invoke sites (`lefthook.yml`, `package.json`) under zero-edit + CI clean env. Honor overrides only when a harness sentinel file exists (operator footgun, same class as `ZERO_EDIT_HARNESS_SENTINEL` — not authentication). Products create the default path; they do not export `QG_FILE_PRODUCT_EXEMPTIONS`. Consumer contract: product-validate / product CI must not export `QG_FILE_MAX` or `QG_FILE_EXEMPTIONS`.
 
 Three-way default literal, kept in sync: `config/product/file_exemptions.txt` in `tools/qg.conf` (`: "${QG_FILE_PRODUCT_EXEMPTIONS:=config/product/file_exemptions.txt}"`), `.claude/stack.yml` `quality_gates.file_length.product_exemptions_file`, and the script fallback after source.
 
@@ -318,7 +318,7 @@ claim:   [fail-closed]
 | `apps/acme/foo.ts` | Refuse (no required suffix) |
 | `apps/../packages/...` or `apps/acme-web/../../packages/...` | Refuse (non-canonical) |
 | Kit clone | No live `config/product/file_exemptions.txt`; keep `.gitkeep`; example lives under `config/kit/` |
-| Ambient `QG_FILE_EXEMPTIONS` / `QG_FILE_MAX` at leftover / `quality-gates:check` | Unset; kit register stays `tools/file_exemptions.txt` |
+| Ambient `QG_FILE_EXEMPTIONS` / `QG_FILE_MAX` at leftover / `quality-gates:check` | `env -u` best-effort; not BASH_ENV-proof. Pin = zero-edit invoke sites + CI clean env |
 | Product wrapper exports `QG_FILE_MAX` | Contract forbids; not priced in the kit checker |
 | Staged TS, product line only in worktree | Validate worktree (may fail); do not apply the line |
 | Pre-migration product rows still in kit file only | Still work (kit semantics). Do not also list them in the product file until the kit rows are gone. |
