@@ -3,7 +3,7 @@
 # Dashboard: Root = empty · Build: `bun run cf:showcase:install`
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 cd "$ROOT"
 
 if ! command -v bun >/dev/null 2>&1; then
