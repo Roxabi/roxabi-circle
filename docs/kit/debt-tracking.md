@@ -99,7 +99,7 @@ discouraged (ADRs are provenance, not day-to-day law).
 bun run agents-adr:check   # warn-only by default; AGENTS_ADR_MODE=fail to gate
 ```
 
-Linked forms (`[ADR-0002](docs/kit/architecture/adr/…)`) are fine.
+Linked forms such as [ADR-0002](./architecture/adr/0002-session-hmac-interim-vs-better-auth.md) are fine.
 
 ---
 
@@ -132,7 +132,7 @@ Included in `quality-gates:check` next to file length.
 | Doc / gate | Role |
 |---|---|
 | [`testing.md`](./testing.md) · **CP-DEBT** | control-point inventory |
-| [`plans/010-quality-hygiene-debt.md`](../plans/010-quality-hygiene-debt.md) | plan SSoT |
+| Historical plan `010-quality-hygiene-debt.md` | provenance retained; the historical target is no longer in this repository |
 | `scripts/kit/check-debt.ts` | untagged + expiry scanner |
 | `scripts/kit/check_folder_size.sh` | folder density |
 | kit-factory `docs/kit/debt-tracking.md` | upstream inspiration |

@@ -7,8 +7,8 @@ GitHub CI = **quality only** (`validate:full`). GH does **not** ship the showcas
 | Related | Role |
 |---------|------|
 | [`environments.md`](./environments.md) | **SSoT** git `staging`/`main` → Wrangler `--env` → CF isolation (all apps) |
-| [`config/kit/deploy.cf.example.toml`](../config/kit/deploy.cf.example.toml) | Operator profile template (account/hosts; gitignored local copy) |
-| [`scripts/kit/cf-builds/`](../scripts/kit/cf-builds/) | Install / migrate / deploy / SPA build scripts used by CF Builds |
+| [`config/kit/deploy.cf.example.toml`](../../config/kit/deploy.cf.example.toml) | Operator profile template (account/hosts; gitignored local copy) |
+| [`scripts/kit/cf-builds/`](../../scripts/kit/cf-builds/) | Install / migrate / deploy / SPA build scripts used by CF Builds |
 | [`email-cf-runbook.md`](./email-cf-runbook.md) | Email Sending |
 | [Workers Builds](https://developers.cloudflare.com/workers/ci-cd/builds/) | CF native CI/CD |
 | [Monorepos](https://developers.cloudflare.com/workers/ci-cd/builds/advanced-setups/#monorepos) | Root directory + per-Worker connect |
