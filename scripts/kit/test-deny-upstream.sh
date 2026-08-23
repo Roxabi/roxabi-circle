@@ -113,6 +113,21 @@ assert_exit "5 product + innocent remote → 0" 0 \
     -C "${PRODUCT}" \
     bash "${SCRIPT}" "origin" "file://${PRODUCT}"
 
+# --- row 6: kit tree + kit remotes file still no-op (no marker) ---
+mkdir -p "${KIT}/config/kit"
+printf '%s\n' '{"urlSubstrings":["roxabi-boilerplate-cf"]}' >"${KIT}/config/kit/deny-upstream-remotes.json"
+assert_exit "6 kit tree + kit remotes file + named roxabi → 0" 0 \
+  env -u GIT_DIR -u GIT_WORK_TREE -u GIT_COMMON_DIR -C "${KIT}" \
+    bash "${SCRIPT}" "roxabi" "git@github.com:Roxabi/roxabi-boilerplate-cf.git"
+
+# --- row 7: product inherits kit remotes file → deny HEAD URL under any name ---
+mkdir -p "${PRODUCT}/config/kit"
+printf '%s\n' '{"urlSubstrings":["roxabi-boilerplate-cf"]}' >"${PRODUCT}/config/kit/deny-upstream-remotes.json"
+assert_exit "7 product + inherited kit remotes + named roxabi → 1" 1 \
+  env -u GIT_DIR -u GIT_WORK_TREE -u GIT_COMMON_DIR -u DENY_UPSTREAM_URL_SUBSTRINGS \
+    -C "${PRODUCT}" \
+    bash "${SCRIPT}" "roxabi" "git@github.com:Roxabi/roxabi-boilerplate-cf.git"
+
 # --- weaken probe: without name=upstream guard, name-only push is allowed ---
 echo "== weaken probe (name=upstream) =="
 STRIPPED="${TMP}/deny-stripped.sh"

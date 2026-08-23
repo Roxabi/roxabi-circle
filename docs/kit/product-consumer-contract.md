@@ -253,7 +253,7 @@ git remote set-url --push upstream no_push
 | **Kit clone** (no `config/product/inheritance.json`) | **No-op** — maintainers may push any remote |
 | **Product** (marker present) | Denies remote name **`upstream`** and any URL matching the substring denylist (below) |
 
-**Extra chassis** (optional): `deny-upstream` has no brand builtins. It blocks the remote **named** `upstream`, plus URL substrings you list. A product must not add a remote to kit HEAD — that is a topology bug, not something to denylist. Use `docs/product/deny-upstream.json` only for an extra private chassis the product might otherwise push to.
+**Extra chassis** (optional): `deny-upstream` has no product-side brand builtins. Kit HEAD ships `config/kit/deny-upstream-remotes.json` (its own slug). Products inherit that file and never list kit HEAD. The hook also blocks the remote **named** `upstream`. Use `docs/product/deny-upstream.json` only for an extra private chassis. Adding a remote to kit HEAD remains a topology bug.
 
 ```bash
 # Runtime (session / CI / direnv) — comma-separated, trimmed; prefer repo-unique slugs
