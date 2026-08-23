@@ -284,7 +284,7 @@ Pull kit updates from `upstream/main` into the product branch you are integratin
 ## Day-1 product bootstrap (no kit file edits)
 
 1. Create an **empty** private repo `org/<product>`. Do **not** GitHub-fork the kit. `origin` must be this product URL.
-2. Inherit kit history by renaming the kit remote to `upstream` (fetch-only) and pushing `main` to product `origin`. Commit `config/product/inheritance.json` on day-0 ([`start-product.md`](./playbooks/start-product.md)).
+2. Inherit the **immediate parent** (Roxabi → HEAD, go-silex → mirror): rename that remote to `upstream` (fetch-only) and push `main` to product `origin`. Commit `config/product/inheritance.json` on day-0 pinning that parent tip ([`start-product.md`](./playbooks/start-product.md)).
 3. `bun install` (prepare wires lefthook only if `core.hooksPath` is unset; note residual package postinstall `install -f` — see `lefthook.yml` header).
 4. Copy env examples → gitignored local files only.
 5. Ensure **kit-ci** (org var/secret) or accept manual merge — see [`ci-app-setup.md`](./ci-app-setup.md).
@@ -301,7 +301,7 @@ apps/<product>-web/
 apps/<product>-mcp/
 docs/product/                              # AGENTS, frames, product prose
 config/product/inheritance.json           # upstreamCommit = last-merged parent tip (required product)
-docs/product/deny-upstream.json            # multi-hop URL substrings (optional; see remotes §)
+docs/product/deny-upstream.json            # extra private chassis slugs (optional; not kit HEAD)
 config/product/zero-edit-exceptions.json     # last-resort dual-edit exceptions
 config/product/file_exemptions.txt         # product-owned file-length caps (optional)
 .github/workflows/product-*.yml
