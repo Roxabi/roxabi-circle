@@ -4,6 +4,21 @@
 --
 -- Fail before altering account if production data violates the credential-only
 -- invariant or contains identities that would collide in the new unique index.
+--
+-- D1 is not transactional. Wrangler concatenates this file with the
+-- d1_migrations ledger insert. If ALTER succeeds and CREATE INDEX / ledger
+-- insert fails, do not re-run the file (duplicate column name: issuer).
+-- Inspect PRAGMA table_info(account) and PRAGMA index_list(account).
+-- If issuer exists, finish by hand:
+--   CREATE UNIQUE INDEX IF NOT EXISTS "account_issuer_accountId_uidx"
+--     ON "account" ("issuer", "account_id");
+--   INSERT INTO d1_migrations (name) VALUES ('0014_better_auth_1_7_additive.sql');
+-- Rollback:
+--   DROP INDEX IF EXISTS "account_issuer_accountId_uidx";
+--   ALTER TABLE "account" DROP COLUMN "issuer";
+-- DEFAULT 'local:credential' is permanent (SQLite cannot drop a column
+-- DEFAULT cheaply). New inserts without issuer stay in the credential space.
+
 
 CREATE TABLE IF NOT EXISTS "__kit_better_auth_1_7_guard" (
   "ok" integer NOT NULL CHECK ("ok" = 1)

@@ -68,6 +68,8 @@ Default sync: `--modules core` (0001–0008). Opt-in sets (`rbac`, `audit`, `dem
 
 Auth glue (ADR-0008 D6): import `createBetterAuth` from `@kit/auth/factory`, tables from `@kit/auth/schema`, env helpers from `@kit/auth`. SPA forgot/reset/change-password: `@kit/auth/react` forms (app owns routes + catalogs). Do **not** copy or dual-edit `apps/example-api/src/lib/better-auth.ts` as the factory. Never import `@kit/auth/react` from a Worker.
 
+`@kit/auth` 1.7 selects `account.issuer`. Sync and apply catalog module `better_auth_1_7_additive` **before** deploying a Worker on `@kit/auth` 1.7. Package bump first → `no such column: issuer` on sign-in, session lookup, and password reset.
+
 ---
 
 ## Configuration without forking kit files
@@ -392,8 +394,9 @@ If product build breaks after pull → fix product code or contribute a kit fix 
 - [ ] Product apps don’t import from other product apps via kit packages  
 - [ ] CI vars/secrets only — no forked workflow diffs  
 - [ ] Deny-upstream hook active (kit lefthook; no product fork of the file)  
+- [ ] If `apps/<product>-api` exists: run `bash scripts/kit/kit-schema-sync.sh --app apps/<product>-api` after merge and commit new `NNNN_kit_*` + manifest
+- [ ] `@kit/auth` 1.7: module `better_auth_1_7_additive` applied before Worker deploy
 - [ ] `bun run zero-edit` green (exceptions current or empty)  
-- [ ] If `apps/<product>-api` exists: run `bash scripts/kit/kit-schema-sync.sh --app apps/<product>-api` after merge and commit new `NNNN_kit_*` + manifest  
 - [ ] Theming via design overrides, not `packages/ui` forks  
 
 ---
