@@ -103,5 +103,5 @@ Large GIFs: prefer gitignore + generate locally; only commit small demos if need
 3. Point `outDir` at product `artifacts/release-gifs/`.
 4. Never dual-edit kit `example-web` scenarios for métier demos.
 
-Engine details: [`tooling/release-gifs/README.md`](../../tooling/release-gifs/README.md).
+Engine details: [`tooling/release-gifs/README.md`](../../../tooling/release-gifs/README.md).
 

@@ -270,5 +270,5 @@ Ops-only Roxabi plans = **product/ops app** consuming the kit — not kit defaul
 
 - [ADR-0001](./0001-primary-axis-packages-compose-apps.md) · [ADR-0002](./0002-session-hmac-interim-vs-better-auth.md) · [ADR-0003](./0003-multi-tenant-rbac-modules.md)  
 - CF Workflows · AI Gateway · [Nika](https://nika.sh/) (concepts)  
-- Adversarial: [`artifacts/reviews/16-adversarial.md`](../../../artifacts/reviews/16-adversarial.md)  
+- Adversarial: [`artifacts/reviews/16-adversarial.md`](../../../../artifacts/reviews/16-adversarial.md)
 - Epic: [GitHub #16](https://github.com/Roxabi/roxabi-boilerplate-cf/issues/16) · children #27–#36  

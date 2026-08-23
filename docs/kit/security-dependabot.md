@@ -4,7 +4,7 @@
 
 | | Version updates | Security updates + alerts |
 |---|---|---|
-| Config | [`.github/dependabot.yml`](../.github/dependabot.yml) | Repo **Dependabot alerts** + **Dependabot security updates** |
+| Config | [`.github/dependabot.yml`](../../.github/dependabot.yml) | Repo **Dependabot alerts** + **Dependabot security updates** |
 | Ecosystem | **`bun`** (text `bun.lock`) — not `npm` | Separate channel (CVE / GHSA) |
 | Cadence | Weekly (Mon) + **cooldown** (patch/minor 3d, major 7d) | **Immediate** when a GHSA/CVE matches the lockfile |
 | Cooldown | Yes (version only) | **No** — never delayed by `cooldown:` |
@@ -27,7 +27,7 @@ GitHub docs: `cooldown` applies **only** to version updates, not security update
 
 - Dependabot alerts: **enabled**
 - Dependabot security updates (auto PR for fixed versions): **enabled**
-- Slack: [`.github/workflows/dependabot-alert-slack.yml`](../.github/workflows/dependabot-alert-slack.yml)
+- Slack: [`.github/workflows/dependabot-alert-slack.yml`](../../.github/workflows/dependabot-alert-slack.yml)
   - **Why not `on: dependabot_alert`?** That name is a GitHub *webhook* only — Actions rejects it (`Unexpected value 'dependabot_alert'`).
   - **Triggers used:**
     1. ~~`schedule` every 15 min~~ — **disabled 2026-08-06** (poll spam / missing Slack secret). Proper path later = GitHub App webhook `dependabot_alert` → Slack.
