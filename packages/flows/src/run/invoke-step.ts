@@ -1,6 +1,7 @@
 /** Invoke dispatch. Persist inside the step; step return stays small. */
 
-import type { ReceiptBundle, RunnerView, TaskReceipt } from '@kit/flows'
+import type { ReceiptBundle, TaskReceipt } from '../receipts'
+import type { RunnerView } from '../snapshot'
 import { DriveNonRetryableError } from './errors'
 import type { persistBundle } from './persist'
 

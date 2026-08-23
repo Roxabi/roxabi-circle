@@ -1,8 +1,8 @@
 import { parseRunnerView } from '@kit/flows'
+import { INVOKE_ONLY_PLAN_YAML } from '@kit/flows/run'
 import { eq } from 'drizzle-orm'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { flowRuns } from './db/schema'
-import { INVOKE_ONLY_PLAN_YAML } from './flows-run/fixtures'
 import * as flowsRepo from './repos/flows'
 import { mintApiKey } from './services/auth'
 import {

@@ -1,5 +1,5 @@
+import { INVOKE_ONLY_PLAN_YAML } from '@kit/flows/run'
 import { describe, expect, it } from 'vitest'
-import { INVOKE_ONLY_PLAN_YAML } from './flows-run/fixtures'
 import { mintApiKey } from './services/auth'
 import {
   BOTH_ORGS,

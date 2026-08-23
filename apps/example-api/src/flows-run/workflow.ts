@@ -1,9 +1,9 @@
 import { WorkflowEntrypoint, type WorkflowEvent, type WorkflowStep } from 'cloudflare:workers'
 import { NonRetryableError } from 'cloudflare:workflows'
 import { registryHas } from '@kit/flows'
+import { DriveNonRetryableError, driveFlowRun } from '@kit/flows/run'
 import type { Env } from '../env'
 import { dogfoodToolRegistry } from '../lib/flows-dogfood'
-import { DriveNonRetryableError, driveFlowRun } from './drive'
 import { invokeEcho } from './ports'
 
 type FlowRunParams = { runId: string; orgId: string }

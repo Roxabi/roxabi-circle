@@ -1,13 +1,13 @@
 import { createRunSnapshot, createToolRegistry, loadPlanFromYaml } from '@kit/flows'
-import { describe, expect, it } from 'vitest'
-import { createMemoryEnv } from '../test/memory-env'
 import {
   DriveNonRetryableError,
   type DriveStep,
   driveFlowRun,
   type InferPort,
   type InvokePort,
-} from './drive'
+} from '@kit/flows/run'
+import { describe, expect, it } from 'vitest'
+import { createMemoryEnv } from '../test/memory-env'
 
 type RunRow = {
   status: string

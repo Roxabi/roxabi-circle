@@ -1,6 +1,7 @@
-import { and, desc, eq, sql } from 'drizzle-orm'
+import { and, desc, eq, inArray, sql } from 'drizzle-orm'
 import type { DrizzleD1Database } from 'drizzle-orm/d1'
 import { flowPlans, flowRuns } from './drizzle-schema'
+import { FLOW_RUN_STATUSES } from './receipts'
 
 type Db = DrizzleD1Database<Record<string, unknown>>
 
@@ -108,6 +109,65 @@ export async function insertQueuedRunIfPlanEnabled(
     WHERE id = ${row.planId} AND org_id = ${row.orgId} AND enabled = 1
   `)
   return (result.meta.changes ?? 0) > 0
+}
+
+const DRIVER_STATUS_SET = new Set<string>(FLOW_RUN_STATUSES)
+
+/** CAS queued → running, or no-op if this instance already owns the row. */
+export async function claimRun(
+  db: Db,
+  input: { runId: string; orgId: string; instanceId: string; now?: number },
+): Promise<number> {
+  if (!input.instanceId || input.instanceId.length > 128) return 0
+  const now = input.now ?? Date.now()
+  const result = await db
+    .update(flowRuns)
+    .set({ status: 'running', workflowInstanceId: input.instanceId, updatedAt: now })
+    .where(
+      and(
+        eq(flowRuns.id, input.runId),
+        eq(flowRuns.orgId, input.orgId),
+        eq(flowRuns.status, 'queued'),
+      ),
+    )
+    .run()
+  if (result.meta.changes === 1) return 1
+  const row = await getRun(db, input.runId, input.orgId)
+  if (row?.status === 'running' && row.workflowInstanceId === input.instanceId) return 1
+  return 0
+}
+
+/** Writes receipts + rollup. Returns meta.changes (1 = wrote). */
+export async function persistRunBundle(
+  db: Db,
+  input: {
+    runId: string
+    orgId: string
+    status: string
+    receiptJson: string
+    errorCode?: string | null
+    now?: number
+  },
+): Promise<number> {
+  if (!DRIVER_STATUS_SET.has(input.status)) return 0
+  const now = input.now ?? Date.now()
+  const result = await db
+    .update(flowRuns)
+    .set({
+      receiptJson: input.receiptJson,
+      status: input.status,
+      errorCode: input.errorCode ?? null,
+      updatedAt: now,
+    })
+    .where(
+      and(
+        eq(flowRuns.id, input.runId),
+        eq(flowRuns.orgId, input.orgId),
+        inArray(flowRuns.status, ['queued', 'running']),
+      ),
+    )
+    .run()
+  return result.meta.changes
 }
 
 export async function markQueuedRunCreateFailed(db: Db, input: { id: string; orgId: string }) {

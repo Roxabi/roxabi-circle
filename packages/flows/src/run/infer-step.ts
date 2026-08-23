@@ -1,11 +1,8 @@
 /** Sequential InferPort + actual-token meter. Persist inside step; return stays small. */
 
-import {
-  DEFAULT_INFER_MAX_TOKENS,
-  type ReceiptBundle,
-  type RunnerView,
-  type TaskReceipt,
-} from '@kit/flows'
+import { DEFAULT_INFER_MAX_TOKENS } from '../constants'
+import type { ReceiptBundle, TaskReceipt } from '../receipts'
+import type { RunnerView } from '../snapshot'
 import { DriveNonRetryableError } from './errors'
 import type { persistBundle } from './persist'
 
