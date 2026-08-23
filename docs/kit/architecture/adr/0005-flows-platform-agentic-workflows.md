@@ -67,12 +67,12 @@ Without a kit axis, products invent Cron + Queue + ad-hoc agent loops → N×M d
 
 | Package (target) | Role |
 |---|---|
-| **`@kit/flows`** | **Shipped (pure):** plan schema (Zod), YAML load (MVP), `check()`, **grant∩permits**, tool registry interface, **run snapshot** types/helpers, access helpers. **Later (same package or app wire):** CF Workflows adapter (#30), D1 apply + models (#29), run lifecycle at API (#31) |
+| **`@kit/flows`** | **Shipped (pure):** plan schema (Zod), YAML load (MVP), `check()`, **grant∩permits**, tool registry interface, **run snapshot** types/helpers, access helpers. **App wire (#29–#31 closed):** D1 apply + models, CF Workflows adapter, run lifecycle at API. **Remaining extract:** epic #137 (runner still app-local). |
 | **`@kit/flows-ui`** | Console shell (P2+): list plans/runs, detail + step timeline, enable/disable, HITL approve (no product copy) |
 
 Apps compose packages:
 
-- `apps/example-api` — **today:** pure dogfood freeze (`flows-dogfood.ts`); **later (#29–#31):** routes + Workflows binding + module seed  
+- `apps/example-api` — **today:** routes + Workflows binding + module seed (`FlowRunWorkflow`, applied `0012`, REST `/api/flows/*`); remaining extract is epic **#137** (runner still app-local)  
 - `apps/example-web` — `/admin/flows` dogfood (**P2 / #33**)  
 - Products — same packages + **product tools + product plans** under `apps/<product>-*` only  
 

@@ -64,11 +64,11 @@ Phase (normative order — not aspiration):
 
 1. **Grants = sole max power** — plan/MCP permits may only **narrow** ; never expand.  
 2. **Runner executes snapshot only** — live plan edits do not re-arm in-flight runs.  
-3. **Grant provenance** — apps mint from server session / org module policy ; **never** from plan body, client, or agent self-description.  
+3. **Grant provenance** — **never** mint from client, plan body, or agent self-description (holds). **Residual until #142:** mint from org module policy; current dogfood is server-side `dogfoodFixedGrant`, not policy mint.  
 4. **Default-deny ambient authority** — empty/absent permits + effectful tools = fail-closed.  
 5. **Isolation fields mandatory** — every plan/run/agent tool call is org-scoped ; no cross-org ambient registry.  
 6. **Product domain never under** `packages/**` · durable work on **CF Workflows** not ad-hoc DO engine.  
-7. **Agents tools = registry ∩ grants** (parity MCP ↔ flows when both present) ; dual-auth session \| `sk_` **org-bound**.
+7. **Agents tools = registry ∩ grants** — **unbuilt** until the agents layer. Dual-auth session \| `sk_` **org-bound** is the intended surface. `@kit/mcp` `effect`/`auth` in `packages/mcp/src/catalogue.ts` are **NEVER authorization** (convention only).
 
 #### Steal-list (patterns rebind multi-tenant — not feature crib)
 

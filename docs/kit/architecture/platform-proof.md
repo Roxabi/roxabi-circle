@@ -33,7 +33,7 @@ Not a roadmap, not an ADR, not an issue-bound working note.
 |---|---|---|
 | **D1** Kit clone green | **Met by design** when CI / `validate:full` green | kit gates |
 | **D2** Tenant shell | **Partial** — multi-tenant Phase A in kit; product tenant TBD | ADR-0003 · example seed |
-| **D3** Governed plan E2E | **Not met** — pure `@kit/flows` only; no durable product run | ADR-0005 · #29–#32 |
+| **D3** Governed plan E2E | **Not met** — example-api durable dogfood path exists (`FlowRunWorkflow` + applied `0012` + REST `/api/flows/*`); D3 unmet because infer not on live Workflow, grant is `dogfoodFixedGrant` not org-policy mint, HITL absent, no named product tenant, no second compose | ADR-0005 · #137 · #141 · #32 |
 | **Second compose** | **Not met** | needs 2nd product call site |
 | **Platform JTBD** | **Not met** until D2+D3+second compose (or explicit waiver) | this table |
 
