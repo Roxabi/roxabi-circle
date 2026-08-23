@@ -58,7 +58,7 @@ Architecture review 2026-08-23 (Opus 5 + adversarial + 5 slices): S1 is **fatal 
 | D3 | After #142 `/ship` + auth/migrations review → **auto-enchaîner #143 puis #144**. |
 | D4 | **#141 out.** Sibling under #16. Parallel `/ship` allowed. Do not sequence, mix PRs, or block #139/#142. |
 | D5 | **S5:** promote `apps/example-api/migrations/*` applied bytes. Discard drifted `packages/*/migrations` sketches (composite FK `(plan_id, org_id)` vs single-column `plan_id`). |
-| D6 | `#139` is the F-full architecture sketch. `#142` does not start until #139 is accepted + `normative: true` + indexed. |
+| D6 | `#139` lands as **ADR proposed**. `#142` does not start until a human flips ADR-0012 to `accepted` + `normative: true`. Panel / skeptic cannot accept it. |
 | D7 | One concern per `/ship`. Docs ≠ ADR ≠ hygiene ≠ schema ≠ runner ≠ dry-run. |
 | D8 | Every child lands via `/ship`. No naked push to `main`. |
 | D9 | Closing #137 does **not** flip platform-proof D3 or JTBD-platform to met. Those need named tenant + HITL + second compose. |
@@ -68,19 +68,25 @@ Architecture review 2026-08-23 (Opus 5 + adversarial + 5 slices): S1 is **fatal 
 ## Process — replace `/dev` HITL
 
 ```text
-S-tier (#138 #140):     implement from issue AC → /ship
-ADR (#139):             /adr (this file + issue AC) → /ship   ← human accept on ADR PR
-F-full (#142 #143):     goal slice pin (below) + accepted ADR → implement → /ship
-                        (optional /implement --plan <goal-authored plan>; never /dev-plan)
-F-lite (#144):          implement from issue AC after #142+#143 → /ship
+Wave A (full-auto, no invariant bake):
+  #138 docs honesty     implement → /ship     (open PR #146)
+  #140 hygiene          optional ∥ if still chore-only
+  #141 infer vs invoke  optional sibling under #16 — not this goal
+
+Wave B (human-gated):
+  #139 ADR              /ship as status: proposed  → STOP
+                        human: accept 0012 (accepted + normative: true)
+  #142 schema/hono      only after that flip + auth/migrations review
+  #143 runner           auto after #142 /ship
+  #144 extract-dry-run  auto after #143 /ship
 ```
 
-**Remaining human gates**
 
+**Remaining human gates**
 1. Accept this goal (done 2026-08-24: exit=#144, auto-chain after #142, launch=#138∥#139).
-2. ADR #139 PR: `status: accepted` + `normative: true` + index.
+2. Merge #139 as **proposed** only. Then a human flips ADR-0012 to `accepted` + `normative: true`.
 3. Each `/ship` review (agent + `reviewed` + CI green).
-4. #142 extra: human review auth / ACL / migrations.
+4. #142 extra: human review auth / ACL / migrations (constitution).
 5. #143 extra: confirm snapshot-only + org fail-close on the moved driver.
 
 **Forbidden:** `/dev #137`, `/dev --from implement`, fake-approved artifacts, kitchen-sink PR.
@@ -89,28 +95,28 @@ F-lite (#144):          implement from issue AC after #142+#143 → /ship
 
 | Stage | Issues | Consumer gets | Not yet |
 |---|---|---|---|
-| **Wave 0** | #138 + #139 (+ #140 if still small) | Honest D3/I3/I7; binding persist ADR | No table moved. Claim still false. |
-| **Slice 1** | #142 | Compose schema+repos+`requireOrgContext` from `@kit/*` | Still copy ~709 LOC FlowRun driver. extract-dry-run theater. |
+| **Wave A** | #138 (+ #140 if chore) | Honest D3/I3/I7. No ADR authority change. | Claim still false. |
+| **Wave B pin** | #139 **proposed** | Decision text on disk; ADR-0008 D3 still binding | Not accepted. #142 forbidden. |
+| **Slice 1** | #142 after human accept | Compose schema+repos+`requireOrgContext` from `@kit/*` | Still copy ~709 LOC FlowRun driver. extract-dry-run theater. |
 | **Program exit** | #143 then #144 | Driver is a package export; extract-dry-run proves temp compose | D6 second call site, HITL, policy mint, named tenant, JTBD-platform |
 
 ## Wave graph
 
 ```text
-#138 docs honesty ──────────┐
-                            ├─► merge-order: #138 before #139
-#139 ADR persist+ctx ───────┘     (no blocked-by; ADR must not inherit false D3)
-        │
-        ▼
-#142 promote applied schema/repos/hono     blocked-by #139
-        │
-        ├─► #143 FlowRun driver → @kit/flows     blocked-by #142
-        │         │
-        │         └─► #33 console (existing, blocked-by #143 — not this goal)
-        │
-        └─► #144 extract-dry-run compose proof   blocked-by #142,#143
+#138 docs honesty          Wave A — merge anytime
+#140 hygiene               Wave A optional
+#141 infer (parent #16)    Wave A optional sibling — not this goal
 
-#140 hygiene          ∥ wave 0 if still chore-only (INV-04 moved to #142/sibling)
-#141 infer vs invoke  ∥ under #16 — not this goal
+#139 ADR-0012 proposed     Wave B — /ship then STOP
+        │  human accept (accepted + normative: true)
+        ▼
+#142 promote applied schema/repos/hono
+        │
+        ├─► #143 FlowRun driver → @kit/flows
+        │         │
+        │         └─► #33 console (existing — not this goal)
+        │
+        └─► #144 extract-dry-run compose proof
 ```
 
 ## Slice pin — #142 (F-full sketch)
@@ -165,15 +171,17 @@ Goal **exits** when **all** are true:
 - `/dev` on the epic or F-full children
 - Kitchen-sink PR (#142+#143+#144)
 - Folding #141 into this close definition
+- Baking ADR-0012 as accepted, or starting #142, without an explicit human accept
 - Declaring JTBD-platform met from example-api
 - Creating `@kit/tenancy` / putting tables in `@kit/db` without ADR
 - Leaving drifted sketches on a hashable promote path
 
-## Next command (launch accepted)
 
+## Next command
 ```text
-#138  implement from issue AC → /ship
-#139  ADR-0012 + this goal file → /ship
-#140  later / parallel if still chore-only
-#141  optional sibling /ship under #16 — not sequenced here
+#138  /ship PR #146          ← Wave A, merge anytime
+#139  /ship PR #147          ← Wave B start: ADR proposed, then STOP
+#140  optional ∥ Wave A
+#141  optional sibling #16 — not this goal
+#142  FORBIDDEN until ADR-0012 accepted by a human
 ```
