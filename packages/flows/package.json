@@ -19,6 +19,11 @@
       "types": "./src/repos.ts",
       "import": "./src/repos.ts",
       "default": "./src/repos.ts"
+    },
+    "./run": {
+      "types": "./src/run/index.ts",
+      "import": "./src/run/index.ts",
+      "default": "./src/run/index.ts"
     }
   },
   "scripts": {
@@ -33,6 +38,9 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250620.0",
+    "@types/better-sqlite3": "^9.6.0",
+    "better-sqlite3": "^13.0.2",
     "vitest": "^4.1.11"
   }
 }

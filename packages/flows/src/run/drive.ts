@@ -1,7 +1,9 @@
 /** Snapshot-only driver. Dispatch is interpret.readyTaskIds only. */
 
-import { interpretRun, parseReceipts, parseRunnerView, type ReceiptBundle } from '@kit/flows'
 import { z } from 'zod'
+import { interpretRun } from '../interpret'
+import { parseReceipts, type ReceiptBundle } from '../receipts'
+import { parseRunnerView } from '../snapshot'
 import { DriveNonRetryableError } from './errors'
 import { runInferStep } from './infer-step'
 import { runInvokeStep } from './invoke-step'

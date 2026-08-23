@@ -1,8 +1,8 @@
-import { createRunSnapshot, createToolRegistry, loadPlanFromYaml } from '@kit/flows'
 import { describe, expect, it } from 'vitest'
-import { createMemoryEnv } from '../test/memory-env'
+import { createRunSnapshot, createToolRegistry, loadPlanFromYaml } from '..'
 import { type DriveStep, driveFlowRun } from './drive'
 import { INVOKE_ONLY_PLAN_YAML, TWO_SIBLING_INVOKE_PLAN_YAML } from './fixtures'
+import { createMemoryDb } from './test/memory-db'
 
 type RunRow = {
   status: string
@@ -60,7 +60,7 @@ function makePorts() {
 }
 
 async function insertQueued(
-  db: ReturnType<typeof createMemoryEnv>['DB'],
+  db: ReturnType<typeof createMemoryDb>,
   opts: {
     runId: string
     orgId: string
@@ -107,7 +107,7 @@ async function insertQueued(
     .run()
 }
 
-async function loadRun(db: ReturnType<typeof createMemoryEnv>['DB'], runId: string, orgId: string) {
+async function loadRun(db: ReturnType<typeof createMemoryDb>, runId: string, orgId: string) {
   return (await db
     .prepare(
       `SELECT status, error_code, receipt_json, workflow_instance_id FROM flow_runs WHERE id = ? AND org_id = ?`,
@@ -125,9 +125,9 @@ function receiptTasks(receiptJson: string | null) {
 }
 
 async function driveSealed(runId: string, extra?: { enabled?: number; planJson?: string }) {
-  const env = createMemoryEnv()
+  const db = createMemoryDb()
   const snap = seal('org_a')
-  await insertQueued(env.DB, {
+  await insertQueued(db, {
     runId,
     orgId: 'org_a',
     snapshotJson: JSON.stringify(snap.runnerView),
@@ -138,13 +138,13 @@ async function driveSealed(runId: string, extra?: { enabled?: number; planJson?:
   const ports = makePorts()
   await driveFlowRun({
     step: immediateStep,
-    db: env.DB as unknown as D1Database,
+    db,
     invoke: ports.invoke,
     infer: ports.infer,
     payload: { runId, orgId: 'org_a' },
     instanceId: INSTANCE_ID,
   })
-  return { snap, ports, row: await loadRun(env.DB, runId, 'org_a') }
+  return { snap, ports, row: await loadRun(db, runId, 'org_a') }
 }
 
 describe('driveFlowRun success', () => {
@@ -180,7 +180,7 @@ describe('driveFlowRun success', () => {
   })
 
   it('keeps both sibling invoke outputs after persist:terminal', async () => {
-    const env = createMemoryEnv()
+    const db = createMemoryDb()
     const plan = loadPlanFromYaml(TWO_SIBLING_INVOKE_PLAN_YAML)
     const snap = createRunSnapshot({
       plan,
@@ -196,7 +196,7 @@ describe('driveFlowRun success', () => {
     if (!snap.ok) {
       throw new Error(`sibling snapshot failed: ${snap.issues.map((i) => i.code).join(',')}`)
     }
-    await insertQueued(env.DB, {
+    await insertQueued(db, {
       runId: 'run_siblings',
       orgId: 'org_a',
       snapshotJson: JSON.stringify(snap.runnerView),
@@ -205,7 +205,7 @@ describe('driveFlowRun success', () => {
     let invokeCount = 0
     await driveFlowRun({
       step: immediateStep,
-      db: env.DB as unknown as D1Database,
+      db,
       invoke: async (task) => {
         invokeCount += 1
         return { output: String(task.args?.text ?? '') }
@@ -213,7 +213,7 @@ describe('driveFlowRun success', () => {
       payload: { runId: 'run_siblings', orgId: 'org_a' },
       instanceId: INSTANCE_ID,
     })
-    const row = await loadRun(env.DB, 'run_siblings', 'org_a')
+    const row = await loadRun(db, 'run_siblings', 'org_a')
     const tasks = receiptTasks(row?.receipt_json ?? null)
     expect(invokeCount).toBe(2)
     expect(row?.status).toBe('succeeded')
