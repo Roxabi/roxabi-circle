@@ -36,6 +36,7 @@ index deliberately does not copy those mutable values.
 | [ADR-0009](./adr/0009-kit-namespace-polarity-inheritance-marker.md) | Kit/product namespace polarity and inheritance marker |
 | [ADR-0010](./adr/0010-list-page-cursor-envelope.md) | Shared list-page cursor envelope |
 | [ADR-0011](./adr/0011-tools-fold-scripts-config-polarity.md) | Fold tools into `scripts/kit` and `config/kit` |
+| [ADR-0012](./adr/0012-kernel-persistence-request-context.md) | Applied SQL + `@kit/auth/hono` are the persist/request-context kernel |
 
 ## Reading an ADR
 

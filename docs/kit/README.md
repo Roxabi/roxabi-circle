@@ -35,7 +35,7 @@ This is the central index for every Markdown document under `docs/kit`. Use it t
 
 ## Architecture and ADRs
 
-- [Architecture and ADR index](./architecture/index.md) — authority model plus the complete ADR-0001 through ADR-0011 list.
+- [Architecture and ADR index](./architecture/index.md) — authority model plus the complete ADR-0001 through ADR-0012 list.
 - [Platform direction](./architecture/platform-direction.md) — detailed JTBD, dogfood modes, non-goals and evidence-gated priorities.
 - [Platform proof](./architecture/platform-proof.md) — falsifiable evidence ledger for the multi-tenant capability-kernel claim.
 - [ADR-0001 — package/app primary axis](./architecture/adr/0001-primary-axis-packages-compose-apps.md).
@@ -49,6 +49,7 @@ This is the central index for every Markdown document under `docs/kit`. Use it t
 - [ADR-0009 — namespace polarity and inheritance](./architecture/adr/0009-kit-namespace-polarity-inheritance-marker.md).
 - [ADR-0010 — list-page cursor envelope](./architecture/adr/0010-list-page-cursor-envelope.md).
 - [ADR-0011 — scripts/config polarity](./architecture/adr/0011-tools-fold-scripts-config-polarity.md).
+- [ADR-0012 — kernel persist and request-context](./architecture/adr/0012-kernel-persistence-request-context.md).
 
 ## Processes, operations and security
 
