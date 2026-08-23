@@ -48,16 +48,17 @@ normalize_owner_repo() {
   u="${u%/}"
   u="${u%.git}"
   local path=""
-  if [[ "${u}" == git@*:* ]]; then
-    path="${u#*:}"
-  elif [[ "${u}" == ssh://* ]]; then
+  if [[ "${u}" == ssh://* ]]; then
     path="${u#ssh://}"
     path="${path#*@}"
     path="${path#*/}"
   elif [[ "${u}" == http://* || "${u}" == https://* ]]; then
     path="${u#*://}"
     path="${path#*/}"
-  elif [[ "${u}" == */* && "${u}" != *://* ]]; then
+  elif [[ "${u}" != *://* && "${u}" == *:* ]]; then
+    # scp-style: [user@]host:owner/repo — user is not always git
+    path="${u#*:}"
+  elif [[ "${u}" == */* ]]; then
     path="${u}"
   else
     return 0
