@@ -18,6 +18,10 @@
 #   - kit fixture seeds from exact source HEAD (branch or detached — CI-safe)
 set -euo pipefail
 
+# leftover / worktree shells can export GIT_DIR. git -C then ignores dest and
+# mutates the real repo (`checkout -B main`, remote add kit-seed).
+unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR 2>/dev/null || true
+
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 MODE="${1:-}"
 ZERO_SCRIPT="$ROOT/scripts/kit/check-zero-edit-zones.sh"

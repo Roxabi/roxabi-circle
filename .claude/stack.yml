@@ -74,6 +74,7 @@ quality_gates:
     metric: raw
     roots: apps packages
     exemptions_file: tools/file_exemptions.txt
+    product_exemptions_file: config/product/file_exemptions.txt
 artifacts:
   analyses: artifacts/analyses
   specs: artifacts/specs
