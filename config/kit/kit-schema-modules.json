@@ -85,6 +85,12 @@
       "file": "0014_better_auth_1_7_additive.sql",
       "set": "core",
       "kitSha256": "871945468b5e8573a5dd2097b37ecf0c24219f487bba21b8662b74d2924e5da0"
+    },
+    {
+      "id": "api_keys_org_not_null",
+      "file": "0015_api_keys_org_not_null.sql",
+      "set": "core",
+      "kitSha256": "d6ba3f1506fc1695eaff563f11ce0abb5f4cb9f4b37395f8d839ca6aac1489f9"
     }
   ]
 }

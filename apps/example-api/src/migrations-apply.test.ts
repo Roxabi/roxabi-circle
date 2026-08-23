@@ -48,12 +48,24 @@ describe('D1 migrations', () => {
     expect(files).toContain('0001_init.sql')
     expect(files).toContain('0002_api_keys_prefix.sql')
     expect(files).toContain('0014_better_auth_1_7_additive.sql')
+    expect(files).toContain('0015_api_keys_org_not_null.sql')
     applyThrough(sqlite, files.at(-1)!)
-    const cols = sqlite.prepare(`PRAGMA table_info(api_keys)`).all() as { name: string }[]
+    const cols = sqlite.prepare(`PRAGMA table_info(api_keys)`).all() as {
+      name: string
+      notnull: number
+    }[]
     const names = cols.map((c) => c.name)
     expect(names).toEqual(
-      expect.arrayContaining(['key_hash', 'key_prefix', 'name', 'expires_at', 'revoked_at']),
+      expect.arrayContaining([
+        'key_hash',
+        'key_prefix',
+        'name',
+        'expires_at',
+        'revoked_at',
+        'organization_id',
+      ]),
     )
+    expect(cols.find((c) => c.name === 'organization_id')?.notnull).toBe(1)
     const accountCols = sqlite.prepare(`PRAGMA table_info(account)`).all() as {
       name: string
       notnull: number

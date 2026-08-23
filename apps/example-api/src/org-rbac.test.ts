@@ -234,12 +234,10 @@ describe('org RBAC (ADR-0003 Phase A) — IDOR matrix', () => {
   })
 
   /**
-   * ADR-0003 D11 forbids subject-global keys. No current path can create one — mint requires
-   * an organization — so the only way to reach this state is a pre-`0008` legacy row, which
-   * migration `0008` left nullable and never revoked. The binding is therefore stripped
-   * directly in the DB: same key, same hash, only `organization_id` differs.
+   * ADR-0003 D11 + INV-04 / 0015: organization_id is NOT NULL.
+   * Legacy nullable rows are deleted by 0015; the column cannot be nulled again.
    */
-  it('key with no organization binding never authenticates (D11 legacy row)', async () => {
+  it('api_keys.organization_id cannot be nulled after 0015', async () => {
     const { app, env, db } = await seedEnv()
     const cookie = await signIn(app, env, 'staff@kit.local')
     const mint = await app.request(
@@ -254,14 +252,15 @@ describe('org RBAC (ADR-0003 Phase A) — IDOR matrix', () => {
     expect(mint.status).toBe(200)
     const { key, keyPrefix } = (await mint.json()) as { key: string; keyPrefix: string }
 
-    // positive control — the org-bound key authenticates before the binding is stripped
     const ok = await app.request('/api/me', { headers: { authorization: `Bearer ${key}` } }, env)
     expect(ok.status).toBe(200)
 
-    await db.update(apiKeys).set({ organizationId: null }).where(eq(apiKeys.keyPrefix, keyPrefix))
+    await expect(
+      db.update(apiKeys).set({ organizationId: null }).where(eq(apiKeys.keyPrefix, keyPrefix)),
+    ).rejects.toThrow()
 
-    const dead = await app.request('/api/me', { headers: { authorization: `Bearer ${key}` } }, env)
-    expect(dead.status, 'null-org key must not authenticate').toBe(401)
+    const still = await app.request('/api/me', { headers: { authorization: `Bearer ${key}` } }, env)
+    expect(still.status).toBe(200)
   })
 
   it('suspended org is denied', async () => {
