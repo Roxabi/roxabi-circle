@@ -105,11 +105,11 @@ Linked forms (`[ADR-0002](docs/kit/architecture/adr/…)`) are fine.
 
 ## Folder size (optional quality gate)
 
-Companion to file length (`tools/check_file_length.sh`):
+Companion to file length (`scripts/kit/check_file_length.sh`):
 
 ```bash
 bun run folder-size:check
-# QG_FOLDER_MAX (default 40), roots apps packages, exemptions tools/folder_exemptions.txt
+# QG_FOLDER_MAX (default 40), kit config/kit/folder_exemptions.txt, product config/product/folder_exemptions.txt
 ```
 
 Included in `quality-gates:check` next to file length.
@@ -134,5 +134,5 @@ Included in `quality-gates:check` next to file length.
 | [`testing.md`](./testing.md) · **CP-DEBT** | control-point inventory |
 | [`plans/010-quality-hygiene-debt.md`](../plans/010-quality-hygiene-debt.md) | plan SSoT |
 | `scripts/kit/check-debt.ts` | untagged + expiry scanner |
-| `tools/check_folder_size.sh` | folder density |
+| `scripts/kit/check_folder_size.sh` | folder density |
 | kit-factory `docs/kit/debt-tracking.md` | upstream inspiration |

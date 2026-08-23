@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Cap fichier — max 300 lignes (tests exclus).
-# Kit register: tools/file_exemptions.txt
+# Kit register: config/kit/file_exemptions.txt
 # Product register: config/product/file_exemptions.txt (optional; apps/<product>-{api,web,mcp}/ only)
 # Modes : QG_FILE_MODE=staged (pre-commit) | tree (CI)
 set -euo pipefail
@@ -8,7 +8,7 @@ set -euo pipefail
 LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$(git rev-parse --show-toplevel)"
 
-KIT_EXEMPT_DEFAULT="tools/file_exemptions.txt"
+KIT_EXEMPT_DEFAULT="config/kit/file_exemptions.txt"
 PRODUCT_EXEMPT_DEFAULT="config/product/file_exemptions.txt"
 
 qg_override_set=0
@@ -18,7 +18,7 @@ qg_override_set=0
 [ -n "${QG_FILE_PRODUCT_EXEMPTIONS+x}" ] && qg_override_set=1
 
 # shellcheck disable=SC1091
-[ -f tools/qg.conf ] && . tools/qg.conf
+[ -f config/kit/qg.conf ] && . config/kit/qg.conf
 
 if [ "$qg_override_set" -eq 1 ]; then
   if [ -z "${QG_FILE_HARNESS_SENTINEL:-}" ] || [ ! -f "$QG_FILE_HARNESS_SENTINEL" ]; then

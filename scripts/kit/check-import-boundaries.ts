@@ -37,7 +37,8 @@ const SKIP_DIRS = new Set([
 /** Bare specifiers forbidden under apps/example-web (R4). */
 const WORKER_BAR_IMPORTS = new Set(['cloudflare:workers', 'cloudflare:email'])
 
-const EXEMPTIONS_REL = join('tools', 'import-boundary-exemptions.txt')
+const KIT_EXEMPTIONS_REL = join('config', 'kit', 'import-boundary-exemptions.txt')
+const PRODUCT_EXEMPTIONS_REL = join('config', 'product', 'import-boundary-exemptions.txt')
 
 type Zone = 'package' | 'example-web' | 'example-api' | 'other-app' | 'outside'
 
@@ -289,8 +290,28 @@ function resolveSpecifier(
 
 type ExemptionsLoad = { ok: true; paths: Set<string> } | { ok: false; errors: string[] }
 
-function loadExemptions(root: string): ExemptionsLoad {
-  const path = join(root, EXEMPTIONS_REL)
+function productPathCanonical(p: string): boolean {
+  if (p.startsWith('/') || p.startsWith('./')) return false
+  return p.split('/').every((part) => part !== '' && part !== '.' && part !== '..')
+}
+
+function productAppOk(p: string): boolean {
+  if (!productPathCanonical(p)) return false
+  const m = /^apps\/([^/]+)-(api|web|mcp)\//.exec(p)
+  if (!m) return false
+  const name = m[1]
+  const suffix = m[2]
+  if (!name || name === 'example') return false
+  if (`${name}-${suffix}` === 'mcp-example') return false
+  return true
+}
+
+function parseExemptionFile(
+  root: string,
+  rel: string,
+  opts: { product: boolean; kitPaths: Set<string> },
+): ExemptionsLoad {
+  const path = join(root, rel)
   if (!existsSync(path)) {
     return { ok: true, paths: new Set() }
   }
@@ -303,28 +324,62 @@ function loadExemptions(root: string): ExemptionsLoad {
     const trimmed = raw.trim()
     if (trimmed === '' || trimmed.startsWith('#')) continue
 
-    // Format: <exact/relative/path>  # reason — #issue
     const hash = trimmed.indexOf('#')
     if (hash < 0) {
-      errors.push(`${EXEMPTIONS_REL}:${lineNo}: missing reason after #`)
+      errors.push(`${rel}:${lineNo}: missing reason after #`)
       continue
     }
     const filePart = trimmed.slice(0, hash).trim()
     const reason = trimmed.slice(hash + 1).trim()
     if (!filePart) {
-      errors.push(`${EXEMPTIONS_REL}:${lineNo}: empty path before #`)
+      errors.push(`${rel}:${lineNo}: empty path before #`)
       continue
     }
     if (!reason) {
-      errors.push(`${EXEMPTIONS_REL}:${lineNo}: empty reason after #`)
+      errors.push(`${rel}:${lineNo}: empty reason after #`)
       continue
     }
-    // Normalize to posix-ish relative path (no leading ./)
-    const norm = filePart.replace(/^\.\//, '').split(sep).join('/')
+    const norm = filePart.split(sep).join('/')
+    if (opts.product) {
+      if (/[*?[]/.test(norm)) {
+        errors.push(`${rel}:${lineNo}: ${norm} — wildcard product exemption`)
+        continue
+      }
+      if (!productPathCanonical(norm)) {
+        errors.push(`${rel}:${lineNo}: ${norm} — non-canonical`)
+        continue
+      }
+      if (!productAppOk(norm)) {
+        errors.push(`${rel}:${lineNo}: ${norm} — not a product-app path`)
+        continue
+      }
+      if (opts.kitPaths.has(norm)) {
+        errors.push(`${rel}:${lineNo}: ${norm} — duplicate vs kit`)
+        continue
+      }
+      if (paths.has(norm)) {
+        errors.push(`${rel}:${lineNo}: ${norm} — duplicate`)
+        continue
+      }
+    }
     paths.add(norm)
   }
   if (errors.length > 0) return { ok: false, errors }
   return { ok: true, paths }
+}
+
+function loadExemptions(root: string): ExemptionsLoad {
+  const kit = parseExemptionFile(root, KIT_EXEMPTIONS_REL, {
+    product: false,
+    kitPaths: new Set(),
+  })
+  if (!kit.ok) return kit
+  const product = parseExemptionFile(root, PRODUCT_EXEMPTIONS_REL, {
+    product: true,
+    kitPaths: kit.paths,
+  })
+  if (!product.ok) return product
+  return { ok: true, paths: new Set([...kit.paths, ...product.paths]) }
 }
 
 function relPosix(root: string, abs: string): string {
@@ -455,7 +510,7 @@ function main(): void {
     console.error(
       '\nimport-boundary: invalid exemptions (exit 2). Each active line needs: path  # reason — #issue',
     )
-    console.error(`Fix: edit ${EXEMPTIONS_REL}`)
+    console.error(`Fix: edit ${KIT_EXEMPTIONS_REL} or ${PRODUCT_EXEMPTIONS_REL}`)
     process.exit(2)
   }
 
@@ -464,7 +519,9 @@ function main(): void {
       console.error(`${v.rule} ${v.file}:${v.line} → ${v.specifier}`)
     }
     console.error(`\nimport-boundary: ${violations.length} violation(s) in ${filesScanned} file(s)`)
-    console.error(`Fix: remove edge | ${EXEMPTIONS_REL}  # reason — #issue`)
+    console.error(
+      `Fix: remove edge | ${KIT_EXEMPTIONS_REL} or ${PRODUCT_EXEMPTIONS_REL}  # reason — #issue`,
+    )
     process.exit(1)
   }
 

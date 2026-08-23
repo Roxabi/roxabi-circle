@@ -443,7 +443,7 @@ export function printSummary(report: LicenseReport, reportPath: string): void {
 
 function main(): void {
   try {
-    const repoRoot = resolve(import.meta.dirname ?? '.', '..')
+    const repoRoot = resolve(import.meta.dirname ?? '.', '../..')
 
     // 1. Validate node_modules exists
     if (!existsSync(join(repoRoot, 'node_modules'))) {

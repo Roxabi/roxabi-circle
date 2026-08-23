@@ -52,7 +52,7 @@ seed_workspace() {
     "${base}/packages/core/src" \
     "${base}/apps/example-web/src" \
     "${base}/apps/example-api/src" \
-    "${base}/tools"
+    "${base}/config/kit"
 
   cat >"${base}/packages/core/package.json" <<'EOF'
 { "name": "@kit/core", "private": true }
@@ -70,7 +70,7 @@ EOF
   echo "export const api = 1" >"${base}/apps/example-api/src/index.ts"
 
   # Empty exemptions with valid header only
-  cat >"${base}/tools/import-boundary-exemptions.txt" <<'EOF'
+  cat >"${base}/config/kit/import-boundary-exemptions.txt" <<'EOF'
 # test exemptions
 EOF
 }
@@ -185,14 +185,14 @@ assert_case "0b comment is not an edge → 0" 0 "${CMT}"
 E2="${TMP}/e2"
 seed_workspace "${E2}"
 echo "import { api } from '@kit/example-api'" >"${E2}/packages/core/src/bad.ts"
-echo "packages/core/src/bad.ts" >"${E2}/tools/import-boundary-exemptions.txt"
+echo "packages/core/src/bad.ts" >"${E2}/config/kit/import-boundary-exemptions.txt"
 assert_case "5 exemption without reason → 2" 2 "${E2}" "CONFIG"
 
 # --- exemption empty reason after # → exit 2 ---
 E2B="${TMP}/e2b"
 seed_workspace "${E2B}"
 echo "import { api } from '@kit/example-api'" >"${E2B}/packages/core/src/bad.ts"
-echo "packages/core/src/bad.ts  #" >"${E2B}/tools/import-boundary-exemptions.txt"
+echo "packages/core/src/bad.ts  #" >"${E2B}/config/kit/import-boundary-exemptions.txt"
 assert_case "5b exemption empty reason → 2" 2 "${E2B}" "CONFIG"
 
 # --- valid exemption suppresses R1 (paired: same tree without exemption would fail case 1) ---
@@ -201,8 +201,41 @@ seed_workspace "${EX}"
 echo "import { api } from '@kit/example-api'" >"${EX}/packages/core/src/bad.ts"
 # without exemption → 1
 assert_case "6a before exemption → 1" 1 "${EX}" "R1"
-echo "packages/core/src/bad.ts  # temporary plant — #69" >"${EX}/tools/import-boundary-exemptions.txt"
+echo "packages/core/src/bad.ts  # temporary plant — #69" >"${EX}/config/kit/import-boundary-exemptions.txt"
 assert_case "6b after exemption → 0" 0 "${EX}"
+
+# --- product register: kit path refused ---
+PKIT="${TMP}/pkit"
+seed_workspace "${PKIT}"
+mkdir -p "${PKIT}/config/product"
+echo "import { api } from '@kit/example-api'" >"${PKIT}/packages/core/src/bad.ts"
+echo "packages/core/src/bad.ts  # product cannot exempt kit — #0" \
+  >"${PKIT}/config/product/import-boundary-exemptions.txt"
+assert_case "7 product kit-path → 2" 2 "${PKIT}" "not a product-app path"
+
+# --- product register: wildcard refused ---
+PWILD="${TMP}/pwild"
+seed_workspace "${PWILD}"
+mkdir -p "${PWILD}/config/product"
+echo "apps/acme-web/**  # no — #0" \
+  >"${PWILD}/config/product/import-boundary-exemptions.txt"
+assert_case "8 product wildcard → 2" 2 "${PWILD}" "wildcard"
+
+# --- product register: apply on product-api R5 ---
+PAPPLY="${TMP}/papply"
+seed_workspace "${PAPPLY}"
+mkdir -p "${PAPPLY}/apps/acme-api/src" "${PAPPLY}/config/product"
+echo '{ "name": "@acme/api", "private": true }' >"${PAPPLY}/apps/acme-api/package.json"
+echo "import { x } from '@kit/auth/react'" >"${PAPPLY}/apps/acme-api/src/bad.ts"
+assert_case "9a product-api R5 before exemption → 1" 1 "${PAPPLY}" "R5"
+echo "apps/acme-api/src/bad.ts  # temporary dual-boot — #0" \
+  >"${PAPPLY}/config/product/import-boundary-exemptions.txt"
+assert_case "9b product-api R5 after product exemption → 0" 0 "${PAPPLY}"
+
+# --- product file absent is OK ---
+PABS="${TMP}/pabs"
+seed_workspace "${PABS}"
+assert_case "10 product file absent → 0" 0 "${PABS}"
 
 echo ""
 echo "CP-IMPORT self-test: ${PASS} passed, ${FAIL} failed"
