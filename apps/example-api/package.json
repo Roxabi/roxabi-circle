@@ -26,14 +26,14 @@
     "@kit/types": "workspace:*",
     "better-auth": "^1.6.29",
     "drizzle-orm": "^0.45.2",
-    "hono": "^4.13.2",
+    "hono": "^4.13.3",
     "zod": "^4.4.3"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20250620.0",
     "@types/better-sqlite3": "^9.6.0",
     "better-sqlite3": "^13.0.2",
-    "vitest": "^4.1.10",
-    "wrangler": "^4.123.0"
+    "vitest": "^4.1.11",
+    "wrangler": "^4.124.0"
   }
 }
