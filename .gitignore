@@ -68,3 +68,7 @@ trufflehog-exclude.txt
 
 # Repo-pinned trufflehog binary (scripts/kit/trufflehog-check.sh)
 /.cache/trufflehog/
+
+# extract-dry-run compose proof scratch
+.tmp/
+apps/example-api/.extract-compose-proof-run.ts

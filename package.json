@@ -48,7 +48,7 @@
     "cf:showcase:build-web": "bash scripts/kit/cf-builds/web-build.sh",
     "test:cf-builds": "bash scripts/kit/test-cf-builds.sh",
     "smoke:mcp": "bun run --filter @kit/mcp-example smoke:stdio",
-    "validate:full": "bun run lint && bun run typecheck && bun run banlist && bun run zod-major && bun run ts-major && bun run test:ts-major && bun run extract-dry-run && bun run zero-edit && bun run import-boundary && bun run test:import-boundary && bun run test:deny-upstream && bun run test:lefthook-deletes && bun run test:file-length && bun run test:folder-size && bun run test:dogfood-zero-edit && bun run test:kit-schema-sync && bun run check:bar-ssot && bun run test:bar-ssot && bun run test:falsify && bun run wrangler-migrations:check && bun run test:wrangler-migrations && bun run test:cf-builds && bun run debt:check && bun run test:debt && bun run agents-adr:check && bun run doc:check && bun run test:doc-hygiene && bun run bun-version:check && bun run test:bun-version && bun run env:check && bun run test:coverage && bun run license:check && bun run quality-gates:check && bun run build:kit && bun run smoke:mcp",
+    "validate:full": "bun run lint && bun run typecheck && bun run banlist && bun run zod-major && bun run ts-major && bun run test:ts-major && bun run extract-dry-run && bun run test:extract-dry-run && bun run zero-edit && bun run import-boundary && bun run test:import-boundary && bun run test:deny-upstream && bun run test:lefthook-deletes && bun run test:file-length && bun run test:folder-size && bun run test:dogfood-zero-edit && bun run test:kit-schema-sync && bun run check:bar-ssot && bun run test:bar-ssot && bun run test:falsify && bun run wrangler-migrations:check && bun run test:wrangler-migrations && bun run test:cf-builds && bun run debt:check && bun run test:debt && bun run agents-adr:check && bun run doc:check && bun run test:doc-hygiene && bun run bun-version:check && bun run test:bun-version && bun run env:check && bun run test:coverage && bun run license:check && bun run quality-gates:check && bun run build:kit && bun run smoke:mcp",
     "prepare": "git config --get core.hooksPath >/dev/null 2>&1 || lefthook install",
     "dogfood:zero-edit": "bash scripts/kit/dogfood-zero-edit.sh --self-sim",
     "test:dogfood-zero-edit": "bash scripts/kit/dogfood-zero-edit.sh --self-sim",
@@ -60,7 +60,8 @@
     "test:falsify": "bash scripts/kit/test-falsify.sh",
     "wrangler-migrations:check": "bash scripts/kit/check-wrangler-migrations-dir.sh",
     "test:wrangler-migrations": "bash scripts/kit/test-wrangler-migrations-dir.sh",
-    "test:lefthook-deletes": "bash scripts/kit/test-lefthook-deletes.sh"
+    "test:lefthook-deletes": "bash scripts/kit/test-lefthook-deletes.sh",
+    "test:extract-dry-run": "bash scripts/kit/test-extract-dry-run.sh"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.9",
