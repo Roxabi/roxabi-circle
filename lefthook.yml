@@ -26,7 +26,7 @@ pre-commit:
       stage_fixed: true
     file-length:
       # Staged TS/TSX under apps/ + packages/ (max 300; kit + product registers)
-      run: env -u QG_FILE_EXEMPTIONS -u QG_FILE_MAX -u QG_FILE_ROOTS -u QG_FILE_PRODUCT_EXEMPTIONS QG_FILE_MODE=staged bash tools/check_file_length.sh
+      run: env -u QG_FILE_EXEMPTIONS -u QG_FILE_MAX -u QG_FILE_ROOTS -u QG_FILE_PRODUCT_EXEMPTIONS QG_FILE_MODE=staged bash scripts/kit/check_file_length.sh
     # Primary secret gate (before GitHub) — staged files + unpushed commits
     trufflehog:
       run: bash scripts/kit/trufflehog-check.sh

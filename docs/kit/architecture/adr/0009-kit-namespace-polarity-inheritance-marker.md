@@ -73,7 +73,8 @@ Unchanged ownership, not folded into `scripts/kit/kit` in this ADR:
 | `packages/` | kit |
 | `apps/example-api/` · `example-web/` · `mcp-example/` | kit |
 | `apps/<product>-*` | product |
-| `tooling/` · `tools/` | kit (taxonomy merge = later ADR) |
+| `tooling/` | kit (taxonomy merge = later ADR) |
+| `tools/` | folded by [ADR-0011](./0011-tools-fold-scripts-config-polarity.md) — do not add files; executable → `scripts/kit/`, data → `config/kit/` |
 
 ### D3 — Root / GitHub debt (namespace-first, not yet prefix-pure)
 

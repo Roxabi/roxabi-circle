@@ -65,16 +65,25 @@ commands:
   build_kit: bun run build:kit
   smoke_mcp: bun run smoke:mcp
   quality_gates_check: bun run quality-gates:check
-  worktree_setup: tools/worktree-setup.sh
-  worktree_teardown: tools/worktree-teardown.sh
+  worktree_setup: scripts/kit/worktree-setup.sh
+  worktree_teardown: scripts/kit/worktree-teardown.sh
 quality_gates:
   file_length:
     enabled: true
     max_lines: 300
     metric: raw
     roots: apps packages
-    exemptions_file: tools/file_exemptions.txt
+    exemptions_file: config/kit/file_exemptions.txt
     product_exemptions_file: config/product/file_exemptions.txt
+  folder_size:
+    enabled: true
+    max_files: 40
+    roots: apps packages
+    exemptions_file: config/kit/folder_exemptions.txt
+    product_exemptions_file: config/product/folder_exemptions.txt
+  import_boundary:
+    exemptions_file: config/kit/import-boundary-exemptions.txt
+    product_exemptions_file: config/product/import-boundary-exemptions.txt
 artifacts:
   analyses: artifacts/analyses
   specs: artifacts/specs

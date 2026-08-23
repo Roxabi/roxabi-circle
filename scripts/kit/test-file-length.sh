@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# CP-FILE-LENGTH — table-driven harness for tools/check_file_length.sh
+# CP-FILE-LENGTH — table-driven harness for scripts/kit/check_file_length.sh
 #
 # Builds a temp git repo (never plants under the live apps/ or packages/).
 # Invokes the live checker by absolute path with -C "$TMP".
@@ -9,7 +9,7 @@ set -euo pipefail
 unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR 2>/dev/null || true
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-CHECKER="${ROOT}/tools/check_file_length.sh"
+CHECKER="${ROOT}/scripts/kit/check_file_length.sh"
 
 if [[ ! -f "${CHECKER}" ]]; then
   echo "FAIL: missing ${CHECKER}" >&2
@@ -88,8 +88,8 @@ trap 'rm -rf "$TMP"' EXIT
 # --- allow: 300 < lines ≤ N (priced path; 10-line plants would pass without merge) ---
 ALLOW="${TMP}/allow"
 make_repo "${ALLOW}"
-mkdir -p "${ALLOW}/tools" "${ALLOW}/config/product"
-: >"${ALLOW}/tools/file_exemptions.txt"
+mkdir -p "${ALLOW}/config/kit" "${ALLOW}/config/product"
+: >"${ALLOW}/config/kit/file_exemptions.txt"
 write_n_lines "${ALLOW}/apps/acme-web/src/god.tsx" 350
 printf '%s\n' "apps/acme-web/src/god.tsx  # 400 lines — ticket test" \
   >"${ALLOW}/config/product/file_exemptions.txt"
@@ -99,8 +99,8 @@ assert_exit "allow 350 lines under product cap 400 → 0" 0 "" \
 # --- over declared cap ---
 OVER="${TMP}/over"
 make_repo "${OVER}"
-mkdir -p "${OVER}/tools" "${OVER}/config/product"
-: >"${OVER}/tools/file_exemptions.txt"
+mkdir -p "${OVER}/config/kit" "${OVER}/config/product"
+: >"${OVER}/config/kit/file_exemptions.txt"
 write_n_lines "${OVER}/apps/acme-web/src/god.tsx" 50
 printf '%s\n' "apps/acme-web/src/god.tsx  # 20 lines — ticket test" \
   >"${OVER}/config/product/file_exemptions.txt"
@@ -115,8 +115,8 @@ refuse_path() {
   local expect="${4:-not a product-app path}"
   local dir="${TMP}/${tag}"
   make_repo "${dir}"
-  mkdir -p "${dir}/tools" "${dir}/config/product"
-  : >"${dir}/tools/file_exemptions.txt"
+  mkdir -p "${dir}/config/kit" "${dir}/config/product"
+  : >"${dir}/config/kit/file_exemptions.txt"
   printf '%s\n' "${path}  # 999 lines — should fail" \
     >"${dir}/config/product/file_exemptions.txt"
   assert_exit "${name}" 1 "${expect}" \
@@ -128,15 +128,15 @@ refuse_path "refuse apps/example-web/..." "apps/example-web/src/routes/notes.tsx
 refuse_path "refuse apps/example-web-branded/..." "apps/example-web-branded/src/god.tsx" "branded"
 refuse_path "refuse apps/mcp-example/..." "apps/mcp-example/src/index.ts" "mcp"
 refuse_path "refuse unsuffixed apps/acme/..." "apps/acme/foo.ts" "unsuf"
-refuse_path "refuse tools/..." "tools/check_file_length.sh" "tools"
+refuse_path "refuse scripts/kit/..." "scripts/kit/check_file_length.sh" "skit"
 refuse_path "refuse .. traversal" "apps/acme-web/../../packages/ui/src/components/ui/sidebar.tsx" "dotdot" "non-canonical"
 refuse_path "refuse leading ./" "./apps/acme-web/src/god.tsx" "dotslash" "non-canonical"
 
 # --- missing cap ---
 NOCAP="${TMP}/nocap"
 make_repo "${NOCAP}"
-mkdir -p "${NOCAP}/tools" "${NOCAP}/config/product"
-: >"${NOCAP}/tools/file_exemptions.txt"
+mkdir -p "${NOCAP}/config/kit" "${NOCAP}/config/product"
+: >"${NOCAP}/config/kit/file_exemptions.txt"
 printf '%s\n' "apps/acme-web/src/god.tsx" \
   >"${NOCAP}/config/product/file_exemptions.txt"
 assert_exit "product line without cap → 1" 1 "missing cap" \
@@ -145,8 +145,8 @@ assert_exit "product line without cap → 1" 1 "missing cap" \
 # --- wildcard ---
 WILD="${TMP}/wild"
 make_repo "${WILD}"
-mkdir -p "${WILD}/tools" "${WILD}/config/product"
-: >"${WILD}/tools/file_exemptions.txt"
+mkdir -p "${WILD}/config/kit" "${WILD}/config/product"
+: >"${WILD}/config/kit/file_exemptions.txt"
 printf '%s\n' "apps/acme-web/**  # 400 lines — no" \
   >"${WILD}/config/product/file_exemptions.txt"
 assert_exit "product wildcard → 1" 1 "wildcard" \
@@ -154,8 +154,8 @@ assert_exit "product wildcard → 1" 1 "wildcard" \
 
 WILD2="${TMP}/wild2"
 make_repo "${WILD2}"
-mkdir -p "${WILD2}/tools" "${WILD2}/config/product"
-: >"${WILD2}/tools/file_exemptions.txt"
+mkdir -p "${WILD2}/config/kit" "${WILD2}/config/product"
+: >"${WILD2}/config/kit/file_exemptions.txt"
 printf '%s\n' "apps/acme-web/*.tsx  # 400 lines — no" \
   >"${WILD2}/config/product/file_exemptions.txt"
 assert_exit "product *.tsx wildcard → 1" 1 "wildcard" \
@@ -164,9 +164,9 @@ assert_exit "product *.tsx wildcard → 1" 1 "wildcard" \
 # --- duplicate vs kit ---
 DUPKIT="${TMP}/dupkit"
 make_repo "${DUPKIT}"
-mkdir -p "${DUPKIT}/tools" "${DUPKIT}/config/product"
+mkdir -p "${DUPKIT}/config/kit" "${DUPKIT}/config/product"
 printf '%s\n' "apps/acme-web/src/god.tsx  # 400 lines — kit" \
-  >"${DUPKIT}/tools/file_exemptions.txt"
+  >"${DUPKIT}/config/kit/file_exemptions.txt"
 printf '%s\n' "apps/acme-web/src/god.tsx  # 400 lines — product" \
   >"${DUPKIT}/config/product/file_exemptions.txt"
 assert_exit "path in both registers → 1" 1 "duplicate vs kit" \
@@ -175,8 +175,8 @@ assert_exit "path in both registers → 1" 1 "duplicate vs kit" \
 # --- in-file duplicate $1 ---
 DUPIN="${TMP}/dupin"
 make_repo "${DUPIN}"
-mkdir -p "${DUPIN}/tools" "${DUPIN}/config/product"
-: >"${DUPIN}/tools/file_exemptions.txt"
+mkdir -p "${DUPIN}/config/kit" "${DUPIN}/config/product"
+: >"${DUPIN}/config/kit/file_exemptions.txt"
 printf '%s\n' \
   "apps/acme-web/src/god.tsx  # 400 lines — a" \
   "apps/acme-web/src/god.tsx  # 500 lines — b" \
@@ -187,8 +187,8 @@ assert_exit "duplicate \$1 different comments → 1" 1 "duplicate" \
 # --- product file absent ---
 ABSENT="${TMP}/absent"
 make_repo "${ABSENT}"
-mkdir -p "${ABSENT}/tools" "${ABSENT}/apps/acme-web/src"
-: >"${ABSENT}/tools/file_exemptions.txt"
+mkdir -p "${ABSENT}/config/kit" "${ABSENT}/apps/acme-web/src"
+: >"${ABSENT}/config/kit/file_exemptions.txt"
 write_n_lines "${ABSENT}/apps/acme-web/src/ok.tsx" 5
 assert_exit "product file absent → 0" 0 "" \
   run_checker "${ABSENT}" tree
@@ -196,8 +196,8 @@ assert_exit "product file absent → 0" 0 "" \
 # --- invalid product file + staged + zero TS ---
 EMPTYSTAGED="${TMP}/emptystaged"
 make_repo "${EMPTYSTAGED}"
-mkdir -p "${EMPTYSTAGED}/tools" "${EMPTYSTAGED}/config/product"
-: >"${EMPTYSTAGED}/tools/file_exemptions.txt"
+mkdir -p "${EMPTYSTAGED}/config/kit" "${EMPTYSTAGED}/config/product"
+: >"${EMPTYSTAGED}/config/kit/file_exemptions.txt"
 printf '%s\n' "packages/ui/src/x.ts  # 9 lines — no" \
   >"${EMPTYSTAGED}/config/product/file_exemptions.txt"
 assert_exit "invalid product + staged + no TS → 1" 1 "not a product-app path" \
@@ -206,8 +206,8 @@ assert_exit "invalid product + staged + no TS → 1" 1 "not a product-app path" 
 # --- staged TS + worktree-only exemption does not apply ---
 UNSTAGED="${TMP}/unstaged"
 make_repo "${UNSTAGED}"
-mkdir -p "${UNSTAGED}/tools" "${UNSTAGED}/config/product"
-: >"${UNSTAGED}/tools/file_exemptions.txt"
+mkdir -p "${UNSTAGED}/config/kit" "${UNSTAGED}/config/product"
+: >"${UNSTAGED}/config/kit/file_exemptions.txt"
 write_n_lines "${UNSTAGED}/apps/acme-web/src/god.tsx" 350
 git --git-dir="${UNSTAGED}/.git" --work-tree="${UNSTAGED}" add apps/acme-web/src/god.tsx
 printf '%s\n' "apps/acme-web/src/god.tsx  # 400 lines — dirty only" \
@@ -218,7 +218,7 @@ assert_exit "staged TS + worktree-only product line → 1" 1 "max 300" \
 # --- staged + indexed product line applies ---
 STAGEDOK="${TMP}/stagedok"
 make_repo "${STAGEDOK}"
-mkdir -p "${STAGEDOK}/tools" "${STAGEDOK}/config/product"
+mkdir -p "${STAGEDOK}/config/kit" "${STAGEDOK}/config/product"
 write_n_lines "${STAGEDOK}/apps/acme-web/src/god.tsx" 350
 printf '%s\n' "apps/acme-web/src/god.tsx  # 400 lines — indexed" \
   >"${STAGEDOK}/config/product/file_exemptions.txt"
@@ -230,7 +230,8 @@ assert_exit "staged allow under cap → 0" 0 "" \
 # --- same allow + kit-path refuse in both modes ---
 BOTH="${TMP}/both"
 make_repo "${BOTH}"
-mkdir -p "${BOTH}/tools" "${BOTH}/config/product"
+mkdir -p "${BOTH}/config/kit" "${BOTH}/config/product"
+: >"${BOTH}/config/kit/file_exemptions.txt"
 write_n_lines "${BOTH}/apps/acme-web/src/god.tsx" 350
 printf '%s\n' "apps/acme-web/src/god.tsx  # 400 lines — both" \
   >"${BOTH}/config/product/file_exemptions.txt"
@@ -243,8 +244,8 @@ assert_exit "staged allow agrees → 0" 0 "" \
 
 REFBOTH="${TMP}/refboth"
 make_repo "${REFBOTH}"
-mkdir -p "${REFBOTH}/tools" "${REFBOTH}/config/product"
-: >"${REFBOTH}/tools/file_exemptions.txt"
+mkdir -p "${REFBOTH}/config/kit" "${REFBOTH}/config/product"
+: >"${REFBOTH}/config/kit/file_exemptions.txt"
 printf '%s\n' "packages/ui/src/x.ts  # 9 lines — no" \
   >"${REFBOTH}/config/product/file_exemptions.txt"
 assert_exit "tree kit-path refuse agrees → 1" 1 "not a product-app path" \
@@ -261,8 +262,8 @@ assert_exit "QG_FILE_MAX without sentinel → 1" 1 "QG_FILE_HARNESS_SENTINEL" \
 # --- override with sentinel ---
 SENT="${TMP}/sentinel"
 make_repo "${SENT}"
-mkdir -p "${SENT}/tools" "${SENT}/apps/acme-web/src"
-: >"${SENT}/tools/file_exemptions.txt"
+mkdir -p "${SENT}/config/kit" "${SENT}/apps/acme-web/src"
+: >"${SENT}/config/kit/file_exemptions.txt"
 write_n_lines "${SENT}/apps/acme-web/src/ok.tsx" 5
 touch "${SENT}/.qg-harness"
 assert_exit "QG_FILE_MAX with sentinel → 0" 0 "" \
