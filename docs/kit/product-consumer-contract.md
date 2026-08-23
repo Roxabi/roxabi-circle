@@ -253,18 +253,23 @@ git remote set-url --push upstream no_push
 | **Kit clone** (no `config/product/inheritance.json`) | **No-op** — maintainers may push any remote |
 | **Product** (marker present) | Denies remote name **`upstream`** and any URL matching the substring denylist (below) |
 
-**Multi-hop / private chassis** (product extends without forking the kit script):
+**Multi-hop / extra chassis** — required when the immediate parent is not the only kit URL you must not push to. The hook has no brand builtins: remote name `upstream` is blocked; any other name is allowed unless the URL matches a listed slug.
+
+| Product | Commit `docs/product/deny-upstream.json` |
+|---|---|
+| Roxabi-direct (`upstream` = HEAD) | Optional unless you add extra chassis remotes |
+| go-silex (`upstream` = mirror) | **Required** — list the grandparent slug `roxabi-boilerplate-cf` (and any other kit URL you might add under another remote name). Copied [`product-ci.example.yml`](./templates/product-ci.example.yml) emits `::warning` if the file is absent (not a kit-side fail-closed). |
 
 ```bash
 # Runtime (session / CI / direnv) — comma-separated, trimmed; prefer repo-unique slugs
-export DENY_UPSTREAM_URL_SUBSTRINGS=my-private-chassis
+export DENY_UPSTREAM_URL_SUBSTRINGS=roxabi-boilerplate-cf
 
 # Or commit product-owned config (zero-edit free path):
 # docs/product/deny-upstream.json
-# { "urlSubstrings": ["my-private-chassis"] }
+# { "urlSubstrings": ["roxabi-boilerplate-cf"] }
 ```
 
-Do **not** hardcode product chassis names into kit defaults. Prefer full chassis repo slugs (not generic tokens like `api`).
+Do **not** hardcode product chassis names into kit defaults. Prefer full repo slugs (not generic tokens like `api`).
 
 **Client-side only:** this hook is UX / footgun prevention. `LEFTHOOK=0` and `git push --no-verify` still bypass it. Real kit integrity = **GitHub write ACLs** (product has no write to boilerplate / chassis). Proof: `bun run test:deny-upstream` (**CP-DENY** in [`testing.md`](./testing.md)).
 

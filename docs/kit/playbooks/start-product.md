@@ -35,7 +35,7 @@ Clone the **immediate** parent. URLs live in operator lineage, not in this repo.
 | Mirror | **absent** | allowlisted kit mode. A marker here is a hard error. Mirror `upstream` = HEAD and **may** push for kit contribute. |
 | Product | **required** | product mode. `upstream` = immediate parent, push URL `no_push`. |
 
-Pinning a HEAD SHA while the tree inherited the mirror (or the reverse) is a failed start: missing object, or zero-edit diffs the wrong parent. Mirror ≡ HEAD is an operator sync concern, not a product gate ([ADR-0009](../architecture/adr/0009-kit-namespace-polarity-inheritance-marker.md) D4/D8).
+`deny-upstream` has **no brand builtins**. It only blocks the remote **named** `upstream`, plus URL substrings you list. A go-silex product that adds `roxabi` → HEAD would push unless `docs/product/deny-upstream.json` lists the grandparent slug. Pinning a HEAD SHA while the tree inherited the mirror (or the reverse) is a failed start. Mirror ≡ HEAD is an operator sync concern, not a product gate ([ADR-0009](../architecture/adr/0009-kit-namespace-polarity-inheritance-marker.md) D4/D8).
 
 ## Day-0 checklist
 
@@ -51,16 +51,19 @@ Pinning a HEAD SHA while the tree inherited the mirror (or the reverse) is a fai
    git remote set-url --push upstream no_push
    git push -u origin main
    ```
-   Then pin the inherited tip and create **product** `staging`:
+   Then pin the inherited tip, extend the deny list on multi-hop, and create **product** `staging`:
    ```bash
-   mkdir -p config/product
+   mkdir -p config/product docs/product
    printf '{\n  "version": 1,\n  "upstreamCommit": "%s"\n}\n' "$(git rev-parse upstream/main)" > config/product/inheritance.json
-   git add config/product/inheritance.json
+   # go-silex (parent = mirror): also deny the grandparent URL under any remote name.
+   # Roxabi-direct products skip this file unless they add extra chassis remotes.
+   printf '%s\n' '{"urlSubstrings":["roxabi-boilerplate-cf"]}' > docs/product/deny-upstream.json
+   git add config/product/inheritance.json docs/product/deny-upstream.json
    git commit -m "chore(product): pin kit inheritance"
    git branch staging
    git push -u origin staging
    ```
-   The kit parent has no `staging` branch. Commit the marker on day-0 so `zero-edit` classifies product mode.
+   The kit parent has no `staging` branch. Commit the marker on day-0 so `zero-edit` classifies product mode. go-silex products must also commit `docs/product/deny-upstream.json` (grandparent slug) — the hook does not infer HEAD from the mirror.
 3. `bun install` · ensure lefthook hooks.
 4. Copy env examples → gitignored local files only (`.dev.vars`, etc.).
    Public sign-up is **off** unless you set `ALLOW_PUBLIC_SIGNUP=true` (then SPA `/sign-up` appears). Leave unset for invite/admin-only.
@@ -84,6 +87,7 @@ Pinning a HEAD SHA while the tree inherited the mirror (or the reverse) is a fai
 - Use the GitHub **Fork** button on this repo (fork network, not polarity)
 - Skip `config/product/inheritance.json` on day-0
 - Pin a HEAD SHA when `upstream` is the mirror (or the reverse)
+- Add a remote to HEAD or the mirror without listing its repo slug in `docs/product/deny-upstream.json`
 - Edit kit-owned paths for product config
 - `git push upstream` from a product clone
 - Commit secrets
