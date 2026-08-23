@@ -6,7 +6,7 @@
  * they do not copy `better-auth-schema.ts`.
  */
 import { sql } from 'drizzle-orm'
-import { index, integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core'
+import { index, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
 export const baUser = sqliteTable('user', {
   id: text('id').primaryKey(),
@@ -112,7 +112,6 @@ export const baAccount = sqliteTable(
     id: text('id').primaryKey(),
     accountId: text('account_id').notNull(),
     providerId: text('provider_id').notNull(),
-    issuer: text('issuer').notNull(),
     userId: text('user_id')
       .notNull()
       .references(() => baUser.id, { onDelete: 'cascade' }),
@@ -130,10 +129,7 @@ export const baAccount = sqliteTable(
       .$onUpdate(() => /* @__PURE__ */ new Date())
       .notNull(),
   },
-  (table) => [
-    index('account_userId_idx').on(table.userId),
-    uniqueIndex('account_issuer_accountId_uidx').on(table.issuer, table.accountId),
-  ],
+  (table) => [index('account_userId_idx').on(table.userId)],
 )
 
 export const baVerification = sqliteTable(

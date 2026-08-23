@@ -47,7 +47,6 @@ export async function insertBaUserWithCredential(
     id: `acc_${row.id}`,
     accountId: row.id,
     providerId: 'credential',
-    issuer: 'local:credential',
     userId: row.id,
     password: row.passwordHash,
     createdAt: now,
