@@ -107,18 +107,6 @@
           }
         ]
       }
-    ],
-    "PreToolUse": [
-      {
-        "matcher": "Bash|run_terminal_command",
-        "hooks": [
-          {
-            "type": "command",
-            "timeout": 10,
-            "command": "bash \"${CLAUDE_PROJECT_DIR}/scripts/kit/semctx-guard-if-present.sh\""
-          }
-        ]
-      }
     ]
   }
 }
