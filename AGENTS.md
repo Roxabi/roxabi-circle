@@ -71,7 +71,7 @@ Product repositories inherit this kit through a fetch-only `upstream` and compos
 - Never dual-edit kit paths in a product without a documented, time-boxed exception.
 - Treat [`docs/kit/product-consumer-contract.md`](docs/kit/product-consumer-contract.md) as the complete contract and [`docs/kit/playbooks/start-product.md`](docs/kit/playbooks/start-product.md) as the onboarding path.
 
-Repository lineage and the canonical parent URL live in the operator SSoT outside this repository.
+This repository is kit HEAD (`Roxabi/roxabi-boilerplate-cf`). Product `upstream` is this repo (Roxabi) or the go-silex mirror (`silex-boilerplate`) — [`docs/kit/playbooks/start-product.md`](docs/kit/playbooks/start-product.md). Remotes and deny-upstream: [`docs/kit/product-consumer-contract.md`](docs/kit/product-consumer-contract.md).
 
 ## Hard agent rules
 
