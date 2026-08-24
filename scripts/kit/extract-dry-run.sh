@@ -100,7 +100,7 @@ if [[ "$MODE" == "kit" ]]; then
     fi
   done
   echo "NOTE: kit tree — no product apps under apps/"
-else
+elif [[ "$MODE" == "product" ]]; then
   echo "== extract-dry-run: product apps (product mode) =="
   product_found=0
   for app_dir in apps/*/; do
@@ -121,6 +121,9 @@ else
   if [[ "$product_found" -eq 0 ]]; then
     echo "NOTE: product tree with kit examples only (no product apps yet)"
   fi
+else
+  echo "extract-dry-run: unresolved tree mode '${MODE}'" >&2
+  exit 1
 fi
 
 echo "== extract-dry-run: banlist (packages + example apps only) =="

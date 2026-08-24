@@ -10,21 +10,6 @@ import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-export const KIT_EXAMPLE_APPS = ['example-api', 'example-web', 'example-web-branded', 'mcp-example']
-
-/** @param {string} name */
-export function isKitExampleApp(name) {
-  return KIT_EXAMPLE_APPS.includes(name)
-}
-
-/** @param {string} relPath */
-export function isProductAppPath(relPath) {
-  const p = relPath.replace(/^\.\//, '')
-  if (!p.startsWith('apps/')) return false
-  const appName = p.slice('apps/'.length).split('/')[0]
-  return appName.length > 0 && !isKitExampleApp(appName)
-}
-
 function loadJson(path, label) {
   if (!existsSync(path)) return null
   try {
@@ -125,7 +110,8 @@ export function resolveTreeIdentity({
       // Permissive audit label — never bypass kit allowlist on kit-classified trees.
       mode = classifiedMode === 'kit' ? 'kit' : 'product'
     } else if (modeEnv === 'product') {
-      mode = 'product'
+      // Permissive label — never bypass the kit allowlist on kit-classified trees.
+      mode = classifiedMode === 'kit' ? 'kit' : 'product'
     }
     return { mode, identity, classifiedMode }
   }

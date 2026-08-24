@@ -7,6 +7,7 @@ unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR 2>/dev/null || true
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 RESIDENCY="${ROOT}/scripts/kit/extract-residency.ts"
 IDENTITY="${ROOT}/scripts/kit/resolve-tree-identity.mjs"
+EXTRACT="${ROOT}/scripts/kit/extract-dry-run.sh"
 ZONES_SRC="${ROOT}/config/kit/zero-edit-zones.json"
 
 PASS=0
@@ -52,24 +53,32 @@ assert_output() {
   PASS=$((PASS + 1))
 }
 
-check_kit_allowlist() {
-  local tree="$1"
-  local mode="${2:-kit}"
-  [[ "$mode" == "kit" ]] || return 0
-  local -a allow=(example-api example-web example-web-branded mcp-example)
-  for app_dir in "$tree"/apps/*/; do
-    [[ -d "$app_dir" ]] || continue
-    local app_name ok=0
-    app_name="$(basename "$app_dir")"
-    for a in "${allow[@]}"; do
-      if [[ "$app_name" == "$a" ]]; then ok=1; break; fi
-    done
-    if [[ "$ok" -eq 0 ]]; then
-      echo "UNEXPECTED app (not in kit allowlist): apps/$app_name" >&2
-      return 1
-    fi
+seed_extract_gate_stubs() {
+  local dir="$1"
+  mkdir -p "${dir}/packages"/{core,types,auth,db,storage,ui,email,mcp}
+  mkdir -p "${dir}/apps"/{example-api,example-web,mcp-example}
+  mkdir -p "${dir}/docs/kit/architecture/adr" "${dir}/scripts/kit"
+  echo '{}' >"${dir}/package.json"
+  echo '{}' >"${dir}/turbo.jsonc"
+  echo '{}' >"${dir}/biome.json"
+  local pkg app
+  for pkg in core types auth db storage ui email mcp; do
+    echo '{}' >"${dir}/packages/${pkg}/package.json"
   done
-  return 0
+  for app in example-api example-web mcp-example; do
+    echo '{}' >"${dir}/apps/${app}/package.json"
+  done
+  cp "${ROOT}/docs/kit/architecture/adr/0001-primary-axis-packages-compose-apps.md" \
+    "${dir}/docs/kit/architecture/adr/"
+  cp "${ROOT}/scripts/kit/check-zero-edit-zones.sh" "${dir}/scripts/kit/"
+  cp "${ROOT}/scripts/kit/resolve-tree-identity.mjs" "${dir}/scripts/kit/"
+}
+
+run_extract_gate() {
+  local tree="$1"
+  shift
+  env -u GIT_DIR -u GIT_WORK_TREE -u GIT_COMMON_DIR \
+    EXTRACT_ROOT="$tree" "$@" bash "$EXTRACT"
 }
 
 make_repo() {
@@ -124,10 +133,13 @@ export const bad = sqliteTable('organization', { id: text('id').primaryKey() })
 EOF
 assert_exit "residency rejects kit table in apps" 1 "EXTRACT_ROOT='$FIX1' bun run '$RESIDENCY'"
 
-# 2) planted non-allowlisted app → allowlist exit ≠ 0 in kit mode
+# 2) planted non-allowlisted app → real gate rejects in kit mode
 FIX2="$TMP/allowlist-fail"
-mkdir -p "$FIX2/apps/example-api" "$FIX2/apps/acme-api"
-assert_exit "allowlist rejects acme-api in kit mode" 1 "check_kit_allowlist '$FIX2' kit"
+make_repo "${FIX2}"
+set_origin "${FIX2}" "https://github.com/Roxabi/roxabi-boilerplate-cf.git"
+seed_extract_gate_stubs "${FIX2}"
+mkdir -p "${FIX2}/apps/acme-api"
+assert_exit "allowlist rejects acme-api in kit mode" 1 "run_extract_gate '${FIX2}'"
 
 # 3) clean worktree residency passes
 assert_exit "residency clean on live tree" 0 "EXTRACT_ROOT='$ROOT' bun run '$RESIDENCY'"
@@ -140,6 +152,7 @@ PRODUCT="$TMP/product-pass"
 make_repo "${PRODUCT}"
 set_origin "${PRODUCT}" "https://github.com/acme/product-consumer.git"
 mark_product "${PRODUCT}"
+seed_extract_gate_stubs "${PRODUCT}"
 mkdir -p "${PRODUCT}/apps/example-api" "${PRODUCT}/apps/acme-api"
 mode="$(resolve_mode "${PRODUCT}")"
 if [[ "$mode" != "product" ]]; then
@@ -149,12 +162,15 @@ else
   echo "  PASS: product tree classifies product"
   PASS=$((PASS + 1))
 fi
-assert_exit "product tree skips kit allowlist for acme-api" 0 "check_kit_allowlist '${PRODUCT}' product"
+assert_output "product tree notes acme-api in product mode" \
+  'NOTE: product app present \(expected on product tree\): apps/acme-api' \
+  "out=\$(run_extract_gate '${PRODUCT}' 2>&1 || true); echo \"\$out\" | grep -E 'NOTE: product app present.*apps/acme-api'"
 
 # 6) kit fixture with acme-api fails allowlist
 KIT="$TMP/kit-fail"
 make_repo "${KIT}"
 set_origin "${KIT}" "https://github.com/Roxabi/roxabi-boilerplate-cf.git"
+seed_extract_gate_stubs "${KIT}"
 mkdir -p "${KIT}/apps/example-api" "${KIT}/apps/acme-api"
 mode="$(resolve_mode "${KIT}")"
 if [[ "$mode" != "kit" ]]; then
@@ -164,7 +180,7 @@ else
   echo "  PASS: kit fixture classifies kit"
   PASS=$((PASS + 1))
 fi
-assert_exit "kit fixture rejects acme-api" 1 "check_kit_allowlist '${KIT}' kit"
+assert_exit "kit fixture rejects acme-api" 1 "run_extract_gate '${KIT}'"
 
 # 7) product tree + harness force-kit still fails on product apps
 SENTINEL="$TMP/harness-sentinel"
@@ -178,7 +194,7 @@ else
   PASS=$((PASS + 1))
 fi
 assert_exit "product + EXTRACT_MODE=kit + sentinel fails allowlist" 1 \
-  "check_kit_allowlist '${PRODUCT}' kit"
+  "EXTRACT_MODE=kit EXTRACT_HARNESS_SENTINEL='${SENTINEL}' run_extract_gate '${PRODUCT}'"
 
 # 8) EXTRACT_MODE=mono without sentinel → die
 assert_exit "EXTRACT_MODE=mono without sentinel rejected" 1 \
@@ -193,7 +209,20 @@ else
   echo "  PASS: kit + mono sentinel stays kit (no allowlist bypass)"
   PASS=$((PASS + 1))
 fi
-assert_exit "kit + mono sentinel still rejects acme-api" 1 "check_kit_allowlist '${KIT}' kit"
+assert_exit "kit + mono sentinel still rejects acme-api" 1 \
+  "EXTRACT_MODE=mono EXTRACT_HARNESS_SENTINEL='${SENTINEL}' run_extract_gate '${KIT}'"
+
+# 10) kit tree + EXTRACT_MODE=product with sentinel still kit mode (no allowlist bypass)
+mode="$(resolve_mode "${KIT}" EXTRACT_MODE=product EXTRACT_HARNESS_SENTINEL="${SENTINEL}")"
+if [[ "$mode" != "kit" ]]; then
+  echo "  FAIL: kit + product sentinel expected mode=kit, got ${mode}" >&2
+  FAIL=$((FAIL + 1))
+else
+  echo "  PASS: kit + product sentinel stays kit mode"
+  PASS=$((PASS + 1))
+fi
+assert_exit "kit + product sentinel still rejects acme-api" 1 \
+  "EXTRACT_MODE=product EXTRACT_HARNESS_SENTINEL='${SENTINEL}' run_extract_gate '${KIT}'"
 
 echo ""
 echo "CP-EXTRACT self-test: $PASS passed, $FAIL failed"
