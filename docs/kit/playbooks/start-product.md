@@ -22,7 +22,7 @@ bash scripts/kit/kit-schema-sync.sh --app apps/<product>-api --adopt
 
 ## Which parent to clone
 
-Clone the **immediate** parent. URLs live in operator lineage, not in this repo.
+Clone the **immediate** parent. This repository is kit HEAD (`Roxabi/roxabi-boilerplate-cf`); go-silex products use the mirror (`silex-boilerplate`). Remotes and deny-upstream: [`product-consumer-contract.md`](../product-consumer-contract.md).
 
 | Product lives under | Clone / `upstream` | `inheritance.json` pins |
 |---|---|---|
