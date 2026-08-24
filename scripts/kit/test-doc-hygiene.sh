@@ -36,7 +36,6 @@ standards:
   contributing: README.md
 EOF
   cat >"$tree/CLAUDE.md" <<'EOF'
-@.claude/stack.yml
 @AGENTS.md
 EOF
   cat >"$tree/AGENTS.md" <<'EOF'
@@ -90,23 +89,21 @@ cp -R "$BASE" "$ORPHAN"
 printf '# Orphan\n' >"$ORPHAN/docs/kit/orphan.md"
 assert_case "documentation not indexed" 1 "$ORPHAN" "document is not referenced by docs/kit/README.md"
 
-STACK_FIRST="$TMP/stack-first"
-cp -R "$BASE" "$STACK_FIRST"
-cat >"$STACK_FIRST/CLAUDE.md" <<'EOF'
-# Claude
-@.claude/stack.yml
-@AGENTS.md
-EOF
-assert_case "stack import is first line" 1 "$STACK_FIRST" "first line must import @.claude/stack.yml"
-
-AGENTS_FIRST="$TMP/agents-before-content"
+AGENTS_FIRST="$TMP/agents-first"
 cp -R "$BASE" "$AGENTS_FIRST"
 cat >"$AGENTS_FIRST/CLAUDE.md" <<'EOF'
-@.claude/stack.yml
-# Normative instructions
+# Claude
 @AGENTS.md
 EOF
-assert_case "agents import precedes content" 1 "$AGENTS_FIRST" "content must follow the @AGENTS.md import"
+assert_case "agents import is first line" 1 "$AGENTS_FIRST" "first line must import @AGENTS.md"
+
+STACK_STILL="$TMP/stack-still-imported"
+cp -R "$BASE" "$STACK_STILL"
+cat >"$STACK_STILL/CLAUDE.md" <<'EOF'
+@.claude/stack.yml
+@AGENTS.md
+EOF
+assert_case "stack import is no longer the entry" 1 "$STACK_STILL" "first line must import @AGENTS.md"
 
 echo "== doc hygiene summary: $PASS pass, $FAIL fail =="
 [[ "$FAIL" -eq 0 ]]
