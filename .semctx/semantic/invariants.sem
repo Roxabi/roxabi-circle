@@ -1,10 +1,131 @@
-# Invariants — business rules a change must preserve. Link to code once indexed:
-#   link: inv:<invariant-slug>                    (a repo invariant id from @invariant markers)
-#   link: sym:function:src/path/to/file.ts:name:12
-# Run 'semctx semantic check' to validate links against the indexed graph.
-#
-# Add an authored invariant only after replacing every placeholder:
-#   invariant invariant.<project>.<slug>
-#     statement: <rule that must remain true>
-#     status: declared
-#     serves: goal.<project>.<slug>
+# Kit Plane B — ids invariant.kit.* only.
+# Code-linked nodes restated from @invariant markers; ADR wins if they disagree.
+
+
+invariant invariant.kit.grants-are-sole-max-power
+  statement: effective.tools = grants.allowedTools ∩ plan.permits.tools ∩ registry — plan/MCP permits may only narrow, never expand.
+  status: declared
+  provenance: author
+  appliesAtLevel: 4
+  serves: goal.kit.tenant-isolation
+  proved_by: proof.test.flows-authority
+  link: inv:grants-are-sole-max-power
+  link: file:packages/flows/src/authority.ts
+  tag: kit
+  tag: critical
+
+invariant invariant.kit.plan-cannot-expand-authority
+  statement: A plan cannot expand beyond grants — a permits.tools entry outside the grant is TOOL_NOT_GRANTED.
+  status: declared
+  provenance: author
+  appliesAtLevel: 4
+  serves: goal.kit.tenant-isolation
+  proved_by: proof.test.flows-check
+  link: inv:plan-cannot-expand-authority
+  link: file:packages/flows/src/check.ts
+  tag: kit
+  tag: critical
+
+invariant invariant.kit.default-deny-ambient-authority
+  statement: Absent or empty plan permits with any effectful task (invoke or infer) fail closed at check.
+  status: declared
+  provenance: author
+  appliesAtLevel: 4
+  serves: goal.kit.tenant-isolation
+  proved_by: proof.test.flows-check
+  link: inv:default-deny-ambient-authority
+  link: file:packages/flows/src/check.ts
+  tag: kit
+  tag: critical
+  tag: security
+
+invariant invariant.kit.runner-executes-snapshot-only
+  statement: The runner executes the runner view, never the live plan row; plan edits create a new version and in-flight runs are unchanged.
+  status: declared
+  provenance: author
+  appliesAtLevel: 4
+  serves: goal.kit.tenant-isolation
+  proved_by: proof.test.flows-check
+  link: inv:runner-executes-snapshot-only
+  link: file:packages/flows/src/snapshot.ts
+  tag: kit
+  tag: critical
+
+invariant invariant.kit.grant-shape-fully-explicit
+  statement: A CapabilityGrant is accepted only as a strict object with every field explicit — allowsInfer is never defaulted or coerced; unknown and prototype-shaped keys are rejected.
+  status: declared
+  provenance: author
+  appliesAtLevel: 4
+  serves: goal.kit.tenant-isolation
+  proved_by: proof.test.flows-grant
+  link: inv:grant-shape-fully-explicit
+  link: file:packages/flows/src/grant.ts
+  tag: kit
+  tag: security
+
+invariant invariant.kit.interpret-skip-never-succeeded
+  statement: interpretRun rollup is succeeded only when every sealedPlan.tasks id is present and ok; any fail, skip, or stuck is failed.
+  status: declared
+  provenance: author
+  appliesAtLevel: 4
+  serves: goal.kit.tenant-isolation
+  proved_by: proof.test.flows-interpret
+  link: inv:interpret-skip-never-succeeded
+  link: file:packages/flows/src/interpret.ts
+  tag: kit
+
+invariant invariant.kit.interpret-waiting-not-produced
+  statement: interpretRun never writes outcome waiting; input waiting fails closed WAITING_NOT_SUPPORTED.
+  status: declared
+  provenance: author
+  appliesAtLevel: 4
+  serves: goal.kit.tenant-isolation
+  proved_by: proof.test.flows-interpret
+  link: inv:interpret-waiting-not-produced
+  link: file:packages/flows/src/interpret.ts
+  tag: kit
+
+invariant invariant.kit.api-key-compare-is-constant-time
+  statement: API key comparison goes through timingSafeEqualHex — never === on a digest.
+  status: declared
+  provenance: author
+  appliesAtLevel: 4
+  serves: goal.kit.tenant-isolation
+  proved_by: proof.test.auth-keys
+  link: inv:api-key-compare-is-constant-time
+  link: file:packages/auth/src/keys.ts
+  tag: kit
+  tag: security
+
+invariant invariant.kit.grant-provenance-not-client
+  statement: Grants are never minted from the client, a plan body, or an agent self-description. Residual until #142 — dogfood is server-side dogfoodFixedGrant, not org module policy mint.
+  status: declared
+  provenance: author
+  appliesAtLevel: 4
+  serves: goal.kit.tenant-isolation
+  risks: unknown.kit.grant-policy-mint
+  link: file:AGENTS.md
+  tag: kit
+  tag: security
+
+invariant invariant.kit.product-domain-never-packages
+  statement: Product domain never enters packages/* or apps/example-*; packages never import apps.
+  status: declared
+  provenance: author
+  appliesAtLevel: 4
+  serves: goal.kit.capability-kernel
+  serves: goal.kit.extractible-compose
+  link: file:AGENTS.md
+  link: file:docs/kit/architecture/adr/0001-primary-axis-packages-compose-apps.md
+  tag: kit
+
+invariant invariant.kit.mcp-catalogue-not-authorization
+  statement: @kit/mcp catalogue effect/auth fields are convention only — never authorization. Agents tools stay unbuilt until the agents layer (registry ∩ grants).
+  status: declared
+  provenance: author
+  appliesAtLevel: 4
+  serves: goal.kit.tenant-isolation
+  link: file:packages/mcp/src/catalogue.ts
+  link: file:AGENTS.md
+  tag: kit
+  tag: security

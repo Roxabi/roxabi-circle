@@ -1,0 +1,26 @@
+change change.kit.document-plane-b
+  statement: Author the first kit Plane B slice: capability-kernel goals, code-linked authority invariants, ADR decisions.
+  status: active
+  provenance: agent
+  serves: goal.kit.capability-kernel
+  serves: goal.kit.extractible-compose
+  serves: goal.kit.tenant-isolation
+  preserves: invariant.kit.api-key-compare-is-constant-time
+  preserves: invariant.kit.default-deny-ambient-authority
+  preserves: invariant.kit.grant-provenance-not-client
+  preserves: invariant.kit.grant-shape-fully-explicit
+  preserves: invariant.kit.grants-are-sole-max-power
+  preserves: invariant.kit.interpret-skip-never-succeeded
+  preserves: invariant.kit.interpret-waiting-not-produced
+  preserves: invariant.kit.mcp-catalogue-not-authorization
+  preserves: invariant.kit.plan-cannot-expand-authority
+  preserves: invariant.kit.product-domain-never-packages
+  preserves: invariant.kit.runner-executes-snapshot-only
+  requires_evidence: proof.test.auth-keys
+  requires_evidence: proof.test.flows-authority
+  requires_evidence: proof.test.flows-check
+  requires_evidence: proof.test.flows-grant
+  requires_evidence: proof.test.flows-interpret
+  unknown: unknown.kit.grant-policy-mint
+  unknown: unknown.kit.semctx-in-validate-full
+  tag: kit

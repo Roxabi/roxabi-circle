@@ -26,7 +26,7 @@
 # `@tag critical|security`. Sans eux : 0 arête `constrained_by`, 0 nœud tagué, donc BLOCK
 # structurellement impossible. Ce job est vert par construction aujourd'hui ; les WARN,
 # eux, sont réels (contrats exportés sans test). Il devient un vrai gate à mesure que les
-# marqueurs arrivent — cf. .claude/semctx.md.
+# marqueurs arrivent — cf. docs/kit/semctx.md.
 name: Semctx
 
 permissions:

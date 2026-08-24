@@ -1,1 +1,9 @@
-# Assumptions — believed-but-unproven premises. Kept distinct from established facts.
+# Kit Plane B — ids assumption.kit.* only.
+
+
+assumption assumption.kit.examples-not-platform-proof
+  statement: example-* and a zero-edit product prove composition and the consumer contract; only a real external product deployment can prove the platform JTBD.
+  status: declared
+  provenance: author
+  link: file:AGENTS.md
+  tag: kit

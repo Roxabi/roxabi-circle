@@ -1,6 +1,17 @@
-# Unknowns — open questions that must survive while the system is changed.
-#
-# Example syntax (commented out; never part of the active model):
-#   unknown unknown.<project>.<slug>
-#     statement: <question that remains unresolved>
-#     status: declared
+# Kit Plane B — ids unknown.kit.* only.
+
+
+unknown unknown.kit.grant-policy-mint
+  statement: Grant mint from org module policy is residual until #142; current dogfood is server-side dogfoodFixedGrant.
+  status: declared
+  provenance: author
+  risks: invariant.kit.grant-provenance-not-client
+  link: file:AGENTS.md
+  tag: kit
+
+unknown unknown.kit.semctx-in-validate-full
+  statement: Whether semctx verify becomes a step of validate:full is unset — pinning, per-clone index, and pre-1.0 cost are open inputs, not an ADR.
+  status: declared
+  provenance: author
+  link: file:artifacts/analyses/semctx-invariant-markers-analysis.md
+  tag: kit
