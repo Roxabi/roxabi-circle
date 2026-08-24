@@ -77,7 +77,7 @@ seed_extract_gate_stubs() {
 run_extract_gate() {
   local tree="$1"
   shift
-  env -u GIT_DIR -u GIT_WORK_TREE -u GIT_COMMON_DIR \
+  env -u GIT_DIR -u GIT_WORK_TREE -u GIT_COMMON_DIR -u GITHUB_REPOSITORY \
     EXTRACT_ROOT="$tree" "$@" bash "$EXTRACT"
 }
 
@@ -112,7 +112,7 @@ mark_product() {
 resolve_mode() {
   local dir="$1"
   shift
-  env -u GIT_DIR -u GIT_WORK_TREE -u GIT_COMMON_DIR \
+  env -u GIT_DIR -u GIT_WORK_TREE -u GIT_COMMON_DIR -u GITHUB_REPOSITORY \
     ROOT="${dir}" "$@" node "${IDENTITY}" 2>&1 | sed -n 's/^mode=\([^ ]*\).*/\1/p'
 }
 
@@ -198,7 +198,7 @@ assert_exit "product + EXTRACT_MODE=kit + sentinel fails allowlist" 1 \
 
 # 8) EXTRACT_MODE=mono without sentinel → die
 assert_exit "EXTRACT_MODE=mono without sentinel rejected" 1 \
-  "ROOT='${KIT}' EXTRACT_MODE=mono node '${IDENTITY}'"
+  "env -u GITHUB_REPOSITORY ROOT='${KIT}' EXTRACT_MODE=mono node '${IDENTITY}'"
 
 # 9) kit tree + EXTRACT_MODE=mono with sentinel still kit mode (no allowlist bypass)
 mode="$(resolve_mode "${KIT}" EXTRACT_MODE=mono EXTRACT_HARNESS_SENTINEL="${SENTINEL}")"
