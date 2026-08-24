@@ -20,11 +20,12 @@ related:
 # ADR-0012 — Kernel persistence + request-context stratum
 
 
-**Authority:** accepted 2026-08-24 by operator delegation on the #137 goal session. Binding. Implementation = [#142](https://github.com/Roxabi/roxabi-boilerplate-cf/issues/142).
+**Authority:** accepted 2026-08-24 by operator delegation on the #137 goal session. Binding.
+
+**Implemented:** [#142](https://github.com/Roxabi/roxabi-boilerplate-cf/issues/142) schema/repos/hono, [#143](https://github.com/Roxabi/roxabi-boilerplate-cf/issues/143) `@kit/flows/run`, [#144](https://github.com/Roxabi/roxabi-boilerplate-cf/issues/144) compose proof. Parent [#137](https://github.com/Roxabi/roxabi-boilerplate-cf/issues/137) closed. This ADR is the decision, not the move.
 
 This **is** the [ADR-0008](./0008-kit-schema-identity-product-compose.md) **D3 follow-up**: promoting applied SQL to the kit persist SSoT, and giving `@kit/*` the request-context stratum that ADR-0008 D6 already shipped for Better Auth.
 
-Does **not** implement the move. Implementation = [#142](https://github.com/Roxabi/roxabi-boilerplate-cf/issues/142). FlowRun driver export = [#143](https://github.com/Roxabi/roxabi-boilerplate-cf/issues/143). Compose proof = [#144](https://github.com/Roxabi/roxabi-boilerplate-cf/issues/144). Parent goal: [`137-extractible-kernel-persist-runtime-goal.md`](../../../../artifacts/goals/137-extractible-kernel-persist-runtime-goal.md).
 
 ## Problem
 
@@ -118,13 +119,11 @@ INV-03 (`demo_*` org-scope) and INV-04 (`api_keys.organization_id NOT NULL`) are
 
 ### Negative
 
-- #142 is a large, auth/ACL/migrations-reviewed move
 - Dogfood D1 journal filenames stay product-local until wrangler retarget
-- Driver remains copy-paste until #143
 
 ### Neutral
 
-- Wave 0 (this ADR + honesty docs) does **not** kill S1; claim stays false until #142+#143+#144
+- Persist/runtime S1 is priced to instantiated code after #142+#143+#144. ADR-0005 D6 stays incubating (no second compose).
 - Platform-proof D3 / JTBD-platform stay Not met (named tenant + HITL + second compose)
 
 ## Anti-patterns
@@ -138,13 +137,10 @@ INV-03 (`demo_*` org-scope) and INV-04 (`api_keys.organization_id NOT NULL`) are
 | Bind infer or leave incubating while claiming D6 met | #141 out; ADR-0005 D6 |
 | Fold INV-03 / INV-04 into the mechanical promote | D7 — new catalog ids |
 | Kitchen-sink PR (#142+#143+#144) | One concern per `/ship` |
-| Treat this ADR as the move | Docs only; #142 implements |
+| Treat this ADR as the move | Decision only; #142/#143/#144 implemented it |
 
 ## Non-goals
 
-- Implementing the schema/repos/hono move (#142)
-- Moving the FlowRun driver (#143)
-- Rewriting `extract-dry-run` (#144)
 - Flows console (#33)
 - Infer vs invoke binding (#141 — sibling under #16)
 - Second product app
