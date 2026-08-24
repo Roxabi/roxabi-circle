@@ -17,6 +17,12 @@ Les 6 fichiers plats `.semctx/semantic/{goals,invariants,decisions,assumptions,u
 
 `loadSemanticModel` refuse les `duplicateIds`. Recopier un id `*.kit.*` côté produit casse le load.
 
+Ne pas merger un `change.kit.*` avec `status: active`. Le pointeur
+`.semctx/working/active-change.sem` est gitignoré : chaque clone hériterait d'un
+change ouvert sans pointeur. Unknowns durables → `unknowns.sem`. Changes = le
+travail en cours, pas l'état de `main`.
+
+
 ## Quand ça trigger
 
 | Surface | Quand | Effet |
