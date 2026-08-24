@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # #148 — leftover-biome-staged.sh must not unstage deletions.
 set -euo pipefail
+# leftover / worktree shells can export GIT_DIR. git init then ignores $TMP
+# and reinitializes the principal as bare (user=kit@example.com).
+unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR 2>/dev/null || true
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 SCRIPT="${ROOT}/scripts/kit/lefthook-biome-staged.sh"
