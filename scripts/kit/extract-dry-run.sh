@@ -1,16 +1,39 @@
 #!/usr/bin/env bash
 # Dry-run extractability check for Chemin A kit.
 #
-# Modes (EXTRACT_MODE):
-#   kit   (default) — allowlisted example/mcp apps only; residency + temp compose proof
-#   mono  — dual-mission monorepo: product apps allowed; banlist still covers packages + examples only
-#   strict — same allowlist as kit (legacy name)
+# Tree identity: ADR-0009 D5 classifier (scripts/kit/resolve-tree-identity.mjs).
+#   kit     — example/mcp apps only; residency + temp compose proof
+#   product — product apps under apps/ allowed (complement of kit examples)
+#
+# Harness-only override (audit): EXTRACT_MODE + EXTRACT_HARNESS_SENTINEL
+#   (forbidden on normal lefthook/CI without sentinel — mirror ZERO_EDIT_MODE discipline)
 set -euo pipefail
 
 ROOT="${EXTRACT_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}"
 cd "$ROOT"
 
-MODE="${EXTRACT_MODE:-kit}"
+export ROOT
+export EXTRACT_MODE="${EXTRACT_MODE:-}"
+export EXTRACT_HARNESS_SENTINEL="${EXTRACT_HARNESS_SENTINEL:-}"
+
+identity_line="$(
+  node --input-type=module <<'NODE'
+import { resolveTreeIdentity } from './scripts/kit/resolve-tree-identity.mjs'
+const { mode, identity, classifiedMode } = resolveTreeIdentity({
+  root: process.env.ROOT,
+  modeEnv: process.env.EXTRACT_MODE || '',
+  harnessSentinel: process.env.EXTRACT_HARNESS_SENTINEL || '',
+})
+console.log(`mode=${mode} identity=${identity || '(none)'} classified=${classifiedMode}`)
+NODE
+)" || {
+  echo "extract-dry-run: tree identity resolution failed" >&2
+  exit 1
+}
+
+MODE="$(echo "$identity_line" | sed -n 's/^mode=\([^ ]*\).*/\1/p')"
+IDENTITY="$(echo "$identity_line" | sed -n 's/.*identity=\([^ ]*\).*/\1/p')"
+CLASSIFIED="$(echo "$identity_line" | sed -n 's/.*classified=\([^ ]*\).*/\1/p')"
 
 search_q() {
   local pat="$1"
@@ -22,7 +45,7 @@ search_q() {
   fi
 }
 
-echo "== extract-dry-run: mode=${MODE} =="
+echo "== extract-dry-run: mode=${MODE} identity=${IDENTITY} classified=${CLASSIFIED} =="
 echo "== extract-dry-run: tree sanity =="
 
 required=(
@@ -59,8 +82,8 @@ KIT_APP_ALLOW=(
   mcp-example
 )
 
-if [[ "$MODE" == "kit" || "$MODE" == "strict" ]]; then
-  echo "== extract-dry-run: product-app allowlist (kit/strict) =="
+if [[ "$MODE" == "kit" ]]; then
+  echo "== extract-dry-run: product-app allowlist (kit mode) =="
   for app_dir in apps/*/; do
     [[ -d "$app_dir" ]] || continue
     app_name="$(basename "$app_dir")"
@@ -76,22 +99,28 @@ if [[ "$MODE" == "kit" || "$MODE" == "strict" ]]; then
       exit 1
     fi
   done
-fi
-
-product_found=0
-for product_app in apps/share-api apps/share-web; do
-  if [[ -d "$product_app" ]]; then
-    product_found=1
-    if [[ "$MODE" == "strict" ]]; then
-      echo "UNEXPECTED product app present (EXTRACT_MODE=strict): $product_app" >&2
-      exit 1
+  echo "NOTE: kit tree — no product apps under apps/"
+else
+  echo "== extract-dry-run: product apps (product mode) =="
+  product_found=0
+  for app_dir in apps/*/; do
+    [[ -d "$app_dir" ]] || continue
+    app_name="$(basename "$app_dir")"
+    allowed=0
+    for ok in "${KIT_APP_ALLOW[@]}"; do
+      if [[ "$app_name" == "$ok" ]]; then
+        allowed=1
+        break
+      fi
+    done
+    if [[ "$allowed" -eq 0 ]]; then
+      product_found=1
+      echo "NOTE: product app present (expected on product tree): apps/$app_name"
     fi
-    echo "NOTE: product app present ($product_app) — banlist still excludes product dirs; mode=${MODE}"
+  done
+  if [[ "$product_found" -eq 0 ]]; then
+    echo "NOTE: product tree with kit examples only (no product apps yet)"
   fi
-done
-
-if [[ "$MODE" == "kit" && "$product_found" -eq 0 ]]; then
-  echo "NOTE: no product apps (kit-only tree)"
 fi
 
 echo "== extract-dry-run: banlist (packages + example apps only) =="
