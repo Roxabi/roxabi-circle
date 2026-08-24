@@ -23,15 +23,15 @@ Objectif : l’IA accélère, **ne contourne pas** les garde-fous. Même barre q
 ### 2. Configuration agents (SSoT)
 
 Machine-readable stack + Claude plugins live in **`.claude/stack.yml`** and
-**`.claude/settings.json`** (tracked; local-only files ignored). `CLAUDE.md` imports
-`.claude/stack.yml` first, then `AGENTS.md`, as required by dev-core.
+**`.claude/settings.json`** (tracked; local-only files ignored). `CLAUDE.md` is
+`@AGENTS.md` only. Stack is not auto-imported there.
 
 | Artefact | Rôle |
 |---|---|
 | **`AGENTS.md`** | constitution auto-chargée : mission, précédence, invariants et interdits |
 | **`.claude/stack.yml`** | carte machine-readable (paths, commandes, packages, pointeurs `standards.*`) |
 | **`.claude/settings.json`** | plugins + marketplaces Claude Code |
-| **`CLAUDE.md` → stack + AGENTS** | point d’entrée Claude / Grok ; la stack précède les règles |
+| **`CLAUDE.md` → `@AGENTS.md`** | point d’entrée Claude / Grok ; la constitution route le reste |
 | **`docs/kit/README.md`** | index central des normes, contrats, runbooks et preuves |
 | **Frame produit** | `docs/product/*` dans le repo produit ; la frame kit de référence est illustrative |
 | **Skills** | utiliser la skill existante (`/code-review`, issue-triage…) plutôt que réinventer |

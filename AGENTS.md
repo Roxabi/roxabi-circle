@@ -100,6 +100,7 @@ The root `package.json` script `validate:full` is the single source of truth for
 | Tests, gates, coverage or verification claim | [`docs/kit/testing.md`](docs/kit/testing.md) |
 | Security-sensitive or AI-assisted development | [`docs/kit/processes/dev-process.md`](docs/kit/processes/dev-process.md) |
 | Product consumer, upstream sync, zero-edit or schema composition | [`docs/kit/product-consumer-contract.md`](docs/kit/product-consumer-contract.md) and [`docs/kit/kit-schema-sync.md`](docs/kit/kit-schema-sync.md) |
+| semctx, `@invariant`, Plane B, change contract | [`docs/kit/semctx.md`](docs/kit/semctx.md) |
 | New product onboarding | [`docs/kit/playbooks/start-product.md`](docs/kit/playbooks/start-product.md) |
 | Environment or Cloudflare deploy | [`docs/kit/environments.md`](docs/kit/environments.md) and [`docs/kit/deploy-cloudflare.md`](docs/kit/deploy-cloudflare.md) |
 | Email transport | [`docs/kit/email-cf-runbook.md`](docs/kit/email-cf-runbook.md) and [ADR-0004](docs/kit/architecture/adr/0004-email-transport-cf-default.md) |

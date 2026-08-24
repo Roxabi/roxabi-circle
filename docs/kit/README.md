@@ -26,6 +26,7 @@ This is the central index for every Markdown document under `docs/kit`. Use it t
 - [Stack A–L](./standards/stack.md) — runtime, frontend, auth, packages, quality and architecture choices.
 - [Testing strategy](./testing.md) — local gate doctrine, risk tiers and CP inventory.
 - [Product consumer contract](./product-consumer-contract.md) — zero-edit upstream, fetch-only remotes and product/kit ownership.
+- [semctx](./semctx.md) — Plane B polarity, markers that arm BLOCK, and when hooks fire.
 - [`@kit/ui` surface](./ui-kit.md) — owned UI package boundary and component contract.
 - [Observability](./observability.md) — logging, redaction, traces and operational visibility.
 - [Environment model](./environments.md) — local, staging and production isolation contract.

@@ -203,23 +203,8 @@ function checkClaudeImports(): void {
   const path = join(ROOT, 'CLAUDE.md')
   if (!existsSync(path)) return
   const lines = readFileSync(path, 'utf8').split(/\r?\n/)
-  if (lines[0]?.trim() !== '@.claude/stack.yml') {
-    report('CLAUDE.md', 1, 'first line must import @.claude/stack.yml')
-  }
-  const agentsLine = lines.findIndex((line) => line.trim() === '@AGENTS.md')
-  if (agentsLine < 0) {
-    report('CLAUDE.md', 1, 'missing import @AGENTS.md')
-    return
-  }
-  let comment = false
-  for (let index = 1; index < agentsLine; index += 1) {
-    const line = lines[index].trim()
-    if (line.includes('<!--')) comment = true
-    const normative = line && !comment
-    if (line.includes('-->')) comment = false
-    if (normative) {
-      report('CLAUDE.md', index + 1, 'content must follow the @AGENTS.md import')
-    }
+  if (lines[0]?.trim() !== '@AGENTS.md') {
+    report('CLAUDE.md', 1, 'first line must import @AGENTS.md')
   }
 }
 

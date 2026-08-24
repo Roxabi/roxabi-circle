@@ -1,1 +1,33 @@
-# Evidence — proofs (tests, static checks, runtime observations) that back a claim.
+# Kit Plane B.
+# Status is tested only after the named test ran in this change.
+
+
+evidence proof.test.flows-authority
+  statement: packages/flows/src/authority.test.ts asserts resolveEffectiveAuthority intersection (grants ∩ permits ∩ registry).
+  status: tested
+  provenance: author
+  link: test:packages/flows/src/authority.test.ts
+
+evidence proof.test.flows-grant
+  statement: packages/flows/src/grant.test.ts asserts parseCapabilityGrant strict shape, no defaulted allowsInfer, prototype-key reject.
+  status: tested
+  provenance: author
+  link: test:packages/flows/src/grant.test.ts
+
+evidence proof.test.flows-check
+  statement: packages/flows/src/check.test.ts covers checkPlan fail-closed empty permits, TOOL_NOT_GRANTED, and createRunSnapshot freeze.
+  status: tested
+  provenance: author
+  link: test:packages/flows/src/check.test.ts
+
+evidence proof.test.flows-interpret
+  statement: packages/flows/src/interpret.test.ts covers interpretRun rollup (skip/fail ≠ succeeded) and waiting fail-closed.
+  status: tested
+  provenance: author
+  link: test:packages/flows/src/interpret.test.ts
+
+evidence proof.test.auth-keys
+  statement: packages/auth/src/keys.test.ts asserts verifyApiKey uses timing-safe compare and rejects a wrong key.
+  status: tested
+  provenance: author
+  link: test:packages/auth/src/keys.test.ts

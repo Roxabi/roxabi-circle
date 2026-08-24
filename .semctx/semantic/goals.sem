@@ -1,6 +1,28 @@
-# Goals — what the system must achieve. Versioned in Git; edit freely.
-#
-# Add an authored goal only when it is true for this repository:
-#   goal goal.<project>.<slug>
-#     statement: <observable outcome>
-#     status: declared
+# Kit Plane B — ids goal.kit.* only.
+
+goal goal.kit.capability-kernel
+  statement: This repo is a multi-tenant capability kernel — @kit/* packages composed by independent product deploys, not a product domain monorepo.
+  status: declared
+  provenance: author
+  appliesAtLevel: 6
+  tag: kit
+  link: file:AGENTS.md
+  link: file:docs/kit/architecture/adr/0001-primary-axis-packages-compose-apps.md
+
+goal goal.kit.tenant-isolation
+  statement: organization is the tenant boundary; users, agents and runs stay inside organization grants; no cross-org ambient registry.
+  status: declared
+  provenance: author
+  appliesAtLevel: 5
+  tag: kit
+  tag: security
+  link: file:AGENTS.md
+
+goal goal.kit.extractible-compose
+  statement: A product composes this kit via fetch-only upstream without editing kit-owned zones; shared changes land in the kit first.
+  status: declared
+  provenance: author
+  appliesAtLevel: 5
+  tag: kit
+  link: file:docs/kit/product-consumer-contract.md
+  link: file:docs/kit/architecture/adr/0009-kit-namespace-polarity-inheritance-marker.md
