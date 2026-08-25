@@ -34,10 +34,11 @@ travail en cours, pas l'état de `main`.
 
 `SEMCTX_GUARD=off` désactive le guard même si `guard.json` est on. `SEMCTX_GUARD=on` le force même sans fichier.
 
-MCP / hooks / skills = plugin OMP (`omp plugin link` du package `semctx`). Kit = config seulement (`.semctx/config.json`, `guard.json`, `semantic/**`).
+MCP / hooks / skills = plugin OMP (git install). Kit = config seulement (`.semctx/config.json`, `guard.json`, `semantic/**`).
 
 ```bash
-omp plugin link ~/projects/external_repos/semctx/plugins/claude-code
+omp plugin install github:MickaelV0/semctx#omp-plugin
+omp plugin install github:Roxabi/cocoindex-code#main
 ```
 
 Restart OMP après install. `/reload-plugins` ne recharge pas les extensions.
