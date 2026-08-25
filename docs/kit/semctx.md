@@ -29,10 +29,18 @@ travail en cours, pas l'état de `main`.
 |---|---|---|
 | Lefthook pre-commit / pre-push | jamais | semctx n'est **pas** dans `lefthook.yml` |
 | `validate:full` | jamais | semctx n'est **pas** dans le gate |
-| Plugin `PreToolUse` (Bash) | chaque `git commit` / `git push` via le terminal de l'agent | **advisory** ici : pas de `.semctx/guard.json`. Bloque seulement si `{ "enabled": true }` et pas de `verify diff --record` à jour |
+| Plugin OMP `tool_call` bash | chaque `git commit` / `git push` via l'outil bash de l'agent | **guarded** : `.semctx/guard.json` `{ "enabled": true }`. Block si pas de `verify diff --record` à jour |
 | CI `.github/workflows/semctx.yml` | PR non-draft vers `main`/`staging` (`opened` / `synchronize` / `reopened` / `ready_for_review`) | `verify diff --fail-on block` |
 
-`SEMCTX_GUARD=off` désactive le hook plugin même si `guard.json` est on.
+`SEMCTX_GUARD=off` désactive le guard même si `guard.json` est on. `SEMCTX_GUARD=on` le force même sans fichier.
+
+MCP / hooks / skills = plugin OMP (`omp plugin link` du package `semctx`). Kit = config seulement (`.semctx/config.json`, `guard.json`, `semantic/**`).
+
+```bash
+omp plugin link ~/projects/external_repos/semctx/plugins/claude-code
+```
+
+Restart OMP après install. `/reload-plugins` ne recharge pas les extensions.
 
 ## Marqueurs qui arment un `block`
 
@@ -72,6 +80,6 @@ bun "$SEMCTX_CLI" index 2>&1 | grep -E 'invariant|capability|contract'
 
 ## Workspace
 
-Denylist dans `.gitignore` : ignorer seulement `semctx.db`, `working/`, `context-packs/`, `verification-state.json`. Authoré = tracké (`config.json` + `semantic/**`).
+Denylist dans `.gitignore` : ignorer seulement `semctx.db`, `working/`, `context-packs/`, `verification-state.json`. Authoré = tracké (`config.json`, `guard.json`, `semantic/**`).
 
 `semctx_setup confirm:true` (0.1.17) **réécrit** `.gitignore` avec l'allowlist plugin (`.semctx/*` + `!.semctx/semantic/` …). Restaurer la denylist, ne pas commiter l'allowlist. Le `STALE` / `WORKING_DIFF_MISMATCH` qui suit est attendu.

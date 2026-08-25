@@ -83,30 +83,5 @@
       },
       "autoUpdate": true
     }
-  },
-  "hooks": {
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "timeout": 60,
-            "command": "bash \"${CLAUDE_PROJECT_DIR}/scripts/kit/ccc-index-if-ready.sh\""
-          }
-        ]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "Edit|Write|MultiEdit|search_replace",
-        "hooks": [
-          {
-            "type": "command",
-            "timeout": 30,
-            "command": "bash \"${CLAUDE_PROJECT_DIR}/scripts/kit/ccc-index-if-ready.sh\""
-          }
-        ]
-      }
-    ]
   }
 }

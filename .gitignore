@@ -53,6 +53,9 @@ packages/*/dist/
 artifacts/release-gifs/*
 !artifacts/release-gifs/.gitkeep
 
+# OMP plugin runtime (machine-local). Kit n'autorise pas de wrappers MCP/hooks ici.
+.omp/plugins/
+
 # semctx (agent tool) — denylist: ignore only generated index + local state.
 # Everything authored stays tracked: config.json (blocking rules) and semantic/*.sem
 # (Plane B intent). An allowlist here is a trap — `.semctx/*` plus one negation silently
