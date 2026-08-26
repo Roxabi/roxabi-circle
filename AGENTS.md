@@ -71,7 +71,7 @@ Product repositories inherit this kit through a fetch-only `upstream` and compos
 - Never dual-edit kit paths in a product without a documented, time-boxed exception.
 - Treat [`docs/kit/product-consumer-contract.md`](docs/kit/product-consumer-contract.md) as the complete contract and [`docs/kit/playbooks/start-product.md`](docs/kit/playbooks/start-product.md) as the onboarding path.
 
-This repository is kit HEAD (`Roxabi/roxabi-boilerplate-cf`). Product `upstream` is this repo (Roxabi) or the go-silex mirror (`silex-boilerplate`) — [`docs/kit/playbooks/start-product.md`](docs/kit/playbooks/start-product.md). Remotes and deny-upstream: [`docs/kit/product-consumer-contract.md`](docs/kit/product-consumer-contract.md).
+Clone role ≠ this file — `node scripts/kit/resolve-tree-identity.mjs` (origin + inheritance marker). HEAD vs mirror URL: operator SSoT.
 
 ## Hard agent rules
 
@@ -99,7 +99,7 @@ The root `package.json` script `validate:full` is the single source of truth for
 | Platform direction, architecture change or ADR status | [`docs/kit/architecture/platform-direction.md`](docs/kit/architecture/platform-direction.md), [`docs/kit/architecture/index.md`](docs/kit/architecture/index.md) and the relevant ADR |
 | Tests, gates, coverage or verification claim | [`docs/kit/testing.md`](docs/kit/testing.md) |
 | Security-sensitive or AI-assisted development | [`docs/kit/processes/dev-process.md`](docs/kit/processes/dev-process.md) |
-| Product consumer, upstream sync, zero-edit or schema composition | [`docs/kit/product-consumer-contract.md`](docs/kit/product-consumer-contract.md) and [`docs/kit/kit-schema-sync.md`](docs/kit/kit-schema-sync.md) |
+| Product consumer, this clone's role, upstream sync, zero-edit or schema composition | [`docs/kit/product-consumer-contract.md`](docs/kit/product-consumer-contract.md) and [`docs/kit/kit-schema-sync.md`](docs/kit/kit-schema-sync.md) |
 | semctx, `@invariant`, Plane B, change contract | [`docs/kit/semctx.md`](docs/kit/semctx.md) |
 | New product onboarding | [`docs/kit/playbooks/start-product.md`](docs/kit/playbooks/start-product.md) |
 | Environment or Cloudflare deploy | [`docs/kit/environments.md`](docs/kit/environments.md) and [`docs/kit/deploy-cloudflare.md`](docs/kit/deploy-cloudflare.md) |

@@ -22,7 +22,9 @@ bash scripts/kit/kit-schema-sync.sh --app apps/<product>-api --adopt
 
 ## Which parent to clone
 
-Clone the **immediate** parent. This repository is kit HEAD (`Roxabi/roxabi-boilerplate-cf`); go-silex products use the mirror (`silex-boilerplate`). Remotes and deny-upstream: [`product-consumer-contract.md`](../product-consumer-contract.md).
+Clone the **immediate** parent. This file does not name which clone is HEAD vs mirror. Classify this tree with `node scripts/kit/resolve-tree-identity.mjs` (origin + `config/product/inheritance.json` / `kit_origin_allowlist`). Which URL to clone is operator topology. Remotes and deny-upstream: [`product-consumer-contract.md`](../product-consumer-contract.md).
+
+Example operator map (Roxabi / go-silex; not this clone's identity):
 
 | Product lives under | Clone / `upstream` | `inheritance.json` pins |
 |---|---|---|
