@@ -31,7 +31,7 @@ GitHub docs: `cooldown` applies **only** to version updates, not security update
   - **Why not `on: dependabot_alert`?** That name is a GitHub *webhook* only — Actions rejects it (`Unexpected value 'dependabot_alert'`).
   - **Triggers used:**
     1. ~~`schedule` every 15 min~~ — **disabled 2026-08-06** (poll spam / missing Slack secret). Proper path later = GitHub App webhook `dependabot_alert` → Slack.
-    2. `pull_request` opened by `dependabot[bot]` when body looks like a security update
+    2. `pull_request_target` opened by `dependabot[bot]` when the PR **lead-in** looks like a security update (Dependabot phrasing only — not a changelog grep for `security`). Metadata only, no checkout. Version bumps skip. Missing token / Slack errors **warn and exit 0** — this job is not a merge gate.
     3. `workflow_dispatch` — smoke / full open-alert snapshot to Slack (`GET /dependabot/alerts?state=open`)
   - Channel: `#int-bugs-alert` (`C0BDAPS2MG8`) — var `SLACK_CHANNEL_BUGS_ALERT`
   - Bot: **Flint** (BW `slack/flint`) — secret `SLACK_FLINT_BOT_TOKEN`
@@ -52,6 +52,8 @@ Severity for Slack: prefer `security_advisory.severity` / `security_vulnerabilit
 **kit-ci must grant** repository permission **Dependabot alerts → Read** (GitHub App settings → Permissions → save → re-approve install on `your-org`). Without it: `403 Resource not accessible by integration`. `GITHUB_TOKEN` alone is insufficient on this private repo.
 
 Rotate Slack: update BW + `gh secret set SLACK_FLINT_BOT_TOKEN --repo kit-parent`.
+
+`pull_request` runs authored by Dependabot do **not** receive repository secrets (`Secret source: Dependabot`). That is why the PR notify uses `pull_request_target` (base-repo context, metadata only, no checkout). Do not fail that job for a missing token — it would block `merge-on-green` (every check `failure` is fail-closed). Do **not** also copy `SLACK_FLINT_BOT_TOKEN` into Dependabot secrets: two stores to rotate, and unused once the trigger is `pull_request_target`. Dependabot secrets are the *alternative* only if we dropped `_target` and went back to `pull_request`.
 
 ## Manual checks
 
