@@ -64,7 +64,7 @@
     "test:extract-dry-run": "bash scripts/kit/test-extract-dry-run.sh"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.5.9",
+    "@biomejs/biome": "^2.5.10",
     "@commitlint/cli": "^21.2.2",
     "@commitlint/config-conventional": "^21.2.2",
     "@vitest/coverage-v8": "4.1.11",
