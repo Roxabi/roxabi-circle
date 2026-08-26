@@ -5,13 +5,19 @@
 # disabled (2026-08-06) — prefer a GitHub App webhook later. Remaining triggers:
 # Dependabot security PRs + manual workflow_dispatch (smoke / catch-up).
 #
+# PR path is `pull_request_target` so repo secrets exist. Dependabot
+# `pull_request` runs cannot read `SLACK_FLINT_BOT_TOKEN` (secret source =
+# Dependabot). No checkout — metadata only.
+# The notify job must never fail a PR check: skip version bumps; warn+exit 0
+# on missing token or Slack errors. It is not a merge gate.
+#
 # Channel: C0BDAPS2MG8 · secret: SLACK_FLINT_BOT_TOKEN · var: SLACK_CHANNEL_BUGS_ALERT
 # Docs: docs/kit/security-dependabot.md
 name: Dependabot alert → Slack
 
 on:
   # schedule: disabled — no Actions-native dependabot_alert event; revisit via App webhook
-  pull_request:
+  pull_request_target:
     types: [opened]
   workflow_dispatch: {}
 
@@ -230,7 +236,7 @@ jobs:
   notify-security-pr:
     name: Dependabot security PR opened
     if: >-
-      github.event_name == 'pull_request' &&
+      github.event_name == 'pull_request_target' &&
       github.event.action == 'opened' &&
       (github.actor == 'dependabot[bot]' || github.event.pull_request.user.login == 'dependabot[bot]')
     runs-on: ubuntu-latest
@@ -247,20 +253,18 @@ jobs:
           PR_BODY: ${{ github.event.pull_request.body }}
         run: |
           set -euo pipefail
-          if [ -z "${SLACK_BOT_TOKEN:-}" ]; then
-            echo "::error::Missing secret SLACK_FLINT_BOT_TOKEN"
-            exit 1
-          fi
-          # Heuristic: security update PRs mention security / GHSA / CVE / Bumps … from advisory
-          BODY_LC=$(printf '%s' "$PR_BODY" | tr '[:upper:]' '[:lower:]')
+          # Dependabot's own security-PR phrasing only, and only the lead-in
+          # (changelogs below often say "security" and must not match).
           TITLE_LC=$(printf '%s' "$PR_TITLE" | tr '[:upper:]' '[:lower:]')
-          if ! printf '%s\n%s' "$BODY_LC" "$TITLE_LC" | grep -qE 'security|ghsa-|cve-|vulnerab|dependabot security'; then
-            # Still notify for all Dependabot opens on this channel? Prefer security-only.
-            # Version bumps are noisy — skip pure version updates.
-            if ! printf '%s' "$BODY_LC" | grep -q 'security vulnerability\|security update'; then
-              echo "skip: Dependabot PR does not look like a security update"
-              exit 0
-            fi
+          HEAD_LC=$(printf '%s' "${PR_BODY:0:2048}" | tr '[:upper:]' '[:lower:]')
+          if ! printf '%s\n%s' "$TITLE_LC" "$HEAD_LC" | grep -qE \
+            'security vulnerability|security update|includes a security fix|dependabot security|\[security\]'; then
+            echo "skip: Dependabot PR does not look like a security update"
+            exit 0
+          fi
+          if [ -z "${SLACK_BOT_TOKEN:-}" ]; then
+            echo "::warning::Missing secret SLACK_FLINT_BOT_TOKEN — skip Slack notify (not a merge gate)"
+            exit 0
           fi
           TEXT=":warning: *Dependabot security PR* opened on \`${REPO}\`
           *#${PR_NUM}* — ${PR_TITLE}
@@ -269,5 +273,9 @@ jobs:
             -H "Authorization: Bearer ${SLACK_BOT_TOKEN}" \
             -H "Content-Type: application/json; charset=utf-8" \
             --data "$(jq -n --arg ch "$CHANNEL" --arg t "$TEXT" '{channel:$ch, text:$t, unfurl_links:false, unfurl_media:false}')")
-          echo "$RESP" | jq -e '.ok == true' >/dev/null || { echo "$RESP" | jq .; exit 1; }
+          if ! echo "$RESP" | jq -e '.ok == true' >/dev/null; then
+            echo "::warning::Slack chat.postMessage failed — skip (not a merge gate)"
+            echo "$RESP" | jq .
+            exit 0
+          fi
           echo "posted PR #$PR_NUM"
