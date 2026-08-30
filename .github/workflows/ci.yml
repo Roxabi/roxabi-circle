@@ -58,6 +58,25 @@ jobs:
           echo "path=${path}" >> "$GITHUB_OUTPUT"
           echo "landing path: ${path}"
 
+
+  # PR attestation — check name `semctx-working-empty` is required by merge-on-green.
+  # Inspects git ls-tree of the PR head (or push SHA), not the runner workdir.
+  # Free private has no GitHub rulesets; this job is the enforceable required check.
+  semctx-working-empty:
+    name: semctx-working-empty
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Semctx working empty
+        env:
+          SEMCTX_WORKING_TREE: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: bash scripts/kit/check-semctx-working-empty.sh
+
   quality:
     needs: [classify]
     if: always() && !cancelled() && (github.event_name != 'pull_request' || !github.event.pull_request.draft) && (github.event_name != 'push' || needs.classify.outputs.path == 'naked')
