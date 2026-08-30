@@ -47,3 +47,12 @@ pre-push:
     validate-full:
       skip: false
       run: bun run validate:full
+
+# PR attestation — not a git hook. CI job `semctx-working-empty` runs the same script
+# against `git ls-tree` of the PR SHA (required by merge-on-green).
+# Feature branches may keep `.semctx/working/*.sem` and still push.
+# Local: lefthook run pr
+pr:
+  commands:
+    semctx-working-empty:
+      run: bash scripts/kit/check-semctx-working-empty.sh

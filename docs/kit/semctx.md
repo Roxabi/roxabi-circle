@@ -17,24 +17,28 @@ Les 6 fichiers plats `.semctx/semantic/{goals,invariants,decisions,assumptions,u
 
 `loadSemanticModel` refuse les `duplicateIds`. Recopier un id `*.kit.*` côté produit casse le load.
 
-Ne pas merger un `change.kit.*` avec `status: active`. Le pointeur
-`.semctx/working/active-change.sem` est gitignoré : chaque clone hériterait d'un
-change ouvert sans pointeur. Unknowns durables → `unknowns.sem`. Changes = le
-travail en cours, pas l'état de `main`.
+Ne pas merger un `change.kit.*` avec `status: active`. `.semctx/working/` est
+versionné : une branche de travail peut garder `active-change.sem` et les
+handoffs. Une PR (job `semctx-working-empty` / `lefthook run pr`) exige le
+dossier vide sauf `.gitkeep` — `git ls-tree` du SHA, pas le workdir.
+Unknowns durables → `unknowns.sem`. Changes = le travail en cours, pas l'état
+de `main`.
 
 
 ## Quand ça trigger
 
 | Surface | Quand | Effet |
 |---|---|---|
-| Lefthook pre-commit / pre-push | jamais | semctx n'est **pas** dans `lefthook.yml` |
-| `validate:full` | jamais | semctx n'est **pas** dans le gate |
+| Lefthook pre-commit / pre-push | jamais | pas de `verify diff` ; les fichiers `working/` restent poussables |
+| Lefthook `pr` | `lefthook run pr` (manuel, avant d'ouvrir une PR) | `git ls-tree` de HEAD : `.semctx/working/` = `.gitkeep` only |
+| CI job `semctx-working-empty` | PR non-draft / push `main`\|`staging` | `git ls-tree` du SHA PR (pas le workdir runner) — required par merge-on-green |
+| `validate:full` | self-test fixtures | `test:semctx-working-empty` ; pas de `verify diff` ; pas le check live |
 | Plugin OMP `tool_call` bash | chaque `git commit` / `git push` via l'outil bash de l'agent | **guarded** : `.semctx/guard.json` `{ "enabled": true }`. Block si pas de `verify diff --record` à jour |
 | CI `.github/workflows/semctx.yml` | PR non-draft vers `main`/`staging` (`opened` / `synchronize` / `reopened` / `ready_for_review`) | `verify diff --fail-on block` |
 
 `SEMCTX_GUARD=off` désactive le guard même si `guard.json` est on. `SEMCTX_GUARD=on` le force même sans fichier.
 
-MCP / hooks / skills = plugin OMP (git install). Kit = config seulement (`.semctx/config.json`, `guard.json`, `semantic/**`).
+MCP / hooks / skills = plugin OMP (git install). Kit = config seulement (`.semctx/config.json`, `guard.json`, `semantic/**`, `working/.gitkeep`).
 
 ```bash
 omp plugin install github:MickaelV0/semctx#omp-plugin
@@ -87,7 +91,8 @@ Allowlist `.gitignore` (ordre load-bearing — `semctx_setup` 0.1.17 no-op si in
 .semctx/*
 !.semctx/semantic/
 !.semctx/config.json
+!.semctx/working/
 !.semctx/guard.json
 ```
 
-Chaque nouveau fichier authoré sous `.semctx/` = une ligne `!`. Enfants non negés (`semctx.db`, `working/`, `context-packs/`, `verification-state.json`) restent locaux.
+Chaque nouveau fichier authoré sous `.semctx/` = une ligne `!`. Enfants non negés (`semctx.db`, `context-packs/`, `verification-state.json`) restent locaux. `working/` est versionné ; une PR n'y laisse que `.gitkeep`.
