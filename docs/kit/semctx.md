@@ -81,6 +81,13 @@ bun "$SEMCTX_CLI" index 2>&1 | grep -E 'invariant|capability|contract'
 
 ## Workspace
 
-Denylist dans `.gitignore` : ignorer seulement `semctx.db`, `working/`, `context-packs/`, `verification-state.json`. Authoré = tracké (`config.json`, `guard.json`, `semantic/**`).
+Allowlist `.gitignore` (ordre load-bearing — `semctx_setup` 0.1.17 no-op si intact) :
 
-`semctx_setup confirm:true` (0.1.17) **réécrit** `.gitignore` avec l'allowlist plugin (`.semctx/*` + `!.semctx/semantic/` …). Restaurer la denylist, ne pas commiter l'allowlist. Le `STALE` / `WORKING_DIFF_MISMATCH` qui suit est attendu.
+```
+.semctx/*
+!.semctx/semantic/
+!.semctx/config.json
+!.semctx/guard.json
+```
+
+Chaque nouveau fichier authoré sous `.semctx/` = une ligne `!`. Enfants non negés (`semctx.db`, `working/`, `context-packs/`, `verification-state.json`) restent locaux.
