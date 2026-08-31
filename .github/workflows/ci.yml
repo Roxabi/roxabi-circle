@@ -4,12 +4,10 @@ name: CI
 #
 # Quand ça tourne :
 #   - pull_request → main (kit HEAD) or staging|main (product consumers that inherit this file)
-#   - push main / staging        = suite seulement si commit nu (classify=naked)
+#   - push main / staging        = suite
 #   - workflow_dispatch          = secours manuel
 # Kit HEAD has no staging branch. Keep the staging trigger so products need not edit kit CI.
 # Draft PRs: no heavy CI (ready_for_review starts the gate).
-# Processed PR merge → skip suite (effects = Cloudflare Builds). Naked push → run suite.
-# ~/projects/ssot/conventions.ssot.md § CI landing
 on:
   push:
     branches: [main, staging]
@@ -22,43 +20,13 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
-# Least privilege — classify reads check-runs + associated PRs.
+# Least privilege.
 permissions:
   contents: read
   checks: read
   pull-requests: read
 
 jobs:
-  classify:
-    name: Classify push
-    if: github.event_name == 'push'
-    runs-on: ubuntu-latest
-    timeout-minutes: 2
-    outputs:
-      path: ${{ steps.out.outputs.path }}
-    steps:
-      - id: out
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPO: ${{ github.repository }}
-          SHA: ${{ github.sha }}
-        run: |
-          set -euo pipefail
-          path=naked
-          prs="$(gh api "repos/${REPO}/commits/${SHA}/pulls")"
-          # /commits/SHA/pulls omits `merged` (always null); merged_at is the signal.
-          n="$(printf '%s' "$prs" | jq --arg sha "$SHA" '[.[] | select(.merged_at != null and .merge_commit_sha == $sha)] | length')"
-          if [ "$n" -gt 0 ]; then
-            head="$(printf '%s' "$prs" | jq -r --arg sha "$SHA" '[.[] | select(.merged_at != null and .merge_commit_sha == $sha)][0].head.sha')"
-            conc="$(gh api --paginate "repos/${REPO}/commits/${head}/check-runs" --jq '[.check_runs[] | select((.name | ascii_downcase) == "ci") | .conclusion] | map(select(. == "success")) | if length > 0 then "success" else "missing" end')"
-            if [ "$conc" = "success" ]; then
-              path=pr-merge
-            fi
-          fi
-          echo "path=${path}" >> "$GITHUB_OUTPUT"
-          echo "landing path: ${path}"
-
-
   # PR attestation — check name `semctx-working-empty` is required by merge-on-green.
   # Inspects git ls-tree of the PR head (or push SHA), not the runner workdir.
   # Free private has no GitHub rulesets; this job is the enforceable required check.
@@ -78,9 +46,8 @@ jobs:
         run: bash scripts/kit/check-semctx-working-empty.sh
 
   quality:
-    needs: [classify]
-    if: always() && !cancelled() && (github.event_name != 'pull_request' || !github.event.pull_request.draft) && (github.event_name != 'push' || needs.classify.outputs.path == 'naked')
-    # Check display name `ci` — classify + merge-on-green + checkup. Do not rename without both.
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    # Check display name `ci` — merge-on-green + checkup. Do not rename without both.
     name: ci
     runs-on: ubuntu-latest
     timeout-minutes: 25
