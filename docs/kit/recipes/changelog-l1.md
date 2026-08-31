@@ -83,7 +83,7 @@ bun run --filter @kit/example-web setup:release-gifs
 
 bun run --filter @kit/example-web record:release-gifs
 # RECORD_ONLY=02-changelog bun run --filter @kit/example-web record:release-gifs
-# → artifacts/release-gifs/*-share.gif
+# → artifacts/release-gifs/*-share.gif  (open frames: circle overlay + click)
 ```
 
 ### Wire into changelog UI

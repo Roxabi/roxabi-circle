@@ -69,7 +69,7 @@ function glideMsForDistance(distPx) {
 export async function moveClick(
   page,
   locator,
-  { glideMs, settleMs, settleBeforeMs = 70, settleAfterMs = 200, clickHoldMs = 80 } = {},
+  { glideMs, settleMs, settleBeforeMs = 70, settleAfterMs = 200, clickHoldMs = 320 } = {},
 ) {
   const afterMs = settleMs ?? settleAfterMs
   await locator.waitFor({ state: 'visible', timeout: 20_000 })
