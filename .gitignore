@@ -7,6 +7,7 @@ Thumbs.db
 .claude/*.lock
 .claude/settings.local.json
 .grok/
+.omp/
 *.bak
 
 # Code search index (ccc / cocoindex-code) — machine-local sqlite index
