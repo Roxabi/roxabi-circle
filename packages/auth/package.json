@@ -45,7 +45,7 @@
     "@kit/core": "workspace:*",
     "@kit/email": "workspace:*",
     "drizzle-orm": "^0.45.2",
-    "zod": "^4.5.1"
+    "zod": "^4.5.4"
   },
   "peerDependencies": {
     "@kit/ui": "workspace:*",
@@ -86,7 +86,7 @@
     "@vitejs/plugin-react": "^6.1.1",
     "better-auth": "^1.7.2",
     "hono": "^4.13.5",
-    "happy-dom": "^20.11.14",
+    "happy-dom": "^20.12.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "vitest": "^4.1.11"
