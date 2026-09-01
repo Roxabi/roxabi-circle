@@ -56,14 +56,21 @@ artifacts/release-gifs/*
 # OMP plugin runtime (machine-local). Kit n'autorise pas de wrappers MCP/hooks ici.
 .omp/plugins/
 
-# semctx (agent tool) — allowlist aligned with plugin setup (0.1.17).
-# Order is load-bearing: computeGitignore re-emits `!.semctx/semantic/` then
-# `!.semctx/config.json` immediately after `.semctx/*`. Guard.json stays last.
+# semctx (agent tool) — allowlist aligned with plugin setup (verified 0.1.17).
+# Verified on semctx 0.1.17: the writer only emits `.semctx/*` and
+# `!.semctx/semantic/`; every other line is preserved verbatim (`setup`
+# returns `present`, no rewrite). Extra `!` lines in this file hold by
+# preservation, not re-emission — order is therefore not load-bearing.
+# Re-check if semctx changes version.
 # Policy: each new authored path under `.semctx/` gets a `!` line here.
 # `.semctx/working/` is tracked so feature branches can keep handoff/change files;
 # a PR must leave only `.gitkeep` (lefthook `pr` + CI job `semctx-working-empty`).
 .semctx/*
 !.semctx/semantic/
+# 0.1.17: on-disk `repositoryRoot` is the author machine's absolute path
+# (written at first setup, never rewritten). Load overrides it in memory
+# with realpath(cwd) — clones are not broken. Keep tracked (kit include/
+# exclude live here); do not untrack.
 !.semctx/config.json
 !.semctx/working/
 !.semctx/guard.json

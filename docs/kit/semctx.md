@@ -13,7 +13,7 @@ Les 6 fichiers plats `.semctx/semantic/{goals,invariants,decisions,assumptions,u
 | `*.<product>.*` | produit | **les mêmes** 6 fichiers — ajouter des blocs, ne pas réécrire un bloc `*.kit.*` |
 | `change.kit.*` / `change.<product>.*` | chacun le sien | `changes/<id>.sem` (un fichier par id) |
 
-`config.json` = kit / zero-edit. Produit n'y touche pas.
+`config.json` = kit / zero-edit. Produit n'y touche pas. `repositoryRoot` y est le chemin absolu de la machine d'auteur (écrit au 1er setup, jamais réécrit). 0.1.17 l'écrase en mémoire au load (`realpath(cwd)`) — un clone n'est pas cassé. Le JSON reste machine-local ; ne pas untrack (include/exclude kit).
 
 `loadSemanticModel` refuse les `duplicateIds`. Recopier un id `*.kit.*` côté produit casse le load.
 
@@ -85,7 +85,7 @@ bun "$SEMCTX_CLI" index 2>&1 | grep -E 'invariant|capability|contract'
 
 ## Workspace
 
-Allowlist `.gitignore` (ordre load-bearing — `semctx_setup` 0.1.17 no-op si intact) :
+Allowlist `.gitignore` (semctx 0.1.17 : le writer n'émet que `.semctx/*` et `!.semctx/semantic/` ; le reste est préservé — `setup` no-op si ces deux lignes sont déjà là) :
 
 ```
 .semctx/*
