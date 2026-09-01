@@ -97,7 +97,7 @@ source ~/projects/security/vaultwarden/scripts/agent-bw-login.sh
 bw get notes "roxabi-circle/discord"
 ```
 
-Keys: `DISCORD_APPLICATION_ID`, `DISCORD_PUBLIC_KEY`, `DISCORD_BOT_TOKEN`, `DISCORD_GUILD_ID`, `DISCORD_MEMBER_ROLE_ID`, `DISCORD_APPEAL_CATEGORY_ID` (**TICKETS**), `DISCORD_APPEAL_CHANNEL_ID` (`#appeal`), `DISCORD_GITHUB_WATCH_CHANNEL_ID`, `DISCORD_NEWS_ACTU_CHANNEL_ID`, `DISCORD_DAILY_DIGEST_CHANNEL_ID`, `DISCORD_VOICE_HUB_CHANNEL_ID`, `DISCORD_VOICE_CATEGORY_ID`, `GATEWAY_OPS_SECRET`.
+Keys: `DISCORD_APPLICATION_ID`, `DISCORD_PUBLIC_KEY`, `DISCORD_BOT_TOKEN`, `DISCORD_GUILD_ID`, `DISCORD_MEMBER_ROLE_ID`, `DISCORD_APPEAL_CATEGORY_ID` (**TICKETS**), `DISCORD_APPEAL_CHANNEL_ID` (`#appeal`), `DISCORD_GITHUB_WATCH_CHANNEL_ID`, `DISCORD_NEWS_ACTU_CHANNEL_ID`, `DISCORD_DAILY_DIGEST_CHANNEL_ID`, `DISCORD_VOICE_HUB_CHANNEL_ID`, `DISCORD_VOICE_CATEGORY_ID`, `GATEWAY_OPS_SECRET`, `LYRA_GROK_WEBHOOK_URL` (optional; empty = no-op).
 
 **Rotate** bot token if it was ever pasted in chat (Portal → Bot → Reset Token), then update BW + CF secret (local `.dev.vars` keeps DUMMY).
 
@@ -120,9 +120,10 @@ https://discord.com/api/oauth2/authorize?client_id=1534228521420067046&permissio
 |---|---|
 | Runtime | Durable Object `DiscordGateway` |
 | Wake | DO alarm · cron `*/15` · `POST /internal/discord-gateway/ensure` (+ `?force=1` after token rotate) · **not** `/health` |
-| Env | `DISCORD_GITHUB_WATCH_CHANNEL_ID` · `DISCORD_NEWS_ACTU_CHANNEL_ID` · `DISCORD_DAILY_DIGEST_CHANNEL_ID` |
+| Env | `DISCORD_GITHUB_WATCH_CHANNEL_ID` · `DISCORD_NEWS_ACTU_CHANNEL_ID` · `DISCORD_DAILY_DIGEST_CHANNEL_ID` · `LYRA_GROK_WEBHOOK_URL` (optional) |
 | `#github-to-watch` / `#news-actu` | Exactly **one** URL (GitHub vs any http(s)) · caption ≤120 · thread |
 | `#daily-digest` | **Bot/webhook only** top-level · humans deleted · thread under digest |
+| `@Lyra` mention | Same Gateway DO (`MESSAGE_CREATE`) · member role **or** guild admin/owner · fire-and-forget POST to `LYRA_GROK_WEBHOOK_URL` · **no** Discord reply · **no** second Gateway |
 | On accept | Public thread under the message |
 | On reject | Delete · notice ~12s · DM best-effort |
 | Ignore | other channels, thread messages (different channel id) |
@@ -136,7 +137,7 @@ https://discord.com/api/oauth2/authorize?client_id=1534228521420067046&permissio
 | **Host** | `https://circle.roxabi.dev` |
 | `POST /interactions` | Ed25519 · PING · `/apply` · appeal |
 | `GET /health` | liveness only (no Gateway wake) |
-| Gateway DO | MESSAGE_CREATE → github-watch / news-actu · VOICE_STATE → temp rooms |
+| Gateway DO | MESSAGE_CREATE → github-watch / news-actu / daily-digest / @Lyra webhook · VOICE_STATE → temp rooms |
 | `POST /internal/discord-gateway/ensure` | auth `X-Ops-Secret` |
 
 ## Setup script (safe by default)

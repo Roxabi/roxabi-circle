@@ -28,6 +28,7 @@ SCORER_VERSION = "0.1.0"
 ACCEPT_THRESHOLD = "65"
 
 # Secrets via `wrangler secret` (see .dev.vars.example)
+# LYRA_GROK_WEBHOOK_URL — optional; empty/unset = no-op @Lyra → Grok forward
 
 [[durable_objects.bindings]]
 name = "DISCORD_GATEWAY"
