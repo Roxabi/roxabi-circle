@@ -1,6 +1,6 @@
 /**
  * Discord Gateway DO — outgoing WS.
- * MESSAGE_CREATE → github-watch / news-actu / daily-digest · VOICE_STATE → temp voice.
+ * MESSAGE_CREATE → github-watch / news-actu / daily-digest / @Lyra webhook · VOICE_STATE → temp voice.
  * Session hygiene: persist + RESUME, backoff, hard-stop (≈1000 IDENTIFY/day).
  */
 
@@ -209,6 +209,7 @@ export class DiscordGateway extends DurableObject<Env> {
           .catch((e) => console.error('temp-voice chain', e))
         await this.voiceChain
       },
+      waitUntil: (p) => this.ctx.waitUntil(p),
     }
   }
 

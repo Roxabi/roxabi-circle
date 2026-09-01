@@ -103,6 +103,13 @@ export type GatewayMessage = {
   content?: string
   author?: { id?: string; bot?: boolean; username?: string }
   webhook_id?: string | null
+  /** Users explicitly mentioned (@user). Used by @Lyra forwarder. */
+  mentions?: Array<{ id?: string }> | null
+  /** Guild member slice on MESSAGE_CREATE (roles / optional permissions bitfield). */
+  member?: {
+    roles?: string[]
+    permissions?: string
+  } | null
   /** Embeds (digest posts often use these) */
   embeds?: unknown[] | null
   /** Present when this message is a reply; still top-level if not in a thread channel */

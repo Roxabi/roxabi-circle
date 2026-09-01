@@ -28,6 +28,11 @@ export type Env = {
   DISCORD_VOICE_HUB_CHANNEL_ID?: string
   /** Parent category for temp voice rooms (VOIX). Required with hub. */
   DISCORD_VOICE_CATEGORY_ID?: string
+  /**
+   * Grok Bot webhook for @Lyra mentions (MESSAGE_CREATE → fire-and-forget POST).
+   * Optional secret (`wrangler secret put LYRA_GROK_WEBHOOK_URL`). Empty = no-op.
+   */
+  LYRA_GROK_WEBHOOK_URL?: string
   /** Durable Object: Discord Gateway client (Lyra) */
   DISCORD_GATEWAY: DurableObjectNamespace
   /** Shared secret for POST /internal/discord-gateway/ensure (header X-Ops-Secret) */

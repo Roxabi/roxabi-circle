@@ -7,6 +7,7 @@ import type { Env } from '../types'
 import { enforceDailyDigest, planDailyDigestMessage } from './daily-digest'
 import { applyReady, applyResumed, type GatewaySessionState } from './gateway-session'
 import { enforceGithubWatch, type GatewayMessage, planGithubWatchMessage } from './github-watch'
+import { rememberGuildPrivilege, scheduleLyraMentionForward } from './lyra-mention'
 import { enforceNewsActu, planNewsActuMessage } from './news-actu'
 import {
   emptyTempVoiceStore,
@@ -32,6 +33,8 @@ export type GatewayDispatchCtx = {
   setSession: (s: GatewaySessionState) => void
   saveSession: () => Promise<void>
   enqueueVoice: (fn: () => Promise<void>) => Promise<void>
+  /** DO waitUntil — used for fire-and-forget @Lyra webhook POST. */
+  waitUntil?: (promise: Promise<unknown>) => void
 }
 
 export async function loadTempVoiceStore(storage: DurableObjectStorage): Promise<TempVoiceStore> {
@@ -119,6 +122,16 @@ export async function handleGatewayDispatch(
 
   if (t !== 'MESSAGE_CREATE') return
   const msg = packet.d as GatewayMessage
+  scheduleLyraMentionForward(
+    {
+      webhookUrl: ctx.env.LYRA_GROK_WEBHOOK_URL,
+      memberRoleId: ctx.env.DISCORD_MEMBER_ROLE_ID,
+      configuredGuildId: ctx.env.DISCORD_GUILD_ID,
+      storage: ctx.storage,
+      waitUntil: ctx.waitUntil,
+    },
+    msg,
+  )
   await onGithubWatchMessage(ctx, msg)
   await onNewsActuMessage(ctx, msg)
   await onDailyDigestMessage(ctx, msg)
@@ -130,6 +143,7 @@ async function onGuildCreate(ctx: GatewayDispatchCtx, d: unknown): Promise<void>
     voice_states?: Array<{ channel_id?: string | null; user_id?: string }>
   }
   if (!guild.id || guild.id !== ctx.env.DISCORD_GUILD_ID) return
+  await rememberGuildPrivilege(ctx.storage, d, ctx.env.DISCORD_GUILD_ID)
   if (!ctx.env.DISCORD_VOICE_HUB_CHANNEL_ID) return
 
   let store = await loadTempVoiceStore(ctx.storage)

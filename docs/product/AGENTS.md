@@ -23,7 +23,7 @@ Discord gated community (AI + open source DNA). Entry = GitHub OAuth + **PR d’
 | Piece | Status |
 |---|---|
 | `apps/circle-api` | **Live** CF Worker on **https://circle.roxabi.dev** |
-| Discord | Ed25519 `/interactions` · `/apply` scaffold · appeal tickets · Gateway `#github-to-watch` / `#news-actu` |
+| Discord | Ed25519 `/interactions` · `/apply` scaffold · appeal tickets · Gateway `#github-to-watch` / `#news-actu` · `@Lyra` mention → `LYRA_GROK_WEBHOOK_URL` |
 | Scoring | **Pure lib** `src/scoring/*` + tests — **not** wired to HTTP yet |
 | OAuth GitHub | Path stub **501** — not implemented |
 | D1 / KV | Not provisioned |
