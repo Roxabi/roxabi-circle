@@ -12,7 +12,7 @@
 
 `package-ecosystem: npm` does not own `bun.lock`. Those PRs fail CI at `bun install --frozen-lockfile` before the suite runs.
 
-### Ignored majors (version updates only)
+### Ignored version updates
 
 Need a migration / decision, not a Dependabot bump. `ignore` does **not** apply to security updates.
 
@@ -20,6 +20,7 @@ Need a migration / decision, not a Dependabot bump. `ignore` does **not** apply 
 |---|---|
 | `@tanstack/react-table` (semver-major) | v9 rewrites the API (`useTable` + `tableFeatures`) |
 | `@cloudflare/workers-types` (semver-major) | v5 drops dated entrypoints; prefer `wrangler types` locked to `compatibility_date` |
+| `trufflesecurity/trufflehog` (all version updates, `github-actions`) | Pin SSoT is `config/kit/trufflehog.version`. Action-only PRs fail `scripts/kit/trufflehog-check.sh --assert-pin`. Bump the pin file + both `uses:` lines together (kit #170). A security PR for this action still fails the pin — close it and bump SSoT; the alert remains in the Security tab. |
 
 GitHub docs: `cooldown` applies **only** to version updates, not security updates.
 

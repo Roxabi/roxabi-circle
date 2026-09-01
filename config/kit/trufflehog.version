@@ -1,6 +1,8 @@
 # SSoT: local fetch (scripts/kit/trufflehog-check.sh) + CI action pin.
 # Bump version + checksums + action_sha together. Checksums from
 # https://github.com/trufflesecurity/trufflehog/releases/download/v<ver>/trufflehog_<ver>_checksums.txt
+# Dependabot version updates for the action are ignored (dependabot.yml); do not
+# land an action-only PR — it fails --assert-pin. Security PRs: close and bump here.
 version=3.97.1
 action_sha=20652fbbdefffcdaa493a5bf57ab2ac6b1db715b
 sha256_darwin_amd64=1515710bb16be5653ca9986c27ecd1a0e7536fc6e53ad46f7100992692f6a05f
