@@ -5,6 +5,8 @@ DISCORD_GUILD_ID=
 DISCORD_MEMBER_ROLE_ID=
 GITHUB_CLIENT_ID=
 GITHUB_CLIENT_SECRET=
+# Optional: PAT for daily GitHub digest (api.github.com rate limit)
+GITHUB_TOKEN=
 SESSION_SECRET=change-me-to-a-long-random-string
 DISCORD_APPEAL_CATEGORY_ID=
 # #github-to-watch channel id (Gateway enforces 1 GitHub link top-level)

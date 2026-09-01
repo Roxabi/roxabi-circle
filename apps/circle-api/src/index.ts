@@ -1,3 +1,5 @@
+import { runGithubDigest } from './discord/github-digest'
+import { isDigestCron } from './discord/github-digest-logic'
 import { handleDiscordInteractions } from './discord/interactions'
 import type { Env } from './types'
 
@@ -46,6 +48,14 @@ export default {
       })
     }
 
+    if (url.pathname === '/internal/github-digest' && request.method === 'POST') {
+      if (!opsSecretOk(request, env.GATEWAY_OPS_SECRET)) {
+        return new Response('unauthorized', { status: 401 })
+      }
+      const result = await runGithubDigest(env, { skipTimeCheck: true })
+      return Response.json(result, { status: result.ok ? 200 : 502 })
+    }
+
     if (url.pathname === '/internal/discord-gateway/ensure' && request.method === 'POST') {
       // Cron wakes via scheduled(); manual wake requires GATEWAY_OPS_SECRET.
       // ?force=1 clears hard-stop circuit (use after token rotate).
@@ -80,11 +90,15 @@ export default {
     return Response.json({ error: 'not_found' }, { status: 404 })
   },
 
-  async scheduled(
-    _controller: ScheduledController,
-    env: Env,
-    ctx: ExecutionContext,
-  ): Promise<void> {
+  async scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
+    if (isDigestCron(controller.cron)) {
+      ctx.waitUntil(
+        runGithubDigest(env)
+          .then((r) => console.log('github-digest', r))
+          .catch((e) => console.error('github-digest', e)),
+      )
+      return
+    }
     ctx.waitUntil(ensureDiscordGateway(env).catch((e) => console.error('gateway ensure', e)))
   },
 } satisfies ExportedHandler<Env>
