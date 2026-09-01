@@ -12,6 +12,7 @@
 # - major vitest + @vitest/* → one PR
 # - major @commitlint/* → one PR
 # - major github-actions → one PR
+# - trufflesecurity/trufflehog — ignored (SSoT `config/kit/trufflehog.version`; action-only PRs fail `--assert-pin`)
 # - major zod / typescript / fastmcp / lucide-react → individual PRs (no group)
 #
 # Ecosystem is bun (not npm): the npm updater edits package.json and leaves
@@ -78,6 +79,17 @@ updates:
           - "*"
         update-types:
           - major
+    ignore:
+      # SSoT is config/kit/trufflehog.version (version + checksums + action_sha).
+      # Dependabot only rewrites secret-scan.yml → `--assert-pin` red (#83).
+      # Bump: update the pin file and both `uses:` lines together (#170).
+      # Security updates are not covered by ignore — those PRs fail the same
+      # pin; close and bump SSoT. Alerts stay in the Security tab.
+      - dependency-name: "trufflesecurity/trufflehog"
+        update-types:
+          - "version-update:semver-major"
+          - "version-update:semver-minor"
+          - "version-update:semver-patch"
     # github-actions supports ONLY default-days — semver-*-days fail the whole file.
     cooldown:
       default-days: 3
