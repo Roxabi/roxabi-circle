@@ -8,6 +8,7 @@
 | `GET /health` | public | liveness only — **does not** wake Gateway |
 | `POST /interactions` | **Ed25519 Discord** | seule porte d’écriture bot |
 | `POST /internal/discord-gateway/ensure` | **`X-Ops-Secret`** (`GATEWAY_OPS_SECRET`) | wake/status DO · `?force=1` clears hard-stop |
+| `POST /internal/github-digest` | **`X-Ops-Secret`** | manual GitHub digest (same as 12:30 Paris cron) |
 | `GET /oauth/github/*` | HMAC state (à venir) | 501 stub |
 | `*` | — | **404** (pas d’inventaire endpoints) |
 
@@ -40,7 +41,7 @@ Discord caps **~1000 new Gateway sessions (IDENTIFY) / day**. Root cause of 2026
 | Backoff | 5s → 15s → 30s → 60s → 2m → 5m → **15m** cap |
 | Hard-stop | close `4004` / `4013` / `4014` / HTTP 401 on `/gateway/bot` → no auto reconnect |
 | Ops recover | `POST /internal/discord-gateway/ensure?force=1` + `X-Ops-Secret` after token rotate |
-| Cron | `*/15 * * * *` safety net only (not every 2 min) |
+| Cron | `*/15` Gateway safety net · `30 10` + `30 11` UTC = GitHub digest 12:30 Paris |
 | `/health` | **no** Gateway wake |
 
 ## À faire / hardening
