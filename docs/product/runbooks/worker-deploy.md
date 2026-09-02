@@ -5,7 +5,7 @@
 | | |
 |---|---|
 | Worker | `roxabi-circle` |
-| URL | https://roxabi-circle.mickael-b5e.workers.dev |
+| URL | https://circle.roxabi.dev |
 | Health | `GET /health` |
 | Interactions | `POST /interactions` |
 | Account | Mickael@bouly.io (`b5e90be971920ce406f7b679c4f1cd33`) |
@@ -44,7 +44,7 @@ Either empty = no-op (Worker does not POST member messages unsigned).
 Interactions Endpoint URL (Developer Portal → Lyra → General):
 
 ```text
-https://roxabi-circle.mickael-b5e.workers.dev/interactions
+https://circle.roxabi.dev/interactions
 ```
 
 Discord POSTs a signed PING; Worker must return `{ "type": 1 }` with valid Ed25519 verify.
