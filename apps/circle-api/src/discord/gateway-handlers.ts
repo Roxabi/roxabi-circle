@@ -125,6 +125,7 @@ export async function handleGatewayDispatch(
   scheduleLyraMentionForward(
     {
       webhookUrl: ctx.env.LYRA_GROK_WEBHOOK_URL,
+      webhookSecret: ctx.env.LYRA_GROK_WEBHOOK_SECRET,
       memberRoleId: ctx.env.DISCORD_MEMBER_ROLE_ID,
       configuredGuildId: ctx.env.DISCORD_GUILD_ID,
       storage: ctx.storage,

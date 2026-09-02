@@ -20,5 +20,7 @@ DISCORD_VOICE_HUB_CHANNEL_ID=
 DISCORD_VOICE_CATEGORY_ID=
 # Ops: POST /internal/discord-gateway/ensure header X-Ops-Secret
 GATEWAY_OPS_SECRET=
-# Optional secret: Grok Bot webhook for @Lyra mentions. Empty = no-op (do not commit a real URL).
+# Grok Bot desktop → routine "When a webhook fires" → copy URL + sender key.
+# Both empty = no-op. Never commit real values.
 LYRA_GROK_WEBHOOK_URL=
+LYRA_GROK_WEBHOOK_SECRET=
