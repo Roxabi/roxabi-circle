@@ -22,15 +22,22 @@ export CLOUDFLARE_ACCOUNT_ID=$(bw get notes "cloudflare/roxabi-live-build-token"
 bunx wrangler deploy
 # secrets (from .dev.vars / BW) — never commit:
 # bunx wrangler secret bulk secrets.json
-# bunx wrangler secret put LYRA_GROK_WEBHOOK_URL   # optional; empty/unset = no-op @Lyra forward
 ```
 
-After deploy, set the Grok webhook on **circle.roxabi.dev** (do not commit the URL):
+Grok Bot Lyra inbound webhook (**desktop app only**, not iOS):
+
+1. Open Grok Bot desktop → Bot Lyra → new routine, trigger **When a webhook fires**.
+2. Copy **POST URL** + **sender key** (`Authorization: Bearer`).
+3. Store both in BW `roxabi-circle/discord`. Do not commit.
+4. On Mickael CF / `circle.roxabi.dev`:
 
 ```bash
 cd apps/circle-api
 bunx wrangler secret put LYRA_GROK_WEBHOOK_URL
+bunx wrangler secret put LYRA_GROK_WEBHOOK_SECRET
 ```
+
+Either empty = no-op (Worker does not POST member messages unsigned).
 
 ## Discord
 

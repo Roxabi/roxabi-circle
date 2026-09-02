@@ -183,6 +183,26 @@ describe('scheduleLyraMentionForward', () => {
     scheduleLyraMentionForward(
       {
         webhookUrl: '',
+        webhookSecret: 'sender-test',
+        memberRoleId: MEMBER_ROLE,
+        configuredGuildId: GUILD,
+        storage: memoryStorage(),
+        waitUntil: (p) => pending.push(p),
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+      },
+      msg(),
+    )
+    await Promise.all(pending)
+    expect(fetchImpl).not.toHaveBeenCalled()
+  })
+
+  it('does not POST when sender key is empty', async () => {
+    const fetchImpl = vi.fn()
+    const pending: Promise<unknown>[] = []
+    scheduleLyraMentionForward(
+      {
+        webhookUrl: 'https://grok.example/hook',
+        webhookSecret: '',
         memberRoleId: MEMBER_ROLE,
         configuredGuildId: GUILD,
         storage: memoryStorage(),
@@ -203,6 +223,7 @@ describe('scheduleLyraMentionForward', () => {
     scheduleLyraMentionForward(
       {
         webhookUrl: 'https://grok.example/hook',
+        webhookSecret: 'sender-test',
         memberRoleId: MEMBER_ROLE,
         configuredGuildId: GUILD,
         storage: memoryStorage(),
@@ -216,6 +237,8 @@ describe('scheduleLyraMentionForward', () => {
     const call = fetchImpl.mock.calls[0] as unknown as [string, RequestInit]
     expect(call[0]).toBe('https://grok.example/hook')
     expect(call[1]?.method).toBe('POST')
+    const headers = call[1]?.headers as Record<string, string>
+    expect(headers.Authorization).toBe('Bearer sender-test')
     const body = JSON.parse(String(call[1]?.body)) as Record<string, unknown>
     expect(Object.keys(body).sort()).toEqual([...LYRA_PAYLOAD_KEYS].sort())
   })
@@ -226,6 +249,7 @@ describe('scheduleLyraMentionForward', () => {
     scheduleLyraMentionForward(
       {
         webhookUrl: 'https://grok.example/hook',
+        webhookSecret: 'sender-test',
         memberRoleId: MEMBER_ROLE,
         configuredGuildId: GUILD,
         storage: memoryStorage({
@@ -260,6 +284,7 @@ describe('postLyraGrokWebhook', () => {
           content: 'hi',
         },
         fetchImpl as unknown as typeof fetch,
+        'sender-test',
       ),
     ).resolves.toBeUndefined()
   })

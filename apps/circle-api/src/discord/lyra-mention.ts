@@ -51,6 +51,8 @@ export type PrivilegeStorage = {
 
 export type LyraMentionRuntime = {
   webhookUrl?: string | null
+  /** Grok Bot routine sender key → Authorization: Bearer. Required with URL. */
+  webhookSecret?: string | null
   memberRoleId?: string
   configuredGuildId?: string
   lyraUserId?: string
@@ -192,10 +194,14 @@ export async function postLyraGrokWebhook(
   url: string,
   payload: LyraMentionPayload,
   fetchImpl: typeof fetch = fetch,
+  senderKey?: string,
 ): Promise<void> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  const key = senderKey?.trim() ?? ''
+  if (key) headers.Authorization = `Bearer ${key}`
   const res = await fetchImpl(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify(payload),
   })
   if (!res.ok) {
@@ -219,7 +225,8 @@ async function runLyraMentionForward(
   msg: GatewayMessage,
 ): Promise<void> {
   const webhookUrl = runtime.webhookUrl?.trim() ?? ''
-  if (!webhookUrl) return
+  const webhookSecret = runtime.webhookSecret?.trim() ?? ''
+  if (!webhookUrl || !webhookSecret) return
 
   const base = {
     msg,
@@ -236,5 +243,5 @@ async function runLyraMentionForward(
   }
   if (action.type !== 'forward') return
 
-  await postLyraGrokWebhook(webhookUrl, action.payload, runtime.fetchImpl)
+  await postLyraGrokWebhook(webhookUrl, action.payload, runtime.fetchImpl, webhookSecret)
 }
