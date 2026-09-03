@@ -5,15 +5,18 @@ import {
   classifyBucket,
   type DigestRepo,
   dropReasons,
+  emptyDigestOutcome,
   extractPostedRepos,
-  isDigestCron,
-  isParisDigestSlot,
   mergeTrending,
-  parisDigestDateLabel,
   parseTrendingHtml,
   pickDigest,
   readmeExcerpt,
 } from '../src/discord/github-digest-logic'
+import {
+  isDigestCron,
+  isParisDigestSlot,
+  parisDigestDateLabel,
+} from '../src/discord/github-digest-schedule'
 
 const sampleHtml = `
 <article class="Box-row">
@@ -164,6 +167,29 @@ describe('classifyBucket + pickDigest', () => {
   it('maps mcp vs harness', () => {
     expect(classifyBucket('model context protocol mcp-server')).toBe('mcp')
     expect(classifyBucket('multi-agent harness claude-code')).toBe('harness')
+  })
+})
+
+describe('emptyDigestOutcome', () => {
+  it('reports no_candidates when every candidate was readable', () => {
+    expect(emptyDigestOutcome(39, 0, 0)).toBe('no_candidates')
+  })
+
+  it('keeps no_candidates when failures stay under the ratio', () => {
+    expect(emptyDigestOutcome(40, 9, 9)).toBe('no_candidates')
+  })
+
+  it('reports github_rate_limited once 403/429 starve the selection', () => {
+    expect(emptyDigestOutcome(40, 10, 10)).toBe('github_rate_limited')
+    expect(emptyDigestOutcome(39, 39, 39)).toBe('github_rate_limited')
+  })
+
+  it('separates a rate limit from other unreadable metadata', () => {
+    expect(emptyDigestOutcome(40, 20, 0)).toBe('github_meta_unavailable')
+  })
+
+  it('never blames GitHub when there was nothing to read', () => {
+    expect(emptyDigestOutcome(0, 0, 0)).toBe('no_candidates')
   })
 })
 

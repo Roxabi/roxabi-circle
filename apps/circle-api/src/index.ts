@@ -1,5 +1,5 @@
 import { runGithubDigest } from './discord/github-digest'
-import { isDigestCron } from './discord/github-digest-logic'
+import { isDigestCron } from './discord/github-digest-schedule'
 import { handleDiscordInteractions } from './discord/interactions'
 import type { Env } from './types'
 

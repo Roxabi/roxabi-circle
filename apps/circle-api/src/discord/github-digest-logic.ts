@@ -3,11 +3,17 @@
  * Rank by star velocity (trending page), then circle theme. No total-star cap.
  */
 
-export const DIGEST_CRONS = ['30 10 * * *', '30 11 * * *'] as const
-
 export const DISCORD_SUPPRESS_EMBEDS = 4
 export const DISCORD_CONTENT_MAX = 2000
 export const DIGEST_PICK = 5
+
+/**
+ * Share of candidates whose metadata must be readable for an empty pick list to
+ * mean "nothing matched" rather than "GitHub would not answer".
+ * Anonymous api.github.com is 60 req/h per IP and one run costs ~48, so a
+ * partially-consumed budget silently starves the selection.
+ */
+export const DIGEST_META_FAILURE_RATIO = 0.25
 
 export type TrendingHit = {
   owner: string
@@ -59,37 +65,6 @@ const FARM_RE =
 
 const CIRCLE_RE =
   /\b(agent|harness|llm|rag|mcp|skill|plugin|cloudflare|workers?\b|memory|knowledge|vector|inference|vllm|ollama|coding.?agent|eval|observab|durable.?object|pydantic.?ai|tool.?call)\b/i
-
-export function isDigestCron(cron: string): boolean {
-  return (DIGEST_CRONS as readonly string[]).includes(cron)
-}
-
-/** 12:30 Europe/Paris ±5 min (cron is UTC; DST = 10:30 or 11:30 UTC). */
-export function isParisDigestSlot(now: Date): boolean {
-  const { hour, minute } = parisHourMinute(now)
-  return hour === 12 && minute >= 25 && minute <= 35
-}
-
-export function parisHourMinute(now: Date): { hour: number; minute: number } {
-  const parts = new Intl.DateTimeFormat('en-GB', {
-    timeZone: 'Europe/Paris',
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23',
-  }).formatToParts(now)
-  const hour = Number(parts.find((p) => p.type === 'hour')?.value)
-  const minute = Number(parts.find((p) => p.type === 'minute')?.value)
-  return { hour, minute }
-}
-
-export function parisDigestDateLabel(now: Date): string {
-  return new Intl.DateTimeFormat('fr-FR', {
-    timeZone: 'Europe/Paris',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  }).format(now)
-}
 
 export function parseTrendingHtml(html: string, period: 'daily' | 'weekly'): TrendingHit[] {
   const blocks = html.split(/<article class="Box-row"/).slice(1)
@@ -208,6 +183,23 @@ export function pickDigest(repos: DigestRepo[], n = DIGEST_PICK): DigestRepo[] {
     }
   }
   return picked
+}
+
+export type EmptyDigestOutcome = 'no_candidates' | 'github_rate_limited' | 'github_meta_unavailable'
+
+/**
+ * Why a run ended with zero picks. An unreadable candidate is not a rejected
+ * candidate: past DIGEST_META_FAILURE_RATIO the selection never happened, so the
+ * run must report failure instead of a silent `no_candidates` success.
+ */
+export function emptyDigestOutcome(
+  candidates: number,
+  metaFailures: number,
+  rateLimited: number,
+): EmptyDigestOutcome {
+  if (candidates <= 0 || metaFailures <= 0) return 'no_candidates'
+  if (metaFailures / candidates < DIGEST_META_FAILURE_RATIO) return 'no_candidates'
+  return rateLimited > 0 ? 'github_rate_limited' : 'github_meta_unavailable'
 }
 
 export function scoreVelocity(r: Pick<DigestRepo, 'deltaWeekly' | 'deltaDaily'>): number {

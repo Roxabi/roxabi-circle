@@ -13,15 +13,15 @@ import {
   DISCORD_SUPPRESS_EMBEDS,
   type DigestRepo,
   dropReasons,
+  emptyDigestOutcome,
   extractPostedRepos,
-  isParisDigestSlot,
   mergeTrending,
-  parisDigestDateLabel,
   parseTrendingHtml,
   pickDigest,
   readmeExcerpt,
   type TrendingHit,
 } from './github-digest-logic'
+import { isParisDigestSlot, parisDigestDateLabel } from './github-digest-schedule'
 
 const GH_TRENDING = 'https://github.com/trending'
 const GH_API = 'https://api.github.com'
@@ -34,6 +34,8 @@ export type DigestRunResult = {
   postedId?: string
   picked?: string[]
   error?: string
+  /** Candidates whose GitHub metadata could not be read (never evaluated). */
+  metaFailures?: number
 }
 
 export async function runGithubDigest(
@@ -72,9 +74,16 @@ export async function runGithubDigest(
   if (merged.length === 0) return { ok: false, error: 'trending_empty' }
 
   const enriched: DigestRepo[] = []
+  let metaFailures = 0
+  let rateLimited = 0
   for (const hit of merged) {
-    const meta = await fetchRepoMeta(hit.full, env.GITHUB_TOKEN)
-    if (!meta) continue
+    const fetched = await fetchRepoMeta(hit.full, env.GITHUB_TOKEN)
+    if (!fetched.ok) {
+      metaFailures += 1
+      if (fetched.status === 403 || fetched.status === 429) rateLimited += 1
+      continue
+    }
+    const meta = fetched.meta
     const hay = `${hit.full} ${hit.desc} ${meta.desc} ${meta.topics.join(' ')}`
     const repo: DigestRepo = {
       ...hit,
@@ -96,8 +105,21 @@ export async function runGithubDigest(
     enriched.push(repo)
   }
 
+  if (metaFailures > 0) {
+    console.error('digest meta unreadable', {
+      candidates: merged.length,
+      metaFailures,
+      rateLimited,
+      authenticated: Boolean(env.GITHUB_TOKEN),
+    })
+  }
+
   const picked = pickDigest(enriched)
-  if (picked.length === 0) return { ok: true, skipped: 'no_candidates' }
+  if (picked.length === 0) {
+    const outcome = emptyDigestOutcome(merged.length, metaFailures, rateLimited)
+    if (outcome === 'no_candidates') return { ok: true, skipped: 'no_candidates' }
+    return { ok: false, error: outcome, metaFailures }
+  }
 
   const content = formatDigestMessage(picked, dateLabel)
   const postedId = await postDigest(env.DISCORD_BOT_TOKEN, channelId, content)
@@ -117,10 +139,7 @@ async function fetchTrending(period: 'daily' | 'weekly'): Promise<string> {
   return res.text()
 }
 
-async function fetchRepoMeta(
-  full: string,
-  token?: string,
-): Promise<{
+type RepoMeta = {
   stars: number
   forks: number
   created: string
@@ -128,9 +147,15 @@ async function fetchRepoMeta(
   desc: string
   topics: string[]
   archived: boolean
-} | null> {
+}
+
+/** `ok: false` carries the HTTP status so the caller can tell 403/429 from 404. */
+async function fetchRepoMeta(
+  full: string,
+  token?: string,
+): Promise<{ ok: true; meta: RepoMeta } | { ok: false; status: number }> {
   const res = await fetch(`${GH_API}/repos/${full}`, { headers: ghHeaders(token) })
-  if (!res.ok) return null
+  if (!res.ok) return { ok: false, status: res.status }
   const j = (await res.json()) as {
     stargazers_count?: number
     forks_count?: number
@@ -141,13 +166,16 @@ async function fetchRepoMeta(
     archived?: boolean
   }
   return {
-    stars: j.stargazers_count ?? 0,
-    forks: j.forks_count ?? 0,
-    created: j.created_at ?? '',
-    lang: j.language ?? null,
-    desc: j.description ?? '',
-    topics: j.topics ?? [],
-    archived: Boolean(j.archived),
+    ok: true,
+    meta: {
+      stars: j.stargazers_count ?? 0,
+      forks: j.forks_count ?? 0,
+      created: j.created_at ?? '',
+      lang: j.language ?? null,
+      desc: j.description ?? '',
+      topics: j.topics ?? [],
+      archived: Boolean(j.archived),
+    },
   }
 }
 
