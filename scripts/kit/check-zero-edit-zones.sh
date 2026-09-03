@@ -29,7 +29,7 @@ export ZERO_EDIT_HARNESS_SENTINEL="${ZERO_EDIT_HARNESS_SENTINEL:-}"
 
 exec node --input-type=module <<'NODE'
 import { readFileSync, existsSync } from 'node:fs'
-import { join } from 'node:path'
+import { join, basename } from 'node:path'
 import { execFileSync } from 'node:child_process'
 
 const root = process.env.ROOT
@@ -128,6 +128,19 @@ function inventoryUnclassified(zones) {
   return bad
 }
 
+/** Tracked workflows must be product-prefixed or listed in protected_files (ADR-0009 D6, ADR-0013). */
+function inventoryUnclassifiedWorkflows(zones) {
+  const dir = zones.workflow_dir || '.github/workflows'
+  const prefix = zones.workflow_product_prefix || 'product-'
+  const listed = new Set(zones.protected_files || [])
+  const bad = []
+  for (const f of listTrackedUnder(dir)) {
+    if (basename(f).startsWith(prefix)) continue
+    if (!listed.has(f)) bad.push(f)
+  }
+  return bad
+}
+
 const zones = loadJson(zonesPath, 'zones')
 if (!zones || zones.version !== 1) die(`zones config must have version: 1 (${zonesPath})`)
 if (!Array.isArray(zones.protected_prefixes) || !Array.isArray(zones.protected_files)) {
@@ -188,6 +201,16 @@ if (unclassified.length) {
   for (const f of unclassified.slice(0, 50)) console.error(`  UNCLASSIFIED ${f}`)
   if (unclassified.length > 50) console.error(`  … +${unclassified.length - 50} more`)
   die('inventory gate failed (ADR-0009 D1)')
+}
+
+const unclassifiedWorkflows = inventoryUnclassifiedWorkflows(zones)
+if (unclassifiedWorkflows.length) {
+  console.error(
+    'check-zero-edit-zones: unclassified workflows under .github/workflows (name product-*.yml or add to protected_files):',
+  )
+  for (const f of unclassifiedWorkflows.slice(0, 50)) console.error(`  UNCLASSIFIED WORKFLOW ${f}`)
+  if (unclassifiedWorkflows.length > 50) console.error(`  … +${unclassifiedWorkflows.length - 50} more`)
+  die('workflow inventory gate failed (ADR-0009 D6, ADR-0013)')
 }
 
 const exceptionsPath = join(root, zones.exceptions_file || 'config/product/zero-edit-exceptions.json')

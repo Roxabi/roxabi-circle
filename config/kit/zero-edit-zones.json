@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "description": "ADR-0009: kit paths under {config,scripts,docs}/kit; product under */product; root protected_files debt until #110; bun.lock intentionally not protected (product workspace co-ownership \u2014 see #110).",
+  "description": "ADR-0009 + ADR-0013: kit paths under {config,scripts,docs}/kit; product under */product; root and .github/workflows kit surfaces stay on the explicit protected_files list per ADR-0013; workflows are classified by the product- filename prefix or by being listed; bun.lock is intentionally not protected (product workspace co-ownership \u2014 see #114).",
   "protected_prefixes": [
     "packages/",
     "apps/example-api/",
@@ -43,6 +43,8 @@
   "namespaced_trees": ["config", "scripts", "docs"],
   "kit_namespace": "kit",
   "product_namespace": "product",
+  "workflow_dir": ".github/workflows",
+  "workflow_product_prefix": "product-",
   "kit_origin_allowlist": ["Roxabi/roxabi-boilerplate-cf", "go-silex/silex-boilerplate"],
   "exceptions_file": "config/product/zero-edit-exceptions.json",
   "exceptions_example": "config/kit/zero-edit-exceptions.example.json",

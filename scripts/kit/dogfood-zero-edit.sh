@@ -16,6 +16,7 @@
 #   - protected-path dual-edit fails
 #   - mirror stays kit mode (allowlisted origin, no product marker)
 #   - kit fixture seeds from exact source HEAD (branch or detached — CI-safe)
+#   - unlisted product-*.yml workflow passes; unlisted non-prefix workflow fails (ADR-0013)
 set -euo pipefail
 
 # leftover / worktree shells can export GIT_DIR. git -C then ignores dest and
@@ -69,6 +70,75 @@ run_zero_edit_capture() {
   else
     ZERO_EDIT_ROOT="$tree" bash "$zero_script" 2>&1
   fi
+}
+
+# ADR-0013: workflow inventory — product- prefix OK unlisted; other unlisted FAIL.
+# Uses a working-tree copy of checker+zones so uncommitted kit HEAD still exercises the gate.
+run_workflow_inventory_cases() {
+  local tree="$1"
+  local identity="Roxabi/roxabi-boilerplate-cf"
+
+  rm -rf "$tree"
+  git init -q "$tree"
+  mkdir -p "$tree/config/kit" "$tree/scripts/kit" "$tree/.github/workflows"
+  cp "$ROOT/config/kit/zero-edit-zones.json" "$tree/config/kit/zero-edit-zones.json"
+  cp "$ROOT/scripts/kit/check-zero-edit-zones.sh" "$tree/scripts/kit/check-zero-edit-zones.sh"
+  git -C "$tree" add -- config/kit/zero-edit-zones.json scripts/kit/check-zero-edit-zones.sh
+
+  printf '%s\n' 'name: product-thing' >"$tree/.github/workflows/product-thing.yml"
+  git -C "$tree" add -N -- .github/workflows/product-thing.yml
+
+  local pass_out pass
+  set +e
+  pass_out="$(run_zero_edit_capture "$tree" "$identity")"
+  pass=$?
+  set -e
+  if [[ "$pass" -ne 0 ]]; then
+    echo "FAIL: product- prefix workflow must pass inventory without being in protected_files" >&2
+    echo "$pass_out" >&2
+    exit 1
+  fi
+  if [[ "$pass_out" != *"mode=kit"* ]]; then
+    echo "FAIL: workflow prefix fixture must run in kit mode" >&2
+    echo "$pass_out" >&2
+    exit 1
+  fi
+  echo "dogfood workflow inventory: product-thing.yml unlisted prefix → pass"
+
+  printf '%s\n' 'name: rogue' >"$tree/.github/workflows/rogue.yml"
+  git -C "$tree" add -N -- .github/workflows/rogue.yml
+
+  local fail_out fail
+  set +e
+  fail_out="$(run_zero_edit_capture "$tree" "$identity")"
+  fail=$?
+  set -e
+  if [[ "$fail" -eq 0 ]]; then
+    echo "FAIL: expected workflow inventory gate to fail on unlisted rogue.yml" >&2
+    echo "$fail_out" >&2
+    exit 1
+  fi
+  if [[ "$fail_out" != *"check-zero-edit-zones: unclassified workflows under .github/workflows (name product-*.yml or add to protected_files):"* ]]; then
+    echo "FAIL: expected workflow inventory header" >&2
+    echo "$fail_out" >&2
+    exit 1
+  fi
+  if [[ "$fail_out" != *"UNCLASSIFIED WORKFLOW .github/workflows/rogue.yml"* ]]; then
+    echo "FAIL: expected UNCLASSIFIED WORKFLOW .github/workflows/rogue.yml" >&2
+    echo "$fail_out" >&2
+    exit 1
+  fi
+  if [[ "$fail_out" == *"UNCLASSIFIED WORKFLOW .github/workflows/product-thing.yml"* ]]; then
+    echo "FAIL: product- prefix must not be unclassified" >&2
+    echo "$fail_out" >&2
+    exit 1
+  fi
+  if [[ "$fail_out" != *"workflow inventory gate failed (ADR-0009 D6, ADR-0013)"* ]]; then
+    echo "FAIL: expected workflow inventory die message" >&2
+    echo "$fail_out" >&2
+    exit 1
+  fi
+  echo "dogfood workflow inventory: rogue.yml unlisted → fail"
 }
 
 assert_no_push() {
@@ -239,6 +309,8 @@ if [[ "$MODE" == "--self-sim" ]]; then
     SOURCE_HEAD="$(git -C "$ROOT" rev-parse HEAD)"
   fi
   echo "== dogfood: self-sim in $TMP (source_head=${SOURCE_HEAD:0:12} branch=${SOURCE_BRANCH:-detached}) =="
+  run_workflow_inventory_cases "$TMP/wf-inventory"
+
 
   run_self_sim_chain "$SOURCE_ROOT" "$TMP/primary" "primary"
 
@@ -252,7 +324,7 @@ if [[ "$MODE" == "--self-sim" ]]; then
   fi
   run_self_sim_chain "$TMP/detached-src" "$TMP/detached" "detached"
 
-  echo "dogfood self-sim: OK (HEAD seed + kit→mirror→product + #103 + dual-edit fail + no_push + deny-upstream + detached source)"
+  echo "dogfood self-sim: OK (HEAD seed + kit→mirror→product + #103 + dual-edit fail + no_push + deny-upstream + detached source + workflow inventory)"
   exit 0
 fi
 

@@ -39,8 +39,8 @@ Machine gates here only care: product does not dual-edit kit paths; `upstream` i
 | `packages/*` | **kit** | **Read / import only.** No product strings. Change → PR on **boilerplate**, then pull. |
 | `apps/example-*`, `apps/mcp-example` | **kit** | Leave green; do not product-brand. |
 | `apps/<product>-api|web|mcp` | **product** | **Create freely** (new dirs). |
-| `.github/workflows/ci.yml` · `deploy-main.yml` · `secret-scan.yml` · `merge-on-green.yml` | **kit** | **Do not edit.** Showcase CD = **Cloudflare Builds** on kit HEAD (not GH deploy). Products: own CF Builds or `product-*.yml`. |
-| `.github/workflows/product-*.yml` | product | **Add** new files only (optional product CD). |
+| `.github/workflows/*` except `product-*.yml` | **kit** | **Do not edit.** Any other filename is kit-owned; dual-editing it is a contract violation. Unclassified (non-`product-`, not in `protected_files`) fails the inventory gate ([ADR-0013](./architecture/adr/0013-root-github-workflow-ownership.md)). Showcase CD = **Cloudflare Builds** on kit HEAD. |
+| `.github/workflows/product-*.yml` | product | **Add** new files only. Product workflows **MUST** be named `product-*.yml`. |
 | `lefthook.yml` | **kit** | **Do not edit.** Kit already runs deny-upstream + validate:full. |
 | `package.json` root scripts (validate:full, build:kit, …) | **kit** | **Do not edit.** Product scripts → `apps/<product>-*/package.json` or `scripts/product/*.sh` called from product workflow. |
 | `biome.json` · `turbo.jsonc` · `tsconfig.json` · `commitlint*` | **kit** | **Do not edit** unless promoting a kit-wide change upstream first. |
