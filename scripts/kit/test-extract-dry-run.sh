@@ -144,8 +144,14 @@ assert_exit "allowlist rejects acme-api in kit mode" 1 "run_extract_gate '${FIX2
 # 3) clean worktree residency passes
 assert_exit "residency clean on live tree" 0 "EXTRACT_ROOT='$ROOT' bun run '$RESIDENCY'"
 
-# 4) live kit tree classifies as kit
-assert_output "live tree classifies kit" '^mode=kit' "ROOT='$ROOT' node '$IDENTITY'"
+# 4) live tree classifies according to its own polarity marker.
+# Kit HEAD/mirrors have no inheritance marker -> kit; product consumers inherit this
+# self-test through `validate:full` (ci.yml), so their live tree must resolve product.
+if [[ -f "$ROOT/config/product/inheritance.json" ]]; then
+  assert_output "live tree classifies product" '^mode=product' "ROOT='$ROOT' node '$IDENTITY'"
+else
+  assert_output "live tree classifies kit" '^mode=kit' "ROOT='$ROOT' node '$IDENTITY'"
+fi
 
 # 5) product tree with acme-api classifies product + allowlist skipped
 PRODUCT="$TMP/product-pass"
