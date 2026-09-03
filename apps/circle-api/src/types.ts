@@ -39,11 +39,11 @@ export type Env = {
   DISCORD_GATEWAY: DurableObjectNamespace
   /** Shared secret for POST /internal/discord-gateway/ensure (header X-Ops-Secret) */
   GATEWAY_OPS_SECRET: string
-  GITHUB_CLIENT_ID: string
-  GITHUB_CLIENT_SECRET: string
-  /** Optional PAT for digest GitHub API (rate limit). Public scrape works without it. */
+  /** Optional PAT for digest GitHub API. Anonymous scrape works, see .dev.vars.example. */
   GITHUB_TOKEN?: string
-  SESSION_SECRET: string
+  // GITHUB_CLIENT_ID / GITHUB_CLIENT_SECRET / SESSION_SECRET: removed 2026-09-03.
+  // Nothing read them (GitHub OAuth is a 501 stub), so they were deleted from the
+  // Worker rather than left as unreadable values BW could not mirror. Re-add with OAuth.
   // DB?: D1Database;
   // STATE?: KVNamespace;
 }
