@@ -7,6 +7,7 @@ axial: false
 related:
   - docs/kit/architecture/adr/0001-primary-axis-packages-compose-apps.md
   - docs/kit/architecture/adr/0008-kit-schema-identity-product-compose.md
+  - docs/kit/architecture/adr/0013-root-github-workflow-ownership.md
   - docs/kit/product-consumer-contract.md
   - config/kit/zero-edit-zones.json
 ---
@@ -77,6 +78,8 @@ Unchanged ownership, not folded into `scripts/kit/kit` in this ADR:
 | `tools/` | folded by [ADR-0011](./0011-tools-fold-scripts-config-polarity.md) — do not add files; executable → `scripts/kit/`, data → `config/kit/` |
 
 ### D3 — Root / GitHub debt (namespace-first, not yet prefix-pure)
+
+**Resolved by [ADR-0013](./0013-root-github-workflow-ownership.md).** The root `protected_files` list and the workflow classification rule now live there.
 
 GitHub and monorepo tooling keep some kit files outside `{config,scripts,docs}/kit`. They remain on an explicit **`protected_files`** list until a follow-up decides façades, renames (`kit-*.yml` / `product-*.yml`), or true product ownership.
 
