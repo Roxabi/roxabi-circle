@@ -249,7 +249,7 @@ describe('org roles Phase B — IDOR + grants', () => {
     expect(create.status).toBe(201)
     const roleId = ((await create.json()) as { role: { id: string; key: string } }).role.id
     // Point reader membership at custom role
-    const { baMember } = await import('./db/better-auth-schema')
+    const { baMember } = await import('@kit/auth/schema')
     const { eq } = await import('drizzle-orm')
     await db
       .update(baMember)

@@ -69,7 +69,7 @@ function glideMsForDistance(distPx) {
 export async function moveClick(
   page,
   locator,
-  { glideMs, settleMs, settleBeforeMs = 70, settleAfterMs = 200, clickHoldMs = 80 } = {},
+  { glideMs, settleMs, settleBeforeMs = 70, settleAfterMs = 200, clickHoldMs = 320 } = {},
 ) {
   const afterMs = settleMs ?? settleAfterMs
   await locator.waitFor({ state: 'visible', timeout: 20_000 })
@@ -202,7 +202,7 @@ export async function recordClip(raw, clip) {
   return outGif
 }
 
-/** Resolve monorepo tooling/release-gifs path from an app scripts/ caller. */
+/** Resolve monorepo tooling/release-gifs path from an app scripts/kit/ caller. */
 export function resolveToolingReleaseGifsDir(fromImportMetaUrl) {
   const here = dirname(fileURLToPath(fromImportMetaUrl))
   // apps/example-web/scripts → ../../../tooling/release-gifs

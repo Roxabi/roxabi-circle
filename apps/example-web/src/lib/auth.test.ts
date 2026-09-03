@@ -8,6 +8,7 @@ import {
   isPlatformActor,
   isUnauthorized,
   type MeResponse,
+  postAuthTarget,
 } from './auth'
 
 function me(partial: Partial<MeResponse>): MeResponse {
@@ -104,5 +105,15 @@ describe('auth helpers (S1 shells)', () => {
     expect(canManageMembers(base, 'org_read')).toBe(false)
     expect(canManageMembers(base, 'missing')).toBe(false)
     expect(canManageMembers(undefined, 'org_team')).toBe(false)
+  })
+
+  it('postAuthTarget prefers allowlisted invite next, else default home', () => {
+    const client = me({ platformRole: null })
+    expect(postAuthTarget(client, undefined)).toBe('/app')
+    expect(postAuthTarget(client, '/invite/accept?invitationId=inv_1')).toBe(
+      '/invite/accept?invitationId=inv_1',
+    )
+    expect(postAuthTarget(client, 'https://evil.test/invite/accept')).toBe('/app')
+    expect(postAuthTarget(me({ platformRole: 'staff' }), undefined)).toBe('/admin')
   })
 })

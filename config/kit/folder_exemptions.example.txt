@@ -1,0 +1,7 @@
+# Product folder-size exemptions — copy to config/product/folder_exemptions.txt
+# Format: <dir>  # <N> files — <tracking> <rationale>
+# Allowed paths: apps/<product>-{api,web,mcp}/** only.
+# Kit paths (packages/, apps/example-*, scripts/kit/) are refused.
+# Caps are local: growth past N fails the gate. No wildcards. No cap-less lines.
+
+# apps/<product>-web/src/ui  # 50 files — <ticket> <rationale>

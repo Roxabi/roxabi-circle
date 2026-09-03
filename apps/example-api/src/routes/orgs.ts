@@ -127,7 +127,7 @@ orgsRoutes.post(
       await c.req.json().catch(() => null),
       'Invalid invitation payload',
     )
-    const acceptBaseUrl = corsAllowlist(c.env)[0] ?? 'http://localhost:5173'
+    const acceptBaseUrl = corsAllowlist(c.env)[0]
     const invitation = await invitationsService.createInvitation(c.get('db')!, {
       orgId: c.get('orgId')!,
       inviterUserId: c.get('subject')!,

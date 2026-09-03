@@ -1,0 +1,96 @@
+{
+  "version": 1,
+  "source_root": "apps/example-api/migrations",
+  "modules": [
+    {
+      "id": "init",
+      "file": "0001_init.sql",
+      "set": "core",
+      "kitSha256": "0c4cbdfbba9c6d33b14dd7df1a6548acef4e836ea85898da34412773e222c3c9"
+    },
+    {
+      "id": "api_keys_prefix",
+      "file": "0002_api_keys_prefix.sql",
+      "set": "core",
+      "kitSha256": "dbe6168d8fb6f660ffb7fde2f82cb8c9e0ce110b7af698c0ee15b8782f351abb"
+    },
+    {
+      "id": "kit_modules",
+      "file": "0003_kit_modules.sql",
+      "set": "core",
+      "kitSha256": "df46b036f83278a804ad85fda1ece157a48694c05a9712f9ac512d8fe7b8c6ef"
+    },
+    {
+      "id": "kit_modules_config",
+      "file": "0004_kit_modules_config.sql",
+      "set": "core",
+      "kitSha256": "aca4f5c1e7106c89a1e1b4b2209bf2f67e96a313ef41349046a2308b00635b1e"
+    },
+    {
+      "id": "better_auth",
+      "file": "0005_better_auth.sql",
+      "set": "core",
+      "kitSha256": "a2a1b36f6fa51253db2c3520e9647feaae690c507e0bacb730b98b32606c03e3"
+    },
+    {
+      "id": "better_auth_organization",
+      "file": "0006_better_auth_organization.sql",
+      "set": "core",
+      "kitSha256": "dc26e44a720c50b69a37afc870bfe7bd54c2ee1edc251e6e4b466cac6f4accfd"
+    },
+    {
+      "id": "rbac_modules",
+      "file": "0007_rbac_modules.sql",
+      "set": "core",
+      "kitSha256": "3e85a82d0303566c273a4fc49f937fce86c5340fb83b7dbbac6ed0b7da47cb4a"
+    },
+    {
+      "id": "api_keys_organization",
+      "file": "0008_api_keys_organization.sql",
+      "set": "core",
+      "kitSha256": "8be34a982325b5a17f915204e4bff20be0496123a6d8df068f027563a66103d3"
+    },
+    {
+      "id": "organization_roles",
+      "file": "0009_organization_roles_grants.sql",
+      "set": "rbac",
+      "kitSha256": "3d6b8cf199b47e415f967bd39f37bbd1383a5be599e297854bc9652cc372f035"
+    },
+    {
+      "id": "rate_limit_audit",
+      "file": "0010_rate_limit_audit.sql",
+      "set": "audit",
+      "kitSha256": "722616d14e2bb8036e941b0909acb1f2270b4d5eb946018610c9b41114785a84"
+    },
+    {
+      "id": "demo_items",
+      "file": "0011_demo_items.sql",
+      "set": "demo",
+      "kitSha256": "ce5d398cdbafd0945ade47f2d1297e34114481dcfee4caf1af76199c0cf7a01b"
+    },
+    {
+      "id": "flows_plans_runs",
+      "file": "0012_flows_plans_runs.sql",
+      "set": "flows",
+      "kitSha256": "b18cbcb53b8ebbe11f5e9bd659a4269c7655af386cd724be1e3cbb3716615f16"
+    },
+    {
+      "id": "tasks_comments",
+      "file": "0013_tasks_comments.sql",
+      "set": "tasks",
+      "kitSha256": "723ec5cbf3c2d60185ac6050b913bac7a7d0e5bf02483d4d92f397a8e1584ce3"
+    },
+    {
+      "id": "better_auth_1_7_additive",
+      "file": "0014_better_auth_1_7_additive.sql",
+      "set": "core",
+      "kitSha256": "871945468b5e8573a5dd2097b37ecf0c24219f487bba21b8662b74d2924e5da0"
+    },
+    {
+      "id": "api_keys_org_not_null",
+      "file": "0015_api_keys_org_not_null.sql",
+      "set": "core",
+      "kitSha256": "d6ba3f1506fc1695eaff563f11ce0abb5f4cb9f4b37395f8d839ca6aac1489f9"
+    }
+  ]
+}

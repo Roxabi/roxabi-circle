@@ -12,10 +12,11 @@ import {
   verifyApiKey,
   verifyPassword,
 } from './keys'
-import { createRequireAuth, resolveDualAuth } from './require-auth'
+import { createRequireAuth, normalizeApiKeyOrganizationId, resolveDualAuth } from './require-auth'
 import {
   clearSessionCookieHeader,
   parseCookie,
+  parseSessionCookie,
   SESSION_COOKIE,
   sessionCookieHeader,
 } from './session'
@@ -284,6 +285,11 @@ describe('session cookie helpers', () => {
     expect(parseCookie('a=1; kit_session=abc; b=2', SESSION_COOKIE)).toBe('abc')
     expect(parseCookie(null, SESSION_COOKIE)).toBeNull()
   })
+  it('parseSessionCookie sees BA __Secure- prefix', () => {
+    expect(parseSessionCookie('__Secure-kit_session=tok', SESSION_COOKIE)).toBe('tok')
+    expect(parseSessionCookie('kit_session=tok', SESSION_COOKIE)).toBe('tok')
+    expect(parseSessionCookie('a=1', SESSION_COOKIE)).toBeNull()
+  })
 })
 
 describe('createRequireAuth', () => {
@@ -359,7 +365,7 @@ describe('createRequireAuth', () => {
     expect(store.keyOrganizationId).toBe('org_x')
   })
 
-  it('D11: default (omit flag) rejects unbound keys (null organizationId)', async () => {
+  it('D11: rejects null organizationId after verified credentials', async () => {
     const key = generateApiKey()
     const hash = await hashApiKey(key)
     await expect(
@@ -376,39 +382,47 @@ describe('createRequireAuth', () => {
     ).rejects.toMatchObject({ code: 'UNAUTHORIZED' })
   })
 
-  it('D11: requireApiKeyOrganization: true rejects unbound keys', async () => {
+  it('D11: rejects missing organizationId after verified credentials', async () => {
     const key = generateApiKey()
     const hash = await hashApiKey(key)
     await expect(
       resolveDualAuth(`Bearer ${key}`, null, {
         sessions: baPort(null),
-        requireApiKeyOrganization: true,
         findApiKeyByPrefix: async () => ({
           subject: 'legacy',
           keyHash: hash,
           revokedAt: null,
           expiresAt: null,
-          organizationId: null,
         }),
       }),
     ).rejects.toMatchObject({ code: 'UNAUTHORIZED' })
   })
 
-  it('D11: requireApiKeyOrganization: false accepts unbound keys (legacy escape)', async () => {
+  it('D11: rejects empty or whitespace organizationId after verified credentials', async () => {
     const key = generateApiKey()
     const hash = await hashApiKey(key)
-    const r = await resolveDualAuth(`Bearer ${key}`, null, {
-      sessions: baPort(null),
-      requireApiKeyOrganization: false,
-      findApiKeyByPrefix: async () => ({
-        subject: 'legacy',
-        keyHash: hash,
-        revokedAt: null,
-        expiresAt: null,
-        organizationId: null,
-      }),
-    })
-    expect(r).toMatchObject({ subject: 'legacy', method: 'api_key', organizationId: null })
+    for (const organizationId of ['', '   ', '\t']) {
+      await expect(
+        resolveDualAuth(`Bearer ${key}`, null, {
+          sessions: baPort(null),
+          findApiKeyByPrefix: async () => ({
+            subject: 'legacy',
+            keyHash: hash,
+            revokedAt: null,
+            expiresAt: null,
+            organizationId,
+          }),
+        }),
+      ).rejects.toMatchObject({ code: 'UNAUTHORIZED' })
+    }
+  })
+
+  it('D11: normalizeApiKeyOrganizationId rejects blank values', () => {
+    expect(normalizeApiKeyOrganizationId(null)).toBeNull()
+    expect(normalizeApiKeyOrganizationId(undefined)).toBeNull()
+    expect(normalizeApiKeyOrganizationId('')).toBeNull()
+    expect(normalizeApiKeyOrganizationId('  ')).toBeNull()
+    expect(normalizeApiKeyOrganizationId(' org_x ')).toBe('org_x')
   })
 })
 

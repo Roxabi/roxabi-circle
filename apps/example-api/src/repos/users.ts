@@ -1,6 +1,6 @@
-import { and, desc, eq, inArray, like, or } from 'drizzle-orm'
+import { baAccount, baMember, baUser, baVerification } from '@kit/auth/schema'
+import { and, desc, eq, inArray, like, lt, or } from 'drizzle-orm'
 import type { DrizzleD1Database } from 'drizzle-orm/d1'
-import { baAccount, baMember, baUser, baVerification } from '../db/better-auth-schema'
 import { demoUsers, type schema, userPlatformRoles } from '../db/schema'
 
 type Db = DrizzleD1Database<typeof schema>
@@ -47,6 +47,7 @@ export async function insertBaUserWithCredential(
     id: `acc_${row.id}`,
     accountId: row.id,
     providerId: 'credential',
+    issuer: 'local:credential',
     userId: row.id,
     password: row.passwordHash,
     createdAt: now,
@@ -56,18 +57,20 @@ export async function insertBaUserWithCredential(
 
 export type ListBaUsersOpts = {
   q?: string
+  /** Public page size +1 sentinel already applied by caller. */
   limit?: number
-  offset?: number
-  /** When set (incl. empty), only these user ids — scope **before** limit/offset. */
+  /** Opaque keyset (epoch ms + id). Scope/search predicates compose in the same WHERE. */
+  cursor?: { createdAt: number; id: string }
+  /** When set (incl. empty), only these user ids — scope **before** keyset page. */
   userIds?: string[]
 }
 
 /** List BA users (newest first). Optional email/name `q` and/or id allowlist. */
 export async function listBaUsers(db: Db, opts?: ListBaUsersOpts) {
-  const limit = Math.min(Math.max(opts?.limit ?? 50, 1), 100)
-  const offset = Math.max(opts?.offset ?? 0, 0)
+  const limit = Math.min(Math.max(opts?.limit ?? 50, 1), 101)
   const q = opts?.q?.trim()
   const userIds = opts?.userIds
+  const cursor = opts?.cursor
 
   if (userIds && userIds.length === 0) {
     return []
@@ -80,6 +83,15 @@ export async function listBaUsers(db: Db, opts?: ListBaUsersOpts) {
   if (q) {
     const pattern = `%${q}%`
     filters.push(or(like(baUser.email, pattern), like(baUser.name, pattern)))
+  }
+  if (cursor) {
+    const cursorDate = new Date(cursor.createdAt)
+    filters.push(
+      or(
+        lt(baUser.createdAt, cursorDate),
+        and(eq(baUser.createdAt, cursorDate), lt(baUser.id, cursor.id)),
+      ),
+    )
   }
   const where =
     filters.length === 0 ? undefined : filters.length === 1 ? filters[0] : and(...filters)
@@ -95,10 +107,10 @@ export async function listBaUsers(db: Db, opts?: ListBaUsersOpts) {
     .from(baUser)
 
   const ordered = where
-    ? base.where(where).orderBy(desc(baUser.createdAt))
-    : base.orderBy(desc(baUser.createdAt))
+    ? base.where(where).orderBy(desc(baUser.createdAt), desc(baUser.id))
+    : base.orderBy(desc(baUser.createdAt), desc(baUser.id))
 
-  return ordered.limit(limit).offset(offset)
+  return ordered.limit(limit)
 }
 
 /** Mint BA-compatible reset-password verification token. Returns raw token. */

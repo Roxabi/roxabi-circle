@@ -16,8 +16,10 @@
     "test:coverage": "vitest run --coverage",
     "build": "echo ok"
   },
+  "dependencies": {
+    "zod": "^4.5.4"
+  },
   "devDependencies": {
-    "typescript": "^7.0.2",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.11"
   }
 }

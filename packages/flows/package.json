@@ -2,13 +2,28 @@
   "name": "@kit/flows",
   "version": "0.0.1",
   "private": true,
-  "description": "Incubating (ADR-0005 D6): pure plan check + RunnerView. Not promoted until second call site + example dogfood on request path.",
+  "description": "Incubating (ADR-0005 D6): pure plan check + RunnerView + interpret/receipts. Not promoted until second call site + example dogfood on request path.",
   "type": "module",
   "exports": {
     ".": {
       "types": "./src/index.ts",
       "import": "./src/index.ts",
       "default": "./src/index.ts"
+    },
+    "./schema": {
+      "types": "./src/drizzle-schema.ts",
+      "import": "./src/drizzle-schema.ts",
+      "default": "./src/drizzle-schema.ts"
+    },
+    "./repos": {
+      "types": "./src/repos.ts",
+      "import": "./src/repos.ts",
+      "default": "./src/repos.ts"
+    },
+    "./run": {
+      "types": "./src/run/index.ts",
+      "import": "./src/run/index.ts",
+      "default": "./src/run/index.ts"
     }
   },
   "scripts": {
@@ -18,11 +33,14 @@
     "build": "echo ok"
   },
   "dependencies": {
+    "drizzle-orm": "^0.45.2",
     "yaml": "^2.8.0",
-    "zod": "^4.4.3"
+    "zod": "^4.5.4"
   },
   "devDependencies": {
-    "typescript": "^7.0.2",
-    "vitest": "^4.1.10"
+    "@cloudflare/workers-types": "^4.20250620.0",
+    "@types/better-sqlite3": "^9.6.0",
+    "better-sqlite3": "^13.0.2",
+    "vitest": "^4.1.11"
   }
 }

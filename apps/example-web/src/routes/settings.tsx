@@ -6,6 +6,7 @@ import {
   CardHeader,
   CardTitle,
   Label,
+  LocaleSwitcher,
   Separator,
 } from '@kit/ui'
 import { useQueryClient } from '@tanstack/react-query'
@@ -15,11 +16,12 @@ import { AccountPasswordForm } from '../components/account-password-form'
 import { AccountProfileForm } from '../components/account-profile-form'
 import { PageHeader } from '../components/app-shell'
 import { signOutAndClearSession, useMe } from '../lib/auth'
+import { localeLabels } from '../lib/i18n'
 import { useLocale } from '../lib/locale'
 import { type Theme, useTheme } from '../lib/theme'
 
 export function SettingsPage() {
-  const { m, locale, setLocale } = useLocale()
+  const { m, locale, setLocale, locales, showSwitcher } = useLocale()
   const { theme, setTheme } = useTheme()
   const me = useMe()
   const navigate = useNavigate()
@@ -68,29 +70,23 @@ export function SettingsPage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">{m.language}</CardTitle>
-          </CardHeader>
-          <CardContent className="flex gap-2">
-            <Button
-              type="button"
-              size="sm"
-              variant={locale === 'fr' ? 'default' : 'outline'}
-              onClick={() => setLocale('fr')}
-            >
-              Français
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant={locale === 'en' ? 'default' : 'outline'}
-              onClick={() => setLocale('en')}
-            >
-              English
-            </Button>
-          </CardContent>
-        </Card>
+        {showSwitcher ? (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">{m.language}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <LocaleSwitcher
+                locales={locales}
+                value={locale}
+                onChange={setLocale}
+                labels={localeLabels}
+                activeVariant="default"
+                inactiveVariant="outline"
+              />
+            </CardContent>
+          </Card>
+        ) : null}
 
         <Card id="profile">
           <CardHeader>

@@ -13,6 +13,7 @@ import { adminAuditRoutes } from './routes/admin-audit'
 import { adminUsersRoutes } from './routes/admin-users'
 import { authRoutes } from './routes/auth'
 import { demoRoutes } from './routes/demo'
+import { flowsRoutes } from './routes/flows'
 import { healthRoutes } from './routes/health'
 import { invitationsRoutes } from './routes/invitations'
 import { itemsRoutes } from './routes/items'
@@ -25,7 +26,11 @@ import { tasksRoutes } from './routes/tasks'
 import { uploadsRoutes } from './routes/uploads'
 import type { AppEnv } from './types'
 
-export { corsAllowlist, environmentName, getSecret, useSecureCookie } from './lib/session-env'
+export {
+  corsAllowlist,
+  environmentName,
+  useSecureCookie,
+} from './lib/session-env'
 export type { AppEnv }
 
 /** Factory used by Worker entry and unit tests (same shipped app). */
@@ -39,7 +44,7 @@ export function createApp() {
     cors({
       origin: (origin, c) => {
         const list = corsAllowlist(c.env)
-        if (!origin) return list[0] ?? 'http://localhost:5173'
+        if (!origin) return list[0]
         return list.includes(origin) ? origin : null
       },
       credentials: true,
@@ -71,6 +76,7 @@ export function createApp() {
   app.route('/', notesRoutes)
   app.route('/', itemsRoutes)
   app.route('/', tasksRoutes)
+  app.route('/', flowsRoutes)
   app.route('/', uploadsRoutes)
   app.route('/', jobsRoutes)
   app.route('/', demoRoutes)

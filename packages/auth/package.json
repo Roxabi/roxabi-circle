@@ -9,7 +9,31 @@
       "import": "./src/index.ts",
       "default": "./src/index.ts"
     },
-    "./migrations/*": "./migrations/*"
+    "./schema": {
+      "types": "./src/better-auth-schema.ts",
+      "import": "./src/better-auth-schema.ts",
+      "default": "./src/better-auth-schema.ts"
+    },
+    "./factory": {
+      "types": "./src/factory.ts",
+      "import": "./src/factory.ts",
+      "default": "./src/factory.ts"
+    },
+    "./react": {
+      "types": "./src/react/index.ts",
+      "import": "./src/react/index.ts",
+      "default": "./src/react/index.ts"
+    },
+    "./hono": {
+      "types": "./src/hono.ts",
+      "import": "./src/hono.ts",
+      "default": "./src/hono.ts"
+    },
+    "./repos/*": {
+      "types": "./src/repos/*.ts",
+      "import": "./src/repos/*.ts",
+      "default": "./src/repos/*.ts"
+    }
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json",
@@ -18,18 +42,53 @@
     "build": "echo ok"
   },
   "dependencies": {
-    "@kit/core": "workspace:*"
+    "@kit/core": "workspace:*",
+    "@kit/email": "workspace:*",
+    "drizzle-orm": "^0.45.2",
+    "zod": "^4.5.4"
   },
   "peerDependencies": {
-    "better-auth": ">=1.2.0"
+    "@kit/ui": "workspace:*",
+    "@tanstack/react-form": "^1.12.0",
+    "better-auth": ">=1.2.0",
+    "hono": ">=4.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
   },
   "peerDependenciesMeta": {
+    "@kit/ui": {
+      "optional": true
+    },
+    "@tanstack/react-form": {
+      "optional": true
+    },
     "better-auth": {
+      "optional": true
+    },
+    "hono": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    },
+    "react-dom": {
       "optional": true
     }
   },
   "devDependencies": {
-    "typescript": "^7.0.2",
-    "vitest": "^4.1.10"
+    "@kit/ui": "workspace:*",
+    "@tanstack/react-form": "^1.33.5",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.6",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.5",
+    "@vitejs/plugin-react": "^6.1.1",
+    "better-auth": "^1.7.2",
+    "hono": "^4.13.5",
+    "happy-dom": "^20.12.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "vitest": "^4.1.11"
   }
 }

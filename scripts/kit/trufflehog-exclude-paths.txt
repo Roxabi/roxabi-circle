@@ -1,0 +1,12 @@
+# TruffleHog --exclude-paths (newline-separated regexes).
+# SSoT for local (scripts/kit/trufflehog-check.sh) and CI (.github/workflows/secret-scan.yml).
+# # comments stripped by the wrapper. Prefer fixing sources over growing this list.
+
+# Build / deps / envs / local indexes
+(^|/)node_modules/
+(^|/)\.venv/
+(^|/)dist/
+(^|/)\.turbo/
+(^|/)\.git/
+(^|/)\.cocoindex_code/
+(^|/)coverage/

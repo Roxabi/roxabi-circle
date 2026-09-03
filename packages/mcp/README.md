@@ -43,4 +43,4 @@ Import budgets, env key names, whoami status enum, and public error codes from `
 
 ## Probes
 
-See `docs/testing.md` **CP-MCP-REG / SMOKE / SCHEMA / BUDGET**.
+See `docs/kit/testing.md` **CP-MCP-REG / SMOKE / SCHEMA / BUDGET**.

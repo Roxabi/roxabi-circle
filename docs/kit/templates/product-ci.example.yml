@@ -1,0 +1,65 @@
+# product-ci.example.yml — COPY into the product repo as:
+#   .github/workflows/product-ci.yml
+#
+# Zero-edit allowed (product-* prefix). Never commit this as a live workflow
+# under the kit's .github/workflows/ — GH runs every YAML there, and the bare
+# kit has no product apps.
+#
+# Pair with scripts/product/validate.sh (or app-local product-validate.sh)
+# copied from docs/kit/templates/product-validate.example.sh
+#
+# See: docs/kit/product-consumer-contract.md · docs/kit/playbooks/start-product.md §8
+name: Product CI
+
+on:
+  push:
+    branches: [main, staging]
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches: [main, staging]
+  workflow_dispatch: {}
+
+concurrency:
+  group: product-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read
+
+jobs:
+  product-validate:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    name: product-validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      # Pin SHAs (supply-chain); tags float — match kit .github/workflows/ci.yml
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: package.json
+
+      - name: Install
+        run: bun install --frozen-lockfile
+
+      # Product CI on Actions has no `upstream` remote — zero-edit uses
+      # config/product/inheritance.json (full history required above).
+      - name: Product validate
+        run: |
+          set -euo pipefail
+          if [[ ! -f config/product/inheritance.json ]]; then
+            echo "::error::missing config/product/inheritance.json — pin upstreamCommit after merge upstream"
+            exit 1
+          fi
+          # Prefer scripts/product/validate.sh; fall back to app-local path.
+          if [[ -f scripts/product/validate.sh ]]; then
+            bash scripts/product/validate.sh
+          elif [[ -f apps/<product>-api/scripts/kit/product-validate.sh ]]; then
+            bash apps/<product>-api/scripts/kit/product-validate.sh
+          else
+            echo "::error::missing product-validate script — copy docs/kit/templates/product-validate.example.sh"
+            exit 1
+          fi

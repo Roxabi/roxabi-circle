@@ -1,0 +1,78 @@
+{
+  "version": 1,
+  "description": "ADR-0009 + ADR-0013: kit paths under {config,scripts,docs}/kit; product under */product; root and .github/workflows kit surfaces stay on the explicit protected_files list per ADR-0013; workflows are classified by the product- filename prefix or by being listed; bun.lock is intentionally not protected (product workspace co-ownership \u2014 see #114).",
+  "protected_prefixes": [
+    "packages/",
+    "apps/example-api/",
+    "apps/example-web/",
+    "apps/mcp-example/",
+    "config/kit/",
+    "scripts/kit/",
+    "docs/kit/",
+    "tooling/"
+  ],
+  "protected_files": [
+    "lefthook.yml",
+    "package.json",
+    "turbo.jsonc",
+    "biome.json",
+    "tsconfig.json",
+    "AGENTS.md",
+    "CLAUDE.md",
+    "README.md",
+    "commitlint.config.js",
+    "commitlint.config.cjs",
+    "commitlint.config.mjs",
+    "commitlint.config.ts",
+    "docker-compose.yml",
+    ".license-policy.json",
+    ".claude/stack.yml",
+    ".claude/settings.json",
+    ".semctx/config.json",
+    ".github/dependabot.yml",
+    ".github/workflows/ci.yml",
+    ".github/workflows/deploy-main.yml",
+    ".github/workflows/secret-scan.yml",
+    ".github/workflows/merge-on-green.yml",
+    ".github/workflows/pr-title.yml",
+    ".github/workflows/dependabot-automerge.yml",
+    ".github/workflows/dependabot-alert-slack.yml",
+    ".github/workflows/close-linked-issues.yml",
+    ".github/workflows/semctx.yml"
+  ],
+  "namespaced_trees": ["config", "scripts", "docs"],
+  "kit_namespace": "kit",
+  "product_namespace": "product",
+  "workflow_dir": ".github/workflows",
+  "workflow_product_prefix": "product-",
+  "kit_origin_allowlist": ["Roxabi/roxabi-boilerplate-cf", "go-silex/silex-boilerplate"],
+  "exceptions_file": "config/product/zero-edit-exceptions.json",
+  "exceptions_example": "config/kit/zero-edit-exceptions.example.json",
+  "inheritance_file": "config/product/inheritance.json",
+  "mode_env": "ZERO_EDIT_MODE",
+  "design_overrides": {
+    "description": "Accepted zero-edit customization of the design system. Do these first; never patch packages/ui for brand tokens.",
+    "patterns": [
+      {
+        "id": "css-token-override",
+        "where": "apps/<product>-web/src/**/*.css (typically index.css + theme/*.css)",
+        "how": "Keep @import \"@kit/ui/styles.css\" then redeclare CSS variables on :root / .dark (primary, radius, fonts, sidebar, charts). Tokens are the kit extension surface."
+      },
+      {
+        "id": "compose-wrap-components",
+        "where": "apps/<product>-web/src/components/**",
+        "how": "Import primitives from @kit/ui and compose product shells (LoadingButton, BrandHeader). Do not copy/fork files from packages/ui/src/components."
+      },
+      {
+        "id": "app-tailwind-source",
+        "where": "apps/<product>-web CSS @source directives",
+        "how": "Point @source at packages/ui and the product app only. App-level utilities stay in the product CSS tree."
+      },
+      {
+        "id": "product-assets",
+        "where": "apps/<product>-web/public/** or app assets",
+        "how": "Favicon, OG, logo live in the product app \u2014 not packages/ui."
+      }
+    ]
+  }
+}

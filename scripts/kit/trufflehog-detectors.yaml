@@ -1,0 +1,43 @@
+# Custom TruffleHog detectors for secrets this kit issues itself.
+#
+# WHY THIS FILE EXISTS
+# TruffleHog verifies a finding by calling the issuing provider's API. A `sk_` key minted by
+# this kit has no such provider, so its findings are necessarily *unverified* — which means
+# `--only-verified` discards them silently. Adding a detector without dropping that flag
+# gives a green scan and no coverage: the worst possible outcome.
+#
+# MEASURED (trufflehog 3.97.0, filesystem fixtures):
+#   trailing \b  `\bsk_[0-9a-f]{48}\b`
+#     isolated 48 hex → unverified_secrets: 1
+#     48 hex + Z      → unverified_secrets: 0
+#     49 hex          → unverified_secrets: 0
+#   Perl lookahead `(?![0-9a-f])` → config parse error
+#     `invalid or unsupported Perl syntax: (?!`  (Go RE2 — CustomRegex uses regexp.Compile)
+#   this pattern
+#     isolated 48 hex → unverified_secrets: 1   Raw = sk_ + 48 hex
+#     48 hex + Z      → unverified_secrets: 1   Raw = sk_ + 48 hex (Z not captured)
+#     49 hex          → unverified_secrets: 0
+#
+# Whole worktree, this pattern (trufflehog 3.97.0, filesystem + exclude SSoT):
+#   chunks: 854  bytes: 3785061  unverified_secrets: 0
+# Previously measured (3.96.0, #51): --only-verified on isolated 48 hex → 0 (discarded)
+#
+# => Any run using this config MUST NOT pass `--only-verified`.
+#    Runs that keep `--only-verified` (generic detectors) must NOT use this config.
+#    That is why scripts/kit/trufflehog-check.sh and the workflows invoke TruffleHog twice.
+#
+# FORMAT (packages/auth/src/keys.ts — generateApiKey)
+#   `sk_` + 24 random bytes rendered as lowercase hex = exactly 48 hex chars (51 total).
+#   The fixed length is what keeps false positives near zero: the repo's own fake test keys
+#   are 16 and 24 hex chars (app.test.ts, admin-users.test.ts) and deliberately do not match.
+#   Capture group keeps Raw = the 51-char key; `(?:[^0-9a-f]|$)` is the RE2 stand-in for
+#   "not another hex digit" (lookahead is not available).
+#
+# If the key format ever changes (unique prefix + checksum is under discussion), update the
+# regex here in the same change — a stale pattern here fails open, silently.
+detectors:
+  - name: kit-sk-api-key
+    keywords:
+      - sk_
+    regex:
+      key: '\b(sk_[0-9a-f]{48})(?:[^0-9a-f]|$)'
