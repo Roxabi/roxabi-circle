@@ -1,9 +1,27 @@
 export {
+  allowPublicSignup,
+  assertAuthSecret,
+  assertBetterAuthConfigured,
+  assertTrustedOrigins,
+  type BetterAuthEnvSlice,
+  betterAuthBaseURL,
+  corsAllowlist,
+  environmentName,
+  getBetterAuthSecret,
+  isDevLikeEnvironment,
+  sessionCookieNameFromEnv,
+  useSecureCookie,
+} from './better-auth-env'
+export {
   type BetterAuthLike,
   type CreateBetterAuthSessionPortOpts,
   createBetterAuthSessionPort,
 } from './better-auth-port'
 export { type SessionCookieNameOpts, sessionCookieName } from './cookie-name'
+export {
+  createFirstSessionAfterHook,
+  type FirstSessionHandler,
+} from './first-session-hook'
 export {
   apiKeyPrefix,
   generateApiKey,
@@ -46,6 +64,18 @@ export {
   roleHasCapability,
 } from './org-roles'
 export {
+  AUTH_CHANGE_PASSWORD_PATH,
+  AUTH_REQUEST_PASSWORD_RESET_PATH,
+  AUTH_RESET_PASSWORD_PATH,
+  type ChangePasswordValues,
+  changePasswordSchema,
+  type ForgotPasswordValues,
+  forgotPasswordSchema,
+  type ResetPasswordValues,
+  resetPasswordSchema,
+} from './password-schemas'
+export {
+  type ApiKeyAuthIdentity,
   type ApiKeyRecord,
   type AuthIdentity,
   type AuthMethod,
@@ -53,10 +83,12 @@ export {
   type DualAuthPorts,
   type RequireAuthContext,
   resolveDualAuth,
+  type SessionAuthIdentity,
 } from './require-auth'
 export {
   clearSessionCookieHeader,
   parseCookie,
+  parseSessionCookie,
   SESSION_COOKIE,
   type SessionPayload,
   sessionCookieHeader,

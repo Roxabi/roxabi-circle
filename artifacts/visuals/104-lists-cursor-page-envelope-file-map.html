@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>#104 lists cursor — file map</title>
+  <style>
+    :root { color-scheme: dark; --bg:#0b0f14; --card:#141a22; --line:#3d8bfd; --text:#e7ecf3; --muted:#8b98a8; --ok:#3ecf8e; }
+    * { box-sizing: border-box; }
+    body { margin:0; font:14px/1.45 system-ui,sans-serif; background:var(--bg); color:var(--text); padding:2rem; }
+    h1 { font-size:1.15rem; margin:0 0 1rem; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:1rem; }
+    .zone { background:var(--card); border:1px solid #243041; border-radius:12px; padding:1rem; }
+    .zone h2 { margin:0 0 .5rem; font-size:.9rem; color:var(--line); }
+    ul { margin:0; padding-left:1.1rem; color:var(--muted); font-size:.8rem; }
+    code { color:var(--ok); }
+  </style>
+</head>
+<body>
+  <h1>#104 — file × function map</h1>
+  <div class="grid">
+    <div class="zone">
+      <h2>packages/types</h2>
+      <ul>
+        <li><code>listQuerySchema</code></li>
+        <li><code>ListPage&lt;T&gt;</code></li>
+        <li>+ <code>zod</code> dependency</li>
+      </ul>
+    </div>
+    <div class="zone">
+      <h2>packages/core</h2>
+      <ul>
+        <li><code>clampListLimit</code></li>
+        <li><code>encodeListCursor</code> / <code>decodeListCursor</code></li>
+        <li><code>takeListPage</code></li>
+      </ul>
+    </div>
+    <div class="zone">
+      <h2>example-api audit</h2>
+      <ul>
+        <li><code>routes/admin-audit.ts</code></li>
+        <li><code>services/audit.ts</code> listRecent…</li>
+        <li><code>audit.test.ts</code></li>
+      </ul>
+    </div>
+    <div class="zone">
+      <h2>example-api users</h2>
+      <ul>
+        <li><code>repos/users.ts</code> keyset</li>
+        <li><code>services/admin-users-list.ts</code></li>
+        <li><code>routes/admin-users.ts</code></li>
+        <li><code>admin-users.test.ts</code></li>
+      </ul>
+    </div>
+    <div class="zone">
+      <h2>example-web</h2>
+      <ul>
+        <li><code>routes/admin/users.tsx</code></li>
+        <li>Load more · items · nextCursor</li>
+      </ul>
+    </div>
+    <div class="zone">
+      <h2>docs</h2>
+      <ul>
+        <li><code>adr/0009-…</code></li>
+        <li><code>docs/ui-kit.md</code></li>
+        <li>AGENTS TanStack Table row</li>
+      </ul>
+    </div>
+  </div>
+</body>
+</html>

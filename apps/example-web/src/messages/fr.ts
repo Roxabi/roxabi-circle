@@ -25,6 +25,16 @@ export type Messages = {
   resetPasswordMismatch: string
   backToLogin: string
   loginLegal: string
+  /** Public sign-up (only when `/health.allowPublicSignup`). */
+  signUp: string
+  signUpTitle: string
+  signUpDesc: string
+  signUpSubmit: string
+  signUpName: string
+  signUpHasAccount: string
+  signUpFailed: string
+  signUpDisabled: string
+  signUpNameRequired: string
   /** Login mode: password vs magic link (B-magic #59). */
   loginModePassword: string
   loginModeMagic: string
@@ -166,6 +176,8 @@ export type Messages = {
   adminUserSubmit: string
   adminUserCreated: string
   adminUserSearch: string
+  adminUserLoadMore: string
+  adminUserLoadingMore: string
   adminUserResend: string
   adminUserWelcomeResent: string
   orgCatalogueBadge: string
@@ -298,7 +310,7 @@ export const fr: Messages = {
   forgotEmailRequired: 'E-mail requis',
   forgotSentTitle: 'Demande enregistrée',
   forgotSentDesc:
-    'Si un compte existe, un e-mail de réinitialisation a été envoyé (voir logs Mailpit/log).',
+    'Si un compte existe, un e-mail de réinitialisation a été envoyé (transport log en local — console Worker).',
   resetPasswordTitle: 'Nouveau mot de passe',
   resetPasswordDesc: 'Choisissez un mot de passe d’au moins 8 caractères.',
   resetPasswordNew: 'Nouveau mot de passe',
@@ -311,11 +323,21 @@ export const fr: Messages = {
   resetPasswordMismatch: 'Les mots de passe ne correspondent pas',
   backToLogin: 'Retour à la connexion',
   loginLegal: 'En continuant, vous acceptez les conditions d’utilisation du kit démo.',
+  signUp: 'Créer un compte',
+  signUpTitle: 'Créer un compte',
+  signUpDesc: 'Inscription e-mail — session cookie HttpOnly.',
+  signUpSubmit: 'Créer le compte',
+  signUpName: 'Nom',
+  signUpHasAccount: 'Déjà un compte ? Connexion',
+  signUpFailed: 'Impossible de créer le compte. Essayez de vous connecter.',
+  signUpDisabled: 'L’inscription publique est désactivée.',
+  signUpNameRequired: 'Le nom est requis',
   loginModePassword: 'Mot de passe',
   loginModeMagic: 'Lien magique',
   magicSubmit: 'Envoyer le lien',
   magicSentTitle: 'Vérifiez votre e-mail',
-  magicSentDesc: 'Si un compte existe, un lien de connexion a été envoyé (voir logs Mailpit/log).',
+  magicSentDesc:
+    'Si un compte existe, un lien de connexion a été envoyé (transport log en local — console Worker).',
   magicHint: 'Réponse générique (pas d’énumération). Lien valable environ 5 minutes.',
   email: 'E-mail',
   password: 'Mot de passe',
@@ -350,8 +372,8 @@ export const fr: Messages = {
   language: 'Langue',
   me: 'Compte',
   sendEmail: 'Envoyer e-mail démo',
-  emailSent: 'E-mail démo envoyé (voir Mailpit :8025)',
-  mailpit: 'Mailpit',
+  emailSent: 'E-mail démo envoyé (transport log en local — console Worker)',
+  mailpit: 'Log local (console Worker)',
   health: 'API',
   empty: 'Aucune note pour l’instant',
   error: 'Erreur',
@@ -452,6 +474,8 @@ export const fr: Messages = {
   adminUserSubmit: 'Créer et envoyer',
   adminUserCreated: 'Utilisateur créé',
   adminUserSearch: 'Rechercher…',
+  adminUserLoadMore: 'Charger plus',
+  adminUserLoadingMore: 'Chargement supplémentaire…',
   adminUserResend: 'Renvoyer welcome',
   adminUserWelcomeResent: 'E-mail de bienvenue renvoyé',
   orgCatalogueBadge: 'catalogue',

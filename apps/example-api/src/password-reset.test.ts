@@ -1,8 +1,8 @@
+import { baVerification } from '@kit/auth/schema'
 import { createDb } from '@kit/db'
 import { like } from 'drizzle-orm'
 import { describe, expect, it } from 'vitest'
 import { createApp } from './app'
-import { baVerification } from './db/better-auth-schema'
 import { schema } from './db/schema'
 
 import { seedDemoDatabase } from './seed/seed-db'

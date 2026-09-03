@@ -1,7 +1,7 @@
 import { Button, Field, FieldDescription, FieldError, FieldGroup, FieldLabel, Input } from '@kit/ui'
 import { useForm } from '@tanstack/react-form'
 import { toast } from 'sonner'
-import { isRateLimited, profileErrorMessage } from '../lib/account-errors'
+import { isRateLimited, isServerError, profileErrorMessage } from '../lib/account-errors'
 import { apiFetch } from '../lib/api'
 import { useLocale } from '../lib/locale'
 import { safeInviteReturnPath, safePostAuthPath } from '../lib/safe-return-path'
@@ -57,7 +57,12 @@ export function LoginMagicForm({ next, onSent }: LoginMagicFormProps) {
           toast.error(m.error, { description: profileErrorMessage(e, m) })
           return
         }
-        // Other failures: still show generic success when possible (no enumeration)
+        // Empty-body HTTP 500 / status-less: fail-closed — do not claim inbox
+        if (isServerError(e)) {
+          toast.error(m.error, { description: profileErrorMessage(e, m) })
+          return
+        }
+        // Other 4xx: still show generic success when possible (no enumeration)
       }
       onSent()
       toast.message(m.magicSentTitle, { description: m.magicSentDesc })

@@ -1,6 +1,6 @@
 /**
  * Dogfood call site for @kit/flows (extract-dry-run + ADR-0005).
- * Exercises check + createRunSnapshot (no HTTP route / Workflows yet — #30–#31).
+ * Exercises check + createRunSnapshot. HTTP admin compose is #31.
  * Zero product domain strings.
  *
  * **Grant:** fixed demo grant only (`echo` + allowsInfer). Free-form allowlists

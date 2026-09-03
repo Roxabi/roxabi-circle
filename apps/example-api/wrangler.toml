@@ -4,9 +4,10 @@ compatibility_date = "2026-07-01"
 compatibility_flags = ["nodejs_compat"]
 
 # Local bindings only. For remote deploy: set real database_id / bucket names and
-# CF secrets (SESSION_SECRET). Do NOT put ENVIRONMENT=development in deployable vars —
-# missing SESSION_SECRET + development would use the public kit HMAC fallback.
-# Local: copy .dev.vars.example → .dev.vars (ENVIRONMENT=development, SESSION_SECRET=…).
+# CF secrets (BETTER_AUTH_SECRET). Do NOT put ENVIRONMENT=development in deployable vars —
+# missing BETTER_AUTH_SECRET + development would use the public kit placeholder.
+# Local: copy .dev.vars.example → .dev.vars (ENVIRONMENT=development, BETTER_AUTH_SECRET=…).
+# SESSION_SECRET is HMAC leftover — not read on the BA session path.
 
 [[d1_databases]]
 binding = "DB"
@@ -24,6 +25,9 @@ bucket_name = "example-api-local"
 name = "EMAIL"
 
 # Non-secret defaults for local/dev tooling. Secrets stay in .dev.vars / CF secrets.
+# ALLOW_PUBLIC_SIGNUP unset here (fail-closed). Products opt in via their own
+# apps/<product>-api/wrangler.toml [env.<name>].vars (not .dev.vars — local only).
+# Do not copy [env.production] below (showcase hosts + ALLOW_PUBLIC_SIGNUP=true).
 [vars]
 DEMO_USER_EMAIL = "demo@kit.local"
 CORS_ORIGINS = "http://localhost:5173,http://127.0.0.1:5173"
@@ -41,9 +45,16 @@ max_batch_timeout = 5
 [triggers]
 crons = ["0 * * * *"]
 
+# CF Workflows is non-inheritable. Names are account-scoped and must be
+# distinct per env (≤64). Do not add schedules here.
+[[workflows]]
+binding = "FLOW_RUN"
+name = "example-api-flow-run"
+class_name = "FlowRunWorkflow"
+
 # ── production (kit showcase — resource ids are not secrets) ─────────
-# Account / zone: operator local config (config/deploy.cf.local.toml).
-# CD: Cloudflare Workers Builds (git pull) — scripts/cf-builds/ + docs/deploy-cloudflare.md
+# Account / zone: operator local config (config/kit/deploy.cf.local.toml).
+# CD: Cloudflare Workers Builds (git pull) — scripts/kit/cf-builds/ + docs/kit/deploy-cloudflare.md
 # Do NOT set ENVIRONMENT=development here.
 
 [env.production]
@@ -75,3 +86,9 @@ max_batch_timeout = 5
 
 [env.production.triggers]
 crons = ["0 * * * *"]
+
+# Non-inheritable — repeat; name distinct from default env (account-scoped).
+[[env.production.workflows]]
+binding = "FLOW_RUN"
+name = "boilerplate-api-flow-run"
+class_name = "FlowRunWorkflow"

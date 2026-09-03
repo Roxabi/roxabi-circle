@@ -1,30 +1,31 @@
+import { COMMENTS_MODULE_ID } from '@kit/comments'
 import { createDb } from '@kit/db'
+import { TASKS_MODULE_ID } from '@kit/tasks'
 import { describe, expect, it } from 'vitest'
 import { createApp } from './app'
 import { schema } from './db/schema'
 import { seedDemoDatabase } from './seed/seed-db'
 import { TENANCY_PASSWORD } from './seed/tenancy-data'
+import { setOrgModuleEnabled } from './services/platform-modules'
 import { createMemoryEnv } from './test/memory-env'
 
 const ORIGIN = 'http://localhost:5173'
 const ORG = 'org_acme'
+const ORG_TEAM = 'org_team'
 
-function headers(cookie: string): Record<string, string> {
+function headers(cookie: string, orgId = ORG): Record<string, string> {
   return {
     cookie,
     'content-type': 'application/json',
     Origin: ORIGIN,
-    'X-Org-Id': ORG,
+    'X-Org-Id': orgId,
   }
 }
-
-async function login(
+async function signIn(
   app: ReturnType<typeof createApp>,
   env: ReturnType<typeof createMemoryEnv>,
   email: string,
 ) {
-  const db = createDb(env.DB as unknown as D1Database, schema)
-  await seedDemoDatabase(db, { notes: true, environment: 'test' })
   const login = await app.request(
     '/api/auth/sign-in/email',
     {
@@ -38,6 +39,16 @@ async function login(
   const setCookie = login.headers.get('set-cookie')
   expect(setCookie).toBeTruthy()
   return setCookie!.split(';')[0]!
+}
+
+async function login(
+  app: ReturnType<typeof createApp>,
+  env: ReturnType<typeof createMemoryEnv>,
+  email: string,
+) {
+  const db = createDb(env.DB as unknown as D1Database, schema)
+  await seedDemoDatabase(db, { notes: true, environment: 'test' })
+  return signIn(app, env, email)
 }
 
 describe('tasks dogfood API', () => {
@@ -95,7 +106,7 @@ describe('tasks dogfood API', () => {
     )
 
     // Promote team-reader onto acme as reader for external filter
-    const { baMember } = await import('./db/better-auth-schema')
+    const { baMember } = await import('@kit/auth/schema')
     await db.insert(baMember).values({
       id: 'mem_org_acme_user_team_reader',
       organizationId: ORG,
@@ -194,5 +205,134 @@ describe('tasks dogfood API', () => {
       env,
     )
     expect(del.status).toBe(200)
+  })
+
+  it('stolen task id with other org X-Org-Id is 404', async () => {
+    const app = createApp()
+    const env = createMemoryEnv()
+    const staffCookie = await login(app, env, 'staff@kit.local')
+    const db = createDb(env.DB as unknown as D1Database, schema)
+    await setOrgModuleEnabled(db, ORG_TEAM, TASKS_MODULE_ID, true)
+    await setOrgModuleEnabled(db, ORG_TEAM, COMMENTS_MODULE_ID, true)
+
+    const created = await app.request(
+      '/api/tasks',
+      {
+        method: 'POST',
+        headers: headers(staffCookie),
+        body: JSON.stringify({ title: 'Acme secret', boardKey: 'main', visibility: 'shared' }),
+      },
+      env,
+    )
+    expect(created.status).toBe(201)
+    const { task } = (await created.json()) as { task: { id: string } }
+
+    const other = await app.request(
+      '/api/tasks',
+      {
+        method: 'POST',
+        headers: headers(staffCookie),
+        body: JSON.stringify({ title: 'Acme other', boardKey: 'main', visibility: 'shared' }),
+      },
+      env,
+    )
+    expect(other.status).toBe(201)
+    const otherTask = (await other.json()) as { task: { id: string } }
+
+    const commentRes = await app.request(
+      `/api/tasks/${task.id}/comments`,
+      {
+        method: 'POST',
+        headers: headers(staffCookie),
+        body: JSON.stringify({ body: 'acme note', visibility: 'shared' }),
+      },
+      env,
+    )
+    expect(commentRes.status).toBe(201)
+    const { comment } = (await commentRes.json()) as { comment: { id: string } }
+
+    const linkRes = await app.request(
+      '/api/tasks/links',
+      {
+        method: 'POST',
+        headers: headers(staffCookie),
+        body: JSON.stringify({
+          fromTaskId: task.id,
+          toTaskId: otherTask.task.id,
+          kind: 'blocks',
+        }),
+      },
+      env,
+    )
+    expect(linkRes.status).toBe(201)
+
+    const teamCookie = await signIn(app, env, 'team-owner@kit.local')
+    const team = headers(teamCookie, ORG_TEAM)
+
+    const list = await app.request('/api/tasks', { headers: team }, env)
+    expect(list.status).toBe(200)
+    const listed = (await list.json()) as { tasks: { id: string }[] }
+    expect(listed.tasks.map((t) => t.id)).not.toContain(task.id)
+
+    const get = await app.request(`/api/tasks/${task.id}`, { headers: team }, env)
+    expect(get.status).toBe(404)
+
+    const patch = await app.request(
+      `/api/tasks/${task.id}`,
+      { method: 'PATCH', headers: team, body: JSON.stringify({ title: 'stolen' }) },
+      env,
+    )
+    expect(patch.status).toBe(404)
+
+    const del = await app.request(`/api/tasks/${task.id}`, { method: 'DELETE', headers: team }, env)
+    expect(del.status).toBe(404)
+
+    const comments = await app.request(`/api/tasks/${task.id}/comments`, { headers: team }, env)
+    expect(comments.status).toBe(404)
+
+    const postComment = await app.request(
+      `/api/tasks/${task.id}/comments`,
+      {
+        method: 'POST',
+        headers: team,
+        body: JSON.stringify({ body: 'nope', visibility: 'shared' }),
+      },
+      env,
+    )
+    expect(postComment.status).toBe(404)
+
+    const delComment = await app.request(
+      `/api/tasks/comments/${comment.id}`,
+      { method: 'DELETE', headers: team },
+      env,
+    )
+    expect(delComment.status).toBe(404)
+
+    const stealLink = await app.request(
+      '/api/tasks/links',
+      {
+        method: 'POST',
+        headers: team,
+        body: JSON.stringify({
+          fromTaskId: task.id,
+          toTaskId: otherTask.task.id,
+          kind: 'blocks',
+        }),
+      },
+      env,
+    )
+    expect(stealLink.status).toBe(404)
+
+    const links = await app.request('/api/tasks/links', { headers: team }, env)
+    expect(links.status).toBe(200)
+    const linkBody = (await links.json()) as { links: { fromTaskId: string }[] }
+    expect(linkBody.links.map((l) => l.fromTaskId)).not.toContain(task.id)
+
+    const stillThere = await app.request(
+      `/api/tasks/${task.id}`,
+      { headers: headers(staffCookie) },
+      env,
+    )
+    expect(stillThere.status).toBe(200)
   })
 })

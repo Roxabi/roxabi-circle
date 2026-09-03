@@ -5,19 +5,26 @@ import type { SessionPort } from './session-port'
 
 export type AuthMethod = 'session' | 'api_key'
 
-export type AuthIdentity = {
+export type SessionAuthIdentity = {
   subject: string
-  method: AuthMethod
-  /** Set when Bearer sk_ is org-bound (ADR-0003 D11). */
-  organizationId?: string | null
+  method: 'session'
 }
 
+/** Authenticated Bearer sk_ identity — always org-bound (ADR-0003 D11). */
+export type ApiKeyAuthIdentity = {
+  subject: string
+  method: 'api_key'
+  organizationId: string
+}
+
+export type AuthIdentity = SessionAuthIdentity | ApiKeyAuthIdentity
+
+/** Row shape from storage lookup; org may be absent until package runtime rejects it (D11). */
 export type ApiKeyRecord = {
   subject: string
   keyHash: string
   revokedAt: number | null
   expiresAt: number | null
-  /** Org scope for multi-tenant keys; null = unbound legacy key. */
   organizationId?: string | null
 }
 
@@ -28,12 +35,16 @@ export type DualAuthPorts = {
   /** Required — apps inject createBetterAuthSessionPort (ADR-0002 BA-only). */
   sessions: SessionPort
   findApiKeyByPrefix: (prefix: string) => Promise<ApiKeyRecord | null>
-  /**
-   * Multi-tenant (ADR-0003 D11): Bearer keys without `organizationId` → 401.
-   * **Default true** (fail-closed). Set `false` only for a named legacy/single-tenant escape.
-   * example-api also rechecks membership in `findKeyRecord` (defense in depth).
-   */
-  requireApiKeyOrganization?: boolean
+}
+
+/**
+ * ADR-0003 D11 — after credential verification, org id must be non-empty.
+ * Returns normalized id or null (missing, null, blank, whitespace-only).
+ */
+export function normalizeApiKeyOrganizationId(value: string | null | undefined): string | null {
+  if (value == null) return null
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : null
 }
 
 /**
@@ -60,10 +71,9 @@ export async function resolveDualAuth(
     if (row.expiresAt != null && row.expiresAt <= Date.now()) throw AppError.unauthorized()
     const ok = await verifyApiKey(bearer, row.keyHash)
     if (!ok) throw AppError.unauthorized()
-    const organizationId = row.organizationId ?? null
-    // ADR-0003 D11 — default fail-closed; opt out only with requireApiKeyOrganization: false.
-    const requireOrg = ports.requireApiKeyOrganization !== false
-    if (requireOrg && !organizationId) {
+    // ADR-0003 D11 — subject-global / unbound keys are forbidden unconditionally.
+    const organizationId = normalizeApiKeyOrganizationId(row.organizationId)
+    if (!organizationId) {
       throw AppError.unauthorized()
     }
     return {
@@ -107,7 +117,7 @@ export function createRequireAuth<C extends RequireAuthContext>(
     if (!auth) throw AppError.unauthorized()
     c.set('subject', auth.subject)
     c.set('authMethod', auth.method)
-    if (auth.method === 'api_key' && auth.organizationId) {
+    if (auth.method === 'api_key') {
       c.set('keyOrganizationId', auth.organizationId)
     }
     await next()

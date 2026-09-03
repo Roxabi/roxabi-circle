@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>#30 CF Workflows adapter — file map</title>
+  <style>
+    :root { color-scheme: dark; --bg:#0b0f14; --card:#141a22; --line:#3d8bfd; --text:#e7ecf3; --muted:#8b98a8; --ok:#3ecf8e; }
+    * { box-sizing: border-box; }
+    body { margin:0; font:14px/1.45 system-ui,sans-serif; background:var(--bg); color:var(--text); padding:2rem; }
+    h1 { font-size:1.15rem; margin:0 0 1.5rem; }
+    .cols { display:flex; flex-wrap:wrap; gap:1.5rem; justify-content:center; }
+    .col { background:var(--card); border:1px solid #243041; border-radius:12px; padding:1rem 1.25rem; min-width:260px; max-width:340px; }
+    .col h2 { margin:0 0 .75rem; font-size:.9rem; color:var(--line); }
+    .col.kit h2 { color:var(--ok); }
+    ul { margin:0; padding-left:1.1rem; font-size:.8rem; color:var(--muted); }
+    li { margin:.35rem 0; }
+    code { color:var(--ok); }
+    .legend { margin-top:2rem; color:var(--muted); font-size:.8rem; }
+  </style>
+</head>
+<body>
+  <h1>#30 — files × functions</h1>
+  <div class="cols">
+    <div class="col kit">
+      <h2>@kit/flows (pure)</h2>
+      <ul>
+        <li><code>receipts.ts</code> — parseReceipts, bundle schema, FLOW_RUN_STATUSES, readRunRollup</li>
+        <li><code>interpret.ts</code> — interpretRun reducer</li>
+        <li><code>index.ts</code> — barrel (no cloudflare:workers)</li>
+        <li><code>*.test.ts</code> — skip/ready/pending/stuck/meter fixtures</li>
+      </ul>
+    </div>
+    <div class="col">
+      <h2>apps/example-api/src/flows-run/</h2>
+      <ul>
+        <li><code>persist.ts</code> — claim CAS, load, persist receipts</li>
+        <li><code>drive.ts</code> — driveFlowRun (only loop)</li>
+        <li><code>ports.ts</code> — echo invoke + mock infer</li>
+        <li><code>workflow.ts</code> — FlowRunWorkflow → driveFlowRun(step.do)</li>
+        <li><code>fixtures.ts</code> — invoke-only plan (not DEMO_ECHO)</li>
+        <li><code>drive.test.ts</code> — Node + memory D1</li>
+      </ul>
+    </div>
+    <div class="col">
+      <h2>wire / config</h2>
+      <ul>
+        <li><code>src/index.ts</code> — export FlowRunWorkflow</li>
+        <li><code>wrangler.toml</code> — FLOW_RUN names per env</li>
+        <li><code>env.ts</code> / <code>env.schema.ts</code> — binding type</li>
+        <li><code>test/memory-env.ts</code> — stub FLOW_RUN</li>
+        <li><code>docs/deploy-cloudflare.md</code> — Paid + first deploy creates Workflow</li>
+      </ul>
+    </div>
+  </div>
+  <p class="legend">driveFlowRun is the only consumer of interpretRun.readyTaskIds. Tests call the same drive with an immediate step port. Split files: apps/ max 300 lines.</p>
+</body>
+</html>

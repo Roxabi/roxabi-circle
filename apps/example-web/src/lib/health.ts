@@ -3,11 +3,20 @@ export type HealthResponse = {
   service?: string
   requestId: string
   environment?: string
+  /** Public BA sign-up (`/sign-up`). Absent / false = fail-closed (invite/admin only). */
+  allowPublicSignup?: boolean
   demoLogin?: {
     email: string
     password: string
     role: string
   }
+}
+
+/** SPA gate — only explicit `true` from `/health` enables the signup surface. */
+export function isPublicSignupEnabled(
+  health: Pick<HealthResponse, 'allowPublicSignup'> | undefined,
+): boolean {
+  return health?.allowPublicSignup === true
 }
 
 export const healthQueryKey = ['health'] as const

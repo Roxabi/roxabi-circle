@@ -1,0 +1,60 @@
+# Cloudflare deploy profile — EXAMPLE (tracked).
+# Copy to config/kit/deploy.cf.local.toml (gitignored) and fill values for your operator.
+#
+#   cp config/kit/deploy.cf.example.toml config/kit/deploy.cf.local.toml
+#
+# Rules:
+# - No secrets here (no API tokens, no BETTER_AUTH_SECRET, no RESEND keys).
+# - Account is REQUIRED — the kit never assumes Mickael vs Gosilex (or any default).
+# - Hostnames / zone must match the CF account that owns the zone.
+# - See docs/kit/deploy-cloudflare.md (showcase CD = Cloudflare Builds, not GH deploy)
+
+# ── Account (required) ─────────────────────────────────────────────
+# From dashboard URL or: wrangler whoami
+# Label is free text for humans / handoff (not used by CF API).
+cf_account_id = "REPLACE_WITH_ACCOUNT_ID"
+cf_account_label = "REPLACE_WITH_LABEL"   # e.g. "Mickael / Roxabi" or "Tool@gosilex"
+
+# Optional path to a credentials file if you do not use interactive OAuth.
+# Prefer: env CLOUDFLARE_API_TOKEN (never commit the token).
+# cloudflare_api_token_env = "CLOUDFLARE_API_TOKEN"
+
+# ── Target environment ─────────────────────────────────────────────
+# staging | production
+environment = "production"
+
+# ── DNS / hosts ────────────────────────────────────────────────────
+# Zone must exist on cf_account_id (wrong account → silent workers.dev wrong-account risk).
+zone_name = "example.com"
+api_hostname = "api.kit.example.com"
+web_hostname = "kit.example.com"
+
+# ── Workers ────────────────────────────────────────────────────────
+worker_name_api = "example-api"
+# SPA: Workers static assets on same worker, or separate Pages/Worker project.
+worker_name_web = "example-web"
+# How web is deployed: "worker-assets" | "pages" | "same-worker"
+web_deploy_mode = "worker-assets"
+
+# ── Bindings (names on the account — create if missing) ────────────
+d1_database_name = "example-api-prod"
+# Fill after: wrangler d1 create <name>  (id is not secret, but machine-specific)
+d1_database_id = "REPLACE_AFTER_D1_CREATE"
+r2_bucket_name = "example-api-prod"
+# Optional queue (kit demo)
+queue_name = "example-api-demo"
+
+# ── Email (see docs/kit/email-cf-runbook.md) ───────────────────────────
+# production: EMAIL_TRANSPORT=cf preferred; domain must be onboarded on this account.
+email_from = "noreply@example.com"
+email_from_name = "Kit"
+# staging only: comma-separated recipient domains (required when transport is cf|resend)
+# email_allow_domains = "example.com"
+
+# ── CORS / auth public URLs (non-secret; set as wrangler vars or secrets) ─
+# Must match real HTTPS origins after DNS.
+cors_origins = "https://kit.example.com"
+better_auth_url = "https://api.kit.example.com"
+
+# ── Notes (optional free text for the next operator) ───────────────
+# notes = "Showcase kit dogfood; not a customer product."

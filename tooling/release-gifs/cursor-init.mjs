@@ -7,6 +7,7 @@ export const CURSOR_INIT_SCRIPT = `
   const STYLE_ID = 'pw-demo-cursor-style';
   const CURSOR_ID = 'pw-demo-cursor';
   const css = \`
+    html, body, * { cursor: none !important; }
     #pw-demo-cursor {
       position: fixed !important;
       z-index: 2147483647 !important;
@@ -22,11 +23,27 @@ export const CURSOR_INIT_SCRIPT = `
       left: 320px;
       top: 200px;
       transition: transform 90ms ease, background 90ms ease;
-      will-change: left, top;
+      will-change: left, top, transform;
+    }
+    #pw-demo-cursor::after {
+      content: "";
+      position: absolute;
+      inset: -10px;
+      border-radius: 50%;
+      border: 2px solid rgba(168, 85, 247, 0.5);
+      opacity: 0;
+      pointer-events: none;
     }
     #pw-demo-cursor.is-click {
       transform: scale(0.72);
       background: rgba(216, 180, 254, 0.95) !important;
+    }
+    #pw-demo-cursor.is-click::after {
+      animation: pw-cursor-ripple 320ms ease-out;
+    }
+    @keyframes pw-cursor-ripple {
+      from { opacity: 0.7; transform: scale(0.55); }
+      to { opacity: 0; transform: scale(1.55); }
     }
   \`;
 

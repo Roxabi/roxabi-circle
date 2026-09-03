@@ -6,7 +6,7 @@
     "apps/*/src/**/*.tsx",
     "packages/*/src/**/*.ts",
     "packages/*/src/**/*.tsx",
-    "scripts/**/*.ts",
+    "scripts/kit/**/*.ts",
     "tools/**/*.ts"
   ],
   "exclude": ["node_modules", "dist", ".semctx", ".git", "coverage"],

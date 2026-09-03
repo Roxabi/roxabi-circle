@@ -1,6 +1,7 @@
 import type { QueryClient } from '@tanstack/react-query'
 import { useQuery } from '@tanstack/react-query'
 import { ApiError, apiFetch } from './api'
+import { safeInviteReturnPath } from './safe-return-path'
 
 export type KitRole = 'admin' | 'user'
 
@@ -29,6 +30,13 @@ export type MeResponse = {
 }
 
 export const meQueryKey = ['me'] as const
+
+export async function ensureMe(queryClient: QueryClient): Promise<MeResponse> {
+  return queryClient.ensureQueryData({
+    queryKey: meQueryKey,
+    queryFn: () => apiFetch<MeResponse>('/api/me'),
+  })
+}
 
 export function useMe(opts?: { enabled?: boolean }) {
   return useQuery({
@@ -73,6 +81,11 @@ export function isClientOnly(me: MeResponse | undefined): boolean {
 /** Default post-login home: BO for platform actors, client app otherwise. */
 export function defaultHomePath(me: MeResponse | undefined): '/admin' | '/app' {
   return isPlatformActor(me) ? '/admin' : '/app'
+}
+
+/** Post sign-in / sign-up navigation: allowlisted invite `next`, else default home. */
+export function postAuthTarget(me: MeResponse, next: string | undefined): string {
+  return safeInviteReturnPath(next) ?? defaultHomePath(me)
 }
 
 /** FE convenience — server still enforces manage_members. */

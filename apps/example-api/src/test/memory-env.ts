@@ -10,14 +10,18 @@ import Database from 'better-sqlite3'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
-function applyMigrations(sqlite: Database.Database) {
+function applyMigrations(sqlite: Database.Database, through?: string) {
   const migDir = join(__dirname, '../../migrations')
   // Same order as Wrangler: all *.sql lexical
   const files = readdirSync(migDir)
     .filter((f) => f.endsWith('.sql'))
     .sort()
+  if (through && !files.includes(through)) {
+    throw new Error(`createMemoryEnv through=${through} is not a migration file`)
+  }
   for (const name of files) {
     sqlite.exec(readFileSync(join(migDir, name), 'utf8'))
+    if (through && name === through) break
   }
 }
 
@@ -107,9 +111,15 @@ function makeR2() {
   }
 }
 
+type FlowRunParams = { runId: string; orgId: string }
+
 export type EnvLike = {
   DB: ReturnType<typeof makeD1>
   BUCKET: ReturnType<typeof makeR2>
+  /** Structural stub — Env.FLOW_RUN is required; Hono tests must still typecheck. */
+  FLOW_RUN: {
+    create: (opts?: { id?: string; params?: FlowRunParams }) => Promise<{ id: string }>
+  }
   SESSION_SECRET?: string
   ENVIRONMENT?: string
   CORS_ORIGINS?: string
@@ -123,19 +133,23 @@ export type EnvLike = {
 }
 
 /** Fresh in-memory SQLite + R2 for each test (same createApp entry as Worker). */
-export function createMemoryEnv(overrides?: Partial<EnvLike>): EnvLike {
+export function createMemoryEnv(overrides?: Partial<EnvLike> & { through?: string }): EnvLike {
+  const { through, ...envOverrides } = overrides ?? {}
   const sqlite = new Database(':memory:')
   // Enforce composite FKs (e.g. flow_runs.plan_id+org_id) in tests — SQLite default is OFF.
   sqlite.pragma('foreign_keys = ON')
-  applyMigrations(sqlite)
+  applyMigrations(sqlite, through)
   return {
     DB: makeD1(sqlite),
     BUCKET: makeR2(),
+    FLOW_RUN: {
+      create: async (opts) => ({ id: opts?.id ?? 'wf_test' }),
+    },
     SESSION_SECRET: 'test-session-secret-at-least-32-chars!',
     BETTER_AUTH_SECRET: 'test-better-auth-secret-at-least-32!!',
     BETTER_AUTH_URL: 'http://localhost:8787',
     ENVIRONMENT: 'test',
     DEMO_USER_EMAIL: 'demo@kit.local',
-    ...overrides,
+    ...envOverrides,
   }
 }

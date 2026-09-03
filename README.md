@@ -1,89 +1,70 @@
 # CF Chemin A kit
 
-**Full Cloudflare SaaS monorepo** (Bun · Turborepo · Workers/Hono · D1/R2 · TanStack SPA · Better Auth + `sk_` · FastMCP).
+Cloudflare SaaS monorepo kit built with Bun, Turborepo, Workers/Hono, D1/R2, TanStack, Better Auth and MCP conventions. Product repositories inherit it as a fetch-only `upstream` and compose capabilities without editing kit-owned paths.
 
-SSoT kit for product apps that pull this repo as git `upstream` (zero-edit contract).
+## Start here
 
-| | |
+| Goal | Home |
 |---|---|
-| **Start a product** | [`docs/playbooks/start-product.md`](docs/playbooks/start-product.md) · `git fetch upstream` · **push upstream = DENY** |
-| **Foundations** | [`docs/playbooks/start-project.md`](docs/playbooks/start-project.md) |
-| **First issue** | [`docs/playbooks/fork-to-first-issue.md`](docs/playbooks/fork-to-first-issue.md) |
-| **Consumer contract** | [`docs/product-consumer-contract.md`](docs/product-consumer-contract.md) |
-| **ADRs** | [0001 axis](docs/architecture/adr/0001-primary-axis-packages-compose-apps.md) · [0002 BA-only session](docs/architecture/adr/0002-session-hmac-interim-vs-better-auth.md) · [0003 multi-tenant](docs/architecture/adr/0003-multi-tenant-rbac-modules.md) · [0004 CF Email](docs/architecture/adr/0004-email-transport-cf-default.md) |
-| **Agent** | [`AGENTS.md`](AGENTS.md) |
-| **Kit parent URL / lineage** | operator SSoT (outside this monorepo) |
+| Understand documentation authority and find any kit document | [`docs/kit/README.md`](docs/kit/README.md) |
+| Read the agent constitution | [`AGENTS.md`](AGENTS.md) |
+| Start a product | [`docs/kit/playbooks/start-product.md`](docs/kit/playbooks/start-product.md) |
+| Establish project foundations | [`docs/kit/playbooks/start-project.md`](docs/kit/playbooks/start-project.md) |
+| Ship the first issue | [`docs/kit/playbooks/inherit-to-first-issue.md`](docs/kit/playbooks/inherit-to-first-issue.md) |
+| Apply the zero-edit consumer contract | [`docs/kit/product-consumer-contract.md`](docs/kit/product-consumer-contract.md) |
+| Understand stack and architecture | [`docs/kit/standards/stack.md`](docs/kit/standards/stack.md) · [`docs/kit/architecture/index.md`](docs/kit/architecture/index.md) |
+| Test or verify a change | [`docs/kit/testing.md`](docs/kit/testing.md) |
+| Develop safely with agents | [`docs/kit/processes/dev-process.md`](docs/kit/processes/dev-process.md) |
+| Configure environments and deploy | [`docs/kit/environments.md`](docs/kit/environments.md) · [`docs/kit/deploy-cloudflare.md`](docs/kit/deploy-cloudflare.md) |
 
-## Quick start (local)
+The kit parent URL and repository lineage are operator concerns outside this monorepo.
+
+## Local onboarding
+
+From the repository root:
 
 ```bash
 bun install
-bun run lint && bun run typecheck && bun run test
-
-# Coverage (thresholds enforced)
-bun run test:coverage
-
-# API (Worker + D1 + R2 local)
 cp apps/example-api/.dev.vars.example apps/example-api/.dev.vars
 bun run db:migrate
 bun run db:seed
-cd apps/example-api && bun run dev
-# → http://127.0.0.1:8787/health
-
-# Web (other terminal)
-cd apps/example-web && bun run dev
-# → http://127.0.0.1:5173  (proxy /api → :8787)
-
-# Mailpit (email demo)
-docker compose up -d mailpit
-# UI http://127.0.0.1:8025
-
-# MCP stdio
-cd apps/mcp-example && bun run start
-
-# Extractability
-bun run banlist && bun run extract-dry-run
-
-# Browser smoke (API + web up)
-bun run test:e2e:design-system
+bun run dev
 ```
 
-### Demo credentials (seed SSoT: `apps/example-api/src/seed/demo-data.ts`)
+The local API health endpoint is `http://127.0.0.1:8787/health`; the web app is served at `http://127.0.0.1:5173`. `.dev.vars` is gitignored and must contain only local values.
+
+### Demo users
+
+The seed source of truth is `apps/example-api/src/seed/demo-data.ts`.
 
 | User | Password | Role |
 |---|---|---|
-| `staff@kit.local` | `demo-password-change-me` | **staff** multi-org (health demoLogin) |
-| `demo@kit.local` | `demo-password-change-me` | admin kit demo (BA seed) |
-| `demo-b@kit.local` | `demo-password-b-change-me` | user (IDOR demos) |
-| `super@kit.local` | `demo-password-change-me` | super_admin platform |
+| `staff@kit.local` | `demo-password-change-me` | staff, multi-org |
+| `demo@kit.local` | `demo-password-change-me` | demo admin |
+| `demo-b@kit.local` | `demo-password-b-change-me` | user for IDOR scenarios |
+| `super@kit.local` | `demo-password-change-me` | platform super-admin |
 
-**Auth (ADR-0002):** browser session = **Better Auth only**. Dual credential = **cookie session** *or* **Bearer `sk_`**.
+Browser authentication uses Better Auth cookies; machine clients use Bearer `sk_` keys.
 
-### Local secrets
+For individual app startup, MCP smoke, email behavior and the complete quality gate, follow the machine map in [`.claude/stack.yml`](.claude/stack.yml) and the [testing strategy](docs/kit/testing.md). The root `package.json` remains the source of truth for executable commands.
 
-- `apps/example-api/.dev.vars` from `.dev.vars.example` — **gitignored**
-- Never commit secrets
+## Repository shape
 
-## Packages
-
-| Package | Role |
+| Area | Role |
 |---|---|
-| `@kit/config` | Shared tsconfig + Vitest presets |
-| `@kit/types` | Error codes + `ApiErrorBody` |
-| `@kit/api-client` | Browser `apiFetch` + `ApiError` |
-| `@kit/core` | `AppError`, `requestId` |
-| `@kit/db` | Drizzle D1 factory |
-| `@kit/storage` | R2 helpers + light presign |
-| `@kit/auth` | Better Auth SessionPort + `sk_` helpers |
-| `@kit/ui` | shadcn Base UI shell |
-| `@kit/email` | Templates + transports `log` / `smtp` / `cf` / `resend` |
-| `@kit/i18n` | Locale engine (catalogs in apps) |
-| `@kit/mcp` | MCP helpers + contracts |
+| `packages/*` | Reusable `@kit/*` capabilities |
+| `apps/example-api` | Hono/D1/R2 composition proof |
+| `apps/example-web` | TanStack and `@kit/ui` composition proof |
+| `apps/mcp-example` | MCP catalogue and transport proof |
+| `docs/kit` | Standards, architecture, processes, playbooks and evidence |
 
-## Quality gates
+Product domain belongs in new product-owned apps and product repositories, never in `packages/*` or the example apps.
 
-Local primary gate: `bun run validate:full` (lefthook pre-push).  
-CI is the guardrail. See [`docs/testing.md`](docs/testing.md).
+## Quality and security
+
+Use the root `package.json` script `validate:full` as the kit gate; its internal steps are intentionally not duplicated here. Security-sensitive auth, tenancy, storage, archive, MCP, migration and deployment changes require targeted proof plus human review.
+
+Never commit secrets. Never push to a consumer repository's `upstream`. See the [development process](docs/kit/processes/dev-process.md) for the complete operating rules.
 
 ## License
 

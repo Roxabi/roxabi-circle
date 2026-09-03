@@ -1,3 +1,10 @@
+import {
+  AppError,
+  clampListLimit,
+  decodeListCursor,
+  isRepresentableEpochMs,
+  takeListPage,
+} from '@kit/core'
 import type { KitDb } from '../lib/db-type'
 import * as auditRepo from '../repos/audit'
 
@@ -190,27 +197,34 @@ export type ListedAuditEvent = {
   meta?: Record<string, unknown>
 }
 
+function parseCreatedAtIdKeyset(cursor: string): { createdAt: number; id: string } {
+  const decoded = decodeListCursor(cursor)
+  const keys = Object.keys(decoded)
+  if (keys.length !== 2 || !keys.includes('createdAt') || !keys.includes('id')) {
+    throw AppError.validation('Invalid cursor')
+  }
+  const createdAt = decoded.createdAt
+  const id = decoded.id
+  if (typeof createdAt !== 'number' || !isRepresentableEpochMs(createdAt)) {
+    throw AppError.validation('Invalid cursor')
+  }
+  if (typeof id !== 'string' || id.length === 0) {
+    throw AppError.validation('Invalid cursor')
+  }
+  return { createdAt, id }
+}
+
 export async function listRecentAuditEvents(
   db: KitDb,
   opts: { limit?: number; cursor?: string | null },
 ): Promise<{ items: ListedAuditEvent[]; nextCursor: string | null }> {
-  const limit = Math.min(100, Math.max(1, opts.limit ?? 50))
+  const limit = clampListLimit(opts.limit)
   let cursorCreatedAt: number | undefined
   let cursorId: string | undefined
   if (opts.cursor) {
-    const parts = opts.cursor.split(':')
-    if (parts.length !== 2) {
-      const { AppError } = await import('@kit/core')
-      throw AppError.validation('Invalid cursor')
-    }
-    const ts = Number(parts[0])
-    const id = parts[1]
-    if (!Number.isFinite(ts) || !id) {
-      const { AppError } = await import('@kit/core')
-      throw AppError.validation('Invalid cursor')
-    }
-    cursorCreatedAt = ts
-    cursorId = id
+    const keyset = parseCreatedAtIdKeyset(opts.cursor)
+    cursorCreatedAt = keyset.createdAt
+    cursorId = keyset.id
   }
 
   const rows = await auditRepo.listAuditEvents(db, {
@@ -218,8 +232,13 @@ export async function listRecentAuditEvents(
     cursorCreatedAt,
     cursorId,
   })
-  const page = rows.slice(0, limit)
-  const items: ListedAuditEvent[] = page.map((r) => {
+
+  const page = takeListPage(rows, limit, (r) => ({
+    createdAt: r.createdAt,
+    id: r.id,
+  }))
+
+  const items: ListedAuditEvent[] = page.items.map((r) => {
     let meta: Record<string, unknown> | undefined
     if (r.metaJson) {
       try {
@@ -240,9 +259,6 @@ export async function listRecentAuditEvents(
       ...(meta ? { meta } : {}),
     }
   })
-  const next =
-    rows.length > limit && page.length > 0
-      ? `${page[page.length - 1]!.createdAt}:${page[page.length - 1]!.id}`
-      : null
-  return { items, nextCursor: next }
+
+  return { items, nextCursor: page.nextCursor }
 }

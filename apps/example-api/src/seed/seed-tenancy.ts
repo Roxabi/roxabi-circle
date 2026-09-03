@@ -1,9 +1,9 @@
+import { baAccount, baMember, baOrganization, baUser } from '@kit/auth/schema'
 import { COMMENTS_MODULE_ID } from '@kit/comments'
 import { TASKS_MODULE_ID } from '@kit/tasks'
 import { hashPassword } from 'better-auth/crypto'
 import { eq } from 'drizzle-orm'
 import type { DrizzleD1Database } from 'drizzle-orm/d1'
-import { baAccount, baMember, baOrganization, baUser } from '../db/better-auth-schema'
 import type { schema } from '../db/schema'
 import * as platformModulesRepo from '../repos/platform-modules'
 import * as platformRolesRepo from '../repos/platform-roles'
@@ -12,8 +12,10 @@ import * as platformModulesService from '../services/platform-modules'
 import * as tasksService from '../services/tasks'
 import { TENANCY_ORGS, TENANCY_PERSONAS } from './tenancy-data'
 
-/** Platform-available + org_acme-enabled for dogfood (ADR-0007). Leave `demo` admin-gated. */
+/** Platform-available dogfood. tasks+comments: org_acme only (ADR-0007). demo: org_acme + org_team. */
 const ACME_DOGFOOD_MODULES = new Set<string>([TASKS_MODULE_ID, COMMENTS_MODULE_ID])
+const PLATFORM_AVAILABLE_MODULES = new Set<string>([...ACME_DOGFOOD_MODULES, 'demo'])
+const DEMO_ENABLED_ORGS = new Set(['org_acme', 'org_team'])
 
 type Db = DrizzleD1Database<typeof schema>
 
@@ -66,6 +68,7 @@ export async function seedTenancyDemo(
         id: `acc_${p.id}`,
         accountId: p.id,
         providerId: 'credential',
+        issuer: 'local:credential',
         userId: p.id,
         password: passwordHash,
         createdAt: now,
@@ -118,8 +121,8 @@ export async function seedTenancyDemo(
     await orgRolesService.ensureSystemRoles(db, o.id)
   }
 
-  // Dogfood: tasks/comments available on platform + enabled on org_acme only
-  for (const moduleId of ACME_DOGFOOD_MODULES) {
+  // Dogfood: platform-available set; tasks/comments on org_acme; demo on org_acme + org_team
+  for (const moduleId of PLATFORM_AVAILABLE_MODULES) {
     await platformModulesRepo.upsertPlatformModule(db, {
       moduleId,
       available: true,
@@ -131,7 +134,10 @@ export async function seedTenancyDemo(
   for (const o of TENANCY_ORGS) {
     for (const mod of platform) {
       const enabled =
-        o.id === 'org_acme' && ACME_DOGFOOD_MODULES.has(mod.moduleId) && Boolean(mod.available)
+        Boolean(mod.available) &&
+        (mod.moduleId === 'demo'
+          ? DEMO_ENABLED_ORGS.has(o.id)
+          : o.id === 'org_acme' && ACME_DOGFOOD_MODULES.has(mod.moduleId))
       await platformModulesRepo.upsertOrgModule(db, {
         organizationId: o.id,
         moduleId: mod.moduleId,

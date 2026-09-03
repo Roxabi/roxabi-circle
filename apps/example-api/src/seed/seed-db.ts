@@ -6,10 +6,10 @@
  *   with `better-auth/crypto` `hashPassword` (scrypt). Do not mix KDFs across tables.
  */
 import { hashPassword } from '@kit/auth'
+import { baAccount, baUser } from '@kit/auth/schema'
 import { hashPassword as baHashPassword } from 'better-auth/crypto'
 import { eq } from 'drizzle-orm'
 import type { DrizzleD1Database } from 'drizzle-orm/d1'
-import { baAccount, baUser } from '../db/better-auth-schema'
 import { apiKeys, demoItems, demoNotes, demoUsers, type schema } from '../db/schema'
 import * as modulesRepo from '../repos/modules'
 import * as platformRolesRepo from '../repos/platform-roles'
@@ -69,6 +69,7 @@ export async function seedBaDemoUsers(
       id: `acc_${u.id}`,
       accountId: u.id,
       providerId: 'credential',
+      issuer: 'local:credential',
       userId: u.id,
       password: passwordHash,
       createdAt: now,
@@ -195,15 +196,8 @@ export async function seedDemoDatabase(
   await modulesService.ensureKitModules(db)
   // ADR-0003 dual-level catalogue (migrated from kit_modules via SQL + ensure)
   await platformModulesService.ensurePlatformModules(db)
-  const modulesAfter = await modulesService.getModulesState(db)
-  const modules = Object.entries(modulesAfter).map(([id, state]) => ({
-    id,
-    enabled: state.enabled,
-    configured: state.configured,
-    created: !beforeIds.has(id),
-  }))
 
-  // Multi-tenant BA personas/orgs (dev|test only)
+  // Multi-tenant BA personas/orgs (dev|test only) — may flip platform.available (N0 demo)
   let tenancy: TenancySeedResult | undefined
   try {
     tenancy = await seedTenancyDemo(db, { environment: opts?.environment ?? 'test' })
@@ -211,6 +205,14 @@ export async function seedDemoDatabase(
     // Pre-migration or incomplete BA schema — skip tenancy seed
     tenancy = undefined
   }
+
+  const modulesAfter = await modulesService.getModulesState(db)
+  const modules = Object.entries(modulesAfter).map(([id, state]) => ({
+    id,
+    enabled: state.enabled,
+    configured: state.configured,
+    created: !beforeIds.has(id),
+  }))
 
   return { reset, users, notes, items, modules, tenancy }
 }

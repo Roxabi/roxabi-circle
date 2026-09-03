@@ -24,6 +24,8 @@ export type Env = WorkerStringEnv & {
   EMAIL?: SendEmailBinding
   /** Optional demo queue binding (wrangler queues) — absent locally is ok. */
   DEMO_QUEUE?: Queue
+  /** Wrangler [[workflows]] binding. Instance names are account-scoped / env-distinct. */
+  FLOW_RUN: Workflow<{ runId: string; orgId: string }>
 }
 
 export {

@@ -3,10 +3,8 @@ import {
   createBetterAuthSessionPort,
   generateApiKey,
   hashApiKey,
-  sessionCookieName,
   verifyApiKey,
 } from '@kit/auth'
-import type { Env } from '../env'
 
 // re-export crypto helpers used by tests
 export { hashApiKey, verifyApiKey }
@@ -28,10 +26,6 @@ type Db = DrizzleD1Database<typeof schema>
 
 export type { KitRole }
 export { roleForSubject }
-
-export function cookieNameFromEnv(env: Env): string {
-  return sessionCookieName({ name: env.SESSION_COOKIE_NAME })
-}
 
 export async function mintApiKey(
   db: Db,

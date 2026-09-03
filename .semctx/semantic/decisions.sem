@@ -1,6 +1,31 @@
-# Decisions — recorded choices (why the system is shaped as it is).
-#
-# Example syntax (commented out; never part of the active model):
-#   decision decision.<project>.<slug>
-#     statement: <choice and rationale>
-#     status: declared
+# Kit Plane B — ids decision.kit.* only.
+
+
+decision decision.kit.packages-compose-apps
+  statement: Primary axis is packages compose apps (ADR-0001). Product domain stays out of packages/*; example-* proves composition synthetically.
+  status: declared
+  provenance: author
+  serves: goal.kit.capability-kernel
+  justifies: invariant.kit.product-domain-never-packages
+  link: file:docs/kit/architecture/adr/0001-primary-axis-packages-compose-apps.md
+  tag: kit
+
+decision decision.kit.flows-authority-split
+  statement: Authority is grants ∩ permits ∩ registry at check/snapshot time (ADR-0005 D4). The runner sees only an immutable RunnerView.
+  status: declared
+  provenance: author
+  serves: goal.kit.tenant-isolation
+  justifies: invariant.kit.grants-are-sole-max-power
+  justifies: invariant.kit.runner-executes-snapshot-only
+  justifies: invariant.kit.default-deny-ambient-authority
+  link: file:docs/kit/architecture/adr/0005-flows-platform-agentic-workflows.md
+  tag: kit
+  tag: security
+
+decision decision.kit.namespace-polarity
+  statement: Ownership is path-encoded (ADR-0009) — {config,scripts,docs}/kit vs */product. Dual-edit base is config/product/inheritance.json, never upstream/main.
+  status: declared
+  provenance: author
+  serves: goal.kit.extractible-compose
+  link: file:docs/kit/architecture/adr/0009-kit-namespace-polarity-inheritance-marker.md
+  tag: kit

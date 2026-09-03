@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>#30 CF Workflows adapter — data flow</title>
+  <style>
+    :root { color-scheme: dark; --bg:#0b0f14; --card:#141a22; --line:#3d8bfd; --text:#e7ecf3; --muted:#8b98a8; --ok:#3ecf8e; --warn:#e6b84d; }
+    * { box-sizing: border-box; }
+    body { margin:0; font:14px/1.45 system-ui,sans-serif; background:var(--bg); color:var(--text); padding:2rem; }
+    h1 { font-size:1.15rem; margin:0 0 1.5rem; }
+    .row { display:flex; flex-wrap:wrap; gap:1rem; align-items:stretch; justify-content:center; }
+    .node { background:var(--card); border:1px solid #243041; border-radius:12px; padding:1rem 1.25rem; min-width:150px; max-width:230px; box-shadow:0 0 24px rgba(61,139,253,.12); }
+    .node.hub { border-color:var(--line); box-shadow:0 0 28px rgba(61,139,253,.35); }
+    .node.kit { border-color:var(--ok); }
+    .node h2 { margin:0 0 .35rem; font-size:.85rem; color:var(--line); }
+    .node.kit h2 { color:var(--ok); }
+    .node p { margin:0; font-size:.78rem; color:var(--muted); }
+    .arrow { display:flex; align-items:center; color:var(--line); font-size:1.4rem; opacity:.85; }
+    .legend { margin-top:2rem; color:var(--muted); font-size:.8rem; }
+    code { color:var(--ok); }
+  </style>
+</head>
+<body>
+  <h1>#30 — interpret snapshot → receipts (CF complete ≠ success)</h1>
+  <div class="row">
+    <div class="node"><h2>Insert queued</h2><p>snapshot_json only<br/>no grantAudit · no HTTP</p></div>
+    <div class="arrow">→</div>
+    <div class="node"><h2>FLOW_RUN.create</h2><p><code>{ id, params: {runId, orgId} }</code><br/>.strict() — no snapshot</p></div>
+    <div class="arrow">→</div>
+    <div class="node hub"><h2>driveFlowRun</h2><p>claim CAS queued→running<br/>rehydrate each wave</p></div>
+  </div>
+  <div class="row" style="margin-top:1.5rem">
+    <div class="node kit"><h2>parseRunnerView</h2><p>drop raw · org match<br/>fail → empty bundle</p></div>
+    <div class="arrow">→</div>
+    <div class="node kit hub"><h2>interpretRun</h2><p>ready[] · cascade skip<br/>succeeded = all ok</p></div>
+    <div class="arrow">→</div>
+    <div class="node"><h2>step.do sequential</h2><p>invoke:id · infer:id<br/>catch inside · retries 0</p></div>
+    <div class="arrow">→</div>
+    <div class="node kit"><h2>parseReceipts</h2><p>persist in step.do<br/>readRunRollup for #31</p></div>
+  </div>
+  <div class="row" style="margin-top:1.5rem">
+    <div class="node"><h2>D1 rollup</h2><p>queued · running<br/>succeeded · failed</p></div>
+    <div class="arrow">≠</div>
+    <div class="node"><h2>CF InstanceStatus</h2><p>complete / errored<br/>never copied</p></div>
+    <div class="arrow">≠</div>
+    <div class="node"><h2>task receipts</h2><p>ok · skip · fail<br/>waiting typed, 0 producer</p></div>
+  </div>
+  <p class="legend">Kit (green) stays binding-free. App owns WorkflowEntrypoint + ports. Persist failure → instance errored, not complete.</p>
+</body>
+</html>

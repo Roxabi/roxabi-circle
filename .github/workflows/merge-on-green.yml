@@ -5,7 +5,7 @@
 # Align product consumers (narrow triggers — avoid Actions minute spam).
 #
 # Triggers (volontairement étroits) :
-#   - label `reviewed` sur une PR vers staging|main
+#   - label `reviewed` sur une PR vers main (kit HEAD) ou staging|main (product consumers)
 #   - fin de CI / Secret scan (ré-évalue les PR reviewed ouvertes)
 #   - workflow_dispatch (secours)
 # Pas de : synchronize, reopened, closed, check_suite (trop bruyants).
@@ -23,12 +23,13 @@
 #   - Merge: GitHub App **kit-ci** → ephemeral token
 #       vars.CI_APP_ID
 #       secrets.CI_APP_PRIVATE_KEY
-#     Setup: docs/kit-ci-app-setup.md
+#     Setup: docs/kit/ci-app-setup.md
 #
-# Gating workflows: Secret scan + CI (job name validate-full).
-# Semctx est dans les triggers mais PAS dans les required checks : il ne peut pas
-# débloquer un merge à lui seul, il évite juste qu'une PR reste coincée s'il termine
-# après CI/Secret scan (l'évaluation skippe sur `pending`).
+# Gating workflows: Secret scan + CI (job name `ci`; alias `validate-full` for in-flight PRs)
+# + `semctx-working-empty` (PR tree of `.semctx/working/` = `.gitkeep` only).
+# Semctx (verify diff) is in the triggers but NOT in the required checks: it cannot
+# unblock a merge by itself; it only avoids a PR getting stuck if it finishes after
+# CI/Secret scan (evaluation skips on `pending`).
 name: Merge on Green
 
 on:
@@ -64,7 +65,7 @@ jobs:
       # Gate auto-merge on **non-secret var only**.
       # Do NOT put secrets in `if:` — GitHub treats them unreliably there.
       # Flag: vars.CI_APP_ID set → try mint + merge.
-      # Setup: docs/kit-ci-app-setup.md
+      # Setup: docs/kit/ci-app-setup.md
       - name: Resolve kit-ci availability
         id: cfg
         env:
@@ -75,7 +76,7 @@ jobs:
             echo "kit-ci: App ID present → auto-merge enabled"
           else
             echo "enabled=false" >> "$GITHUB_OUTPUT"
-            echo "::notice title=kit-ci not configured::Auto-merge OFF (evaluate-only). Human merge + quality CI still work. Install App + set org var CI_APP_ID and secret CI_APP_PRIVATE_KEY — docs/kit-ci-app-setup.md"
+            echo "::notice title=kit-ci not configured::Auto-merge OFF (evaluate-only). Human merge + quality CI still work. Install App + set org var CI_APP_ID and secret CI_APP_PRIVATE_KEY — docs/kit/ci-app-setup.md"
             echo "::warning title=Manual merge required::Label reviewed will NOT auto-merge until kit-ci is set up."
           fi
 
@@ -148,16 +149,20 @@ jobs:
                 core.info(`${tag}: no check runs on head — skip (fail-closed).`);
                 continue;
               }
-              // Require secret-scan AND quality CI job name `validate-full`.
+              // Require secret-scan AND quality CI job name `ci` (alias validate-full for in-flight PRs)
+              // AND semctx-working-empty (PR attestation: .semctx/working/ = .gitkeep only).
               const hasSecret = others.some((r) =>
                 /TruffleHog|Secret scan/i.test(r.name || ''),
               );
               const hasCi = others.some((r) =>
-                /validate-full|lint-typecheck-test/i.test(r.name || ''),
+                /^(ci|validate-full|lint-typecheck-test)$/i.test(r.name || ''),
               );
-              if (!hasSecret || !hasCi) {
+              const hasWorking = others.some((r) =>
+                /^(semctx-working-empty)$/i.test(r.name || ''),
+              );
+              if (!hasSecret || !hasCi || !hasWorking) {
                 core.info(
-                  `${tag}: missing required checks (secret=${hasSecret}, ci=${hasCi}) — skip.`,
+                  `${tag}: missing required checks (secret=${hasSecret}, ci=${hasCi}, working=${hasWorking}) — skip.`,
                 );
                 continue;
               }
@@ -227,7 +232,7 @@ jobs:
               echo "- **kit-ci:** configured (auto-merge ON)"
             else
               echo "- **kit-ci:** **not configured** (auto-merge OFF — manual merge)"
-              echo "- Setup: \`docs/kit-ci-app-setup.md\`"
+              echo "- Setup: \`docs/kit/ci-app-setup.md\`"
             fi
             echo "- Candidates: \`${TO_MERGE:-[]}\`"
           } >> "$GITHUB_STEP_SUMMARY"

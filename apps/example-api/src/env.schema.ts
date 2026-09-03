@@ -4,21 +4,22 @@
  * Bindings (DB, BUCKET) are Cloudflare resources — not in .dev.vars.
  * String keys must be documented in apps/example-api/.dev.vars.example.
  *
- * Runtime still uses fail-closed helpers (getSecret, etc.).
+ * Live session secret is BETTER_AUTH_SECRET (getBetterAuthSecret).
+ * SESSION_SECRET / getSessionSecret is HMAC leftover — not on the BA path.
  * Inventory + env:check must use this module, not a freehand Env type.
  */
 import { z } from 'zod'
 
-/** D1 / R2 / Email / Queues / future resource bindings — wrangler only, never .dev.vars. */
-export const WORKER_BINDINGS = ['DB', 'BUCKET', 'EMAIL', 'DEMO_QUEUE'] as const
+/** D1 / R2 / Email / Queues / Workflows — wrangler only, never .dev.vars. */
+export const WORKER_BINDINGS = ['DB', 'BUCKET', 'EMAIL', 'DEMO_QUEUE', 'FLOW_RUN'] as const
 export type WorkerBindingName = (typeof WORKER_BINDINGS)[number]
 
 /**
  * Secrets + plain vars available on `c.env` as strings.
- * All optional at the type level; production requirements live in getSecret / deploy.
+ * All optional at the type level; production requirements live in getBetterAuthSecret / deploy.
  */
 export const workerStringEnvSchema = z.object({
-  /** Min 32 chars in prod; see getSecret(). */
+  /** HMAC leftover; unused on the BA session path. Min 32 if still set. */
   SESSION_SECRET: z.string().optional(),
   PRESIGN_MODE: z.enum(['mock', 's3']).optional(),
   /** development | test | production | staging */
@@ -35,8 +36,9 @@ export const workerStringEnvSchema = z.object({
   /** Public app URL for Better Auth baseURL (e.g. http://localhost:8787). */
   BETTER_AUTH_URL: z.string().optional(),
   /**
-   * When `true`, Better Auth public email sign-up is enabled.
-   * Default off (disableSignUp) — seed or admin-only create for kit.
+   * When `true`, Better Auth public email sign-up is enabled
+   * (SPA `/sign-up` follows `GET /health.allowPublicSignup`).
+   * Default off (disableSignUp) — seed / invite / admin-only. Product forks opt in.
    */
   ALLOW_PUBLIC_SIGNUP: z.string().optional(),
   /**

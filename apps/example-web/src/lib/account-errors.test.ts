@@ -3,8 +3,10 @@ import { en } from '../messages/en'
 import {
   changePasswordErrorMessage,
   isRateLimited,
+  isServerError,
   loginErrorMessage,
   profileErrorMessage,
+  signupErrorMessage,
 } from './account-errors'
 import { ApiError } from './api'
 
@@ -24,6 +26,36 @@ describe('isRateLimited', () => {
     expect(isRateLimited(new Error('HTTP 401'))).toBe(false)
     expect(isRateLimited(apiErr(401, 'UNAUTHORIZED'))).toBe(false)
     expect(isRateLimited(new Error('nope'))).toBe(false)
+  })
+})
+
+describe('isServerError', () => {
+  it('detects empty-body Error(HTTP 500) as server error (walk fixture)', () => {
+    expect(isServerError(new Error('HTTP 500'))).toBe(true)
+  })
+
+  it('detects kit ApiError 500 / INTERNAL_ERROR', () => {
+    expect(
+      isServerError(
+        new ApiError(500, {
+          error: { code: 'INTERNAL_ERROR', message: 'x' },
+          requestId: 'r',
+        }),
+      ),
+    ).toBe(true)
+  })
+
+  it('does not treat 429 or 400 as server error', () => {
+    expect(isServerError(new Error('HTTP 429'))).toBe(false)
+    expect(isServerError(new Error('HTTP 400'))).toBe(false)
+  })
+
+  it('treats status-less failures as fail-closed server error', () => {
+    expect(isServerError(new Error('network down'))).toBe(true)
+  })
+
+  it('is false for null', () => {
+    expect(isServerError(null)).toBe(false)
   })
 })
 
@@ -76,6 +108,12 @@ describe('profileErrorMessage', () => {
     expect(profileErrorMessage(apiErr(429, 'RATE_LIMITED'), en)).toBe(en.errRateLimited)
     expect(profileErrorMessage(new Error('HTTP 429'), en)).toBe(en.errRateLimited)
   })
+
+  it('maps empty-body HTTP 500 and status-less failures to catalog internal copy', () => {
+    expect(profileErrorMessage(new Error('HTTP 500'), en)).toBe(en.errInternal)
+    expect(profileErrorMessage(new Error('network down'), en)).toBe(en.errInternal)
+    expect(profileErrorMessage(apiErr(500, 'INTERNAL_ERROR'), en)).toBe(en.errInternal)
+  })
 })
 
 describe('loginErrorMessage', () => {
@@ -110,5 +148,31 @@ describe('loginErrorMessage', () => {
       expect(msg).not.toBe(en.changePasswordReauth)
       expect(msg).not.toBe(en.errUnauthorized)
     }
+  })
+})
+
+describe('signupErrorMessage', () => {
+  it('collapses 400/401/409/422 to the same signUpFailed copy', () => {
+    expect(signupErrorMessage(apiErr(400, 'VALIDATION_ERROR'), en)).toBe(en.signUpFailed)
+    expect(signupErrorMessage(new Error('HTTP 400'), en)).toBe(en.signUpFailed)
+    expect(signupErrorMessage(apiErr(409, 'CONFLICT'), en)).toBe(en.signUpFailed)
+    expect(signupErrorMessage(new Error('HTTP 409'), en)).toBe(en.signUpFailed)
+    expect(signupErrorMessage(apiErr(422, 'VALIDATION_ERROR'), en)).toBe(en.signUpFailed)
+    expect(signupErrorMessage(new Error('HTTP 422'), en)).toBe(en.signUpFailed)
+    expect(signupErrorMessage(apiErr(401, 'UNAUTHORIZED'), en)).toBe(en.signUpFailed)
+  })
+
+  it('maps 403 → signUpDisabled and 429 → rate limited', () => {
+    expect(signupErrorMessage(apiErr(403, 'FORBIDDEN'), en)).toBe(en.signUpDisabled)
+    expect(signupErrorMessage(new Error('HTTP 403'), en)).toBe(en.signUpDisabled)
+    expect(signupErrorMessage(apiErr(429, 'RATE_LIMITED'), en)).toBe(en.errRateLimited)
+    expect(signupErrorMessage(new Error('HTTP 429'), en)).toBe(en.errRateLimited)
+  })
+
+  it('never uses login or change-password copy', () => {
+    const msg = signupErrorMessage(apiErr(400, 'VALIDATION_ERROR'), en)
+    expect(msg).not.toBe(en.loginFailed)
+    expect(msg).not.toBe(en.changePasswordWrong)
+    expect(msg).not.toBe(en.errUnauthorized)
   })
 })

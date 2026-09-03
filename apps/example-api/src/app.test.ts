@@ -4,11 +4,13 @@ import { describe, expect, it } from 'vitest'
 import { createApp } from './app'
 import { schema } from './db/schema'
 import { assertRateLimit } from './lib/rate-limit'
-import { getSecret, useSecureCookie } from './lib/session-env'
+import { useSecureCookie } from './lib/session-env'
 import { DEMO_EMAIL, DEMO_EMAIL_B, DEMO_PASSWORD, DEMO_PASSWORD_B } from './services/auth'
 import { createMemoryEnv } from './test/memory-env'
 
 const ORIGIN = 'http://localhost:5173'
+/** Non-loopback SPA origin for staging/production env tests. */
+const SPA_ORIGIN = 'https://app.example.com'
 
 /** Cookie-authenticated mutation headers (Origin required by originGuard). */
 function sessionMutation(cookie: string): Record<string, string> {
@@ -54,10 +56,12 @@ describe('createApp shipped entry — health & errors', () => {
       ok: boolean
       requestId: string
       environment: string
+      allowPublicSignup?: boolean
       demoLogin?: { email: string; password: string; role: string }
     }
     expect(body.ok).toBe(true)
     expect(body.environment).toBe('test')
+    expect(body.allowPublicSignup).toBe(false)
     expect(body.demoLogin).toEqual({
       email: 'staff@kit.local',
       password: 'demo-password-change-me',
@@ -73,6 +77,7 @@ describe('createApp shipped entry — health & errors', () => {
     const staging = createMemoryEnv({
       ENVIRONMENT: 'staging',
       SESSION_SECRET: 'staging-session-secret-at-least-32ch!',
+      CORS_ORIGINS: SPA_ORIGIN,
     })
     const stagingRes = await app.request('/health', {}, staging)
     const stagingBody = (await stagingRes.json()) as {
@@ -85,6 +90,7 @@ describe('createApp shipped entry — health & errors', () => {
     const prod = createMemoryEnv({
       ENVIRONMENT: 'production',
       SESSION_SECRET: 'production-session-secret-at-least-32ch!',
+      CORS_ORIGINS: SPA_ORIGIN,
     })
     const prodRes = await app.request('/health', {}, prod)
     const prodBody = (await prodRes.json()) as {
@@ -472,8 +478,28 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
 
   it('cookie mutations require trusted Origin', async () => {
     const app = createApp()
-    const env = createMemoryEnv()
-    const cookie = await loginAs(app, env, DEMO_EMAIL, DEMO_PASSWORD)
+    const env = createMemoryEnv({
+      ENVIRONMENT: 'staging',
+      CORS_ORIGINS: SPA_ORIGIN,
+    })
+    const db = createDb(env.DB as unknown as D1Database, schema)
+    const { seedDemoDatabase } = await import('./seed/seed-db')
+    await seedDemoDatabase(db, { notes: false, environment: 'test' })
+    const login = await app.request(
+      '/api/auth/sign-in/email',
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', Origin: SPA_ORIGIN },
+        body: JSON.stringify({ email: DEMO_EMAIL, password: DEMO_PASSWORD }),
+      },
+      env,
+    )
+    expect(login.status).toBeLessThan(400)
+    const cookie = login.headers.get('set-cookie')?.split(';')[0]
+    expect(cookie).toMatch(/^__Secure-kit_session=/)
+
+    const me = await app.request('/api/me', { headers: { cookie, Origin: SPA_ORIGIN } }, env)
+    expect(me.status).toBe(200)
 
     const missing = await app.request(
       '/api/keys',
@@ -485,6 +511,9 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
       env,
     )
     expect(missing.status).toBe(403)
+    const missingBody = (await missing.json()) as { error: { code: string; message: string } }
+    expect(missingBody.error.code).toBe('FORBIDDEN')
+    expect(missingBody.error.message).toMatch(/Origin required/)
 
     const evil = await app.request(
       '/api/keys',
@@ -507,6 +536,7 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     const env = createMemoryEnv({
       ENVIRONMENT: 'production',
       SESSION_SECRET: 'prod-session-secret-at-least-32-chars!!',
+      CORS_ORIGINS: SPA_ORIGIN,
       BETTER_AUTH_SECRET: undefined,
     })
     delete (env as { BETTER_AUTH_SECRET?: string }).BETTER_AUTH_SECRET
@@ -522,9 +552,33 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     const env = createMemoryEnv({ ALLOW_PUBLIC_SIGNUP: 'false' })
     const health = await app.request('/health', {}, env)
     expect(health.status).toBe(200)
-    const h = (await health.json()) as { authAdapter?: string; demoLogin?: { email: string } }
+    const h = (await health.json()) as {
+      authAdapter?: string
+      allowPublicSignup?: boolean
+      demoLogin?: { email: string }
+    }
     expect(h.authAdapter).toBe('better-auth')
+    expect(h.allowPublicSignup).toBe(false)
     expect(h.demoLogin?.email).toMatch(/@kit\.local/)
+  })
+
+  it('GET /health allowPublicSignup follows ALLOW_PUBLIC_SIGNUP (default off)', async () => {
+    const app = createApp()
+    const off = await app.request('/health', {}, createMemoryEnv())
+    expect(((await off.json()) as { allowPublicSignup: boolean }).allowPublicSignup).toBe(false)
+
+    const on = await app.request(
+      '/health',
+      {},
+      createMemoryEnv({
+        ALLOW_PUBLIC_SIGNUP: 'true',
+        ENVIRONMENT: 'production',
+        CORS_ORIGINS: SPA_ORIGIN,
+      }),
+    )
+    const onBody = (await on.json()) as { allowPublicSignup: boolean; demoLogin?: unknown }
+    expect(onBody.allowPublicSignup).toBe(true)
+    expect(onBody.demoLogin).toBeUndefined()
   })
 
   it('better-auth sign-up disabled by default; dual-path works after signup when allowed', async () => {
@@ -547,7 +601,9 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
       },
       createMemoryEnv({ ...baseEnv, ALLOW_PUBLIC_SIGNUP: 'false' }),
     )
-    expect(denied.status).toBeGreaterThanOrEqual(400)
+    expect(denied.status).toBe(403)
+    const deniedBody = (await denied.json()) as { error?: { code?: string } }
+    expect(deniedBody.error?.code).toBe('FORBIDDEN')
 
     // Sign-up allowed — exercise BA handler + session cookie + dual-path sk_
     const env = createMemoryEnv({ ...baseEnv, ALLOW_PUBLIC_SIGNUP: 'true' })
@@ -695,43 +751,6 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     expect(missingBody.error.code).toBe('NOT_FOUND')
   })
 
-  it('getSecret fails closed without explicit development|test', () => {
-    const base = { DB: {} as never, BUCKET: {} as never }
-    expect(() => getSecret({ ...base, ENVIRONMENT: 'production' })).toThrow(/SESSION_SECRET/)
-    expect(() => getSecret({ ...base, ENVIRONMENT: 'staging' })).toThrow(/SESSION_SECRET/)
-    expect(() => getSecret({ ...base })).toThrow(/SESSION_SECRET/)
-    expect(getSecret({ ...base, ENVIRONMENT: 'development' })).toMatch(/dev-session/)
-    expect(getSecret({ ...base, ENVIRONMENT: 'test' })).toMatch(/dev-session/)
-    expect(
-      getSecret({
-        ...base,
-        ENVIRONMENT: 'production',
-        SESSION_SECRET: 'prod-session-secret-at-least-32-chars!!',
-      }),
-    ).toBe('prod-session-secret-at-least-32-chars!!')
-  })
-
-  it('getSecret rejects short secrets and kit placeholders outside dev|test', () => {
-    const base = { DB: {} as never, BUCKET: {} as never }
-    expect(() =>
-      getSecret({ ...base, ENVIRONMENT: 'development', SESSION_SECRET: 'too-short' }),
-    ).toThrow(/at least 32/)
-    expect(() =>
-      getSecret({
-        ...base,
-        ENVIRONMENT: 'production',
-        SESSION_SECRET: 'dev-session-secret-change-me-32chars!!',
-      }),
-    ).toThrow(/placeholder/)
-    expect(
-      getSecret({
-        ...base,
-        ENVIRONMENT: 'development',
-        SESSION_SECRET: 'dev-session-secret-change-me-32chars!!',
-      }),
-    ).toBe('dev-session-secret-change-me-32chars!!')
-  })
-
   it('useSecureCookie is false only for development|test', () => {
     const base = { DB: {} as never, BUCKET: {} as never }
     expect(useSecureCookie({ ...base, ENVIRONMENT: 'development' })).toBe(false)
@@ -746,6 +765,7 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     const env = createMemoryEnv({
       ENVIRONMENT: 'staging',
       SESSION_SECRET: 'staging-session-secret-at-least-32ch!',
+      CORS_ORIGINS: SPA_ORIGIN,
     })
     const { createDb } = await import('@kit/db')
     const { schema } = await import('./db/schema')
@@ -756,7 +776,7 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
       '/api/auth/sign-in/email',
       {
         method: 'POST',
-        headers: { 'content-type': 'application/json', Origin: ORIGIN },
+        headers: { 'content-type': 'application/json', Origin: SPA_ORIGIN },
         body: JSON.stringify({ email: DEMO_EMAIL, password: DEMO_PASSWORD }),
       },
       env,
@@ -767,6 +787,8 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     expect(setCookie).toMatch(/HttpOnly/i)
     expect(setCookie).toMatch(/SameSite=Lax/i)
     expect(login.headers.get('strict-transport-security')).toMatch(/max-age/i)
+    const cookie = setCookie.split(';')[0]!
+    expect(cookie).toMatch(/^__Secure-kit_session=/)
   })
 
   it('logout via Better Auth sign-out clears session cookie', async () => {
@@ -911,12 +933,13 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
       SESSION_SECRET: 'prod-session-secret-at-least-32-chars!!',
       BETTER_AUTH_SECRET: 'prod-better-auth-secret-at-least-32chars!',
       BETTER_AUTH_URL: 'https://api.example.com',
+      CORS_ORIGINS: SPA_ORIGIN,
     })
     const login = await app.request(
       '/api/auth/sign-in/email',
       {
         method: 'POST',
-        headers: { 'content-type': 'application/json', Origin: ORIGIN },
+        headers: { 'content-type': 'application/json', Origin: SPA_ORIGIN },
         body: JSON.stringify({ email: DEMO_EMAIL, password: DEMO_PASSWORD }),
       },
       env,
@@ -973,6 +996,20 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     expect(body.error.code).toBe('VALIDATION_ERROR')
   })
 
+  it('GET /health in production requires CORS_ORIGINS', async () => {
+    const app = createApp()
+    const env = createMemoryEnv({
+      ENVIRONMENT: 'production',
+      SESSION_SECRET: 'prod-session-secret-at-least-32-chars!!',
+      BETTER_AUTH_SECRET: 'prod-better-auth-secret-at-least-32chars!',
+      BETTER_AUTH_URL: 'https://api.example.com',
+    })
+    const res = await app.request('/health', {}, env)
+    expect(res.status).toBe(500)
+    const body = (await res.json()) as { error?: { code?: string } }
+    expect(body.error?.code).toMatch(/INTERNAL/)
+  })
+
   it('CORS rejects unknown Origin (no reflect)', async () => {
     const app = createApp()
     const env = createMemoryEnv()
@@ -988,13 +1025,13 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     expect(res.status).toBe(200)
     const acao = res.headers.get('access-control-allow-origin')
     expect(acao).not.toBe('https://evil.example')
-    expect(acao === null || acao === '' || acao === 'null').toBe(true)
+    expect(acao).toBeNull()
 
     const ok = await app.request('/health', { headers: { Origin: 'http://localhost:5173' } }, env)
     expect(ok.headers.get('access-control-allow-origin')).toBe('http://localhost:5173')
   })
 
-  it('GET /api/modules returns demo disabled by default (configured without remote)', async () => {
+  it('GET /api/modules returns demo enabled after dogfood seed (configured without remote)', async () => {
     const app = createApp()
     const env = createMemoryEnv()
     const cookie = await loginAs(app, env, DEMO_EMAIL, DEMO_PASSWORD)
@@ -1003,8 +1040,9 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     const body = (await res.json()) as {
       modules: { demo: { enabled: boolean; configured: boolean; configPath: string } }
     }
+    // /api/modules.enabled ← platform.available; N0 seed makes demo available.
     expect(body.modules.demo).toMatchObject({
-      enabled: false,
+      enabled: true,
       configured: true,
       configPath: '/admin/modules',
     })
