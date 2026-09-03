@@ -3,14 +3,17 @@ DISCORD_BOT_TOKEN=
 DISCORD_APPLICATION_ID=
 DISCORD_GUILD_ID=
 DISCORD_MEMBER_ROLE_ID=
-GITHUB_CLIENT_ID=
-GITHUB_CLIENT_SECRET=
+# Not wired yet — GitHub OAuth is a 501 stub, nothing reads these. Deleted from the
+# deployed Worker on 2026-09-03; set them again when the OAuth route lands.
+# GITHUB_CLIENT_ID=
+# GITHUB_CLIENT_SECRET=
+# SESSION_SECRET=
 # Optional PAT (public read-only) for the daily GitHub digest.
 # Unset = anonymous api.github.com = 60 req/h per egress IP; one run costs ~48
 # (~39 repo metadata + readme of the survivors), so a shared CF IP can starve it.
 # Starved runs now fail loudly (`github_rate_limited`) instead of skipping quietly.
 GITHUB_TOKEN=
-SESSION_SECRET=change-me-to-a-long-random-string
+
 DISCORD_APPEAL_CATEGORY_ID=
 # #github-to-watch channel id (Gateway enforces 1 GitHub link top-level)
 DISCORD_GITHUB_WATCH_CHANNEL_ID=
