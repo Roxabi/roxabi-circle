@@ -1,0 +1,175 @@
+/**
+ * Dispatch routing: which Gateway events reach the @Lyra webhook, and which never do.
+ *
+ * The webhook is the one path that hands guild traffic to an external brain, so the
+ * boundary between it and the deterministic automations (temp voice, channel rules)
+ * is a security-relevant invariant, not a detail.
+ */
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { handleGatewayDispatch } from '../src/discord/gateway-handlers'
+import type { Env } from '../src/types'
+
+const GUILD = '1000000000000000001'
+const WATCH = '1534225938185978117'
+const NEWS = '1000000000000000003'
+const DIGEST = '1534243223625793626'
+const MEMBER_ROLE = '1000000000000000004'
+const HOOK = 'https://grok.example/hook'
+
+function env(): Env {
+  return {
+    DISCORD_BOT_TOKEN: 'bot-token',
+    DISCORD_GUILD_ID: GUILD,
+    DISCORD_MEMBER_ROLE_ID: MEMBER_ROLE,
+    DISCORD_GITHUB_WATCH_CHANNEL_ID: WATCH,
+    DISCORD_NEWS_ACTU_CHANNEL_ID: NEWS,
+    DISCORD_DAILY_DIGEST_CHANNEL_ID: DIGEST,
+    LYRA_GROK_WEBHOOK_URL: HOOK,
+    LYRA_GROK_WEBHOOK_SECRET: 'crsr_test',
+  } as unknown as Env
+}
+
+function memoryStorage() {
+  const map = new Map<string, unknown>()
+  return {
+    get: async <T>(key: string) => map.get(key) as T | undefined,
+    put: async (key: string, value: unknown) => {
+      map.set(key, value)
+    },
+  } as unknown as DurableObjectStorage
+}
+
+function ctx(pending: Promise<unknown>[]) {
+  let botUserId: string | null = 'bot-1'
+  let session = { seq: 0 } as never
+  return {
+    env: env(),
+    storage: memoryStorage(),
+    getBotUserId: () => botUserId,
+    setBotUserId: (id: string | null) => {
+      botUserId = id
+    },
+    getSession: () => session,
+    setSession: (s: never) => {
+      session = s
+    },
+    saveSession: async () => {},
+    enqueueVoice: async (fn: () => Promise<void>) => fn(),
+    waitUntil: (p: Promise<unknown>) => pending.push(p),
+  }
+}
+
+function message(channelId: string, content: string) {
+  return {
+    id: 'msg-1',
+    channel_id: channelId,
+    guild_id: GUILD,
+    content,
+    author: { id: 'human-1', username: 'membre', bot: false },
+    member: { roles: [MEMBER_ROLE] },
+    mentions: [{ id: '1534228521420067046' }],
+  }
+}
+
+type OutboundCall = { method: string; url: string }
+
+type CallRecorder = {
+  impl: typeof fetch
+  calls: OutboundCall[]
+  webhookPosts: () => OutboundCall[]
+  deletes: () => OutboundCall[]
+}
+
+/** Records every outbound call so we can separate Discord REST from the Grok webhook. */
+function recorder(): CallRecorder {
+  const calls: OutboundCall[] = []
+  const impl = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = typeof input === 'string' ? input : input.toString()
+    calls.push({ method: init?.method ?? 'GET', url })
+    return new Response(JSON.stringify({ id: 'created-1' }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    })
+  })
+  return {
+    impl: impl as unknown as typeof fetch,
+    calls,
+    webhookPosts: () => calls.filter((c) => c.url === HOOK),
+    deletes: () => calls.filter((c) => c.method === 'DELETE'),
+  }
+}
+
+describe('handleGatewayDispatch — webhook boundary', () => {
+  let rec: CallRecorder
+
+  beforeEach(() => {
+    rec = recorder()
+    vi.stubGlobal('fetch', rec.impl)
+  })
+
+  it('never forwards voice events to the webhook', async () => {
+    const pending: Promise<unknown>[] = []
+    await handleGatewayDispatch(ctx(pending) as never, {
+      t: 'VOICE_STATE_UPDATE',
+      d: {
+        guild_id: GUILD,
+        channel_id: '1000000000000000009',
+        user_id: 'human-1',
+        session_id: 's',
+      },
+    })
+    await Promise.all(pending)
+    expect(rec.webhookPosts()).toHaveLength(0)
+  })
+
+  it('never forwards READY or RESUMED to the webhook', async () => {
+    const pending: Promise<unknown>[] = []
+    const c = ctx(pending)
+    await handleGatewayDispatch(c as never, {
+      t: 'READY',
+      d: { user: { id: 'bot-1' }, session_id: 'sess-1' },
+    })
+    await handleGatewayDispatch(c as never, { t: 'RESUMED', d: {} })
+    await Promise.all(pending)
+    expect(rec.webhookPosts()).toHaveLength(0)
+  })
+
+  it('forwards a mention posted in an unmoderated channel', async () => {
+    const pending: Promise<unknown>[] = []
+    await handleGatewayDispatch(ctx(pending) as never, {
+      t: 'MESSAGE_CREATE',
+      d: message('1000000000000000099', '<@1534228521420067046> ton avis ?'),
+    })
+    await Promise.all(pending)
+    expect(rec.webhookPosts()).toHaveLength(1)
+    expect(rec.deletes()).toHaveLength(0)
+  })
+
+  it('does not forward a mention the channel rule deletes', async () => {
+    vi.useFakeTimers()
+    const pending: Promise<unknown>[] = []
+    const run = handleGatewayDispatch(ctx(pending) as never, {
+      t: 'MESSAGE_CREATE',
+      d: message(WATCH, '<@1534228521420067046> tu en penses quoi ?'),
+    })
+    await vi.advanceTimersByTimeAsync(13_000)
+    await run
+    await Promise.all(pending)
+    vi.useRealTimers()
+
+    // The rule wins: the message is deleted and Lyra is never handed a ghost.
+    expect(rec.deletes().length).toBeGreaterThan(0)
+    expect(rec.webhookPosts()).toHaveLength(0)
+  })
+
+  it('still forwards a mention that satisfies the channel rule', async () => {
+    const pending: Promise<unknown>[] = []
+    await handleGatewayDispatch(ctx(pending) as never, {
+      t: 'MESSAGE_CREATE',
+      d: message(WATCH, 'https://github.com/Roxabi/roxabi-circle <@1534228521420067046>'),
+    })
+    await Promise.all(pending)
+    expect(rec.webhookPosts()).toHaveLength(1)
+    expect(rec.deletes()).toHaveLength(0)
+  })
+})

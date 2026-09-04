@@ -4,11 +4,16 @@
  */
 
 import type { Env } from '../types'
-import { enforceDailyDigest, planDailyDigestMessage } from './daily-digest'
+import { type DailyDigestAction, enforceDailyDigest, planDailyDigestMessage } from './daily-digest'
 import { applyReady, applyResumed, type GatewaySessionState } from './gateway-session'
-import { enforceGithubWatch, type GatewayMessage, planGithubWatchMessage } from './github-watch'
+import {
+  enforceGithubWatch,
+  type GatewayMessage,
+  type GithubWatchAction,
+  planGithubWatchMessage,
+} from './github-watch'
 import { rememberGuildPrivilege, scheduleLyraMentionForward } from './lyra-mention'
-import { enforceNewsActu, planNewsActuMessage } from './news-actu'
+import { enforceNewsActu, type NewsActuAction, planNewsActuMessage } from './news-actu'
 import {
   emptyTempVoiceStore,
   hydrateOccupancyFromVoiceStates,
@@ -122,20 +127,35 @@ export async function handleGatewayDispatch(
 
   if (t !== 'MESSAGE_CREATE') return
   const msg = packet.d as GatewayMessage
-  scheduleLyraMentionForward(
-    {
-      webhookUrl: ctx.env.LYRA_GROK_WEBHOOK_URL,
-      webhookSecret: ctx.env.LYRA_GROK_WEBHOOK_SECRET,
-      memberRoleId: ctx.env.DISCORD_MEMBER_ROLE_ID,
-      configuredGuildId: ctx.env.DISCORD_GUILD_ID,
-      storage: ctx.storage,
-      waitUntil: ctx.waitUntil,
-    },
-    msg,
-  )
-  await onGithubWatchMessage(ctx, msg)
-  await onNewsActuMessage(ctx, msg)
-  await onDailyDigestMessage(ctx, msg)
+  const botId = ctx.getBotUserId() ?? undefined
+  const watchId = ctx.env.DISCORD_GITHUB_WATCH_CHANNEL_ID
+  const newsId = ctx.env.DISCORD_NEWS_ACTU_CHANNEL_ID
+  const digestId = ctx.env.DISCORD_DAILY_DIGEST_CHANNEL_ID
+  const watch = watchId ? planGithubWatchMessage(msg, watchId, botId) : null
+  const news = newsId ? planNewsActuMessage(msg, newsId, botId) : null
+  const digest = digestId ? planDailyDigestMessage(msg, digestId, botId) : null
+
+  // A rejected top-level message is about to be deleted. Forwarding it would hand Lyra
+  // a ghost to answer, and her reply is bot-authored — exempt from the same channel
+  // rule — so it would land as prose in a channel the rule keeps link-only.
+  const rejected = watch?.type === 'reject' || news?.type === 'reject' || digest?.type === 'reject'
+  if (!rejected) {
+    scheduleLyraMentionForward(
+      {
+        webhookUrl: ctx.env.LYRA_GROK_WEBHOOK_URL,
+        webhookSecret: ctx.env.LYRA_GROK_WEBHOOK_SECRET,
+        memberRoleId: ctx.env.DISCORD_MEMBER_ROLE_ID,
+        configuredGuildId: ctx.env.DISCORD_GUILD_ID,
+        storage: ctx.storage,
+        waitUntil: ctx.waitUntil,
+      },
+      msg,
+    )
+  }
+
+  if (watch) await onGithubWatchMessage(ctx, msg, watch)
+  if (news) await onNewsActuMessage(ctx, msg, news)
+  if (digest) await onDailyDigestMessage(ctx, msg, digest)
 }
 
 async function onGuildCreate(ctx: GatewayDispatchCtx, d: unknown): Promise<void> {
@@ -205,11 +225,11 @@ async function onVoiceStateUpdate(ctx: GatewayDispatchCtx, vs: VoiceStateUpdate)
   }
 }
 
-async function onGithubWatchMessage(ctx: GatewayDispatchCtx, msg: GatewayMessage): Promise<void> {
-  const watchId = ctx.env.DISCORD_GITHUB_WATCH_CHANNEL_ID
-  if (!watchId) return
-
-  const action = planGithubWatchMessage(msg, watchId, ctx.getBotUserId() ?? undefined)
+async function onGithubWatchMessage(
+  ctx: GatewayDispatchCtx,
+  msg: GatewayMessage,
+  action: GithubWatchAction,
+): Promise<void> {
   if (action.type === 'ignore') return
 
   const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
@@ -228,11 +248,11 @@ async function onGithubWatchMessage(ctx: GatewayDispatchCtx, msg: GatewayMessage
   }
 }
 
-async function onNewsActuMessage(ctx: GatewayDispatchCtx, msg: GatewayMessage): Promise<void> {
-  const newsId = ctx.env.DISCORD_NEWS_ACTU_CHANNEL_ID
-  if (!newsId) return
-
-  const action = planNewsActuMessage(msg, newsId, ctx.getBotUserId() ?? undefined)
+async function onNewsActuMessage(
+  ctx: GatewayDispatchCtx,
+  msg: GatewayMessage,
+  action: NewsActuAction,
+): Promise<void> {
   if (action.type === 'ignore') return
 
   const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
@@ -251,11 +271,11 @@ async function onNewsActuMessage(ctx: GatewayDispatchCtx, msg: GatewayMessage): 
   }
 }
 
-async function onDailyDigestMessage(ctx: GatewayDispatchCtx, msg: GatewayMessage): Promise<void> {
-  const digestId = ctx.env.DISCORD_DAILY_DIGEST_CHANNEL_ID
-  if (!digestId) return
-
-  const action = planDailyDigestMessage(msg, digestId, ctx.getBotUserId() ?? undefined)
+async function onDailyDigestMessage(
+  ctx: GatewayDispatchCtx,
+  msg: GatewayMessage,
+  action: DailyDigestAction,
+): Promise<void> {
   if (action.type === 'ignore') return
 
   const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
