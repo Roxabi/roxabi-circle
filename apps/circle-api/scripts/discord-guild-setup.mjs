@@ -280,7 +280,8 @@ async function main() {
         return synced()
       case 'announcement':
         // Unsynced. Guild is not Community → GUILD_TEXT, not type 5 NEWS.
-        // Members: view/react/threads. Top-level SEND: Lyra (Admin) + owner overwrite.
+        // Members: view/react/threads. The member deny is what enforces the rule —
+        // the owner row mirrors live state only (a guild owner bypasses overwrites).
         return ows(
           roleOw(everyone, '0', VIEW),
           roleOw(member, THREAD_ONLY_MEMBER_ALLOW, THREAD_ONLY_MEMBER_DENY),
@@ -331,7 +332,7 @@ async function main() {
   }
 
   /**
-   * Live layout SSoT (2026-08-10).
+   * Live layout SSoT (2026-09-03).
    * @typedef {{ name: string, topic?: string, mode?: string, type?: number }} ChildCh
    * @typedef {{ name: string, catMode: string, children?: ChildCh[] }} CatLayout
    * @type {CatLayout[]}

@@ -52,7 +52,7 @@ An **empty** overwrite list is **not** “Synced” in the UI (even if calc stil
 | Channel | Discord overwrites | Behaviour |
 |---|---|---|
 | Most CERCLE children | **Copy of category** (3 roles) | Full text · UI shows **Synced** |
-| `#annonces` | **Unsynced** — member deny SEND · owner user allow SEND · Lyra Admin | Top-level posts: **Lyra + guild owner only**. Members: read / react / thread |
+| `#annonces` | **Unsynced** — @everyone deny VIEW · member deny SEND · owner user allow SEND · Lyra Admin (4 rows) | Top-level posts: **Lyra + guild owner only**. Members: read / react / thread |
 | `#github-to-watch` | same as category (synced) | Gateway: **1 GitHub URL** top-level + auto-thread |
 | `#news-actu` | same as category (synced) | Gateway: **1 http(s) URL** top-level + auto-thread |
 | `#daily-digest` | same as category (synced) | Gateway: **bots only** top-level + auto-thread (humans → thread) |
