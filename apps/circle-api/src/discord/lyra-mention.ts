@@ -62,7 +62,10 @@ export type LyraMentionRuntime = {
   fetchImpl?: typeof fetch
   /** Bot token used to open the reply thread. Without it Lyra answers in place. */
   botToken?: string
-  /** Channel automation will open the thread: adopt it, do not race it. */
+  /**
+   * This message is in a configured ruled channel, where an answer posted top-level would never be deleted.
+   * Guard compares the resolved id to the parent because other adoptOnly exits return the parent under reasons other than `no_thread`.
+   */
   adoptThreadOnly?: boolean
   sleep?: (ms: number) => Promise<void>
 }
@@ -264,7 +267,10 @@ async function runLyraMentionForward(
       reason: runtime.adoptThreadOnly ? ('no_thread' as const) : ('create_failed' as const),
     }
   })
-  if (thread.reason === 'no_thread') {
+  if (
+    thread.reason === 'no_thread' ||
+    (runtime.adoptThreadOnly && thread.channelId === msg.channel_id)
+  ) {
     console.error('lyra-mention skipped no_thread', msg.channel_id)
     return
   }

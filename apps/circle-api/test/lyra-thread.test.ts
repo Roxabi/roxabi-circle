@@ -117,6 +117,7 @@ async function runForward(over: {
   createStatus?: number
   msg?: GatewayMessage
   storage?: PrivilegeStorage
+  botToken?: string
 }): Promise<{ webhookPosts: number; channelId?: string }> {
   const fetchImpl = fetchMock(async (url) => {
     if (url.endsWith('/channels/m1')) return new Response('no', { status: 404 })
@@ -139,7 +140,7 @@ async function runForward(over: {
       webhookSecret: 'sender-test',
       memberRoleId: MEMBER_ROLE,
       configuredGuildId: GUILD,
-      botToken: 'bot-token',
+      botToken: over.botToken ?? 'bot-token',
       adoptThreadOnly: over.adoptThreadOnly,
       sleep: async () => {},
       storage: over.storage ?? memoryStorage(),
@@ -404,6 +405,35 @@ describe('resolveLyraReplyThread', () => {
     expect(await runForward({ createStatus: 403 })).toEqual({
       webhookPosts: 1,
       channelId: 'ch1',
+    })
+  })
+  it('skips the webhook on position existing_thread under adoptThreadOnly', async () => {
+    expect(await runForward({ adoptThreadOnly: true, msg: msg({ position: 3 }) })).toEqual({
+      webhookPosts: 0,
+      channelId: undefined,
+    })
+  })
+  it('skips the webhook on no_token under adoptThreadOnly', async () => {
+    expect(await runForward({ adoptThreadOnly: true, botToken: '   ' })).toEqual({
+      webhookPosts: 0,
+      channelId: undefined,
+    })
+  })
+  it('skips the webhook when lookupChannelKind is thread under adoptThreadOnly', async () => {
+    expect(
+      await runForward({
+        adoptThreadOnly: true,
+        storage: memoryStorage({ [LYRA_THREAD_KIND_KEY]: { ch1: 'thread' } }),
+      }),
+    ).toEqual({
+      webhookPosts: 0,
+      channelId: undefined,
+    })
+  })
+  it('posts the created thread id under adoptThreadOnly', async () => {
+    expect(await runForward({ adoptThreadOnly: true })).toEqual({
+      webhookPosts: 1,
+      channelId: 'thread-99',
     })
   })
   it('skips the webhook when the resolver rejects under adoptThreadOnly', async () => {
