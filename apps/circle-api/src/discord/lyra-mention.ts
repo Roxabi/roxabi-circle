@@ -4,6 +4,7 @@
  */
 
 import type { GatewayMessage } from './github-watch'
+import { resolveLyraReplyThread } from './lyra-thread'
 
 /** Lyra bot user id (same snowflake as the Discord application). */
 export const LYRA_DISCORD_USER_ID = '1534228521420067046'
@@ -59,6 +60,11 @@ export type LyraMentionRuntime = {
   storage: PrivilegeStorage
   waitUntil?: (promise: Promise<unknown>) => void
   fetchImpl?: typeof fetch
+  /** Bot token used to open the reply thread. Without it Lyra answers in place. */
+  botToken?: string
+  /** Channel automation will open the thread: adopt it, do not race it. */
+  adoptThreadOnly?: boolean
+  sleep?: (ms: number) => Promise<void>
 }
 
 export function hasAdministratorPermission(permissions?: string | null): boolean {
@@ -243,5 +249,29 @@ async function runLyraMentionForward(
   }
   if (action.type !== 'forward') return
 
-  await postLyraGrokWebhook(webhookUrl, action.payload, runtime.fetchImpl, webhookSecret)
+  const thread = await resolveLyraReplyThread({
+    token: runtime.botToken,
+    msg,
+    storage: runtime.storage,
+    fetchImpl: runtime.fetchImpl,
+    adoptOnly: runtime.adoptThreadOnly,
+    sleep: runtime.sleep,
+  }).catch((error: unknown) => {
+    console.error('lyra-thread resolve failed', error)
+    return {
+      channelId: msg.channel_id,
+      created: false,
+      reason: runtime.adoptThreadOnly ? ('no_thread' as const) : ('create_failed' as const),
+    }
+  })
+  if (thread.reason === 'no_thread') {
+    console.error('lyra-mention skipped no_thread', msg.channel_id)
+    return
+  }
+  await postLyraGrokWebhook(
+    webhookUrl,
+    { ...action.payload, channelId: thread.channelId },
+    runtime.fetchImpl,
+    webhookSecret,
+  )
 }

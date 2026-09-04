@@ -56,6 +56,7 @@ function ctx(pending: Promise<unknown>[]) {
     saveSession: async () => {},
     enqueueVoice: async (fn: () => Promise<void>) => fn(),
     waitUntil: (p: Promise<unknown>) => pending.push(p),
+    sleep: async () => {},
   }
 }
 
@@ -71,21 +72,69 @@ function message(channelId: string, content: string) {
   }
 }
 
-type OutboundCall = { method: string; url: string }
+type OutboundCall = { method: string; url: string; body?: string }
 
 type CallRecorder = {
   impl: typeof fetch
   calls: OutboundCall[]
   webhookPosts: () => OutboundCall[]
   deletes: () => OutboundCall[]
+  threadCreates: () => OutboundCall[]
 }
 
 /** Records every outbound call so we can separate Discord REST from the Grok webhook. */
-function recorder(): CallRecorder {
+function recorder(opts?: { denyThreads?: boolean }): CallRecorder {
   const calls: OutboundCall[] = []
+  const threaded = new Set<string>()
   const impl = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = typeof input === 'string' ? input : input.toString()
-    calls.push({ method: init?.method ?? 'GET', url })
+    const method = init?.method ?? 'GET'
+    const body = typeof init?.body === 'string' ? init.body : undefined
+    calls.push({ method, url, body })
+
+    const created = /\/messages\/([^/]+)\/threads$/.exec(url)
+    if (method === 'POST' && created) {
+      if (opts?.denyThreads) {
+        return new Response(JSON.stringify({ code: 50013, message: 'Missing Permissions' }), {
+          status: 403,
+          headers: { 'content-type': 'application/json' },
+        })
+      }
+      const messageId = created[1]!
+      if (threaded.has(messageId)) {
+        return new Response(JSON.stringify({ message: 'Thread already exists' }), {
+          status: 400,
+          headers: { 'content-type': 'application/json' },
+        })
+      }
+      threaded.add(messageId)
+      return new Response(JSON.stringify({ id: messageId, type: 11 }), {
+        status: 201,
+        headers: { 'content-type': 'application/json' },
+      })
+    }
+
+    const channel = /\/channels\/([^/]+)$/.exec(url)
+    if (method === 'GET' && channel) {
+      if (opts?.denyThreads) {
+        return new Response(JSON.stringify({ message: 'Unknown Channel' }), {
+          status: 404,
+          headers: { 'content-type': 'application/json' },
+        })
+      }
+      const id = channel[1]!
+      if (threaded.has(id)) {
+        return new Response(JSON.stringify({ id, type: 11 }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        })
+      }
+      return new Response(JSON.stringify({ id, type: 0 }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      })
+    }
+
     return new Response(JSON.stringify({ id: 'created-1' }), {
       status: 200,
       headers: { 'content-type': 'application/json' },
@@ -96,6 +145,7 @@ function recorder(): CallRecorder {
     calls,
     webhookPosts: () => calls.filter((c) => c.url === HOOK),
     deletes: () => calls.filter((c) => c.method === 'DELETE'),
+    threadCreates: () => calls.filter((c) => c.method === 'POST' && c.url.endsWith('/threads')),
   }
 }
 
@@ -160,16 +210,122 @@ describe('handleGatewayDispatch — webhook boundary', () => {
     // The rule wins: the message is deleted and Lyra is never handed a ghost.
     expect(rec.deletes().length).toBeGreaterThan(0)
     expect(rec.webhookPosts()).toHaveLength(0)
+    expect(rec.threadCreates()).toHaveLength(0)
   })
 
   it('still forwards a mention that satisfies the channel rule', async () => {
+    vi.useFakeTimers()
+    const pending: Promise<unknown>[] = []
+    const run = handleGatewayDispatch(ctx(pending) as never, {
+      t: 'MESSAGE_CREATE',
+      d: message(WATCH, 'https://github.com/Roxabi/roxabi-circle <@1534228521420067046>'),
+    })
+    await vi.advanceTimersByTimeAsync(2_000)
+    await run
+    await Promise.all(pending)
+    vi.useRealTimers()
+    expect(rec.webhookPosts()).toHaveLength(1)
+    expect(rec.deletes()).toHaveLength(0)
+  })
+
+  it('opens a public thread before forwarding a top-level mention', async () => {
+    const pending: Promise<unknown>[] = []
+    const parent = '1000000000000000099'
+    await handleGatewayDispatch(ctx(pending) as never, {
+      t: 'MESSAGE_CREATE',
+      d: message(parent, '<@1534228521420067046> ton avis ?'),
+    })
+    await Promise.all(pending)
+
+    const threadIdx = rec.calls.findIndex((c) => c.method === 'POST' && c.url.endsWith('/threads'))
+    const hookIdx = rec.calls.findIndex((c) => c.url === HOOK)
+    expect(threadIdx).toBeGreaterThanOrEqual(0)
+    expect(hookIdx).toBeGreaterThan(threadIdx)
+
+    const payload = JSON.parse(rec.webhookPosts()[0]?.body ?? '{}') as { channelId?: string }
+    expect(payload.channelId).toBe('msg-1')
+    expect(payload.channelId).not.toBe(parent)
+  })
+
+  it('forwards an in-thread mention without creating another thread', async () => {
+    const pending: Promise<unknown>[] = []
+    const threadId = '1000000000000000100'
+    await handleGatewayDispatch(ctx(pending) as never, {
+      t: 'MESSAGE_CREATE',
+      d: {
+        ...message(threadId, '<@1534228521420067046> suite'),
+        position: 1,
+      },
+    })
+    await Promise.all(pending)
+
+    expect(rec.threadCreates()).toHaveLength(0)
+    expect(rec.webhookPosts()).toHaveLength(1)
+    const payload = JSON.parse(rec.webhookPosts()[0]?.body ?? '{}') as { channelId?: string }
+    expect(payload.channelId).toBe(threadId)
+  })
+
+  it('adopts the automation thread instead of racing a second POST', async () => {
+    vi.useFakeTimers()
+    const pending: Promise<unknown>[] = []
+    const run = handleGatewayDispatch(ctx(pending) as never, {
+      t: 'MESSAGE_CREATE',
+      d: message(WATCH, 'https://github.com/Roxabi/roxabi-circle <@1534228521420067046>'),
+    })
+    await vi.advanceTimersByTimeAsync(2_000)
+    await run
+    await Promise.all(pending)
+    vi.useRealTimers()
+
+    expect(rec.threadCreates()).toHaveLength(1)
+    expect(rec.webhookPosts()).toHaveLength(1)
+    const payload = JSON.parse(rec.webhookPosts()[0]?.body ?? '{}') as { channelId?: string }
+    expect(payload.channelId).toBe('msg-1')
+    expect(payload.channelId).not.toBe(WATCH)
+  })
+
+  it('still deletes a rejected top-level mention with no webhook and no thread', async () => {
+    vi.useFakeTimers()
+    const pending: Promise<unknown>[] = []
+    const run = handleGatewayDispatch(ctx(pending) as never, {
+      t: 'MESSAGE_CREATE',
+      d: message(WATCH, '<@1534228521420067046> tu en penses quoi ?'),
+    })
+    await vi.advanceTimersByTimeAsync(13_000)
+    await run
+    await Promise.all(pending)
+    vi.useRealTimers()
+
+    expect(rec.deletes().length).toBeGreaterThan(0)
+    expect(rec.webhookPosts()).toHaveLength(0)
+    expect(rec.threadCreates()).toHaveLength(0)
+  })
+
+  it('does not forward an accepted link with no mention', async () => {
+    const pending: Promise<unknown>[] = []
+    await handleGatewayDispatch(ctx(pending) as never, {
+      t: 'MESSAGE_CREATE',
+      d: {
+        ...message(WATCH, 'https://github.com/Roxabi/roxabi-circle'),
+        mentions: [],
+      },
+    })
+    await Promise.all(pending)
+
+    expect(rec.threadCreates()).toHaveLength(1)
+    expect(rec.webhookPosts()).toHaveLength(0)
+  })
+
+  it('stays silent when a ruled channel cannot open a thread', async () => {
+    rec = recorder({ denyThreads: true })
+    vi.stubGlobal('fetch', rec.impl)
     const pending: Promise<unknown>[] = []
     await handleGatewayDispatch(ctx(pending) as never, {
       t: 'MESSAGE_CREATE',
       d: message(WATCH, 'https://github.com/Roxabi/roxabi-circle <@1534228521420067046>'),
     })
     await Promise.all(pending)
-    expect(rec.webhookPosts()).toHaveLength(1)
-    expect(rec.deletes()).toHaveLength(0)
+
+    expect(rec.webhookPosts()).toHaveLength(0)
   })
 })
