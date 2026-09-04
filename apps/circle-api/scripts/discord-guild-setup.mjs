@@ -21,6 +21,7 @@
  *   CERCLE:   category SSoT — children are **permission-synced** (same overwrites
  *             as the category; empty overwrites ≠ Discord “Synced” UI).
  *             #github-to-watch / #news-actu / #daily-digest: synced + Gateway rules
+ *             #annonces: unsynced — members deny SEND; Lyra Admin + guild owner post
  */
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
@@ -208,6 +209,7 @@ async function main() {
     everyone: guildId,
     member: memberRole?.id,
     bot: managedBotRole?.id,
+    owner: guild.owner_id,
   }
 
   /** @param {any[]} rows */
@@ -216,6 +218,9 @@ async function main() {
   }
   function roleOw(id, allow, deny = '0') {
     return id ? { id, type: 0, allow, deny } : null
+  }
+  function userOw(id, allow, deny = '0') {
+    return id ? { id, type: 1, allow, deny } : null
   }
 
   /**
@@ -273,6 +278,16 @@ async function main() {
       case 'linksTopLevel':
         // linksTopLevel: Discord-synced; content rules are Gateway-only.
         return synced()
+      case 'announcement':
+        // Unsynced. Guild is not Community → GUILD_TEXT, not type 5 NEWS.
+        // Members: view/react/threads. The member deny is what enforces the rule —
+        // the owner row mirrors live state only (a guild owner bypasses overwrites).
+        return ows(
+          roleOw(everyone, '0', VIEW),
+          roleOw(member, THREAD_ONLY_MEMBER_ALLOW, THREAD_ONLY_MEMBER_DENY),
+          roleOw(bot, BOT_TEXT_ALLOW),
+          userOw(ids.owner, MEMBER_TEXT_ALLOW),
+        )
       case 'threadOnly':
         // Deliberately unsynced: deny top-level SEND for members.
         return ows(
@@ -317,7 +332,7 @@ async function main() {
   }
 
   /**
-   * Live layout SSoT (2026-08-10).
+   * Live layout SSoT (2026-09-03).
    * @typedef {{ name: string, topic?: string, mode?: string, type?: number }} ChildCh
    * @typedef {{ name: string, catMode: string, children?: ChildCh[] }} CatLayout
    * @type {CatLayout[]}
@@ -349,9 +364,20 @@ async function main() {
       catMode: 'memberText',
       children: [
         {
+          name: 'annonces',
+          mode: 'announcement',
+          topic:
+            'Annonces officielles (Lyra / ops). Discussion → thread sous l’annonce (pas de chat top-level).',
+        },
+        {
           name: 'general',
           mode: 'inherit',
           topic: 'Discussion technique — harness, MCP, agents, stack.',
+        },
+        {
+          name: 'small-talk',
+          mode: 'inherit',
+          topic: 'Random talk or insights',
         },
         {
           name: 'daily-digest',
@@ -359,11 +385,6 @@ async function main() {
           mode: 'linksTopLevel',
           topic:
             'Digest Lyra (bot) en top-level. Discussion → réponds en thread sous le digest (pas de chat top-level).',
-        },
-        {
-          name: 'ai-agentic-workflow',
-          mode: 'inherit',
-          topic: 'Workflows agentiques, harness, orchestration.',
         },
         {
           name: 'dev-with-ai',
@@ -382,7 +403,6 @@ async function main() {
           topic:
             'Un lien GitHub (repo/PR/issue) par message top-level. Tout le reste → thread sous le lien.',
         },
-        { name: 'showcase', mode: 'inherit', topic: 'Ship, repos, demos, write-ups.' },
         {
           name: 'opportunités',
           mode: 'inherit',
