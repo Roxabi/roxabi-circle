@@ -83,7 +83,7 @@ type CallRecorder = {
 }
 
 /** Records every outbound call so we can separate Discord REST from the Grok webhook. */
-function recorder(): CallRecorder {
+function recorder(opts?: { denyThreads?: boolean }): CallRecorder {
   const calls: OutboundCall[] = []
   const threaded = new Set<string>()
   const impl = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -94,6 +94,12 @@ function recorder(): CallRecorder {
 
     const created = /\/messages\/([^/]+)\/threads$/.exec(url)
     if (method === 'POST' && created) {
+      if (opts?.denyThreads) {
+        return new Response(JSON.stringify({ code: 50013, message: 'Missing Permissions' }), {
+          status: 403,
+          headers: { 'content-type': 'application/json' },
+        })
+      }
       const messageId = created[1]!
       if (threaded.has(messageId)) {
         return new Response(JSON.stringify({ message: 'Thread already exists' }), {
@@ -110,6 +116,12 @@ function recorder(): CallRecorder {
 
     const channel = /\/channels\/([^/]+)$/.exec(url)
     if (method === 'GET' && channel) {
+      if (opts?.denyThreads) {
+        return new Response(JSON.stringify({ message: 'Unknown Channel' }), {
+          status: 404,
+          headers: { 'content-type': 'application/json' },
+        })
+      }
       const id = channel[1]!
       if (threaded.has(id)) {
         return new Response(JSON.stringify({ id, type: 11 }), {
@@ -289,7 +301,7 @@ describe('handleGatewayDispatch — webhook boundary', () => {
     expect(rec.threadCreates()).toHaveLength(0)
   })
 
-  it('does not leak adoptThreadOnly into an accepted message without a mention', async () => {
+  it('does not forward an accepted link with no mention', async () => {
     const pending: Promise<unknown>[] = []
     await handleGatewayDispatch(ctx(pending) as never, {
       t: 'MESSAGE_CREATE',
@@ -301,6 +313,19 @@ describe('handleGatewayDispatch — webhook boundary', () => {
     await Promise.all(pending)
 
     expect(rec.threadCreates()).toHaveLength(1)
+    expect(rec.webhookPosts()).toHaveLength(0)
+  })
+
+  it('stays silent when a ruled channel cannot open a thread', async () => {
+    rec = recorder({ denyThreads: true })
+    vi.stubGlobal('fetch', rec.impl)
+    const pending: Promise<unknown>[] = []
+    await handleGatewayDispatch(ctx(pending) as never, {
+      t: 'MESSAGE_CREATE',
+      d: message(WATCH, 'https://github.com/Roxabi/roxabi-circle <@1534228521420067046>'),
+    })
+    await Promise.all(pending)
+
     expect(rec.webhookPosts()).toHaveLength(0)
   })
 })

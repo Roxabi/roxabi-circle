@@ -258,8 +258,16 @@ async function runLyraMentionForward(
     sleep: runtime.sleep,
   }).catch((error: unknown) => {
     console.error('lyra-thread resolve failed', error)
-    return { channelId: msg.channel_id, created: false, reason: 'create_failed' as const }
+    return {
+      channelId: msg.channel_id,
+      created: false,
+      reason: runtime.adoptThreadOnly ? ('no_thread' as const) : ('create_failed' as const),
+    }
   })
+  if (thread.reason === 'no_thread') {
+    console.error('lyra-mention skipped no_thread', msg.channel_id)
+    return
+  }
   await postLyraGrokWebhook(
     webhookUrl,
     { ...action.payload, channelId: thread.channelId },

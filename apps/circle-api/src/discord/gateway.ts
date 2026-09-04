@@ -210,6 +210,7 @@ export class DiscordGateway extends DurableObject<Env> {
         await this.voiceChain
       },
       waitUntil: (p) => this.ctx.waitUntil(p),
+      sleep: (ms) => new Promise<void>((r) => setTimeout(r, ms)),
     }
   }
 

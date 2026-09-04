@@ -112,6 +112,60 @@ async function postedPayload(storage: PrivilegeStorage, create: Error | 'ok' = '
   return JSON.parse(String((call?.[1] as RequestInit | undefined)?.body)) as Record<string, unknown>
 }
 
+async function runForward(over: {
+  adoptThreadOnly?: boolean
+  createStatus?: number
+  msg?: GatewayMessage
+  storage?: PrivilegeStorage
+}): Promise<{ webhookPosts: number; channelId?: string }> {
+  const fetchImpl = fetchMock(async (url) => {
+    if (url.endsWith('/channels/m1')) return new Response('no', { status: 404 })
+    if (url.includes('/api/v10/channels/')) return jsonResponse({ type: 0 }, 200)
+    return new Response(null, { status: 204 })
+  })
+  const status = over.createStatus ?? 201
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async () =>
+      status === 201
+        ? jsonResponse({ id: 'thread-99' }, 201)
+        : jsonResponse({ message: 'err' }, status),
+    ),
+  )
+  const pending: Promise<unknown>[] = []
+  scheduleLyraMentionForward(
+    {
+      webhookUrl: 'https://grok.example/hook',
+      webhookSecret: 'sender-test',
+      memberRoleId: MEMBER_ROLE,
+      configuredGuildId: GUILD,
+      botToken: 'bot-token',
+      adoptThreadOnly: over.adoptThreadOnly,
+      sleep: async () => {},
+      storage: over.storage ?? memoryStorage(),
+      waitUntil: (p) => pending.push(p),
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    },
+    over.msg ?? msg(),
+  )
+  await Promise.all(pending)
+  const hooks = fetchImpl.mock.calls.filter((c) => String(c[0]).includes('grok.example'))
+  const init = hooks[0]?.[1]
+  let channelId: string | undefined
+  if (init && typeof init === 'object' && 'body' in init && init.body != null) {
+    const parsed: unknown = JSON.parse(String(init.body))
+    if (
+      parsed &&
+      typeof parsed === 'object' &&
+      'channelId' in parsed &&
+      typeof parsed.channelId === 'string'
+    ) {
+      channelId = parsed.channelId
+    }
+  }
+  return { webhookPosts: hooks.length, channelId }
+}
+
 describe('lyraThreadTitle', () => {
   it('strips a leading mention and yields a clean title', () => {
     expect(lyraThreadTitle(`<@123> how do I deploy this?`, 'alice')).toBe('How do I deploy this')
@@ -229,7 +283,8 @@ describe('resolveLyraReplyThread', () => {
     const { result, globalFetch } = await resolveWith(fetchImpl, { adoptOnly: true, sleep })
     expect(result).toEqual({ channelId: 'm1', created: false, reason: 'adopted' })
     expect(globalFetch).not.toHaveBeenCalled()
-    expect(sleep).not.toHaveBeenCalled()
+    expect(sleep).toHaveBeenCalledTimes(1)
+    expect(sleep).toHaveBeenCalledWith(LYRA_THREAD_ADOPT_DELAY_MS)
   })
   it('adopts when the thread appears on the second poll', async () => {
     let polls = 0
@@ -242,6 +297,7 @@ describe('resolveLyraReplyThread', () => {
     const { result, globalFetch } = await resolveWith(fetchImpl, { adoptOnly: true, sleep })
     expect(result).toEqual({ channelId: 'm1', created: false, reason: 'adopted' })
     expect(globalFetch).not.toHaveBeenCalled()
+    expect(sleep).toHaveBeenCalledTimes(2)
     expect(sleep).toHaveBeenCalledWith(LYRA_THREAD_ADOPT_DELAY_MS)
   })
   it('falls through and creates when adoptOnly never sees the thread', async () => {
@@ -300,5 +356,99 @@ describe('resolveLyraReplyThread', () => {
   })
   it('still posts the parent channel when createThreadOnMessage rejects', async () => {
     expect((await postedPayload(memoryStorage(), new Error('network'))).channelId).toBe('ch1')
+  })
+  it('returns no_thread and skips the webhook when adoptOnly create is 403', async () => {
+    const fetchImpl = fetchMock(async (url) =>
+      url.endsWith('/channels/m1')
+        ? new Response('no', { status: 404 })
+        : jsonResponse({ type: 0 }, 200),
+    )
+    const { result } = await resolveWith(fetchImpl, {
+      adoptOnly: true,
+      sleep: async () => {},
+      create: jsonResponse({ code: 50013, message: 'Missing Permissions' }, 403),
+    })
+    expect(result).toEqual({ channelId: 'ch1', created: false, reason: 'no_thread' })
+    expect(await runForward({ adoptThreadOnly: true, createStatus: 403 })).toEqual({
+      webhookPosts: 0,
+      channelId: undefined,
+    })
+  })
+  it('returns no_thread and skips the webhook when adoptOnly create is 429', async () => {
+    const fetchImpl = fetchMock(async (url) =>
+      url.endsWith('/channels/m1')
+        ? new Response('no', { status: 404 })
+        : jsonResponse({ type: 0 }, 200),
+    )
+    const { result } = await resolveWith(fetchImpl, {
+      adoptOnly: true,
+      sleep: async () => {},
+      create: jsonResponse({ retry_after: 1 }, 429),
+    })
+    expect(result).toEqual({ channelId: 'ch1', created: false, reason: 'no_thread' })
+    expect(await runForward({ adoptThreadOnly: true, createStatus: 429 })).toEqual({
+      webhookPosts: 0,
+      channelId: undefined,
+    })
+  })
+  it('posts to the parent on create_failed when not adoptOnly', async () => {
+    const fetchImpl = fetchMock(async (url) =>
+      url.endsWith('/channels/m1')
+        ? new Response('no', { status: 404 })
+        : jsonResponse({ type: 0 }, 200),
+    )
+    const { result } = await resolveWith(fetchImpl, {
+      create: jsonResponse({ code: 50013, message: 'Missing Permissions' }, 403),
+    })
+    expect(result).toEqual({ channelId: 'ch1', created: false, reason: 'create_failed' })
+    expect(await runForward({ createStatus: 403 })).toEqual({
+      webhookPosts: 1,
+      channelId: 'ch1',
+    })
+  })
+  it('skips the webhook when the resolver rejects under adoptThreadOnly', async () => {
+    const exploding = msg()
+    Object.defineProperty(exploding, 'position', {
+      get(): never {
+        throw new Error('resolver exploded')
+      },
+    })
+    expect(await runForward({ adoptThreadOnly: true, msg: exploding })).toEqual({
+      webhookPosts: 0,
+      channelId: undefined,
+    })
+  })
+  it('does not reject when storage.get throws synchronously', async () => {
+    const storage: PrivilegeStorage = {
+      get: () => {
+        throw new Error('sync get')
+      },
+      put: async () => {},
+    }
+    await expect(
+      resolveWith(
+        fetchMock(async () => jsonResponse({ type: 0 }, 200)),
+        { storage },
+      ),
+    ).resolves.toMatchObject({
+      result: { channelId: 'thread-99', created: true, reason: 'created' },
+    })
+  })
+  it('sleeps before the first adopt GET', async () => {
+    const order: string[] = []
+    const fetchImpl = fetchMock(async (url) => {
+      if (url.endsWith('/channels/m1')) {
+        order.push('get')
+        return jsonResponse({ type: 11 }, 200)
+      }
+      return jsonResponse({ type: 0 }, 200)
+    })
+    const sleep = vi.fn(async () => {
+      order.push('sleep')
+    })
+    const { result } = await resolveWith(fetchImpl, { adoptOnly: true, sleep })
+    expect(result).toEqual({ channelId: 'm1', created: false, reason: 'adopted' })
+    expect(order[0]).toBe('sleep')
+    expect(order).toEqual(['sleep', 'get'])
   })
 })

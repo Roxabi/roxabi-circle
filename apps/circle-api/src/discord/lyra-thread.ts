@@ -10,6 +10,7 @@ export const LYRA_THREAD_KIND_KEY = 'lyra_channel_kind_v1'
 /** Discord caps thread names at 100 chars; leave room for the ellipsis. */
 export const LYRA_THREAD_NAME_MAX = 90
 export const LYRA_THREAD_ADOPT_ATTEMPTS = 3
+/** Sleep before every adopt GET, including attempt 0. Worst case: 3 × 400ms = 1200ms. */
 export const LYRA_THREAD_ADOPT_DELAY_MS = 400
 
 const DISCORD_API = 'https://discord.com/api/v10'
@@ -48,7 +49,7 @@ export function lyraThreadTitle(content: string, authorUsername?: string): strin
 export type LyraThreadTarget = {
   channelId: string
   created: boolean
-  reason: 'existing_thread' | 'created' | 'adopted' | 'create_failed' | 'no_token'
+  reason: 'existing_thread' | 'created' | 'adopted' | 'create_failed' | 'no_token' | 'no_thread'
 }
 
 export async function resolveLyraReplyThread(input: {
@@ -76,12 +77,10 @@ export async function resolveLyraReplyThread(input: {
 
   if (input.adoptOnly) {
     for (let attempt = 0; attempt < LYRA_THREAD_ADOPT_ATTEMPTS; attempt++) {
-      if (attempt > 0) {
-        try {
-          await sleep(LYRA_THREAD_ADOPT_DELAY_MS)
-        } catch {
-          /* injected sleep must not abort the mention */
-        }
+      try {
+        await sleep(LYRA_THREAD_ADOPT_DELAY_MS)
+      } catch {
+        /* injected sleep must not abort the mention */
       }
       if ((await fetchChannelThreadKind(token, msg.id, fetchImpl)) === 'thread') {
         return { channelId: msg.id, created: false, reason: 'adopted' }
@@ -108,7 +107,8 @@ export async function resolveLyraReplyThread(input: {
   if ((await fetchChannelThreadKind(token, msg.id, fetchImpl)) === 'thread') {
     return { channelId: msg.id, created: false, reason: 'adopted' }
   }
-  return { channelId, created: false, reason: 'create_failed' }
+  // In a ruled channel, no thread means no answer, because bot-authored prose in a link-only channel is never deleted.
+  return { channelId, created: false, reason: input.adoptOnly ? 'no_thread' : 'create_failed' }
 }
 
 /**
@@ -141,9 +141,12 @@ async function lookupChannelKind(
   storage: PrivilegeStorage,
   fetchImpl: typeof fetch,
 ): Promise<'thread' | 'channel'> {
-  const raw = await storage
-    .get<Record<string, 'thread' | 'channel'>>(LYRA_THREAD_KIND_KEY)
-    .catch(() => undefined)
+  let raw: Record<string, 'thread' | 'channel'> | undefined
+  try {
+    raw = await storage.get<Record<string, 'thread' | 'channel'>>(LYRA_THREAD_KIND_KEY)
+  } catch {
+    raw = undefined
+  }
   const cache: Record<string, 'thread' | 'channel'> =
     raw && typeof raw === 'object' ? { ...raw } : {}
   const cached = cache[channelId]
@@ -163,6 +166,10 @@ async function lookupChannelKind(
       if (kept) bounded[id] = kept
     }
   }
-  await storage.put(LYRA_THREAD_KIND_KEY, bounded).catch(() => undefined)
+  try {
+    await storage.put(LYRA_THREAD_KIND_KEY, bounded)
+  } catch {
+    /* cache write is a hint, never abort the mention */
+  }
   return resolved
 }

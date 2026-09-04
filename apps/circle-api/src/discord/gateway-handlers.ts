@@ -1,19 +1,13 @@
 /**
- * Discord Gateway dispatch handlers (READY, voice, links channels).
- * Kept out of gateway.ts for the 300-line file-length gate.
+ * Discord Gateway dispatch handlers (READY, voice).
+ * MESSAGE_CREATE lives in gateway-message.ts for the 300-line gate.
  */
 
 import type { Env } from '../types'
-import { type DailyDigestAction, enforceDailyDigest, planDailyDigestMessage } from './daily-digest'
+import { handleMessageCreate } from './gateway-message'
 import { applyReady, applyResumed, type GatewaySessionState } from './gateway-session'
-import {
-  enforceGithubWatch,
-  type GatewayMessage,
-  type GithubWatchAction,
-  planGithubWatchMessage,
-} from './github-watch'
-import { rememberGuildPrivilege, scheduleLyraMentionForward } from './lyra-mention'
-import { enforceNewsActu, type NewsActuAction, planNewsActuMessage } from './news-actu'
+import type { GatewayMessage } from './github-watch'
+import { rememberGuildPrivilege } from './lyra-mention'
 import {
   emptyTempVoiceStore,
   hydrateOccupancyFromVoiceStates,
@@ -127,39 +121,7 @@ export async function handleGatewayDispatch(
   }
 
   if (t !== 'MESSAGE_CREATE') return
-  const msg = packet.d as GatewayMessage
-  const botId = ctx.getBotUserId() ?? undefined
-  const watchId = ctx.env.DISCORD_GITHUB_WATCH_CHANNEL_ID
-  const newsId = ctx.env.DISCORD_NEWS_ACTU_CHANNEL_ID
-  const digestId = ctx.env.DISCORD_DAILY_DIGEST_CHANNEL_ID
-  const watch = watchId ? planGithubWatchMessage(msg, watchId, botId) : null
-  const news = newsId ? planNewsActuMessage(msg, newsId, botId) : null
-  const digest = digestId ? planDailyDigestMessage(msg, digestId, botId) : null
-
-  // A rejected top-level message is about to be deleted. Forwarding it would hand Lyra
-  // a ghost to answer, and her reply is bot-authored — exempt from the same channel
-  // rule — so it would land as prose in a channel the rule keeps link-only.
-  const rejected = watch?.type === 'reject' || news?.type === 'reject' || digest?.type === 'reject'
-  if (!rejected) {
-    scheduleLyraMentionForward(
-      {
-        webhookUrl: ctx.env.LYRA_GROK_WEBHOOK_URL,
-        webhookSecret: ctx.env.LYRA_GROK_WEBHOOK_SECRET,
-        memberRoleId: ctx.env.DISCORD_MEMBER_ROLE_ID,
-        configuredGuildId: ctx.env.DISCORD_GUILD_ID,
-        storage: ctx.storage,
-        waitUntil: ctx.waitUntil,
-        botToken: ctx.env.DISCORD_BOT_TOKEN,
-        adoptThreadOnly: [watch, news, digest].some((p) => p?.type === 'accept'),
-        sleep: ctx.sleep,
-      },
-      msg,
-    )
-  }
-
-  if (watch) await onGithubWatchMessage(ctx, msg, watch)
-  if (news) await onNewsActuMessage(ctx, msg, news)
-  if (digest) await onDailyDigestMessage(ctx, msg, digest)
+  await handleMessageCreate(ctx, packet.d as GatewayMessage)
 }
 
 async function onGuildCreate(ctx: GatewayDispatchCtx, d: unknown): Promise<void> {
@@ -226,74 +188,5 @@ async function onVoiceStateUpdate(ctx: GatewayDispatchCtx, vs: VoiceStateUpdate)
     }
   } catch (e) {
     console.error('temp-voice failed', e)
-  }
-}
-
-async function onGithubWatchMessage(
-  ctx: GatewayDispatchCtx,
-  msg: GatewayMessage,
-  action: GithubWatchAction,
-): Promise<void> {
-  if (action.type === 'ignore') return
-
-  const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
-
-  try {
-    const result = await enforceGithubWatch({
-      token: ctx.env.DISCORD_BOT_TOKEN,
-      msg,
-      action,
-      noticeTtlMs: action.type === 'reject' ? 12_000 : undefined,
-      sleep: action.type === 'reject' ? sleep : undefined,
-    })
-    console.log('github-watch', result.done, 'msg', msg.id)
-  } catch (e) {
-    console.error('github-watch enforce failed', e)
-  }
-}
-
-async function onNewsActuMessage(
-  ctx: GatewayDispatchCtx,
-  msg: GatewayMessage,
-  action: NewsActuAction,
-): Promise<void> {
-  if (action.type === 'ignore') return
-
-  const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
-
-  try {
-    const result = await enforceNewsActu({
-      token: ctx.env.DISCORD_BOT_TOKEN,
-      msg,
-      action,
-      noticeTtlMs: action.type === 'reject' ? 12_000 : undefined,
-      sleep: action.type === 'reject' ? sleep : undefined,
-    })
-    console.log('news-actu', result.done, 'msg', msg.id)
-  } catch (e) {
-    console.error('news-actu enforce failed', e)
-  }
-}
-
-async function onDailyDigestMessage(
-  ctx: GatewayDispatchCtx,
-  msg: GatewayMessage,
-  action: DailyDigestAction,
-): Promise<void> {
-  if (action.type === 'ignore') return
-
-  const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
-
-  try {
-    const result = await enforceDailyDigest({
-      token: ctx.env.DISCORD_BOT_TOKEN,
-      msg,
-      action,
-      noticeTtlMs: action.type === 'reject' ? 12_000 : undefined,
-      sleep: action.type === 'reject' ? sleep : undefined,
-    })
-    console.log('daily-digest', result.done, 'msg', msg.id)
-  } catch (e) {
-    console.error('daily-digest enforce failed', e)
   }
 }
