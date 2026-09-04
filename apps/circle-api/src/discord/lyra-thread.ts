@@ -57,7 +57,11 @@ export async function resolveLyraReplyThread(input: {
   msg: GatewayMessage
   storage: PrivilegeStorage
   fetchImpl?: typeof fetch
-  /** A channel automation is opening the thread for this message: adopt it, do not race it. */
+  /**
+   * The message sits in a configured ruled channel. Poll for a thread an automation may
+   * be opening on it rather than racing that create. When no automation is coming — a
+   * plan that merely ignored the message — the poll runs empty and we create it here.
+   */
   adoptOnly?: boolean
   sleep?: (ms: number) => Promise<void>
 }): Promise<LyraThreadTarget> {

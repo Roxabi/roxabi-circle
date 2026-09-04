@@ -19,6 +19,11 @@ export async function handleMessageCreate(
   const watchId = ctx.env.DISCORD_GITHUB_WATCH_CHANNEL_ID
   const newsId = ctx.env.DISCORD_NEWS_ACTU_CHANNEL_ID
   const digestId = ctx.env.DISCORD_DAILY_DIGEST_CHANNEL_ID
+  // Unconfigured ids cannot be recognised as ruled; this only closes the
+  // configured-but-not-accepted case.
+  const ruledChannelIds = new Set(
+    [watchId, newsId, digestId].filter((id): id is string => Boolean(id)),
+  )
   const watch = watchId ? planGithubWatchMessage(msg, watchId, botId) : null
   const news = newsId ? planNewsActuMessage(msg, newsId, botId) : null
   const digest = digestId ? planDailyDigestMessage(msg, digestId, botId) : null
@@ -37,7 +42,7 @@ export async function handleMessageCreate(
         storage: ctx.storage,
         waitUntil: ctx.waitUntil,
         botToken: ctx.env.DISCORD_BOT_TOKEN,
-        adoptThreadOnly: [watch, news, digest].some((p) => p?.type === 'accept'),
+        adoptThreadOnly: ruledChannelIds.has(msg.channel_id),
         sleep: ctx.sleep,
       },
       msg,

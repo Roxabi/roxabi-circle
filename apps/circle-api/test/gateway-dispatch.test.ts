@@ -328,4 +328,38 @@ describe('handleGatewayDispatch — webhook boundary', () => {
 
     expect(rec.webhookPosts()).toHaveLength(0)
   })
+
+  it('does not forward when a ruled-channel plan is ignore and thread creation fails', async () => {
+    rec = recorder({ denyThreads: true })
+    vi.stubGlobal('fetch', rec.impl)
+    const pending: Promise<unknown>[] = []
+    // github-watch `self`: author id is the gateway bot, so the plan is ignore
+    // (not reject). The old accept-armed flag would leave the parent fallback live.
+    await handleGatewayDispatch(ctx(pending) as never, {
+      t: 'MESSAGE_CREATE',
+      d: {
+        ...message(WATCH, '<@1534228521420067046> ton avis ?'),
+        author: { id: 'bot-1', username: 'gateway', bot: false },
+      },
+    })
+    await Promise.all(pending)
+
+    expect(rec.webhookPosts()).toHaveLength(0)
+  })
+
+  it('still posts to the parent when an unruled channel cannot open a thread', async () => {
+    rec = recorder({ denyThreads: true })
+    vi.stubGlobal('fetch', rec.impl)
+    const pending: Promise<unknown>[] = []
+    const parent = '1000000000000000099'
+    await handleGatewayDispatch(ctx(pending) as never, {
+      t: 'MESSAGE_CREATE',
+      d: message(parent, '<@1534228521420067046> ton avis ?'),
+    })
+    await Promise.all(pending)
+
+    expect(rec.webhookPosts()).toHaveLength(1)
+    const payload = JSON.parse(rec.webhookPosts()[0]?.body ?? '{}') as { channelId?: string }
+    expect(payload.channelId).toBe(parent)
+  })
 })
