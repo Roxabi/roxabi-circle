@@ -1,6 +1,6 @@
 # Runbook — Discord Roxabi Circle
 
-## Live state (2026-08-10)
+## Live state (2026-09-03)
 
 | Item | Value |
 |---|---|
@@ -23,7 +23,7 @@
 | Category | Channels | Who sees |
 |---|---|---|
 | **ENTRÉE** | `#règles` · `#arrivées` · `#intros` | Public: règles + arrivées only · Members: + intros |
-| **CERCLE** | `#general` · `#daily-digest` · `#ai-agentic-workflow` · `#dev-with-ai` · `#news-actu` · `#github-to-watch` · `#showcase` · `#opportunités` | **Members only** (category SSoT) |
+| **CERCLE** | `#annonces` · `#general` · `#small-talk` · `#daily-digest` · `#dev-with-ai` · `#news-actu` · `#github-to-watch` · `#opportunités` | **Members only** (category SSoT) |
 | **SUPPORT** | `#idées-améliorations` · `#appeal` | Members: idées · Non-members: appeal hub · Members **hidden** from `#appeal` |
 | **VOIX** | hub `➕ créer un salon` (temp rooms) | **Members only** |
 | **TICKETS** | *(empty — private `appeal-{userId}` only)* | **Hidden** from @everyone + member · bot + ticket author only |
@@ -51,12 +51,15 @@ An **empty** overwrite list is **not** “Synced” in the UI (even if calc stil
 
 | Channel | Discord overwrites | Behaviour |
 |---|---|---|
-| All CERCLE children | **Copy of category** (3 roles) | Full text · UI shows **Synced** |
-| `#github-to-watch` | same (synced) | Gateway: **1 GitHub URL** top-level + auto-thread |
-| `#news-actu` | same (synced) | Gateway: **1 http(s) URL** top-level + auto-thread |
-| `#daily-digest` | same (synced) | Gateway: **bots only** top-level + auto-thread (humans → thread) |
+| Most CERCLE children | **Copy of category** (3 roles) | Full text · UI shows **Synced** |
+| `#annonces` | **Unsynced** — member deny SEND · owner user allow SEND · Lyra Admin | Top-level posts: **Lyra + guild owner only**. Members: read / react / thread |
+| `#github-to-watch` | same as category (synced) | Gateway: **1 GitHub URL** top-level + auto-thread |
+| `#news-actu` | same as category (synced) | Gateway: **1 http(s) URL** top-level + auto-thread |
+| `#daily-digest` | same as category (synced) | Gateway: **bots only** top-level + auto-thread (humans → thread) |
 
-To re-sync after drift: run setup with `--apply-perms` (copies category overwrites onto each `inherit` / `linksTopLevel` child).
+`#annonces` is **GUILD_TEXT**, not Discord NEWS (type 5): the guild has no Community feature. Same posting restriction via overwrites.
+
+To re-sync after drift: run setup with `--apply-perms` (copies category overwrites onto each `inherit` / `linksTopLevel` child; `#annonces` stays `announcement`).
 
 ### ENTRÉE
 
