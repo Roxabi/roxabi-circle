@@ -261,17 +261,13 @@ async function runLyraMentionForward(
     sleep: runtime.sleep,
   }).catch((error: unknown) => {
     console.error('lyra-thread resolve failed', error)
-    return {
-      channelId: msg.channel_id,
-      created: false,
-      reason: runtime.adoptThreadOnly ? ('no_thread' as const) : ('create_failed' as const),
-    }
+    return { channelId: msg.channel_id, created: false, reason: 'create_failed' as const }
   })
-  if (
-    thread.reason === 'no_thread' ||
-    (runtime.adoptThreadOnly && thread.channelId === msg.channel_id)
-  ) {
-    console.error('lyra-mention skipped no_thread', msg.channel_id)
+  // One condition, stated once: in a ruled channel the parent is never an acceptable
+  // target, whatever the resolver called it. Keying on a reason string is what let the
+  // invariant slip twice before.
+  if (runtime.adoptThreadOnly && thread.channelId === msg.channel_id) {
+    console.error('lyra-mention skipped', { channelId: msg.channel_id, reason: thread.reason })
     return
   }
   await postLyraGrokWebhook(
