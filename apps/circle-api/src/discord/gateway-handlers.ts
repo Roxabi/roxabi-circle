@@ -148,6 +148,7 @@ export async function handleGatewayDispatch(
         configuredGuildId: ctx.env.DISCORD_GUILD_ID,
         storage: ctx.storage,
         waitUntil: ctx.waitUntil,
+        botToken: ctx.env.DISCORD_BOT_TOKEN,
       },
       msg,
     )

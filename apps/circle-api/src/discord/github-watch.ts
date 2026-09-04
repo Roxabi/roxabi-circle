@@ -116,6 +116,8 @@ export type GatewayMessage = {
   message_reference?: { message_id?: string; channel_id?: string } | null
   /** 0 = DEFAULT, 19 = REPLY, etc. — not used for thread detection */
   type?: number
+  /** Discord includes `position` only for messages sent in a thread, so its presence is a zero-cost thread hint. */
+  position?: number
 }
 
 export type GithubWatchAction =

@@ -71,13 +71,14 @@ function message(channelId: string, content: string) {
   }
 }
 
-type OutboundCall = { method: string; url: string }
+type OutboundCall = { method: string; url: string; body?: string }
 
 type CallRecorder = {
   impl: typeof fetch
   calls: OutboundCall[]
   webhookPosts: () => OutboundCall[]
   deletes: () => OutboundCall[]
+  threadCreates: () => OutboundCall[]
 }
 
 /** Records every outbound call so we can separate Discord REST from the Grok webhook. */
@@ -85,9 +86,12 @@ function recorder(): CallRecorder {
   const calls: OutboundCall[] = []
   const impl = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = typeof input === 'string' ? input : input.toString()
-    calls.push({ method: init?.method ?? 'GET', url })
-    return new Response(JSON.stringify({ id: 'created-1' }), {
-      status: 200,
+    const method = init?.method ?? 'GET'
+    const body = typeof init?.body === 'string' ? init.body : undefined
+    calls.push({ method, url, body })
+    const isThreadCreate = method === 'POST' && url.endsWith('/threads')
+    return new Response(JSON.stringify({ id: isThreadCreate ? 'lyra-thread-1' : 'created-1' }), {
+      status: isThreadCreate ? 201 : 200,
       headers: { 'content-type': 'application/json' },
     })
   })
@@ -96,6 +100,7 @@ function recorder(): CallRecorder {
     calls,
     webhookPosts: () => calls.filter((c) => c.url === HOOK),
     deletes: () => calls.filter((c) => c.method === 'DELETE'),
+    threadCreates: () => calls.filter((c) => c.method === 'POST' && c.url.endsWith('/threads')),
   }
 }
 
@@ -160,6 +165,7 @@ describe('handleGatewayDispatch — webhook boundary', () => {
     // The rule wins: the message is deleted and Lyra is never handed a ghost.
     expect(rec.deletes().length).toBeGreaterThan(0)
     expect(rec.webhookPosts()).toHaveLength(0)
+    expect(rec.threadCreates()).toHaveLength(0)
   })
 
   it('still forwards a mention that satisfies the channel rule', async () => {
@@ -171,5 +177,42 @@ describe('handleGatewayDispatch — webhook boundary', () => {
     await Promise.all(pending)
     expect(rec.webhookPosts()).toHaveLength(1)
     expect(rec.deletes()).toHaveLength(0)
+  })
+
+  it('opens a public thread before forwarding a top-level mention', async () => {
+    const pending: Promise<unknown>[] = []
+    const parent = '1000000000000000099'
+    await handleGatewayDispatch(ctx(pending) as never, {
+      t: 'MESSAGE_CREATE',
+      d: message(parent, '<@1534228521420067046> ton avis ?'),
+    })
+    await Promise.all(pending)
+
+    const threadIdx = rec.calls.findIndex((c) => c.method === 'POST' && c.url.endsWith('/threads'))
+    const hookIdx = rec.calls.findIndex((c) => c.url === HOOK)
+    expect(threadIdx).toBeGreaterThanOrEqual(0)
+    expect(hookIdx).toBeGreaterThan(threadIdx)
+
+    const payload = JSON.parse(rec.webhookPosts()[0]?.body ?? '{}') as { channelId?: string }
+    expect(payload.channelId).toBe('lyra-thread-1')
+    expect(payload.channelId).not.toBe(parent)
+  })
+
+  it('forwards an in-thread mention without creating another thread', async () => {
+    const pending: Promise<unknown>[] = []
+    const threadId = '1000000000000000100'
+    await handleGatewayDispatch(ctx(pending) as never, {
+      t: 'MESSAGE_CREATE',
+      d: {
+        ...message(threadId, '<@1534228521420067046> suite'),
+        position: 1,
+      },
+    })
+    await Promise.all(pending)
+
+    expect(rec.threadCreates()).toHaveLength(0)
+    expect(rec.webhookPosts()).toHaveLength(1)
+    const payload = JSON.parse(rec.webhookPosts()[0]?.body ?? '{}') as { channelId?: string }
+    expect(payload.channelId).toBe(threadId)
   })
 })
