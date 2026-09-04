@@ -40,6 +40,7 @@ export type GatewayDispatchCtx = {
   enqueueVoice: (fn: () => Promise<void>) => Promise<void>
   /** DO waitUntil — used for fire-and-forget @Lyra webhook POST. */
   waitUntil?: (promise: Promise<unknown>) => void
+  sleep?: (ms: number) => Promise<void>
 }
 
 export async function loadTempVoiceStore(storage: DurableObjectStorage): Promise<TempVoiceStore> {
@@ -149,6 +150,8 @@ export async function handleGatewayDispatch(
         storage: ctx.storage,
         waitUntil: ctx.waitUntil,
         botToken: ctx.env.DISCORD_BOT_TOKEN,
+        adoptThreadOnly: [watch, news, digest].some((p) => p?.type === 'accept'),
+        sleep: ctx.sleep,
       },
       msg,
     )

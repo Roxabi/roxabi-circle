@@ -62,6 +62,9 @@ export type LyraMentionRuntime = {
   fetchImpl?: typeof fetch
   /** Bot token used to open the reply thread. Without it Lyra answers in place. */
   botToken?: string
+  /** Channel automation will open the thread: adopt it, do not race it. */
+  adoptThreadOnly?: boolean
+  sleep?: (ms: number) => Promise<void>
 }
 
 export function hasAdministratorPermission(permissions?: string | null): boolean {
@@ -251,6 +254,11 @@ async function runLyraMentionForward(
     msg,
     storage: runtime.storage,
     fetchImpl: runtime.fetchImpl,
+    adoptOnly: runtime.adoptThreadOnly,
+    sleep: runtime.sleep,
+  }).catch((error: unknown) => {
+    console.error('lyra-thread resolve failed', error)
+    return { channelId: msg.channel_id, created: false, reason: 'create_failed' as const }
   })
   await postLyraGrokWebhook(
     webhookUrl,
