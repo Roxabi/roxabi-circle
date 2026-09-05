@@ -143,6 +143,34 @@ describe('planLyraMentionForward', () => {
     expect(ignoreReason(plan({ mentions: [], content: 'no ping' }))).toBe('no_mention')
   })
 
+  it('forwards an unmentioned member message in a Lyra-active thread', () => {
+    const a = planLyraMentionForward({
+      msg: msg({ mentions: [], content: 'follow-up', position: 2 }),
+      webhookUrl: 'https://grok.example/hook',
+      memberRoleId: MEMBER_ROLE,
+      configuredGuildId: GUILD,
+      threadActive: true,
+    })
+    expect(a.type).toBe('forward')
+    if (a.type !== 'forward') return
+    expect(a.payload.content).toBe('follow-up')
+    expect(a.payload.channelId).toBe('ch1')
+  })
+
+  it('does not treat threadActive as enough without position', () => {
+    expect(
+      ignoreReason(
+        planLyraMentionForward({
+          msg: msg({ mentions: [], content: 'follow-up' }),
+          webhookUrl: 'https://grok.example/hook',
+          memberRoleId: MEMBER_ROLE,
+          configuredGuildId: GUILD,
+          threadActive: true,
+        }),
+      ),
+    ).toBe('no_mention')
+  })
+
   it('forwards a member @Lyra with exact payload keys', () => {
     const a = plan()
     expect(a.type).toBe('forward')
@@ -191,6 +219,25 @@ describe('scheduleLyraMentionForward', () => {
         fetchImpl: fetchImpl as unknown as typeof fetch,
       },
       msg(),
+    )
+    await Promise.all(pending)
+    expect(fetchImpl).not.toHaveBeenCalled()
+  })
+
+  it('does not POST a thread follow-up when sender key is empty', async () => {
+    const fetchImpl = vi.fn()
+    const pending: Promise<unknown>[] = []
+    scheduleLyraMentionForward(
+      {
+        webhookUrl: 'https://grok.example/hook',
+        webhookSecret: '',
+        memberRoleId: MEMBER_ROLE,
+        configuredGuildId: GUILD,
+        storage: memoryStorage({ 'lyra_thread_v1:ch1': true }),
+        waitUntil: (p) => pending.push(p),
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+      },
+      msg({ mentions: [], content: 'follow-up', position: 2 }),
     )
     await Promise.all(pending)
     expect(fetchImpl).not.toHaveBeenCalled()
@@ -262,6 +309,125 @@ describe('scheduleLyraMentionForward', () => {
         author: { id: 'owner-1', bot: false, username: 'boss' },
         member: { roles: [] },
       }),
+    )
+    await Promise.all(pending)
+    expect(fetchImpl).toHaveBeenCalledTimes(1)
+  })
+
+  it('marks a Lyra thread post and forwards the next human member message', async () => {
+    const fetchImpl = vi.fn(async () => new Response(null, { status: 204 }))
+    const storage = memoryStorage()
+    const pending: Promise<unknown>[] = []
+    const runtime = {
+      webhookUrl: 'https://grok.example/hook',
+      webhookSecret: 'sender-test',
+      memberRoleId: MEMBER_ROLE,
+      configuredGuildId: GUILD,
+      storage,
+      waitUntil: (p: Promise<unknown>) => pending.push(p),
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    }
+    scheduleLyraMentionForward(
+      runtime,
+      msg({
+        channel_id: 'thread-1',
+        id: 'lyra-1',
+        author: { id: LYRA_DISCORD_USER_ID, bot: true, username: 'Lyra' },
+        mentions: [],
+        content: 'here is the answer',
+        position: 1,
+        member: { roles: [] },
+      }),
+    )
+    await Promise.all(pending)
+    expect(fetchImpl).not.toHaveBeenCalled()
+    expect(await storage.get('lyra_thread_v1:thread-1')).toBe(true)
+
+    pending.length = 0
+    scheduleLyraMentionForward(
+      runtime,
+      msg({
+        channel_id: 'thread-1',
+        id: 'human-2',
+        mentions: [],
+        content: 'thanks, and the rollback?',
+        position: 2,
+      }),
+    )
+    await Promise.all(pending)
+    expect(fetchImpl).toHaveBeenCalledTimes(1)
+    const call = fetchImpl.mock.calls[0] as unknown as [string, RequestInit]
+    expect(call[0]).toBe('https://grok.example/hook')
+    const headers = call[1]?.headers as Record<string, string>
+    expect(headers.Authorization).toBe('Bearer sender-test')
+    const body = JSON.parse(String(call[1]?.body)) as Record<string, unknown>
+    expect(body).toMatchObject({
+      source: LYRA_MENTION_SOURCE,
+      guildId: GUILD,
+      channelId: 'thread-1',
+      messageId: 'human-2',
+      authorId: 'u1',
+      content: 'thanks, and the rollback?',
+    })
+  })
+
+  it('does not forward an unmentioned thread message when Lyra never posted', async () => {
+    const fetchImpl = vi.fn()
+    const pending: Promise<unknown>[] = []
+    scheduleLyraMentionForward(
+      {
+        webhookUrl: 'https://grok.example/hook',
+        webhookSecret: 'sender-test',
+        memberRoleId: MEMBER_ROLE,
+        configuredGuildId: GUILD,
+        storage: memoryStorage(),
+        waitUntil: (p) => pending.push(p),
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+      },
+      msg({ mentions: [], content: 'anyone here?', position: 3 }),
+    )
+    await Promise.all(pending)
+    expect(fetchImpl).not.toHaveBeenCalled()
+  })
+
+  it('does not forward another bot in a Lyra-active thread', async () => {
+    const fetchImpl = vi.fn()
+    const pending: Promise<unknown>[] = []
+    scheduleLyraMentionForward(
+      {
+        webhookUrl: 'https://grok.example/hook',
+        webhookSecret: 'sender-test',
+        memberRoleId: MEMBER_ROLE,
+        configuredGuildId: GUILD,
+        storage: memoryStorage({ 'lyra_thread_v1:ch1': true }),
+        waitUntil: (p) => pending.push(p),
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+      },
+      msg({
+        author: { id: 'other-bot', bot: true, username: 'digest' },
+        mentions: [],
+        content: 'daily ping',
+        position: 4,
+      }),
+    )
+    await Promise.all(pending)
+    expect(fetchImpl).not.toHaveBeenCalled()
+  })
+
+  it('still forwards a classic @Lyra mention after the thread filter', async () => {
+    const fetchImpl = vi.fn(async () => new Response(null, { status: 204 }))
+    const pending: Promise<unknown>[] = []
+    scheduleLyraMentionForward(
+      {
+        webhookUrl: 'https://grok.example/hook',
+        webhookSecret: 'sender-test',
+        memberRoleId: MEMBER_ROLE,
+        configuredGuildId: GUILD,
+        storage: memoryStorage(),
+        waitUntil: (p) => pending.push(p),
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+      },
+      msg(),
     )
     await Promise.all(pending)
     expect(fetchImpl).toHaveBeenCalledTimes(1)

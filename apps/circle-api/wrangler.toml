@@ -28,7 +28,8 @@ SCORER_VERSION = "0.1.0"
 ACCEPT_THRESHOLD = "65"
 
 # Secrets via `wrangler secret` (see .dev.vars.example)
-# LYRA_GROK_WEBHOOK_URL + LYRA_GROK_WEBHOOK_SECRET — both required to forward @Lyra.
+# LYRA_GROK_WEBHOOK_URL + LYRA_GROK_WEBHOOK_SECRET — required to forward @Lyra
+# and later human messages in threads where Lyra has already posted.
 # Source: Grok Bot desktop → routine trigger "When a webhook fires" (URL + sender key).
 
 [[durable_objects.bindings]]

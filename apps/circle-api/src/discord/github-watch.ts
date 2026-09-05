@@ -118,6 +118,8 @@ export type GatewayMessage = {
   type?: number
   /** Discord includes `position` only for messages sent in a thread, so its presence is a zero-cost thread hint. */
   position?: number
+  /** Present on a starter message when it opened a thread (id = thread snowflake). */
+  thread?: { id?: string } | null
 }
 
 export type GithubWatchAction =
