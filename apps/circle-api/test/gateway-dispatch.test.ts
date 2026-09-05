@@ -39,12 +39,12 @@ function memoryStorage() {
   } as unknown as DurableObjectStorage
 }
 
-function ctx(pending: Promise<unknown>[]) {
+function ctx(pending: Promise<unknown>[], storage: DurableObjectStorage = memoryStorage()) {
   let botUserId: string | null = 'bot-1'
   let session = { seq: 0 } as never
   return {
     env: env(),
-    storage: memoryStorage(),
+    storage,
     getBotUserId: () => botUserId,
     setBotUserId: (id: string | null) => {
       botUserId = id
@@ -361,5 +361,58 @@ describe('handleGatewayDispatch — webhook boundary', () => {
     expect(rec.webhookPosts()).toHaveLength(1)
     const payload = JSON.parse(rec.webhookPosts()[0]?.body ?? '{}') as { channelId?: string }
     expect(payload.channelId).toBe(parent)
+  })
+
+  it('forwards a later human message in a thread after Lyra has posted', async () => {
+    const pending: Promise<unknown>[] = []
+    const storage = memoryStorage()
+    const threadId = '1000000000000000200'
+    const dispatch = ctx(pending, storage)
+
+    await handleGatewayDispatch(dispatch as never, {
+      t: 'MESSAGE_CREATE',
+      d: {
+        ...message(threadId, 'Lyra reply'),
+        author: { id: '1534228521420067046', username: 'Lyra', bot: true },
+        mentions: [],
+        position: 1,
+      },
+    })
+    await Promise.all(pending)
+    expect(rec.webhookPosts()).toHaveLength(0)
+
+    pending.length = 0
+    await handleGatewayDispatch(dispatch as never, {
+      t: 'MESSAGE_CREATE',
+      d: {
+        ...message(threadId, 'and the rollback?'),
+        id: 'msg-2',
+        mentions: [],
+        position: 2,
+      },
+    })
+    await Promise.all(pending)
+    expect(rec.webhookPosts()).toHaveLength(1)
+    const payload = JSON.parse(rec.webhookPosts()[0]?.body ?? '{}') as {
+      channelId?: string
+      content?: string
+    }
+    expect(payload.channelId).toBe(threadId)
+    expect(payload.content).toBe('and the rollback?')
+    expect(rec.threadCreates()).toHaveLength(0)
+  })
+
+  it('does not forward an unmentioned thread message when Lyra never posted', async () => {
+    const pending: Promise<unknown>[] = []
+    await handleGatewayDispatch(ctx(pending) as never, {
+      t: 'MESSAGE_CREATE',
+      d: {
+        ...message('1000000000000000201', 'anyone here?'),
+        mentions: [],
+        position: 1,
+      },
+    })
+    await Promise.all(pending)
+    expect(rec.webhookPosts()).toHaveLength(0)
   })
 })

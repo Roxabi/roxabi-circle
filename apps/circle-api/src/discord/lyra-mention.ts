@@ -1,10 +1,11 @@
 /**
- * Forward @Lyra mentions to the Grok Bot webhook (fire-and-forget).
- * Does not open a Gateway, does not reply on Discord.
+ * Forward @Lyra mentions and Lyra-active thread follow-ups to the Grok Bot
+ * webhook (fire-and-forget). Does not open a Gateway, does not reply on Discord.
  */
 
 import type { GatewayMessage } from './github-watch'
 import { resolveLyraReplyThread } from './lyra-thread'
+import { isGatewayMessageInThread, prepareLyraThreadForward } from './lyra-thread-active'
 
 /** Lyra bot user id (same snowflake as the Discord application). */
 export const LYRA_DISCORD_USER_ID = '1534228521420067046'
@@ -159,6 +160,8 @@ export function planLyraMentionForward(input: {
   configuredGuildId?: string
   lyraUserId?: string
   privilege?: GuildPrivilege | null
+  /** Thread already has ≥1 Lyra post (DO participation set). Same allowlist as mentions. */
+  threadActive?: boolean
 }): LyraMentionAction {
   const webhookUrl = input.webhookUrl?.trim() ?? ''
   if (!webhookUrl) return { type: 'ignore', reason: 'no_webhook' }
@@ -173,7 +176,11 @@ export function planLyraMentionForward(input: {
   if (msg.webhook_id) return { type: 'ignore', reason: 'webhook' }
   if (msg.author?.bot) return { type: 'ignore', reason: 'bot' }
   if (msg.author?.id === lyraUserId) return { type: 'ignore', reason: 'self' }
-  if (!mentionsLyraUser(msg, lyraUserId)) return { type: 'ignore', reason: 'no_mention' }
+  if (!mentionsLyraUser(msg, lyraUserId)) {
+    if (!input.threadActive || !isGatewayMessageInThread(msg)) {
+      return { type: 'ignore', reason: 'no_mention' }
+    }
+  }
   if (!msg.author?.id) return { type: 'ignore', reason: 'no_author' }
 
   const allowed = authorAllowedForLyra({
@@ -237,12 +244,21 @@ async function runLyraMentionForward(
   const webhookSecret = runtime.webhookSecret?.trim() ?? ''
   if (!webhookUrl || !webhookSecret) return
 
+  const prepared = await prepareLyraThreadForward({
+    msg,
+    lyraUserId: runtime.lyraUserId ?? LYRA_DISCORD_USER_ID,
+    configuredGuildId: runtime.configuredGuildId,
+    storage: runtime.storage,
+  })
+  if (prepared.skip) return
+
   const base = {
     msg,
     webhookUrl,
     memberRoleId: runtime.memberRoleId,
     configuredGuildId: runtime.configuredGuildId,
     lyraUserId: runtime.lyraUserId,
+    threadActive: prepared.threadActive,
   }
 
   let action = planLyraMentionForward(base)
