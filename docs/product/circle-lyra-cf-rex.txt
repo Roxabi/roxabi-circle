@@ -1,0 +1,40 @@
+J’ai mis le bot Discord de Circle sur Cloudflare. Pas une machine qui reste allumée.
+
+Circle, c’est un Discord fermé. Entrée GitHub. ADN open source. Le bot s’appelle Lyra.
+
+Le piège classique : coller un agent sur Discord et espérer qu’il fasse le job d’un modo. Tu obtiens un chatbot. Pas un système.
+
+Voici l’infra.
+
+Discord envoie l’événement vers un Worker Cloudflare.
+Le Worker arbitre. Deux sorties possibles :
+
+- une automatisation (règle fixe, pas besoin de réfléchir)
+- l’agent Grok (Lyra by Circle) quand quelqu’un l’appelle dans le salon
+
+Une seule connexion Gateway reste ouverte vers Discord. Deux avec le même bot, et Discord te débranche : liens cassés, vocaux morts, mentions silencieuses. Des réveils réguliers pour que cette oreille ne s’endorme pas.
+
+Le Worker doit ACK Discord tout de suite. Discord coupe au-delà de trois secondes. Chez moi, c’est de l’ordre de la milliseconde. Le travail lourd part ensuite en arrière-plan.
+
+Exemples d’automatisations, côté Worker :
+- un lien dans un salon de veille → un seul lien, un fil ouvert automatiquement
+- le digest du jour → seuls les bots peuvent poster en haut de salon
+- tu rejoins le hub voix → un salon tempo à ton nom, vidé puis détruit
+- /apply et tickets d’appel → parcours d’entrée, sans agent
+
+Quand quelqu’un @Lyra, le Worker forward vers l’agent. L’agent décide, puis répond dans le même canal.
+Comme un Hermes qui intervient dans la pièce, sauf que le cortex n’est pas dans le Worker.
+
+Ce que l’agent ne fait pas : kick, ban, secrets, actions sur d’autres outils depuis un ping membre.
+
+Ce que j’ai dû apprendre à la dure :
+
+- Discord ne te montre le texte des messages que si tu l’as demandé clairement. Sans ça, le Worker est aveugle.
+- Le bot doit être placé au-dessus des membres dans la liste des rôles. Sinon il ne peut rien leur donner.
+- Si le câble vers l’agent n’est pas complet (adresse et clé), Lyra reste muette. J’ai choisi de couper plutôt que de laisser fuiter.
+- Passer les tests sur le code, ça ne publie pas le bot. Il faut encore le déployer à la main.
+- Et surtout : une seule oreille sur Discord. Deux, et tu te débranches toi-même.
+
+Le filtre d’entrée lit des signaux publics. Pas un modèle qui lit ton code.
+
+Si ton « bot Discord », c’est juste un LLM branché sur une porte, tu n’as pas de bot. Tu as un chat qui a trouvé le salon.

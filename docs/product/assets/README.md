@@ -43,3 +43,21 @@ white-on-white. No text. Readable at 32px.
 | `lyra-discord-avatar.png` | Bot user avatar |
 
 Source: `~/.roxabi/forge/lyra/avatar/concepts/avatar-v2/027-hair-tousled.png`
+
+## Editorial line (bip)
+
+| File | Role |
+|---|---|
+| `visual-line-bip.txt` | Discord poll copy |
+| `bip-A.png` | A Édito premium |
+| `bip-B.png` | B Ligne claire |
+| `bip-C.png` | C Atelier papier |
+| `bip-D.png` | D Collage conceptuel |
+| `bip-E.png` | E Organique vivant |
+| `bip-F.png` | F Gravure atelier |
+
+## Circle on Cloudflare (REX)
+
+| File | Role |
+|---|---|
+| `circle-lyra-couloir.png` | Companion visual for `docs/product/circle-lyra-cf-rex.txt` |
