@@ -46,3 +46,31 @@ crons = ["*/15 * * * *", "30 10 * * *", "30 11 * * *"]
 
 [observability]
 enabled = true
+
+# ---------------------------------------------------------------------------
+# Spike A — Discord voice recorder (CF Containers). NOT production-armed.
+# Do not uncomment on circle.roxabi.dev until the UDP go/no-go in
+# docs/product/design/voice-recording-spike-a.md passes. Do not invent bucket
+# IDs. Mickael creates the R2 bucket + Container resources, then fills
+# REPLACE_ME_* locally (untracked) or in the dashboard.
+#
+# VOICE_RECORD_SPIKE_A is intentionally absent from [vars] (routes stay 404).
+#
+# [[r2_buckets]]
+# binding = "VOICE_RECORDINGS"
+# bucket_name = "REPLACE_ME_circle-voice-recordings"
+#
+# [[containers]]
+# class_name = "VoiceRecorder"
+# image = "../circle-voice-recorder/Dockerfile"
+# max_instances = 1
+# instance_type = "basic"
+#
+# [[durable_objects.bindings]]
+# name = "VOICE_RECORDER"
+# class_name = "VoiceRecorder"
+#
+# [[migrations]]
+# tag = "v2-voice-recorder-spike-a"
+# new_sqlite_classes = ["VoiceRecorder"]
+# ---------------------------------------------------------------------------

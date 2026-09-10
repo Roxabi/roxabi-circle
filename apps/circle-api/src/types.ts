@@ -39,6 +39,19 @@ export type Env = {
   DISCORD_GATEWAY: DurableObjectNamespace
   /** Shared secret for POST /internal/discord-gateway/ensure (header X-Ops-Secret) */
   GATEWAY_OPS_SECRET: string
+  /**
+   * Spike A voice recorder — unset in production.
+   * Only `1` / `true` arms POST /internal/voice-record/{start,stop}.
+   */
+  VOICE_RECORD_SPIKE_A?: string
+  /** Optional Fly / local recorder origin (no trailing slash). */
+  VOICE_RECORDER_HTTP_URL?: string
+  /** Optional Container / DO binding — commented in wrangler.toml until Mickael provisions. */
+  VOICE_RECORDER?: DurableObjectNamespace
+  /** Optional R2 — commented in wrangler.toml; do not invent bucket ids. */
+  VOICE_RECORDINGS?: R2Bucket
+  /** Test hook: ms to wait for VOICE_SERVER_UPDATE after Opcode 4. Default 2500. */
+  VOICE_HANDOFF_WAIT_MS?: string
   /** Optional PAT for digest GitHub API. Anonymous scrape works, see .dev.vars.example. */
   GITHUB_TOKEN?: string
   // GITHUB_CLIENT_ID / GITHUB_CLIENT_SECRET / SESSION_SECRET: removed 2026-09-03.

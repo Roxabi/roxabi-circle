@@ -9,6 +9,7 @@
 | `POST /interactions` | **Ed25519 Discord** | seule porte d’écriture bot |
 | `POST /internal/discord-gateway/ensure` | **`X-Ops-Secret`** (`GATEWAY_OPS_SECRET`) | wake/status DO · `?force=1` clears hard-stop |
 | `POST /internal/github-digest` | **`X-Ops-Secret`** | manual GitHub digest (same as 12:30 Paris cron) |
+| `POST /internal/voice-record/start` · `/stop` | **`X-Ops-Secret`** + `VOICE_RECORD_SPIKE_A=1` | Spike A only — **404 when flag unset** (production default). See [voice-recording-spike-a](../design/voice-recording-spike-a.md) |
 | `GET /oauth/github/*` | HMAC state (à venir) | 501 stub |
 | `*` | — | **404** (pas d’inventaire endpoints) |
 

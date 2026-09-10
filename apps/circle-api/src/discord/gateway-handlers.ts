@@ -4,6 +4,7 @@
  */
 
 import type { Env } from '../types'
+import { captureBotVoiceState, captureVoiceServerUpdate } from '../voice-record/persist-handoff'
 import { handleMessageCreate } from './gateway-message'
 import { applyReady, applyResumed, type GatewaySessionState } from './gateway-session'
 import type { GatewayMessage } from './github-watch'
@@ -115,8 +116,16 @@ export async function handleGatewayDispatch(
     return
   }
 
+  if (t === 'VOICE_SERVER_UPDATE') {
+    // Spike A only: persist voice UDP handoff. Temp-voice does not use this event.
+    await captureVoiceServerUpdate(ctx.env, ctx.storage, packet.d)
+    return
+  }
+
   if (t === 'VOICE_STATE_UPDATE') {
-    await ctx.enqueueVoice(() => onVoiceStateUpdate(ctx, packet.d as VoiceStateUpdate))
+    const vs = packet.d as VoiceStateUpdate
+    await captureBotVoiceState(ctx.env, ctx.storage, ctx.getBotUserId(), vs)
+    await ctx.enqueueVoice(() => onVoiceStateUpdate(ctx, vs))
     return
   }
 

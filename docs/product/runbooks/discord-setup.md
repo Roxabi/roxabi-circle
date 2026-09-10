@@ -144,6 +144,7 @@ https://discord.com/api/oauth2/authorize?client_id=1534228521420067046&permissio
 | Gateway DO | MESSAGE_CREATE → github-watch / news-actu / daily-digest / @Lyra webhook · VOICE_STATE → temp rooms |
 | `POST /internal/discord-gateway/ensure` | auth `X-Ops-Secret` |
 | `POST /internal/github-digest` | auth `X-Ops-Secret` · run digest now (skip 12:30 gate) |
+| `POST /internal/voice-record/start` · `/stop` | Spike A — **404 unless** `VOICE_RECORD_SPIKE_A=1` · same `X-Ops-Secret` |
 
 ## Setup script (safe by default)
 

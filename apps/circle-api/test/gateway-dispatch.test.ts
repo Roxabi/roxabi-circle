@@ -168,6 +168,10 @@ describe('handleGatewayDispatch — webhook boundary', () => {
         session_id: 's',
       },
     })
+    await handleGatewayDispatch(ctx(pending) as never, {
+      t: 'VOICE_SERVER_UPDATE',
+      d: { token: 'voice-token', endpoint: 'eu.discord.media:80', guild_id: GUILD },
+    })
     await Promise.all(pending)
     expect(rec.webhookPosts()).toHaveLength(0)
   })

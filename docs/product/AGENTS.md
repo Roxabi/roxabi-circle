@@ -28,6 +28,7 @@ Discord gated community (AI + open source DNA). Entry = GitHub OAuth + **PR d’
 | OAuth GitHub | Path stub **501** — not implemented |
 | D1 / KV | Not provisioned |
 | Kit apps | `apps/example-*`, `packages/@kit/*` — zero-edit kit surface (not product deploy) |
+| Voice recorder spike A | `apps/circle-voice-recorder` + Worker `/internal/voice-record/*` — **off** unless `VOICE_RECORD_SPIKE_A=1`. Never open a second Lyra Gateway. Design: `docs/product/design/voice-recording-spike-a.md` |
 
 **Not in MVP (do not invent as live):** `apps/circle-web`, `apps/circle-mcp`, admin SPA, D1 live config UI.
 

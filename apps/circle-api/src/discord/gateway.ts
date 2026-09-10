@@ -6,6 +6,10 @@
 
 import { DurableObject } from 'cloudflare:workers'
 import type { Env } from '../types'
+import { isVoiceRecordSpikeArmed } from '../voice-record/flag'
+import { buildVoiceStateUpdateOp, sendVoiceStateUpdate } from '../voice-record/gateway-voice'
+import { handoffPublicView, handoffReady } from '../voice-record/handoff'
+import { loadVoiceHandoff } from '../voice-record/persist-handoff'
 import { runEnsureConnected } from './gateway-connect'
 import {
   type GatewayDispatchCtx,
@@ -57,6 +61,40 @@ export class DiscordGateway extends DurableObject<Env> {
         tempVoice: store.channels,
       })
     }
+    if (url.pathname === '/voice-handoff') {
+      const h = await loadVoiceHandoff(this.ctx.storage)
+      const publicOnly = url.searchParams.get('public') === '1'
+      return Response.json({
+        ok: true,
+        ready: handoffReady(h),
+        handoff: publicOnly ? handoffPublicView(h) : h,
+      })
+    }
+    if (url.pathname === '/voice-state' && request.method === 'POST') {
+      if (!isVoiceRecordSpikeArmed(this.env)) {
+        return Response.json({ ok: false, error: 'spike_not_armed' }, { status: 404 })
+      }
+      let body: { guildId?: string; channelId?: string | null } = {}
+      try {
+        body = (await request.json()) as typeof body
+      } catch {
+        return Response.json({ ok: false, error: 'invalid_json' }, { status: 400 })
+      }
+      if (!body.guildId) {
+        return Response.json({ ok: false, error: 'invalid_guild_id' }, { status: 400 })
+      }
+      if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+        return Response.json({ ok: false, error: 'gateway_not_connected' }, { status: 503 })
+      }
+      sendVoiceStateUpdate(
+        this.ws,
+        buildVoiceStateUpdateOp({
+          guildId: body.guildId,
+          channelId: body.channelId ?? null,
+        }),
+      )
+      return Response.json({ ok: true, sent: true })
+    }
     if (url.pathname === '/connect' || url.pathname === '/ensure') {
       const force =
         url.searchParams.get('force') === '1' ||
@@ -71,7 +109,10 @@ export class DiscordGateway extends DurableObject<Env> {
         sessionId: this.session.sessionId,
       })
     }
-    return new Response('DiscordGateway: /status | /connect|/ensure?force=1', { status: 404 })
+    return new Response(
+      'DiscordGateway: /status | /connect|/ensure?force=1 | /voice-state | /voice-handoff',
+      { status: 404 },
+    )
   }
 
   async alarm(): Promise<void> {

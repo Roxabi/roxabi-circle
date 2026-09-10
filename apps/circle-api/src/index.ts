@@ -1,7 +1,9 @@
 import { runGithubDigest } from './discord/github-digest'
 import { isDigestCron } from './discord/github-digest-schedule'
 import { handleDiscordInteractions } from './discord/interactions'
+import { opsSecretOk } from './lib/ops-secret'
 import type { Env } from './types'
+import { handleVoiceRecordRoute } from './voice-record/routes'
 
 export { DiscordGateway } from './discord/gateway'
 
@@ -13,21 +15,6 @@ async function ensureDiscordGateway(env: Env, opts?: { force?: boolean }): Promi
     ? 'https://discord-gateway.internal/ensure?force=1'
     : 'https://discord-gateway.internal/ensure'
   await stub.fetch(new Request(path))
-}
-
-/** Constant-time-ish compare for ops secret (length leak ok for ops header). */
-function opsSecretOk(request: Request, expected: string | undefined): boolean {
-  if (!expected) return false
-  const header =
-    request.headers.get('X-Ops-Secret') ??
-    request.headers.get('Authorization')?.replace(/^Bearer\s+/i, '') ??
-    ''
-  if (header.length !== expected.length) return false
-  let diff = 0
-  for (let i = 0; i < expected.length; i++) {
-    diff |= header.charCodeAt(i) ^ expected.charCodeAt(i)
-  }
-  return diff === 0
 }
 
 /**
@@ -55,6 +42,9 @@ export default {
       const result = await runGithubDigest(env, { skipTimeCheck: true })
       return Response.json(result, { status: result.ok ? 200 : 502 })
     }
+
+    const voice = await handleVoiceRecordRoute(request, env, url.pathname)
+    if (voice) return voice
 
     if (url.pathname === '/internal/discord-gateway/ensure' && request.method === 'POST') {
       // Cron wakes via scheduled(); manual wake requires GATEWAY_OPS_SECRET.

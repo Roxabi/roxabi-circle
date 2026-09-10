@@ -35,6 +35,8 @@ Kit packages live under `packages/@kit/*` and `apps/example-*` (zero-edit). Prod
 |------|------|
 | `apps/circle-api` | CF Worker: Discord interactions + Gateway + scoring lib |
 | `docs/product/*` | Product SSOT |
+| `docs/product/design/voice-recording-spike-a.md` | Spike A — CF Container voice recorder (not armed) |
+| `apps/circle-voice-recorder` | Spike A recorder process (Container / Fly stub) |
 | `~/projects/circle-applications` | **Sibling** repo — D11 empty-apply PRs (not nested here) |
 
 ## MVP vs later

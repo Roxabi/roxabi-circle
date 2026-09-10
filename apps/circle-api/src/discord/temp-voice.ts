@@ -61,6 +61,8 @@ export type VoiceStateUpdate = {
   guild_id?: string | null
   channel_id?: string | null
   user_id: string
+  /** Present on Gateway VSU — used by spike A handoff (bot's own session_id). */
+  session_id?: string
   member?: {
     user?: { id?: string; bot?: boolean; username?: string; global_name?: string | null }
     nick?: string | null
