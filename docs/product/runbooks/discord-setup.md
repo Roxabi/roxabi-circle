@@ -127,7 +127,7 @@ https://discord.com/api/oauth2/authorize?client_id=1534228521420067046&permissio
 | `#github-to-watch` / `#news-actu` | Exactly **one** URL (GitHub vs any http(s)) · caption ≤120 · thread |
 | `#daily-digest` | **Bot/webhook only** top-level · humans deleted · thread under digest |
 | `@Lyra` mention | Same Gateway DO (`MESSAGE_CREATE`) · member role **or** guild admin/owner · fire-and-forget POST to `LYRA_GROK_WEBHOOK_URL` · **no** Discord reply · **no** second Gateway |
-| GitHub digest | Cron **12:30 Europe/Paris** (`30 10` + `30 11` UTC) · trending daily+weekly · no embeds |
+| Daily digest source | **Veilleur** tech briefing → **Lyra** posts news + repos as **one** message. Worker GitHub trending scrape-post is **off** (no 12:30 Paris cron) |
 | On accept | Public thread under the message |
 | On reject | Delete · notice ~12s · DM best-effort |
 | Ignore | other channels, thread messages (different channel id) |
@@ -143,7 +143,7 @@ https://discord.com/api/oauth2/authorize?client_id=1534228521420067046&permissio
 | `GET /health` | liveness only (no Gateway wake) |
 | Gateway DO | MESSAGE_CREATE → github-watch / news-actu / daily-digest / @Lyra webhook · VOICE_STATE → temp rooms |
 | `POST /internal/discord-gateway/ensure` | auth `X-Ops-Secret` |
-| `POST /internal/github-digest` | auth `X-Ops-Secret` · run digest now (skip 12:30 gate) |
+| `POST /internal/github-digest` | auth `X-Ops-Secret` · **disabled** (`skipped: "disabled"`) · does not scrape or post |
 
 ## Setup script (safe by default)
 

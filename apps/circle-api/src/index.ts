@@ -49,6 +49,7 @@ export default {
     }
 
     if (url.pathname === '/internal/github-digest' && request.method === 'POST') {
+      // Retired scrape-post. Auth stays so the route is not a public probe.
       if (!opsSecretOk(request, env.GATEWAY_OPS_SECRET)) {
         return new Response('unauthorized', { status: 401 })
       }
@@ -92,11 +93,8 @@ export default {
 
   async scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
     if (isDigestCron(controller.cron)) {
-      ctx.waitUntil(
-        runGithubDigest(env)
-          .then((r) => console.log('github-digest', r))
-          .catch((e) => console.error('github-digest', e)),
-      )
+      // Retired Worker GitHub digest. Leftover 10:30/11:30 UTC triggers must
+      // not scrape, post, or wake Gateway (*/15 remains the safety net).
       return
     }
     ctx.waitUntil(ensureDiscordGateway(env).catch((e) => console.error('gateway ensure', e)))

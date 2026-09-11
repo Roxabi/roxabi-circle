@@ -39,7 +39,7 @@ Discord gated community (AI + open source DNA). Entry = GitHub OAuth + **PR d’
 | Host | `circle.roxabi.dev` · `workers_dev = false` |
 | Secrets | `wrangler secret` + local `apps/circle-api/.dev.vars` |
 | Gateway wake | cron `*/15` · DO alarms · manual ensure + `X-Ops-Secret` (`?force=1` after token rotate) · never from `/health` |
-| GitHub digest | cron 12:30 Europe/Paris → `#daily-digest` · ops `POST /internal/github-digest` |
+| `#daily-digest` | **Lyra / Veilleur** one message (news + repos). Worker GitHub scrape-post is **off**. Gateway: bots-only top-level · leftover cron / ops POST no-op |
 
 ## D11 entry rail
 
