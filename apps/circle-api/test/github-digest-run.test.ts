@@ -1,14 +1,16 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+
+vi.mock('../src/discord/gateway', () => ({
+  DiscordGateway: class DiscordGateway {},
+}))
+
+import { GITHUB_DIGEST_SCRAPE_ENABLED, runGithubDigest } from '../src/discord/github-digest'
 import worker from '../src/index'
-import {
-  GITHUB_DIGEST_SCRAPE_ENABLED,
-  runGithubDigest,
-} from '../src/discord/github-digest'
 import type { Env } from '../src/types'
 
 /**
  * Disabled-path guards: leftover cron / ops POST must not scrape GitHub or
- * post to #daily-digest. */15 Gateway wake stays armed.
+ * post to #daily-digest. The every-15-min Gateway wake stays armed.
  */
 
 const CHANNEL = 'chan-digest'
@@ -27,7 +29,8 @@ function gatewayCalls(): { ns: DurableObjectNamespace; paths: string[] } {
   const paths: string[] = []
   const stub = {
     fetch: async (input: RequestInfo | URL) => {
-      paths.push(new URL(typeof input === 'string' ? input : input.url).pathname)
+      const href = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+      paths.push(new URL(href).pathname)
       return Response.json({ ok: true })
     },
   }
@@ -150,7 +153,11 @@ describe('scheduled leftover digest crons', () => {
     const { ns, paths } = gatewayCalls()
     const pending: Promise<unknown>[] = []
 
-    await worker.scheduled(scheduled('*/15 * * * *'), env({ DISCORD_GATEWAY: ns }), waitCtx(pending))
+    await worker.scheduled(
+      scheduled('*/15 * * * *'),
+      env({ DISCORD_GATEWAY: ns }),
+      waitCtx(pending),
+    )
     await Promise.all(pending)
 
     expect(paths).toContain('/ensure')
