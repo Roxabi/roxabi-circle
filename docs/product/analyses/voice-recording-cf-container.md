@@ -2,7 +2,16 @@
 
 **Date :** 2026-09-10 → 2026-09-11  
 **Statut :** expérience **terminée**. **Pas produit.** Pas armé sur `circle.roxabi.dev`.  
-**Code spike :** non mergé (PR draft #33 + branche worktree). Ne pas le reprendre comme spec.
+**Code spike :** **pas sur `main`.** PR #33 fermée, branche feature droppée. Archive locale (pas un merge) :
+
+| | |
+|---|---|
+| Base (PR #33) | `60fab6c` — `refs/archive/spike-a-60fab6c` · branche locale `spike-a-archive` |
+| + WT (DAVE / one-shot) | `d7d3639` — `refs/archive/spike-a-wt` |
+| Fichiers | `~/projects/artifacts/spike-a-README.md` |
+
+Un seul apply : `git checkout -b spike-a-restore b58b388` puis `git apply ~/projects/artifacts/spike-a-complete.diff`.  
+Le fichier `spike-a-voice-recorder.patch` seul est un **delta contre `60fab6c`** — il ne s’applique pas sur `main` (`apps/circle-voice-recorder/` n’y est pas). Ne pas le reprendre comme spec.
 
 Question : un **Container** Cloudflare peut-il joindre le **UDP vocal Discord** ?  
 Réponse : **oui** (join Ready). Enregistrer les pistes n’a **pas** été prouvé.
