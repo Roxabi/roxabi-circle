@@ -100,7 +100,7 @@ describe('isParisDigestSlot', () => {
 })
 
 describe('isDigestCron', () => {
-  it('accepts the two UTC slots only', () => {
+  it('recognizes retired UTC slots so leftover triggers no-op', () => {
     expect(isDigestCron('30 10 * * *')).toBe(true)
     expect(isDigestCron('30 11 * * *')).toBe(true)
     expect(isDigestCron('*/15 * * * *')).toBe(false)

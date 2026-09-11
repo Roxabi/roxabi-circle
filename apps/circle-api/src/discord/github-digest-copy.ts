@@ -1,6 +1,8 @@
 /**
  * GitHub digest Discord copy (pure, no I/O).
+ * Not a live Worker path: scrape-post is retired (see github-digest.ts).
  */
+
 import {
   clip,
   DISCORD_CONTENT_MAX,

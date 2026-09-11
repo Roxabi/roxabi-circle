@@ -1,7 +1,7 @@
 /**
- * GitHub digest — schedule window (pure, no I/O).
- * Cron is UTC; the digest slot is expressed in Europe/Paris, so DST shifts the
- * matching cron between 10:30 and 11:30 UTC. Both are registered.
+ * Retired Worker GitHub digest — schedule window (pure, no I/O).
+ * Crons are no longer registered. `isDigestCron` still recognizes the old
+ * 10:30 / 11:30 UTC expressions so leftover triggers no-op instead of posting.
  */
 
 export const DIGEST_CRONS = ['30 10 * * *', '30 11 * * *'] as const

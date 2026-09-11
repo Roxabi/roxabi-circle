@@ -1,111 +1,166 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { runGithubDigest } from '../src/discord/github-digest'
+
+vi.mock('../src/discord/gateway', () => ({
+  DiscordGateway: class DiscordGateway {},
+}))
+
+import { GITHUB_DIGEST_SCRAPE_ENABLED, runGithubDigest } from '../src/discord/github-digest'
+import worker from '../src/index'
 import type { Env } from '../src/types'
 
 /**
- * Guards the enrichment wiring, not the ranking: an unreadable candidate must
- * land in metaFailures and never be mistaken for a rejected one.
+ * Disabled-path guards: leftover cron / ops POST must not scrape GitHub or
+ * post to #daily-digest. The every-15-min Gateway wake stays armed.
  */
 
 const CHANNEL = 'chan-digest'
+const OPS = 'ops-secret'
 
-const trendingHtml = `
-<article class="Box-row">
-  <h2><a href="/acme/harness-one">acme / harness-one</a></h2>
-  <p class="col-9">local multi-agent harness</p>
-  <span itemprop="programmingLanguage">TypeScript</span>
-  400 stars today
-</article>
-<article class="Box-row">
-  <h2><a href="/acme/mcp-two">acme / mcp-two</a></h2>
-  <p class="col-9">model context protocol mcp-server bridge</p>
-  <span itemprop="programmingLanguage">Rust</span>
-  900 stars this week
-</article>
-`
-
-const repoMeta = {
-  stargazers_count: 1200,
-  forks_count: 20,
-  created_at: new Date(Date.now() - 30 * 86_400_000).toISOString(),
-  language: 'TypeScript',
-  description: 'local multi-agent harness for coding agents',
-  topics: ['agent', 'harness'],
-  archived: false,
-}
-
-function env(): Env {
+function env(extra: Partial<Env> = {}): Env {
   return {
     DISCORD_BOT_TOKEN: 'bot-token',
     DISCORD_DAILY_DIGEST_CHANNEL_ID: CHANNEL,
+    GATEWAY_OPS_SECRET: OPS,
+    ...extra,
   } as unknown as Env
 }
 
-/** Routes every fetch the runner makes; `metaStatus` drives the GitHub API answer. */
-function router(metaStatus: number, posts: string[]) {
-  return vi.fn(async (input: string, init?: RequestInit) => {
-    const url = String(input)
-    if (url.includes('discord.com') && init?.method === 'POST') {
-      posts.push(String(init.body))
-      return new Response(JSON.stringify({ id: 'posted-1' }), { status: 200 })
-    }
-    if (url.includes('discord.com')) {
-      return new Response('[]', { status: 200 })
-    }
-    if (url.startsWith('https://github.com/trending')) {
-      return new Response(trendingHtml, { status: 200 })
-    }
-    if (url.endsWith('/readme')) {
-      return new Response('# harness\n\nlocal agent harness', { status: 200 })
-    }
-    if (url.startsWith('https://api.github.com/repos/')) {
-      if (metaStatus !== 200) return new Response('nope', { status: metaStatus })
-      return new Response(JSON.stringify(repoMeta), { status: 200 })
-    }
-    throw new Error(`unrouted fetch ${url}`)
-  })
+function gatewayCalls(): { ns: DurableObjectNamespace; paths: string[] } {
+  const paths: string[] = []
+  const stub = {
+    fetch: async (input: RequestInfo | URL) => {
+      const href = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+      paths.push(new URL(href).pathname)
+      return Response.json({ ok: true })
+    },
+  }
+  const ns = {
+    idFromName: () => ({}) as DurableObjectId,
+    get: () => stub,
+  } as unknown as DurableObjectNamespace
+  return { ns, paths }
+}
+
+function waitCtx(pending: Promise<unknown>[]): ExecutionContext {
+  return {
+    waitUntil: (p: Promise<unknown>) => {
+      pending.push(p)
+    },
+    passThroughOnException: () => {},
+  } as ExecutionContext
+}
+
+function scheduled(cron: string): ScheduledController {
+  return {
+    cron,
+    scheduledTime: Date.now(),
+    noRetry() {},
+  } as ScheduledController
 }
 
 afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-describe('runGithubDigest enrichment', () => {
-  it('posts when candidate metadata is readable', async () => {
-    const posts: string[] = []
-    vi.stubGlobal('fetch', router(200, posts))
+describe('GITHUB_DIGEST_SCRAPE_ENABLED', () => {
+  it('is compile-time off (no env re-arm)', () => {
+    expect(GITHUB_DIGEST_SCRAPE_ENABLED).toBe(false)
+  })
+})
+
+describe('runGithubDigest disabled path', () => {
+  it('returns skipped:disabled and never fetches', async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
 
     const res = await runGithubDigest(env(), { skipTimeCheck: true })
 
-    expect(res.ok).toBe(true)
-    expect(res.error).toBeUndefined()
-    expect(res.postedId).toBe('posted-1')
-    expect(res.picked?.length).toBeGreaterThan(0)
-    expect(res.metaFailures ?? 0).toBe(0)
-    expect(posts).toHaveLength(1)
+    expect(res).toEqual({ ok: true, skipped: 'disabled' })
+    expect(res.postedId).toBeUndefined()
+    expect(res.picked).toBeUndefined()
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 
-  it('reports a rate limit instead of posting when GitHub answers 403', async () => {
-    const posts: string[] = []
-    vi.stubGlobal('fetch', router(403, posts))
+  it('stays disabled at the old 12:30 Paris slot', async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
 
-    const res = await runGithubDigest(env(), { skipTimeCheck: true })
+    const res = await runGithubDigest(env(), {
+      now: new Date('2026-08-22T10:30:00Z'),
+    })
 
-    expect(res.ok).toBe(false)
-    expect(res.error).toBe('github_rate_limited')
-    expect(res.metaFailures).toBeGreaterThan(0)
-    expect(res.skipped).toBeUndefined()
-    expect(posts).toHaveLength(0)
+    expect(res).toEqual({ ok: true, skipped: 'disabled' })
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+})
+
+describe('POST /internal/github-digest', () => {
+  it('rejects missing ops secret without I/O', async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+
+    const res = await worker.fetch(
+      new Request('https://circle.roxabi.dev/internal/github-digest', {
+        method: 'POST',
+      }),
+      env(),
+      waitCtx([]),
+    )
+
+    expect(res.status).toBe(401)
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 
-  it('separates unreadable metadata from a rate limit on 500', async () => {
-    const posts: string[] = []
-    vi.stubGlobal('fetch', router(500, posts))
+  it('returns disabled and never scrapes or posts', async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
 
-    const res = await runGithubDigest(env(), { skipTimeCheck: true })
+    const res = await worker.fetch(
+      new Request('https://circle.roxabi.dev/internal/github-digest', {
+        method: 'POST',
+        headers: { 'X-Ops-Secret': OPS },
+      }),
+      env(),
+      waitCtx([]),
+    )
 
-    expect(res.ok).toBe(false)
-    expect(res.error).toBe('github_meta_unavailable')
-    expect(posts).toHaveLength(0)
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ ok: true, skipped: 'disabled' })
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+})
+
+describe('scheduled leftover digest crons', () => {
+  it.each(['30 10 * * *', '30 11 * * *'] as const)(
+    'no-ops %s without scrape or Gateway wake',
+    async (cron) => {
+      const fetchMock = vi.fn()
+      vi.stubGlobal('fetch', fetchMock)
+      const { ns, paths } = gatewayCalls()
+      const pending: Promise<unknown>[] = []
+
+      await worker.scheduled(scheduled(cron), env({ DISCORD_GATEWAY: ns }), waitCtx(pending))
+      await Promise.all(pending)
+
+      expect(fetchMock).not.toHaveBeenCalled()
+      expect(paths).toEqual([])
+    },
+  )
+
+  it('still wakes Gateway on */15', async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+    const { ns, paths } = gatewayCalls()
+    const pending: Promise<unknown>[] = []
+
+    await worker.scheduled(
+      scheduled('*/15 * * * *'),
+      env({ DISCORD_GATEWAY: ns }),
+      waitCtx(pending),
+    )
+    await Promise.all(pending)
+
+    expect(paths).toContain('/ensure')
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 })

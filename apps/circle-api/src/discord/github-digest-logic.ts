@@ -1,6 +1,7 @@
 /**
  * GitHub digest — pure ranking / copy (no I/O).
  * Rank by star velocity (trending page), then circle theme. No total-star cap.
+ * Not a live Worker path: scrape-post is retired (see github-digest.ts).
  */
 
 export const DISCORD_SUPPRESS_EMBEDS = 4
