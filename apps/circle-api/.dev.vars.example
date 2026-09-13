@@ -28,3 +28,7 @@ GATEWAY_OPS_SECRET=
 # Both empty = no-op. Never commit real values.
 LYRA_GROK_WEBHOOK_URL=
 LYRA_GROK_WEBHOOK_SECRET=
+# Dedicated routine for #github-to-watch repo digests (not the @Lyra mention hook).
+# Both empty = no-op. Never commit real values.
+LYRA_GITHUB_WATCH_WEBHOOK_URL=
+LYRA_GITHUB_WATCH_WEBHOOK_SECRET=
