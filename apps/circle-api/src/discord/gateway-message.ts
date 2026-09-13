@@ -1,11 +1,12 @@
 /**
- * MESSAGE_CREATE: channel-rule plans, @Lyra forward, then awaited enforcers.
- * Extracted from gateway-handlers.ts for the 300-line gate.
+ * MESSAGE_CREATE: channel-rule plans, @Lyra forward, awaited enforcers,
+ * then #github-to-watch repo-digest webhook after an accepted thread.
  */
 
 import { enforceDailyDigest, planDailyDigestMessage } from './daily-digest'
 import type { GatewayDispatchCtx } from './gateway-handlers'
 import { enforceGithubWatch, type GatewayMessage, planGithubWatchMessage } from './github-watch'
+import { scheduleGithubWatchDigestForward } from './github-watch-digest'
 import { scheduleLyraMentionForward } from './lyra-mention'
 import { enforceNewsActu, planNewsActuMessage } from './news-actu'
 
@@ -52,6 +53,21 @@ export async function handleMessageCreate(
   if (watch) await enforceRuledChannel(ctx, msg, watch, 'github-watch', enforceGithubWatch)
   if (news) await enforceRuledChannel(ctx, msg, news, 'news-actu', enforceNewsActu)
   if (digest) await enforceRuledChannel(ctx, msg, digest, 'daily-digest', enforceDailyDigest)
+
+  // After the auto-thread exists. Dedicated webhook — not LYRA_GROK_*.
+  if (watch?.type === 'accept') {
+    scheduleGithubWatchDigestForward(
+      {
+        webhookUrl: ctx.env.LYRA_GITHUB_WATCH_WEBHOOK_URL,
+        webhookSecret: ctx.env.LYRA_GITHUB_WATCH_WEBHOOK_SECRET,
+        watchChannelId: watchId,
+        configuredGuildId: ctx.env.DISCORD_GUILD_ID,
+        botUserId: botId,
+        waitUntil: ctx.waitUntil,
+      },
+      msg,
+    )
+  }
 }
 
 async function enforceRuledChannel<A extends RuledAction>(

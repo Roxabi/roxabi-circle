@@ -15,8 +15,9 @@ const NEWS = '1000000000000000003'
 const DIGEST = '1534243223625793626'
 const MEMBER_ROLE = '1000000000000000004'
 const HOOK = 'https://grok.example/hook'
+const DIGEST_HOOK = 'https://grok.example/github-watch'
 
-function env(): Env {
+function env(extra: Partial<Env> = {}): Env {
   return {
     DISCORD_BOT_TOKEN: 'bot-token',
     DISCORD_GUILD_ID: GUILD,
@@ -26,6 +27,7 @@ function env(): Env {
     DISCORD_DAILY_DIGEST_CHANNEL_ID: DIGEST,
     LYRA_GROK_WEBHOOK_URL: HOOK,
     LYRA_GROK_WEBHOOK_SECRET: 'crsr_test',
+    ...extra,
   } as unknown as Env
 }
 
@@ -39,11 +41,15 @@ function memoryStorage() {
   } as unknown as DurableObjectStorage
 }
 
-function ctx(pending: Promise<unknown>[], storage: DurableObjectStorage = memoryStorage()) {
+function ctx(
+  pending: Promise<unknown>[],
+  storage: DurableObjectStorage = memoryStorage(),
+  extraEnv: Partial<Env> = {},
+) {
   let botUserId: string | null = 'bot-1'
   let session = { seq: 0 } as never
   return {
-    env: env(),
+    env: env(extraEnv),
     storage,
     getBotUserId: () => botUserId,
     setBotUserId: (id: string | null) => {
@@ -78,6 +84,7 @@ type CallRecorder = {
   impl: typeof fetch
   calls: OutboundCall[]
   webhookPosts: () => OutboundCall[]
+  digestPosts: () => OutboundCall[]
   deletes: () => OutboundCall[]
   threadCreates: () => OutboundCall[]
 }
@@ -144,6 +151,7 @@ function recorder(opts?: { denyThreads?: boolean }): CallRecorder {
     impl: impl as unknown as typeof fetch,
     calls,
     webhookPosts: () => calls.filter((c) => c.url === HOOK),
+    digestPosts: () => calls.filter((c) => c.url === DIGEST_HOOK),
     deletes: () => calls.filter((c) => c.method === 'DELETE'),
     threadCreates: () => calls.filter((c) => c.method === 'POST' && c.url.endsWith('/threads')),
   }
@@ -414,5 +422,80 @@ describe('handleGatewayDispatch — webhook boundary', () => {
     })
     await Promise.all(pending)
     expect(rec.webhookPosts()).toHaveLength(0)
+  })
+})
+
+describe('handleGatewayDispatch — github-to-watch digest webhook', () => {
+  const digestEnv = {
+    LYRA_GITHUB_WATCH_WEBHOOK_URL: DIGEST_HOOK,
+    LYRA_GITHUB_WATCH_WEBHOOK_SECRET: 'digest-test',
+  }
+  let rec: CallRecorder
+
+  beforeEach(() => {
+    rec = recorder()
+    vi.stubGlobal('fetch', rec.impl)
+  })
+
+  it('forwards an accepted repo URL after the auto-thread exists', async () => {
+    const pending: Promise<unknown>[] = []
+    await handleGatewayDispatch(ctx(pending, memoryStorage(), digestEnv) as never, {
+      t: 'MESSAGE_CREATE',
+      d: {
+        ...message(WATCH, 'https://github.com/Roxabi/roxabi-circle'),
+        mentions: [],
+      },
+    })
+    await Promise.all(pending)
+
+    expect(rec.threadCreates()).toHaveLength(1)
+    expect(rec.webhookPosts()).toHaveLength(0)
+    expect(rec.digestPosts()).toHaveLength(1)
+    const threadIdx = rec.calls.findIndex((c) => c.method === 'POST' && c.url.endsWith('/threads'))
+    const digestIdx = rec.calls.findIndex((c) => c.url === DIGEST_HOOK)
+    expect(digestIdx).toBeGreaterThan(threadIdx)
+    const payload = JSON.parse(rec.digestPosts()[0]?.body ?? '{}') as Record<string, unknown>
+    expect(payload).toMatchObject({
+      source: 'github-to-watch',
+      guildId: GUILD,
+      channelId: WATCH,
+      messageId: 'msg-1',
+      url: 'https://github.com/Roxabi/roxabi-circle',
+      authorId: 'human-1',
+      authorUsername: 'membre',
+    })
+  })
+
+  it('does not forward a PR or issue URL', async () => {
+    const pending: Promise<unknown>[] = []
+    await handleGatewayDispatch(ctx(pending, memoryStorage(), digestEnv) as never, {
+      t: 'MESSAGE_CREATE',
+      d: {
+        ...message(WATCH, 'https://github.com/Roxabi/roxabi-circle/pull/22'),
+        mentions: [],
+      },
+    })
+    await Promise.all(pending)
+    expect(rec.threadCreates()).toHaveLength(1)
+    expect(rec.digestPosts()).toHaveLength(0)
+  })
+
+  it('does not POST when the digest sender key is empty', async () => {
+    const pending: Promise<unknown>[] = []
+    await handleGatewayDispatch(
+      ctx(pending, memoryStorage(), {
+        LYRA_GITHUB_WATCH_WEBHOOK_URL: DIGEST_HOOK,
+        LYRA_GITHUB_WATCH_WEBHOOK_SECRET: '',
+      }) as never,
+      {
+        t: 'MESSAGE_CREATE',
+        d: {
+          ...message(WATCH, 'https://github.com/Roxabi/roxabi-circle'),
+          mentions: [],
+        },
+      },
+    )
+    await Promise.all(pending)
+    expect(rec.digestPosts()).toHaveLength(0)
   })
 })

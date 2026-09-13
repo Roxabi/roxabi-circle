@@ -35,6 +35,13 @@ export type Env = {
   LYRA_GROK_WEBHOOK_URL?: string
   /** Grok Bot routine sender key (`Authorization: Bearer`). Desktop app → trigger card. */
   LYRA_GROK_WEBHOOK_SECRET?: string
+  /**
+   * Dedicated Grok Bot webhook for #github-to-watch repo URLs (not the @Lyra mention hook).
+   * Optional. Empty URL **or** empty sender key = no-op. Both required to forward.
+   */
+  LYRA_GITHUB_WATCH_WEBHOOK_URL?: string
+  /** Sender key for the github-to-watch digest routine (`Authorization: Bearer`). */
+  LYRA_GITHUB_WATCH_WEBHOOK_SECRET?: string
   /** Durable Object: Discord Gateway client (Lyra) */
   DISCORD_GATEWAY: DurableObjectNamespace
   /** Shared secret for POST /internal/discord-gateway/ensure (header X-Ops-Secret) */

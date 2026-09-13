@@ -30,6 +30,8 @@ ACCEPT_THRESHOLD = "65"
 # Secrets via `wrangler secret` (see .dev.vars.example)
 # LYRA_GROK_WEBHOOK_URL + LYRA_GROK_WEBHOOK_SECRET — required to forward @Lyra
 # and later human messages in threads where Lyra has already posted.
+# LYRA_GITHUB_WATCH_WEBHOOK_URL + LYRA_GITHUB_WATCH_WEBHOOK_SECRET — required to
+# forward #github-to-watch repo URLs (separate Grok Bot routine).
 # Source: Grok Bot desktop → routine trigger "When a webhook fires" (URL + sender key).
 
 [[durable_objects.bindings]]

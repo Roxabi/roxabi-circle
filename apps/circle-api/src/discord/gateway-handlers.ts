@@ -32,7 +32,7 @@ export type GatewayDispatchCtx = {
   setSession: (s: GatewaySessionState) => void
   saveSession: () => Promise<void>
   enqueueVoice: (fn: () => Promise<void>) => Promise<void>
-  /** DO waitUntil — used for fire-and-forget @Lyra webhook POST. */
+  /** DO waitUntil — fire-and-forget @Lyra mention + github-to-watch digest POSTs. */
   waitUntil?: (promise: Promise<unknown>) => void
   sleep?: (ms: number) => Promise<void>
 }

@@ -35,9 +35,12 @@ Grok Bot Lyra inbound webhook (**desktop app only**, not iOS):
 cd apps/circle-api
 bunx wrangler secret put LYRA_GROK_WEBHOOK_URL
 bunx wrangler secret put LYRA_GROK_WEBHOOK_SECRET
+# Dedicated #github-to-watch repo-digest routine (separate from @Lyra mentions):
+bunx wrangler secret put LYRA_GITHUB_WATCH_WEBHOOK_URL
+bunx wrangler secret put LYRA_GITHUB_WATCH_WEBHOOK_SECRET
 ```
 
-Either empty = no-op (Worker does not POST member messages unsigned).
+Either pair empty = no-op (Worker does not POST unsigned). Do not reuse the @Lyra mention URL for the digest routine.
 
 ## Discord
 
