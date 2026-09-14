@@ -14,12 +14,12 @@
   },
   "dependencies": {
     "@kit/mcp": "workspace:*",
-    "fastmcp": "^4.16.13",
-    "zod": "^4.5.4"
+    "fastmcp": "^4.20.11",
+    "zod": "^4.6.2"
   },
   "devDependencies": {
-    "@types/bun": "^1.4.0",
-    "@types/node": "^26.4.0",
+    "@types/bun": "^1.4.2",
+    "@types/node": "^26.5.1",
     "vitest": "^4.1.11"
   }
 }
