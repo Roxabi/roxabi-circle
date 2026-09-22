@@ -6,65 +6,65 @@
       "reason": "Fail-closed scan-root fix ported from the kit parent. Circle CI runs this vendored scripts/kit copy.",
       "owner": "roxabi-circle",
       "expires": "2026-12-22",
-      "ticket": "https://github.com/Roxabi/roxabi-boilerplate-cf/commit/1d9f1778ed352f26f65b030f2fdcf0e3946dcda7",
+      "ticket": "https://github.com/Roxabi/roxabi-boilerplate-cf/commit/8bf32a8124f5d390e5b2e64245ed4ee059df12dd",
       "alternatives_considered": [
         "refresh config/product/inheritance.json to the kit tip",
         "leave the false-green skip until the next boilerplate cascade"
       ],
       "why_not_alternative": "Refreshing inheritance.json would pull every kit commit since 4fa05746, not only this gate. The checker has to stay in scripts/kit because that is the copy CI executes.",
-      "kit_pr": "https://github.com/Roxabi/roxabi-boilerplate-cf/commit/1d9f1778ed352f26f65b030f2fdcf0e3946dcda7"
+      "kit_pr": "https://github.com/Roxabi/roxabi-boilerplate-cf/commit/8bf32a8124f5d390e5b2e64245ed4ee059df12dd"
     },
     {
       "path": "scripts/kit/check_file_length.sh",
       "reason": "Fail-closed scan-root fix ported from the kit parent. Circle CI runs this vendored scripts/kit copy.",
       "owner": "roxabi-circle",
       "expires": "2026-12-22",
-      "ticket": "https://github.com/Roxabi/roxabi-boilerplate-cf/commit/1d9f1778ed352f26f65b030f2fdcf0e3946dcda7",
+      "ticket": "https://github.com/Roxabi/roxabi-boilerplate-cf/commit/8bf32a8124f5d390e5b2e64245ed4ee059df12dd",
       "alternatives_considered": [
         "refresh config/product/inheritance.json to the kit tip",
         "leave the false-green skip until the next boilerplate cascade"
       ],
       "why_not_alternative": "Refreshing inheritance.json would pull every kit commit since 4fa05746, not only this gate. The checker has to stay in scripts/kit because that is the copy CI executes.",
-      "kit_pr": "https://github.com/Roxabi/roxabi-boilerplate-cf/commit/1d9f1778ed352f26f65b030f2fdcf0e3946dcda7"
+      "kit_pr": "https://github.com/Roxabi/roxabi-boilerplate-cf/commit/8bf32a8124f5d390e5b2e64245ed4ee059df12dd"
     },
     {
       "path": "scripts/kit/check_folder_size.sh",
       "reason": "Fail-closed scan-root fix ported from the kit parent. Circle CI runs this vendored scripts/kit copy.",
       "owner": "roxabi-circle",
       "expires": "2026-12-22",
-      "ticket": "https://github.com/Roxabi/roxabi-boilerplate-cf/commit/1d9f1778ed352f26f65b030f2fdcf0e3946dcda7",
+      "ticket": "https://github.com/Roxabi/roxabi-boilerplate-cf/commit/8bf32a8124f5d390e5b2e64245ed4ee059df12dd",
       "alternatives_considered": [
         "refresh config/product/inheritance.json to the kit tip",
         "leave the false-green skip until the next boilerplate cascade"
       ],
       "why_not_alternative": "Refreshing inheritance.json would pull every kit commit since 4fa05746, not only this gate. The checker has to stay in scripts/kit because that is the copy CI executes.",
-      "kit_pr": "https://github.com/Roxabi/roxabi-boilerplate-cf/commit/1d9f1778ed352f26f65b030f2fdcf0e3946dcda7"
+      "kit_pr": "https://github.com/Roxabi/roxabi-boilerplate-cf/commit/8bf32a8124f5d390e5b2e64245ed4ee059df12dd"
     },
     {
       "path": "scripts/kit/test-file-length.sh",
       "reason": "Fail-closed scan-root fix ported from the kit parent. Circle CI runs this vendored scripts/kit copy.",
       "owner": "roxabi-circle",
       "expires": "2026-12-22",
-      "ticket": "https://github.com/Roxabi/roxabi-boilerplate-cf/commit/1d9f1778ed352f26f65b030f2fdcf0e3946dcda7",
+      "ticket": "https://github.com/Roxabi/roxabi-boilerplate-cf/commit/8bf32a8124f5d390e5b2e64245ed4ee059df12dd",
       "alternatives_considered": [
         "refresh config/product/inheritance.json to the kit tip",
         "leave the false-green skip until the next boilerplate cascade"
       ],
       "why_not_alternative": "Refreshing inheritance.json would pull every kit commit since 4fa05746, not only this gate. The checker has to stay in scripts/kit because that is the copy CI executes.",
-      "kit_pr": "https://github.com/Roxabi/roxabi-boilerplate-cf/commit/1d9f1778ed352f26f65b030f2fdcf0e3946dcda7"
+      "kit_pr": "https://github.com/Roxabi/roxabi-boilerplate-cf/commit/8bf32a8124f5d390e5b2e64245ed4ee059df12dd"
     },
     {
       "path": "scripts/kit/test-folder-size.sh",
       "reason": "Fail-closed scan-root fix ported from the kit parent. Circle CI runs this vendored scripts/kit copy.",
       "owner": "roxabi-circle",
       "expires": "2026-12-22",
-      "ticket": "https://github.com/Roxabi/roxabi-boilerplate-cf/commit/1d9f1778ed352f26f65b030f2fdcf0e3946dcda7",
+      "ticket": "https://github.com/Roxabi/roxabi-boilerplate-cf/commit/8bf32a8124f5d390e5b2e64245ed4ee059df12dd",
       "alternatives_considered": [
         "refresh config/product/inheritance.json to the kit tip",
         "leave the false-green skip until the next boilerplate cascade"
       ],
       "why_not_alternative": "Refreshing inheritance.json would pull every kit commit since 4fa05746, not only this gate. The checker has to stay in scripts/kit because that is the copy CI executes.",
-      "kit_pr": "https://github.com/Roxabi/roxabi-boilerplate-cf/commit/1d9f1778ed352f26f65b030f2fdcf0e3946dcda7"
+      "kit_pr": "https://github.com/Roxabi/roxabi-boilerplate-cf/commit/8bf32a8124f5d390e5b2e64245ed4ee059df12dd"
     }
   ]
 }
