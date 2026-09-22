@@ -48,7 +48,7 @@ assert_exit() {
 
 make_repo() {
   local dir="$1"
-  mkdir -p "${dir}"
+  mkdir -p "${dir}/apps" "${dir}/packages"
   git --git-dir="${dir}/.git" --work-tree="${dir}" init -q
   git --git-dir="${dir}/.git" --work-tree="${dir}" config user.email "folder-size@example.com"
   git --git-dir="${dir}/.git" --work-tree="${dir}" config user.name "folder-size"
@@ -71,7 +71,7 @@ run_checker() {
   local tree="$1"
   shift
   env -u GIT_DIR -u GIT_WORK_TREE -u GIT_COMMON_DIR \
-    -u QG_FOLDER_MAX -u QG_FOLDER_EXEMPTIONS -u QG_FOLDER_ROOTS -u QG_FOLDER_PRODUCT_EXEMPTIONS \
+    -u QG_FOLDER_MAX -u QG_FOLDER_EXEMPTIONS -u QG_FOLDER_ROOTS -u QG_FOLDER_PRODUCT_EXEMPTIONS -u QG_FOLDER_SIZE_DISABLE \
     -C "${tree}" \
     "$@" \
     bash "${CHECKER}"
@@ -170,6 +170,17 @@ mkdir -p "${ABSENT}/config/kit" "${ABSENT}/apps/acme-web/src"
 plant_ts "${ABSENT}/apps/acme-web/src" 3
 assert_exit "product file absent → 0" 0 "" \
   run_checker "${ABSENT}"
+
+# --- missing scan root is not a pass ---
+MISSING="${TMP}/missing-root"
+make_repo "${MISSING}"
+rm -rf "${MISSING}/packages"
+assert_exit "missing packages/ → 1" 1 "not found" \
+  run_checker "${MISSING}"
+assert_exit "missing packages/ + disable → 0" 0 "" \
+  env -u GIT_DIR -u GIT_WORK_TREE -u GIT_COMMON_DIR -C "${MISSING}" \
+    QG_FOLDER_SIZE_DISABLE=1 \
+    bash "${CHECKER}"
 
 echo ""
 echo "CP-FOLDER-SIZE matrix: ${PASS} passed, ${FAIL} failed"

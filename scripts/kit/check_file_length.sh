@@ -3,9 +3,87 @@
 # Kit register: config/kit/file_exemptions.txt
 # Product register: config/product/file_exemptions.txt (optional; apps/<product>-{api,web,mcp}/ only)
 # Modes : QG_FILE_MODE=staged (pre-commit) | tree (CI)
+#
+# Opt-out (explicit only — a missing directory is never a pass):
+#   QG_FILE_LENGTH_DISABLE=1   this repository is not subject to the file-length gate.
+#   Accepted values: 1, true, yes (case-insensitive). Unset, empty, or 0 = gate applies.
+#   Set it in the environment, or in config/kit/qg.conf so a non-empty export still wins:
+#     : "${QG_FILE_LENGTH_DISABLE:=1}"
+#   Every entry in QG_FILE_ROOTS (default: apps packages) must be an existing directory.
+#   Without either, a missing root is a hard failure that names the path and this opt-out.
+#
+# --self-test  Prove the gate can fail. Uses a temp git repo and exits 0 only if a
+#   missing scan root and a file over the cap each exit 1. Never touches the work tree.
 set -euo pipefail
 
 LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Prove the gate can fail. Isolated temp git repo; the child cds there, so the
+# real work tree and its qg.conf are never read or written.
+self_test() {
+  local tmp rc=0 i
+  tmp=$(mktemp -d)
+  trap 'rm -rf "$tmp"' RETURN
+  env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR git -C "$tmp" init -q
+
+  rc=0
+  (
+    cd "$tmp" && \
+    env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR \
+        -u QG_FILE_LENGTH_DISABLE \
+        -u QG_FILE_MAX -u QG_FILE_EXEMPTIONS -u QG_FILE_ROOTS -u QG_FILE_PRODUCT_EXEMPTIONS \
+        -u QG_FILE_HARNESS_SENTINEL -u QG_FILE_MODE \
+        "$LIB_DIR/check_file_length.sh"
+  ) || rc=$?
+  if [ "$rc" -ne 1 ]; then
+    echo "ERROR: check_file_length --self-test: expected exit 1 on a missing scan root, got $rc" >&2
+    exit 1
+  fi
+
+  rc=0
+  (
+    cd "$tmp" && \
+    env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR \
+        -u QG_FILE_MAX -u QG_FILE_EXEMPTIONS -u QG_FILE_ROOTS -u QG_FILE_PRODUCT_EXEMPTIONS \
+        -u QG_FILE_HARNESS_SENTINEL -u QG_FILE_MODE \
+        QG_FILE_LENGTH_DISABLE=1 \
+        "$LIB_DIR/check_file_length.sh"
+  ) || rc=$?
+  if [ "$rc" -ne 0 ]; then
+    echo "ERROR: check_file_length --self-test: expected exit 0 when QG_FILE_LENGTH_DISABLE=1, got $rc" >&2
+    exit 1
+  fi
+
+  mkdir -p "$tmp/apps/acme-web/src" "$tmp/packages"
+  : >"$tmp/apps/acme-web/src/over.tsx"
+  for i in 1 2 3 4; do
+    echo "// line $i" >>"$tmp/apps/acme-web/src/over.tsx"
+  done
+  touch "$tmp/.qg-harness"
+  rc=0
+  (
+    cd "$tmp" && \
+    env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR \
+        -u QG_FILE_LENGTH_DISABLE \
+        QG_FILE_MAX=3 \
+        QG_FILE_ROOTS="apps packages" \
+        QG_FILE_MODE=tree \
+        QG_FILE_HARNESS_SENTINEL="$tmp/.qg-harness" \
+        "$LIB_DIR/check_file_length.sh"
+  ) || rc=$?
+  if [ "$rc" -ne 1 ]; then
+    echo "ERROR: check_file_length --self-test: expected exit 1 on a file over the cap, got $rc" >&2
+    exit 1
+  fi
+  exit 0
+}
+
+for _arg in "$@"; do
+  if [ "$_arg" = "--self-test" ]; then
+    self_test
+  fi
+done
+
 cd "$(git rev-parse --show-toplevel)"
 
 KIT_EXEMPT_DEFAULT="config/kit/file_exemptions.txt"
@@ -41,6 +119,17 @@ KIT_PATHS=""
 
 # shellcheck source=check_lib.sh
 . "$LIB_DIR/check_lib.sh"
+
+# Missing scan root is a hard failure unless the operator opted out. See header.
+# Kit scans every root in QG_FILE_ROOTS (default: apps packages).
+if [ -z "$ROOTS" ]; then
+  FIND_ROOT=""
+  require_scan_root QG_FILE_LENGTH_DISABLE QG_FILE_ROOTS check_file_length
+fi
+for root in $ROOTS; do
+  FIND_ROOT="$root"
+  require_scan_root QG_FILE_LENGTH_DISABLE QG_FILE_ROOTS check_file_length
+done
 
 cleanup_temps() {
   [ -n "${MERGED:-}" ] && rm -f "$MERGED"

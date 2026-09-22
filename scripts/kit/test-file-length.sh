@@ -49,7 +49,7 @@ assert_exit() {
 
 make_repo() {
   local dir="$1"
-  mkdir -p "${dir}"
+  mkdir -p "${dir}/apps" "${dir}/packages"
   git --git-dir="${dir}/.git" --work-tree="${dir}" init -q
   git --git-dir="${dir}/.git" --work-tree="${dir}" config user.email "file-length@example.com"
   git --git-dir="${dir}/.git" --work-tree="${dir}" config user.name "file-length"
@@ -74,7 +74,7 @@ run_checker() {
   local mode="$2"
   shift 2
   env -u GIT_DIR -u GIT_WORK_TREE -u GIT_COMMON_DIR \
-    -u QG_FILE_MAX -u QG_FILE_EXEMPTIONS -u QG_FILE_ROOTS -u QG_FILE_PRODUCT_EXEMPTIONS \
+    -u QG_FILE_MAX -u QG_FILE_EXEMPTIONS -u QG_FILE_ROOTS -u QG_FILE_PRODUCT_EXEMPTIONS -u QG_FILE_LENGTH_DISABLE \
     -C "${tree}" \
     QG_FILE_MODE="${mode}" \
     "$@" \
@@ -270,6 +270,17 @@ assert_exit "QG_FILE_MAX with sentinel → 0" 0 "" \
   env -u GIT_DIR -u GIT_WORK_TREE -u GIT_COMMON_DIR -C "${SENT}" \
     QG_FILE_MODE=tree QG_FILE_MAX=99999 \
     QG_FILE_HARNESS_SENTINEL="${SENT}/.qg-harness" \
+    bash "${CHECKER}"
+
+# --- missing scan root is not a pass ---
+MISSING="${TMP}/missing-root"
+make_repo "${MISSING}"
+rm -rf "${MISSING}/packages"
+assert_exit "missing packages/ → 1" 1 "not found" \
+  run_checker "${MISSING}" tree
+assert_exit "missing packages/ + disable → 0" 0 "" \
+  env -u GIT_DIR -u GIT_WORK_TREE -u GIT_COMMON_DIR -C "${MISSING}" \
+    QG_FILE_MODE=tree QG_FILE_LENGTH_DISABLE=1 \
     bash "${CHECKER}"
 
 echo "== summary: ${PASS} pass, ${FAIL} fail =="
