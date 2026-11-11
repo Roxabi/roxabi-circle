@@ -1,0 +1,186 @@
+import { describe, expect, it } from 'vitest'
+import { FLOW_RUN_STATUSES, parseReceipts, readRunRollup, TASK_RECEIPT_OUTCOMES } from './receipts'
+
+const emptyBundle = { receiptVersion: 1 as const, tokensUsed: 0, tasks: {} }
+
+describe('parseReceipts', () => {
+  it('rejects extra keys on the bundle via strict', () => {
+    const result = parseReceipts({ ...emptyBundle, extra: true })
+    expect(result.ok).toBe(false)
+  })
+
+  it('rejects extra keys on a task receipt via strict', () => {
+    const result = parseReceipts({
+      receiptVersion: 1,
+      tokensUsed: 0,
+      tasks: { a: { taskId: 'a', outcome: 'ok', extra: true } },
+    })
+    expect(result.ok).toBe(false)
+  })
+
+  it('rejects an unknown task id when taskIds is passed', () => {
+    const result = parseReceipts(
+      {
+        receiptVersion: 1,
+        tokensUsed: 0,
+        tasks: { z: { taskId: 'z', outcome: 'ok' } },
+      },
+      ['a', 'b'],
+    )
+    expect(result.ok).toBe(false)
+  })
+
+  it('allows empty tasks when taskIds is omitted (error-bundle path)', () => {
+    const result = parseReceipts(emptyBundle)
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      expect(result.receipts.tasks).toEqual({})
+      expect(result.receipts.receiptVersion).toBe(1)
+      expect(result.receipts.tokensUsed).toBe(0)
+    }
+  })
+
+  it('rejects fail without errorCode', () => {
+    const result = parseReceipts({
+      receiptVersion: 1,
+      tokensUsed: 0,
+      tasks: { a: { taskId: 'a', outcome: 'fail' } },
+    })
+    expect(result.ok).toBe(false)
+  })
+
+  it('rejects receiptVersion other than 1', () => {
+    const result = parseReceipts({ ...emptyBundle, receiptVersion: 2 })
+    expect(result.ok).toBe(false)
+  })
+
+  it('rejects taskId that does not match the record key', () => {
+    const result = parseReceipts({
+      receiptVersion: 1,
+      tokensUsed: 0,
+      tasks: { z: { taskId: 'a', outcome: 'ok' } },
+    })
+    expect(result.ok).toBe(false)
+  })
+
+  it('truncates output to 4 KiB', () => {
+    const result = parseReceipts({
+      receiptVersion: 1,
+      tokensUsed: 0,
+      tasks: { a: { taskId: 'a', outcome: 'ok', output: 'x'.repeat(4097) } },
+    })
+    expect(result.ok).toBe(true)
+    if (result.ok) expect(result.receipts.tasks.a?.output?.length).toBe(4096)
+  })
+
+  it('rejects negative or non-integer tokensUsed', () => {
+    expect(parseReceipts({ ...emptyBundle, tokensUsed: -1 }).ok).toBe(false)
+    expect(parseReceipts({ ...emptyBundle, tokensUsed: 1.5 }).ok).toBe(false)
+  })
+
+  it('allows missing task ids when taskIds is passed', () => {
+    const result = parseReceipts(
+      { receiptVersion: 1, tokensUsed: 0, tasks: { a: { taskId: 'a', outcome: 'ok' } } },
+      ['a', 'b'],
+    )
+    expect(result.ok).toBe(true)
+  })
+})
+
+describe('TASK_RECEIPT_OUTCOMES', () => {
+  it('includes waiting as a typed outcome without requiring a producer', () => {
+    expect(TASK_RECEIPT_OUTCOMES).toContain('waiting')
+    expect(TASK_RECEIPT_OUTCOMES).toEqual(expect.arrayContaining(['ok', 'skip', 'fail', 'waiting']))
+    const result = parseReceipts({
+      receiptVersion: 1,
+      tokensUsed: 0,
+      tasks: { a: { taskId: 'a', outcome: 'waiting' } },
+    })
+    expect(result.ok).toBe(true)
+  })
+
+  it('accepts a strict approval stamp and rejects a non-ISO at', () => {
+    const ok = parseReceipts({
+      receiptVersion: 1,
+      tokensUsed: 0,
+      tasks: {
+        gate: {
+          taskId: 'gate',
+          outcome: 'ok',
+          approval: { by: 'user_staff', at: '2026-09-25T12:00:00.000Z' },
+        },
+      },
+    })
+    expect(ok.ok).toBe(true)
+    const bad = parseReceipts({
+      receiptVersion: 1,
+      tokensUsed: 0,
+      tasks: {
+        gate: {
+          taskId: 'gate',
+          outcome: 'fail',
+          errorCode: 'APPROVAL_REJECTED',
+          approval: { by: 'user_staff', at: 'yesterday', extra: true },
+        },
+      },
+    })
+    expect(bad.ok).toBe(false)
+  })
+
+  it('accepts started without output', () => {
+    expect(TASK_RECEIPT_OUTCOMES).toContain('started')
+    const result = parseReceipts({
+      receiptVersion: 1,
+      tokensUsed: 0,
+      tasks: { a: { taskId: 'a', outcome: 'started' } },
+    })
+    expect(result.ok).toBe(true)
+  })
+
+  it('rejects started that carries output', () => {
+    const result = parseReceipts({
+      receiptVersion: 1,
+      tokensUsed: 0,
+      tasks: { a: { taskId: 'a', outcome: 'started', output: 'leaked' } },
+    })
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(result.issues.some((issue) => issue.path?.includes('output'))).toBe(true)
+    }
+  })
+})
+
+describe('readRunRollup', () => {
+  it('returns app status and parsed receipts and ignores extra instanceStatus', () => {
+    expect(readRunRollup.length).toBe(1)
+    // Not an object literal: `readRunRollup`'s param has no `instanceStatus`, and the
+    // point of the test is that a D1 row carrying one is ignored, not rejected.
+    const row = {
+      status: 'failed',
+      receiptJson: JSON.stringify(emptyBundle),
+      errorCode: 'ORG_MISMATCH',
+      instanceStatus: 'complete',
+    }
+    const result = readRunRollup(row)
+    expect(result.status).toBe('failed')
+    expect(result.status).not.toBe('complete')
+    expect(result.receipts).toMatchObject(emptyBundle)
+    expect(result.errorCode).toBe('ORG_MISMATCH')
+  })
+
+  it('returns null receipts when receiptJson is not JSON', () => {
+    const result = readRunRollup({ status: 'failed', receiptJson: '{', errorCode: 'X' })
+    expect(result.status).toBe('failed')
+    expect(result.receipts).toBeNull()
+  })
+})
+
+describe('FLOW_RUN_STATUSES', () => {
+  it('includes queued running succeeded failed cancelled and not CF complete or errored', () => {
+    expect(FLOW_RUN_STATUSES).toEqual(
+      expect.arrayContaining(['queued', 'running', 'succeeded', 'failed', 'cancelled']),
+    )
+    expect(FLOW_RUN_STATUSES).not.toContain('complete')
+    expect(FLOW_RUN_STATUSES).not.toContain('errored')
+  })
+})

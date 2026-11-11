@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "families": [
+    {
+      "prefix": "cog-",
+      "max": 1
+    }
+  ]
+}

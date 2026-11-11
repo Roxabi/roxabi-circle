@@ -1,0 +1,15 @@
+{
+  "extends": "../../packages/config/tsconfig.base.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "noEmit": true,
+    "rootDir": "src",
+    // Browser program: no Node ambient globals, so `process`, `Buffer` and `__dirname` are
+    // type errors in app code instead of blank-page crashes. Test files run under vitest in
+    // Node, where those globals are real — they are checked by `tsconfig.test.json`.
+    "types": ["vite/client"]
+  },
+  "include": ["src"],
+  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx", "src/test/**"]
+}

@@ -1,0 +1,11 @@
+# Local email sink for kit demo (B5). Not used in prod.
+services:
+  mailpit:
+    # Pin major.minor — avoid floating :latest overnight breaks.
+    image: axllent/mailpit:v1.22.3
+    ports:
+      - "8025:8025" # UI
+      - "1025:1025" # SMTP
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: 1
+      MP_SMTP_AUTH_ALLOW_INSECURE: 1

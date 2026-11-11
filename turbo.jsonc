@@ -1,0 +1,26 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  // Invalidate package task caches when the lockfile (and thus tsc major) changes.
+  "globalDependencies": ["bun.lock"],
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**"]
+    },
+    "typecheck": {
+      "dependsOn": ["^typecheck"]
+    },
+    // No `test:coverage` task: the root script is `scripts/kit/test-coverage.sh`
+    // (ordered bars, silent-exclusion detection, summary print), which drives
+    // `bunx vitest run --coverage` per package directly — turbo never runs it.
+    // No `lint` task either: Biome is a single root pass (`biome check .`) and no
+    // workspace declares a `lint` script.
+    "test": {
+      "dependsOn": ["^typecheck"]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    }
+  }
+}

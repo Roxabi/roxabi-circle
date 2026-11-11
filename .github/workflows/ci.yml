@@ -1,0 +1,198 @@
+name: CI
+
+# Gate qualité (`bun run validate:full`). Ne déploie pas.
+# Kit HEAD has no staging branch. Keep the staging trigger so products need not edit kit CI.
+# Draft PRs: no heavy CI (ready_for_review starts the gate).
+on:
+  push:
+    branches: [main, staging]
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches: [main, staging]
+  workflow_dispatch: {}
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+# Least privilege.
+permissions:
+  contents: read
+  checks: read
+  pull-requests: read
+
+jobs:
+  coverage-plan:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    name: Coverage plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      groups: ${{ steps.plan.outputs.groups }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: package.json
+      - id: plan
+        run: |
+          set -euo pipefail
+          plan="$(bun run validate:full -- --coverage-plan)"
+          printf 'groups=%s\n' "$plan" >> "$GITHUB_OUTPUT"
+
+  quality:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    name: Root core
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # Full history is required for product inheritance (ADR-0009).
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: package.json
+      # Frozen install reproduces the reviewed lock regardless of its release age.
+      - name: Install
+        run: bun install --frozen-lockfile --minimum-release-age 0
+      - name: Validate core
+        run: |
+          set -euo pipefail
+          bash scripts/kit/inheritance-preflight.sh
+          mkdir -p "$RUNNER_TEMP/root-receipts"
+          bun run validate:full -- --ci-group core --receipt "$RUNNER_TEMP/root-receipts/root-core.json"
+      - name: Upload group receipt
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: root-core-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/root-receipts/root-core.json
+          if-no-files-found: error
+          retention-days: 7
+
+  coverage:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    name: Root coverage ${{ matrix.group.id }}
+    needs: coverage-plan
+    strategy:
+      fail-fast: false
+      matrix:
+        group: ${{ fromJson(needs.coverage-plan.outputs.groups) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: package.json
+      - name: Install
+        run: bun install --frozen-lockfile --minimum-release-age 0
+      - name: Validate coverage group
+        env:
+          COVERAGE_GROUP: ${{ toJson(matrix.group) }}
+        run: |
+          set -euo pipefail
+          bun -e '
+            const group = JSON.parse(process.env.COVERAGE_GROUP);
+            const valid = name => typeof name === "string"
+              && /^(apps|packages)\/[A-Za-z0-9._-]+$/.test(name)
+              && !/\/\.{1,2}$/.test(name);
+            if (!group || typeof group !== "object" || Array.isArray(group)
+              || typeof group.id !== "string" || !Array.isArray(group.workspaces)
+              || group.workspaces.length < 1 || group.workspaces.length > 4
+              || !group.workspaces.every(valid)
+              || new Set(group.workspaces).size !== group.workspaces.length
+              || !(group.workspaces.every(name => name.startsWith("packages/"))
+                && /^packages-[1-9][0-9]*$/.test(group.id)
+                || group.workspaces.length === 1
+                && group.workspaces[0].startsWith("apps/")
+                && group.id === group.workspaces[0].replace("/", "__")))
+              throw new Error("invalid coverage group");
+            await Bun.write(process.argv[1], group.workspaces.join("\n") + "\n");
+          ' "$RUNNER_TEMP/coverage-workspaces.txt"
+          bash scripts/kit/inheritance-preflight.sh
+          mkdir -p "$RUNNER_TEMP/root-receipts"
+          mkdir "$RUNNER_TEMP/coverage-reports"
+          if [ -e coverage ] || [ -L coverage ]; then
+            echo "Unexpected pre-existing coverage tree" >&2
+            exit 1
+          fi
+          failed=0
+          while IFS= read -r workspace; do
+            safe="${workspace//\//__}"
+            if ! bun run validate:full -- --ci-coverage-shard "$workspace" --receipt "$RUNNER_TEMP/root-receipts/root-coverage-${safe}.json"; then
+              failed=1
+            fi
+            if [ -e coverage ] || [ -L coverage ]; then
+              if [ ! -d coverage ] || [ -L coverage ] || [ -e "$RUNNER_TEMP/coverage-reports/$safe" ] ||
+                ! mv coverage "$RUNNER_TEMP/coverage-reports/$safe"; then
+                echo "Cannot capture coverage tree for $workspace" >&2
+                exit 1
+              fi
+            fi
+          done < "$RUNNER_TEMP/coverage-workspaces.txt"
+          exit "$failed"
+      - name: Upload group receipts
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: root-coverage-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.group.id }}
+          path: ${{ runner.temp }}/root-receipts
+          if-no-files-found: error
+          retention-days: 7
+      - name: Upload coverage reports
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: coverage-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.group.id }}
+          path: |
+            ${{ runner.temp }}/coverage-reports/**/coverage-summary.json
+            ${{ runner.temp }}/coverage-reports/**/lcov.info
+          retention-days: 7
+          if-no-files-found: ignore
+
+  ci:
+    # Preserve the check display name consumed by merge-on-green and checkup.
+    name: ci
+    needs: [quality, coverage]
+    if: always() && (github.event_name != 'pull_request' || !github.event.pull_request.draft)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: package.json
+      - name: Download Core receipt
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: root-core-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/root-receipts
+      - name: Download Coverage receipts
+        if: always()
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: root-coverage-${{ github.run_id }}-${{ github.run_attempt }}-*
+          path: ${{ runner.temp }}/root-receipts
+          merge-multiple: true
+      - name: Join Root receipts
+        if: always()
+        env:
+          PRODUCERS_RESULT: ${{ (needs.quality.result == 'success' && needs.coverage.result == 'success') && 'success' || 'failure' }}
+        run: bun run validate:full -- --ci-join "$RUNNER_TEMP/root-receipts" --producers-result "$PRODUCERS_RESULT"
+
+  # Showcase CD = Cloudflare Builds (git pull), not GH deploy. See docs/kit/deploy-cloudflare.md.
+  # Browser e2e is local-only (Free CI minutes + flake risk).
+  # Local: bun run test:e2e:design-system (servers up) or bun run test:e2e:ci (one-shot).
+  # Not in validate:full / Lefthook. See docs/kit/testing.md CP-E2E.

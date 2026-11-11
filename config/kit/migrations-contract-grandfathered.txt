@@ -1,0 +1,6 @@
+# Applied migrations with destructive DDL that predate the expand/contract gate (Roxabi/roxabi-boilerplate-cf#257).
+# One line per file: <repo-relative path> <sha256>. Never add a new migration here: mark it
+# `-- kit:contract released=<deployed commit>` instead (docs/kit/deploy-cloudflare.md §5b).
+# Kit app paths only — the apps/<name>/ protected_prefixes of config/kit/zero-edit-zones.json; any other path is a config error (Roxabi/roxabi-boilerplate-cf#318).
+# Products: config/product/migrations-contract-grandfathered.txt, product app paths only.
+apps/example-api/migrations/0015_api_keys_org_not_null.sql d6ba3f1506fc1695eaff563f11ce0abb5f4cb9f4b37395f8d839ca6aac1489f9

@@ -1,0 +1,37 @@
+import { COMMENTS_MODULE_ID } from '@kit/comments'
+import { FLOWS_MODULE_ID } from '@kit/flows'
+import { TASKS_MODULE_ID } from '@kit/tasks'
+import type { KitModuleId } from './kit-modules'
+
+/**
+ * Modules that need no external credentials / integration config JSON.
+ * Expanding this set is intentional — keep non-members fail-closed in isModuleConfigured.
+ */
+const NO_CONFIG_MODULES = new Set<KitModuleId>([
+  'demo',
+  FLOWS_MODULE_ID,
+  TASKS_MODULE_ID,
+  COMMENTS_MODULE_ID,
+])
+
+/** SPA path for module settings (demo/flows/tasks have no remote integration). */
+export const INTEGRATION_CONFIG_PATHS: Record<KitModuleId, string> = {
+  demo: '/admin/modules',
+  [FLOWS_MODULE_ID]: '/admin/modules',
+  [TASKS_MODULE_ID]: '/admin/modules',
+  [COMMENTS_MODULE_ID]: '/admin/modules',
+}
+
+export type ModulePublicState = {
+  enabled: boolean
+  configured: boolean
+  configPath: string
+}
+
+/** True when the module needs no external secrets (NO_CONFIG_MODULES). */
+export function isModuleConfigured(
+  id: KitModuleId,
+  _configJson: string | null | undefined,
+): boolean {
+  return NO_CONFIG_MODULES.has(id)
+}

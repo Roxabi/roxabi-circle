@@ -1,0 +1,42 @@
+{
+  "name": "@kit/comments",
+  "version": "0.0.1",
+  "private": true,
+  "license": "MIT",
+  "description": "Incubating (ADR-0007): pure multi-target comments rail (target_type + target_id). No Worker bindings. Compose with @kit/tasks and product entities.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./schema": {
+      "types": "./src/drizzle-schema.ts",
+      "import": "./src/drizzle-schema.ts",
+      "default": "./src/drizzle-schema.ts"
+    },
+    "./repos": {
+      "types": "./src/repos.ts",
+      "import": "./src/repos.ts",
+      "default": "./src/repos.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "build": "echo ok"
+  },
+  "dependencies": {
+    "@kit/db": "workspace:*",
+    "@kit/types": "workspace:*",
+    "drizzle-orm": "^0.45.4",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^9.6.0",
+    "better-sqlite3": "^13.0.2",
+    "vitest": "^5.1.0"
+  }
+}

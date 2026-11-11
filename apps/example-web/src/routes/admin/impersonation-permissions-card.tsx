@@ -1,0 +1,103 @@
+import type { ImpersonationRolePermission } from '@kit/api-client/me'
+import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle } from '@kit/ui'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useState } from 'react'
+import { toast } from 'sonner'
+import { apiErrorToMessage, apiFetch } from '../../lib/api'
+import { hasPlatformRole, meQueryKey, useMe } from '../../lib/auth'
+import { useLocale } from '../../lib/locale'
+
+type PermissionsResponse = { permissions: ImpersonationRolePermission[]; requestId: string }
+const queryKey = ['admin-impersonation-permissions'] as const
+
+function PermissionRow({ permission }: { permission: ImpersonationRolePermission }) {
+  const { m } = useLocale()
+  const qc = useQueryClient()
+  const [read, setRead] = useState(permission.read)
+  const [write, setWrite] = useState(permission.write)
+  const save = useMutation({
+    mutationFn: () =>
+      apiFetch<PermissionsResponse>('/api/admin/impersonation/permissions', {
+        method: 'PATCH',
+        body: JSON.stringify({ role: permission.role, read, write }),
+      }),
+    onSuccess: async (data) => {
+      qc.setQueryData(queryKey, data)
+      await qc.invalidateQueries({ queryKey: meQueryKey })
+      toast.success(m.impersonationSaved)
+    },
+    onError: (error) => toast.error(m.error, { description: apiErrorToMessage(error, m) }),
+  })
+  return (
+    <div className="flex flex-wrap items-center gap-4 rounded-lg border border-border p-3">
+      <span className="min-w-28 font-medium">{permission.role}</span>
+      <label className="flex items-center gap-2">
+        <input
+          type="checkbox"
+          checked={read}
+          onChange={(e) => setRead(e.target.checked)}
+          disabled={save.isPending}
+        />
+        {m.impersonationRead}
+      </label>
+      <label className="flex items-center gap-2">
+        <input
+          type="checkbox"
+          checked={write}
+          onChange={(e) => setWrite(e.target.checked)}
+          disabled={save.isPending}
+        />
+        {m.impersonationWrite}
+      </label>
+      <Button
+        type="button"
+        size="sm"
+        disabled={save.isPending || (read === permission.read && write === permission.write)}
+        onClick={() => save.mutate()}
+      >
+        {m.impersonationSave}
+      </Button>
+    </div>
+  )
+}
+
+export function ImpersonationPermissionsCard() {
+  const { m } = useLocale()
+  const me = useMe()
+  const enabled = hasPlatformRole(me.data, 'super_admin') && !me.data?.impersonation
+  const permissions = useQuery({
+    queryKey,
+    queryFn: () => apiFetch<PermissionsResponse>('/api/admin/impersonation/permissions'),
+    enabled,
+  })
+  if (!enabled) return null
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">{m.impersonationPermissionsTitle}</CardTitle>
+        <CardDescription>{m.impersonationPermissionsDescription}</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-2 text-sm">
+        {permissions.isLoading ? (
+          <p>{m.loading}</p>
+        ) : permissions.isError ? (
+          <div className="space-y-2">
+            <p className="text-destructive">{apiErrorToMessage(permissions.error, m)}</p>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => void permissions.refetch()}
+            >
+              {m.retry}
+            </Button>
+          </div>
+        ) : (
+          permissions.data?.permissions.map((permission) => (
+            <PermissionRow key={permission.role} permission={permission} />
+          ))
+        )}
+      </CardContent>
+    </Card>
+  )
+}

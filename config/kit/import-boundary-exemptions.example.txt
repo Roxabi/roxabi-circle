@@ -1,0 +1,7 @@
+# Product import-boundary exemptions — copy to config/product/import-boundary-exemptions.txt
+# Format: <exact/relative/importer/path>  # <reason> — <issue>
+# Allowed paths: apps/<product>-{api,web,mcp}/** only.
+# Kit paths (packages/, apps/example-*, scripts/kit/) are refused.
+# Reason after # is required. No wildcards. File-wide skip.
+
+# apps/<product>-web/src/legacy.ts  # temporary dual-boot — <ticket>

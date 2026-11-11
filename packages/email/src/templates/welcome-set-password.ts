@@ -1,0 +1,30 @@
+/**
+ * Kit welcome / first-login set-password email (string-rendered). No product-domain copy.
+ * Header scrub is at EmailPort boundary (scrubHeaderLine).
+ */
+import { escapeHtml } from '../escape-html'
+import { assertSafeTokenHref, type TokenHrefPolicy } from '../safe-token-href'
+
+export function WelcomeSetPasswordEmail(
+  props: {
+    to: string
+    setPasswordUrl: string
+    expiresHint?: string
+    name?: string
+  } & TokenHrefPolicy,
+) {
+  const href = assertSafeTokenHref(props.setPasswordUrl, props)
+  const safeUrl = escapeHtml(href)
+  const who = props.name?.trim() ? props.name.trim() : 'there'
+  const subject = 'Welcome — set your password — Kit kit'
+  const exp = props.expiresHint ?? 'about 1 hour'
+  const text = [
+    `Hi ${who},`,
+    'An account was created for you on Kit Kit.',
+    `Set your password: ${href}`,
+    `This link expires in ${exp}.`,
+    'If you did not expect this email, ignore it.',
+  ].join('\n')
+  const html = `<p>Hi ${escapeHtml(who)},</p><p>An account was created for you on <strong>Kit Kit</strong>.</p><p><a href="${safeUrl}">Set your password</a></p><p>This link expires in ${escapeHtml(exp)}.</p><p>If you did not expect this email, ignore it.</p>`
+  return { to: props.to, subject, text, html }
+}

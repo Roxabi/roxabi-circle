@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "exceptions": [
+    {
+      "path": "packages/ui/src/components/ui/button.tsx",
+      "reason": "Need isLoading prop before kit ships it",
+      "owner": "@team/frontend",
+      "expires": "2026-09-01",
+      "ticket": "https://example.com/issues/0",
+      "alternatives_considered": ["compose LoadingButton in apps/product-web", "wait for kit PR"],
+      "why_not_alternative": "Wrapper would fork half of button.tsx CVA variants; temporary patch until kit PR lands isLoading on @kit/ui.",
+      "kit_pr": "https://example.com/pull/0"
+    }
+  ]
+}

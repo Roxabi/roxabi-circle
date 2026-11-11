@@ -1,0 +1,13 @@
+-- Upgrade bookkeeping migration (idempotent on greenfield).
+--
+-- Greenfield: 0001_init.sql already defines key_prefix, name, expires_at + UNIQUE on key_prefix.
+-- This file must NOT ALTER ADD those columns (Wrangler would fail on fresh apply).
+--
+-- Legacy DBs created from a pre-prefix 0001: recreate local D1 from 0001 (kit is pre-prod)
+-- or manually:
+--   ALTER TABLE api_keys ADD COLUMN key_prefix TEXT;
+--   ALTER TABLE api_keys ADD COLUMN name TEXT;
+--   ALTER TABLE api_keys ADD COLUMN expires_at INTEGER;
+--
+-- Always safe: ensure unique index exists (no-op if already present via table UNIQUE).
+CREATE UNIQUE INDEX IF NOT EXISTS api_keys_key_prefix_uq ON api_keys(key_prefix);

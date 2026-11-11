@@ -1,0 +1,31 @@
+name: Feature
+description: Propose a Kit change without client data or secret values.
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Write this report for a public audience, as in CONTRIBUTING.md.
+        Vulnerability reports go by email to team@unkillablecompanies.com (SECURITY.md), not here.
+        The checkbox below is a reminder, not a scanner or confidentiality control.
+  - type: textarea
+    id: need
+    attributes:
+      label: Need
+      description: The Kit gap, in Kit terms. Omit client data and secret values.
+    validations:
+      required: true
+  - type: textarea
+    id: change
+    attributes:
+      label: Proposed change
+      description: What should change, and what should stay unchanged.
+    validations:
+      required: true
+  - type: checkboxes
+    id: public-safe
+    attributes:
+      label: Public-safe payload
+      description: Reminder only. Checking this box does not verify confidentiality.
+      options:
+        - label: This proposal omits secret values, raw logs, client data, and vulnerability details.
+          required: true

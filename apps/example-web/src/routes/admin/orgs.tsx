@@ -1,0 +1,98 @@
+import {
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  Skeleton,
+} from '@kit/ui'
+import { useQuery } from '@tanstack/react-query'
+import { Link } from '@tanstack/react-router'
+import { PageHeader } from '../../components/app-shell'
+import { apiErrorToMessage, apiFetch } from '../../lib/api'
+import { useLocale } from '../../lib/locale'
+import { orgRoleLabel } from '../../lib/org-role'
+
+type OrgRow = {
+  id: string
+  name: string
+  slug: string
+  kind: string
+  status: string
+  role: string | null
+}
+
+export function AdminOrgsPage() {
+  const { m } = useLocale()
+
+  const orgs = useQuery({
+    queryKey: ['orgs'],
+    queryFn: () => apiFetch<{ orgs: OrgRow[] }>('/api/orgs'),
+  })
+
+  return (
+    <div>
+      <PageHeader title={m.navOrgs} description={m.adminOrgsDesc} />
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">{m.navOrgs}</CardTitle>
+          <CardDescription>
+            {orgs.isLoading ? m.loading : `${orgs.data?.orgs.length ?? 0} org(s)`}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {orgs.isLoading ? (
+            <Skeleton className="h-16 w-full" />
+          ) : orgs.isError ? (
+            <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-destructive/40 py-12 text-center">
+              <p className="text-sm font-medium text-destructive">{m.loadFailed}</p>
+              <p className="max-w-sm text-xs text-muted-foreground">
+                {apiErrorToMessage(orgs.error, m)}
+              </p>
+              <Button variant="secondary" size="sm" onClick={() => void orgs.refetch()}>
+                {m.retry}
+              </Button>
+            </div>
+          ) : orgs.data?.orgs.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{m.orgPickerEmpty}</p>
+          ) : (
+            <ul className="divide-y divide-border rounded-lg border border-border">
+              {orgs.data?.orgs.map((o) => (
+                <li
+                  key={o.id}
+                  className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-sm"
+                >
+                  <div>
+                    <div className="font-medium">{o.name}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {o.slug} · {o.kind} · {o.status}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {o.role ? (
+                      <Badge variant="secondary" className="text-[10px]">
+                        {orgRoleLabel(o.role, m)}
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-[10px]">
+                        {m.orgCatalogueBadge}
+                      </Badge>
+                    )}
+                    {o.role ? (
+                      <Link to="/app" className="text-xs font-medium text-primary hover:underline">
+                        {m.switchToApp} →
+                      </Link>
+                    ) : null}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  )
+}

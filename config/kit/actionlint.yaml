@@ -1,0 +1,6 @@
+# Kit-owned deploy-gate config (Roxabi/roxabi-boilerplate-cf#325).
+# promote-deploy --check passes this file with -config-file so a product
+# .github/actionlint.yaml cannot ignore expression or workflow-call errors.
+# config-variables null keeps the vars check off, the same as no config.
+# No paths.ignore.
+config-variables: null

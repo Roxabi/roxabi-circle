@@ -1,0 +1,44 @@
+{
+  // Root project = ONLY the files no workspace owns.
+  //
+  // This is deliberately NOT a repo-wide project. Every workspace
+  // (apps/*, packages/*) ships its own tsconfig.json with its own libs,
+  // jsx and types; type-checking them is `bun run typecheck` (turbo, one
+  // project per workspace). A repo-wide root project would re-open those
+  // same files under the wrong compilerOptions and report thousands of
+  // phantom errors in editors (no jsx, no per-app Env bindings).
+  //
+  // What is left over are the tooling files that belong to no workspace:
+  // kit scripts, vitest/vite configs, app scripts. They live here because
+  // tsserver only ever walks up looking for `tsconfig.json` — a separate
+  // `tsconfig.tooling.json` was invisible to editors.
+  //
+  // Worker globals (D1Database, R2Bucket, …): the scripts import example-api source, so the root
+  // project includes that app's generated runtime types (`bun run types` in apps/example-api).
+  //
+  // Checked in CI by `bun run typecheck:tooling`. The three named CJS files below are
+  // checked too; other JS/CJS files remain outside this program unless a root file imports them.
+  // Adding a tooling file outside these globs leaves it unchecked: extend `include`.
+  "extends": "./packages/config/tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "allowJs": true,
+    "checkJs": true,
+    "types": ["bun"]
+  },
+  "include": [
+    "apps/example-api/src/worker-configuration.d.ts",
+    "scripts/kit/**/*.ts",
+    "scripts/kit/lib/merge-gate.cjs",
+    "scripts/kit/lib/product-declaration.cjs",
+    "scripts/kit/lib/latest-run.cjs",
+    "apps/*/vitest.config.ts",
+    "packages/*/vitest.config.ts",
+    "packages/*/*.mts",
+    "apps/*/vite.config.ts",
+    "packages/*/vite.config.ts",
+    "apps/*/scripts/**/*.ts",
+    "knip.ts"
+  ]
+}

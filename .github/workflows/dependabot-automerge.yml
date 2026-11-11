@@ -1,0 +1,207 @@
+# Dependabot grants are bound to a captured head and base, not to a label.
+# Every executable is checked out from the trusted default-branch event revision.
+name: Dependabot Auto-merge
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize]
+
+permissions:
+  contents: read
+  pull-requests: read
+  issues: read
+
+concurrency:
+  group: dependabot-automerge-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  CI_APP_ID: ${{ vars.CI_APP_ID }}
+  HEAD_AUTH_REPOSITORY_ID: ${{ vars.HEAD_AUTH_REPOSITORY_ID }}
+  HEAD_AUTH_OPERATOR_IDS: ${{ vars.HEAD_AUTH_OPERATOR_IDS }}
+  HEAD_AUTH_APP_ID: ${{ vars.HEAD_AUTH_APP_ID }}
+  HEAD_AUTH_BOT_USER_ID: ${{ vars.HEAD_AUTH_BOT_USER_ID }}
+
+jobs:
+  capture:
+    if: github.event.pull_request.user.id == 49699333 && github.run_attempt == 1
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      snapshot: ${{ steps.capture.outputs.snapshot }}
+      trusted_sha: ${{ steps.checkout.outputs.commit }}
+      enabled: ${{ steps.cfg.outputs.enabled }}
+    steps:
+      - name: Checkout trusted authorization adapter
+        id: checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+          sparse-checkout: |
+            /scripts/kit/lib/head-authorization.cjs
+            /scripts/kit/lib/head-authorization-core.cjs
+          sparse-checkout-cone-mode: false
+      - name: Resolve kit-ci availability
+        id: cfg
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const absent = (value) => value == null || value === '';
+            const enabled = Boolean(process.env.CI_APP_ID);
+            const policyPresent = [
+              'HEAD_AUTH_REPOSITORY_ID',
+              'HEAD_AUTH_OPERATOR_IDS',
+              'HEAD_AUTH_APP_ID',
+              'HEAD_AUTH_BOT_USER_ID',
+            ].some((key) => !absent(process.env[key]));
+            if (enabled || policyPresent) {
+              const { policyFromEnv } = require('./scripts/kit/lib/head-authorization.cjs');
+              policyFromEnv(process.env);
+            } else {
+              core.notice('Dependabot capture skipped.', { title: 'kit-ci not configured' });
+            }
+            core.setOutput('enabled', enabled ? 'true' : 'false');
+            if (!enabled && policyPresent) core.notice('Dependabot capture skipped; CI App is disabled.', { title: 'CI App disabled' });
+      - name: Mint repository-scoped app token
+        id: app
+        if: steps.cfg.outputs.enabled == 'true'
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.CI_APP_ID }}
+          private-key: ${{ secrets.CI_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-pull-requests: write
+      - name: Withdraw and capture before evaluation
+        id: capture
+        if: steps.cfg.outputs.enabled == 'true'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          WRITE_TOKEN: ${{ steps.app.outputs.token }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { policyFromEnv, withdrawAuthorization, captureAuthorization } = require('./scripts/kit/lib/head-authorization.cjs');
+            const policy = policyFromEnv(process.env);
+            const writer = getOctokit(process.env.WRITE_TOKEN);
+            const prNumber = context.payload.pull_request.number;
+            await withdrawAuthorization({ github, writer, repo: context.repo, prNumber, policy,
+              operationId: `deps-withdraw:${context.runId}`, reason: 'dependabot_evaluation' });
+            try {
+              await writer.rest.issues.removeLabel({ ...context.repo, issue_number: prNumber, name: 'deps-automerge' });
+            } catch (error) { if (error.status !== 404) throw error; }
+            const snapshot = await captureAuthorization({ github, repo: context.repo, prNumber, policy });
+            const pr = context.payload.pull_request;
+            if (snapshot.headSha !== pr.head.sha || snapshot.baseSha !== pr.base.sha || snapshot.baseRef !== pr.base.ref || snapshot.authorId !== 49699333)
+              throw new Error('Event snapshot no longer matches the current Dependabot PR');
+            core.setOutput('snapshot', JSON.stringify(snapshot));
+
+  evaluate:
+    needs: capture
+    if: needs.capture.outputs.enabled == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    continue-on-error: true
+    outputs:
+      result: ${{ steps.guard.outputs.result }}
+    steps:
+      - name: Checkout trusted guard
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.capture.outputs.trusted_sha }}
+          persist-credentials: false
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: package.json
+      - name: Evaluate immutable snapshot
+        id: guard
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SNAPSHOT: ${{ needs.capture.outputs.snapshot }}
+          REPO: ${{ github.repository }}
+        run: |
+          node -e 'const s=JSON.parse(process.env.SNAPSHOT); const {spawnSync}=require("node:child_process"); const args=["--no-env-file","--config=config/kit/bunfig.gates.toml","scripts/kit/check-deps-guard.ts","--pr-evaluate","--repo",process.env.REPO,"--repository-id",String(s.repositoryId),"--pull-request-id",String(s.pullRequestId),"--pr",String(s.pullRequest),"--head",s.headSha,"--base",s.baseSha,"--base-ref",s.baseRef]; const r=spawnSync("bun",args,{encoding:"utf8",maxBuffer:65536}); if(r.stderr) process.stderr.write(r.stderr); if(r.status!==0) process.exit(r.status || 1); const v=JSON.parse(r.stdout); if(!["ALLOW","WITHHOLD"].includes(v.verdict)||typeof v.report!=="string"||v.report.length>8000||["repositoryId","pullRequestId","pullRequest","headSha","baseSha","baseRef"].some(k=>v[k]!==s[k])) throw Error("Invalid guard result"); require("node:fs").appendFileSync(process.env.GITHUB_OUTPUT,"result="+JSON.stringify(v)+"\n");'
+
+  publish:
+    needs: [capture, evaluate]
+    if: ${{ !cancelled() && needs.capture.result == 'success' && needs.evaluate.result == 'success' && needs.capture.outputs.enabled == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout trusted authorization adapter
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.capture.outputs.trusted_sha }}
+          persist-credentials: false
+          sparse-checkout: |
+            /scripts/kit/lib/head-authorization.cjs
+            /scripts/kit/lib/head-authorization-core.cjs
+          sparse-checkout-cone-mode: false
+      - name: Mint repository-scoped app token
+        id: app
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.CI_APP_ID }}
+          private-key: ${{ secrets.CI_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-pull-requests: write
+      - name: Publish verdict and update informational report
+        id: publish
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          WRITE_TOKEN: ${{ steps.app.outputs.token }}
+          SNAPSHOT: ${{ needs.capture.outputs.snapshot }}
+          RESULT: ${{ needs.evaluate.outputs.result }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { policyFromEnv, issueAuthorization } = require('./scripts/kit/lib/head-authorization.cjs');
+            const snapshot = JSON.parse(process.env.SNAPSHOT);
+            const result = process.env.RESULT ? JSON.parse(process.env.RESULT) : {
+              ...snapshot, verdict: 'WITHHOLD',
+              report: '### Dependabot authorization withheld\n\nThe supply-chain guard did not complete. See this run for the checkout, runtime, registry or API failure; diagnose and start a new evaluation.',
+            };
+            const fields = ['repositoryId', 'pullRequestId', 'pullRequest', 'headSha', 'baseSha', 'baseRef'];
+            if (!['ALLOW', 'WITHHOLD'].includes(result.verdict) || typeof result.report !== 'string' || result.report.length > 8000 || fields.some(k => result[k] !== snapshot[k]))
+              throw new Error('Invalid or mismatched guard result');
+            const writer = getOctokit(process.env.WRITE_TOKEN);
+            const policy = policyFromEnv(process.env);
+            if (result.verdict === 'ALLOW') {
+              core.setOutput('attempted', 'true');
+              await issueAuthorization({ github, writer, repo: context.repo, snapshot, policy,
+                lane: 'dependabot', source: 'dependabot', evidence: `actions-run:${context.runId}`,
+                operationId: `deps-grant:${context.runId}` });
+              await writer.rest.issues.addLabels({ ...context.repo, issue_number: snapshot.pullRequest, labels: ['deps-automerge'] });
+            }
+            const marker = '<!-- kit-deps-guard -->';
+            const comments = await github.paginate(github.rest.issues.listComments, { ...context.repo, issue_number: snapshot.pullRequest, per_page: 100 });
+            const mine = comments.find(c => c.user?.id === Number(process.env.HEAD_AUTH_BOT_USER_ID) && c.body?.startsWith(marker));
+            if (result.verdict === 'ALLOW') {
+              if (mine) await writer.rest.issues.deleteComment({ ...context.repo, comment_id: mine.id });
+            } else {
+              const body = `${marker}\n${result.report}`;
+              if (mine) await writer.rest.issues.updateComment({ ...context.repo, comment_id: mine.id, body });
+              else await writer.rest.issues.createComment({ ...context.repo, issue_number: snapshot.pullRequest, body });
+              core.warning('deps-guard WITHHOLD — see the informational PR comment.');
+            }
+            core.setOutput('completed', 'true');
+      - name: Withdraw possibly accepted failed publication
+        if: ${{ always() && steps.publish.outputs.attempted == 'true' && steps.publish.outputs.completed != 'true' }}
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          WRITE_TOKEN: ${{ steps.app.outputs.token }}
+          SNAPSHOT: ${{ needs.capture.outputs.snapshot }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { policyFromEnv, withdrawAuthorization } = require('./scripts/kit/lib/head-authorization.cjs');
+            const snapshot = JSON.parse(process.env.SNAPSHOT);
+            await withdrawAuthorization({
+              github, writer: getOctokit(process.env.WRITE_TOKEN), repo: context.repo,
+              prNumber: snapshot.pullRequest, policy: policyFromEnv(process.env),
+              operationId: `deps-failed-publication:${context.runId}`, reason: 'failed_dependabot_publication',
+            });

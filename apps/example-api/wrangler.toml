@@ -1,0 +1,112 @@
+name = "example-api"
+main = "src/index.ts"
+compatibility_date = "2026-07-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Local bindings only. For remote deploy: set real database_id / bucket names and
+# CF secrets (BETTER_AUTH_SECRET). Do NOT put ENVIRONMENT=development in deployable vars —
+# missing BETTER_AUTH_SECRET + development would use the public kit placeholder.
+# Local: copy .dev.vars.example → .dev.vars (ENVIRONMENT=development, BETTER_AUTH_SECRET=…).
+
+[[d1_databases]]
+binding = "DB"
+database_name = "example-api-local"
+database_id = "local-example-api"
+migrations_dir = "migrations"
+
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "example-api-local"
+
+# Cloudflare Email Sending (ADR-0004). Domain must be onboarded for real delivery.
+# Local/CI: EMAIL_TRANSPORT=log (default). Prod: EMAIL_TRANSPORT=cf + EMAIL_FROM.
+[[send_email]]
+name = "EMAIL"
+
+# Non-secret defaults for local/dev tooling. Secrets stay in .dev.vars / CF secrets.
+# ALLOW_PUBLIC_SIGNUP unset here (fail-closed). Products opt in via their own
+# apps/<product>-api/wrangler.toml [env.<name>].vars (not .dev.vars — local only).
+# Do not copy [env.production] below (showcase hosts + ALLOW_PUBLIC_SIGNUP=true).
+[vars]
+DEMO_USER_EMAIL = "demo@kit.local"
+CORS_ORIGINS = "http://localhost:5173,http://127.0.0.1:5173"
+
+# B6 P4 go-silex/silex-boilerplate#84 — demo queue + hourly cron (local/remote names)
+[[queues.producers]]
+binding = "DEMO_QUEUE"
+queue = "example-api-demo"
+
+[[queues.consumers]]
+queue = "example-api-demo"
+max_batch_size = 10
+max_batch_timeout = 5
+
+[triggers]
+crons = ["0 * * * *", "*/5 * * * *"]
+
+# Workers Logs (docs/kit/observability.md). Non-inheritable: repeated in [env.production].
+[observability]
+enabled = true
+head_sampling_rate = 1
+
+# CF Workflows is non-inheritable. Names are account-scoped and must be
+# distinct per env (≤64). Do not add schedules here.
+[[workflows]]
+binding = "FLOW_RUN"
+name = "example-api-flow-run"
+class_name = "FlowRunWorkflow"
+
+[[workflows]]
+binding = "NOTIFICATION_DELIVERY"
+name = "example-api-notification-delivery"
+class_name = "NotificationDeliveryWorkflow"
+
+# ── production (kit showcase — resource ids are not secrets) ─────────
+# Account / zone: operator local config (config/kit/deploy.cf.local.toml).
+# CD: Cloudflare Workers Builds (git pull) — scripts/kit/cf-builds/ + docs/kit/deploy-cloudflare.md
+# Do NOT set ENVIRONMENT=development here.
+
+[env.production]
+name = "boilerplate-api"
+vars = { ENVIRONMENT = "production", DEMO_USER_EMAIL = "demo@kit.local", CORS_ORIGINS = "https://boilerplate.roxabi.dev", BETTER_AUTH_URL = "https://api.boilerplate.roxabi.dev", EMAIL_TRANSPORT = "cf", EMAIL_FROM = "noreply@roxabi.dev", EMAIL_FROM_NAME = "Kit Showcase", ALLOW_PUBLIC_SIGNUP = "true" }
+routes = [{ pattern = "api.boilerplate.roxabi.dev", custom_domain = true }]
+
+[[env.production.d1_databases]]
+binding = "DB"
+database_name = "boilerplate-api"
+database_id = "c656d2d4-bcef-4327-b176-c752445bcd76"
+migrations_dir = "migrations"
+
+[[env.production.r2_buckets]]
+binding = "BUCKET"
+bucket_name = "boilerplate-api"
+
+[[env.production.send_email]]
+name = "EMAIL"
+
+[[env.production.queues.producers]]
+binding = "DEMO_QUEUE"
+queue = "boilerplate-api-demo"
+
+[[env.production.queues.consumers]]
+queue = "boilerplate-api-demo"
+max_batch_size = 10
+max_batch_timeout = 5
+
+[env.production.triggers]
+crons = ["0 * * * *", "*/5 * * * *"]
+
+[env.production.observability]
+enabled = true
+head_sampling_rate = 1
+
+# Non-inheritable — repeat; name distinct from default env (account-scoped).
+[[env.production.workflows]]
+binding = "FLOW_RUN"
+name = "boilerplate-api-flow-run"
+class_name = "FlowRunWorkflow"
+
+[[env.production.workflows]]
+binding = "NOTIFICATION_DELIVERY"
+name = "boilerplate-api-notification-delivery"
+class_name = "NotificationDeliveryWorkflow"

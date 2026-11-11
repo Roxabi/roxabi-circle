@@ -1,0 +1,693 @@
+# Product consumer contract — zero-edit upstream
+
+**Goal:** a product repo that takes this kit as `upstream` must **not** modify kit-owned files in divergent ways.  
+Pulling `upstream/main` should only conflict when the **product** deliberately touches a shared surface or when kit deletes/renames something the product depended on (acceptable: fix forward).
+
+**Expected conflict:** `.dev/stack.yml` is co-owned. On `git merge upstream/main`, keep the product fill scalars (`name`, `backend.path`, `frontend.path` or an API-only `frontend: null`, `release.component`) and any `worktree.copy` additions; take the kit side for every other key. An API-only product replaces the whole `frontend` block with `frontend: null` and keeps that null on upgrade — do not take the kit frontend map back. Never keep the product file wholesale — that drops kit `release.model` / `landing.mode`, and `/promote` then defaults an absent model to staging-train.
+
+**OK:** product breaks after pull → fix product.  
+**Not OK:** product and kit both edit `lefthook.yml` / `package.json` / workflows in different directions forever.
+
+---
+
+## Mental model
+
+```text
+┌─────────────────────────────────────────────────────────┐
+│  kit monorepo (packages · apps/example-* · CI · scripts)│
+└──────────────────────▲──────────────────────────────────┘
+                       │ git fetch/merge upstream only
+                       │ (product never push upstream)
+┌──────────────────────┴──────────────────────────────────┐
+│  product repo                                           │
+│  origin = product                                       │
+│  ADD only: apps/<product>-* · product docs · optional   │
+│            product-only workflows (new files)           │
+│  DO NOT edit kit-owned paths below                      │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Axis:** kit = shared capability; product = new apps + config **outside** kit paths.
+
+Which GitHub repo is kit HEAD vs mirror / which URL to set as `upstream` is **operator topology**, not this contract.  
+Machine gates here only care: product does not dual-edit kit paths; `upstream` is fetch-only for products.
+
+---
+
+## Zones
+
+| Zone | Owner | Product may |
+|------|--------|-------------|
+| `packages/*` | **kit** | **Read / import only.** No product strings. Change → PR on **boilerplate**, then pull. |
+| Kit apps: the `apps/<name>/` entries of `protected_prefixes` in `config/kit/zero-edit-zones.json` (today `apps/example-api`, `apps/example-web`, `apps/mcp-example`) | **kit** | Leave green; do not product-brand. `zero-edit`, `migrations-contract:check`, `extract-dry-run`, the banlist and `kit-schema-sync` read that list ([ADR-0009](./architecture/adr/0009-kit-namespace-polarity-inheritance-marker.md) D2): an `apps/` directory it does not name is a product app to them. |
+| `apps/<product>-api|web|mcp` | **product** | **Create freely** (new dirs). |
+| `.github/workflows/*` except `product-*.yml` | **kit** | **Do not edit.** Any other filename is kit-owned; dual-editing it is a contract violation. Unclassified (non-`product-`, not in `protected_files`) fails the inventory gate ([ADR-0013](./architecture/adr/0013-root-github-workflow-ownership.md)). Showcase CD = **Cloudflare Builds** on kit HEAD. |
+| `.github/workflows/product-*.yml` | product | **Add** new files only. Product workflows **MUST** carry the `product-` prefix (`.yml` or `.yaml`). |
+| `lefthook.yml` | **kit** | **Do not edit or fork hooks through a tracked Lefthook local overlay.** Zero-edit does not detect such overlays; that limit grants no permission (ADR-0013 amendment 2026-10-13). Kit already runs deny-upstream + validate:full. |
+| `package.json` root scripts (validate:full, build:kit, …) | **kit** | **Do not edit.** Product scripts → `apps/<product>-*/package.json` or `scripts/product/*.sh` called from product workflow. |
+| `bunfig.toml` | **kit** | **Do not edit.** Install-time supply-chain policy (`minimumReleaseAge`, [security-dependabot.md](./security-dependabot.md)). |
+| `biome.json` · `knip.ts` · `turbo.jsonc` · `tsconfig.json` · `commitlint*` | **kit** | **Do not edit** unless promoting a kit-wide change upstream first. The protected root `knip` script loads `knip.ts` with `--config knip.ts`, so that script never loads a root `knip.json`, `knip.jsonc`, `.knip.json` or `.knip.jsonc`. Knip still merges a `knip` key of the root `package.json` under `knip.ts` and takes the workspace set from a root `pnpm-workspace.yaml`; both paths are kit-owned (`protected_files`). Product Worker apps need no edit: knip ignores the `cloudflare` pseudo-dependency (`cloudflare:workers`) for every workspace via a root-level `ignoreDependencies`, and the root `tsconfig.json` covers `apps/*/scripts/**/*.ts`. |
+| `AGENTS.md` · root `README.md` · root `GLOSSARY.md` · `docs/kit/*` kit | **kit** | **Do not edit.** Product narrative → `docs/product/*` or `apps/<product>-*/README.md`. A product glossary stays under `docs/product/`. |
+| `docs/agents/issue-tracker.md` | **kit** | **Do not edit.** Tracker contract read by the agent skills at this fixed path; repo-agnostic, so it is inherited unchanged. Listed in `tool_mandated_paths` (the one carve-out to the inventory, [ADR-0009](./architecture/adr/0009-kit-namespace-polarity-inheritance-marker.md) D1 amendment) and in `protected_files`; any other `docs/*` path outside `docs/kit/` / `docs/product/` still fails. Product additions (lanes, extra label families) → `docs/product/issue-tracker.md`. Create its seven labels with `issue-triage init`, which keeps this file byte-identical (`contract: keep-existing`) — [start-product](./playbooks/start-product.md) day-0 step 5. |
+| `.dev/stack.yml` | **product** (after inheritance) | **Fill** `name`, `backend.path`, `release.component`, and either `frontend.path` or a whole-block `frontend: null` (API-only; keep it on upgrade; no frontend App) so the filled values differ from upstream. The guard compares values, not filesystem existence ([Roxabi/roxabi-boilerplate-cf#591](https://github.com/Roxabi/roxabi-boilerplate-cf/issues/591)). No zero-edit exception ([Roxabi/roxabi-boilerplate-cf#260](https://github.com/Roxabi/roxabi-boilerplate-cf/issues/260)). `landing.mode` is inherited (`merge-on-green` or `native` only). `check-stack-contract` rejects any `landing.required_checks` — `merge-on-green.yml` owns that list. It also rejects any `bun.*version` key, a new `review.roster` `never`, a lower `max_agents`, and a change to the pinned `commands.*`. |
+| Root `LICENSE` | **product** (after inheritance) | **Keep or choose.** Not in `protected_files`: zero-edit neither guards nor inventories it, and it never takes an exception. The join with an independent parent and every later upgrade merge restore the pre-merge `HEAD` state of root `LICENSE`, its presence and bytes, before the merge commit, conflict or not ([Pulling kit upgrades](#pulling-kit-upgrades)). Otherwise a notice identical to the Kit's takes a later Kit edit without any conflict, and a Product without one adopts the incoming MIT `LICENSE`. A Product chooses or changes its terms only in its own reviewed commit, before adding its own material, never inside a Kit merge. A Product cloned from the Kit starts with the Kit's MIT `LICENSE`; keeping it is then a choice, never a default. The Kit's MIT notice for all inherited Kit material is the protected `docs/kit/licenses/MIT.txt`, a copy of the Kit's root `LICENSE`. Kit Packages and Example Apps declare `MIT` in their own manifests; the protected root `package.json` declares no license. These Kit notices state only the Kit's terms: they neither license a Product's own material nor describe any separate agreement that covers a Product. |
+| `scripts/kit/` · `tooling/` | **kit** | **Do not edit.** Product helpers → `scripts/product/` only. `tools/` is folded ([ADR-0011](./architecture/adr/0011-tools-fold-scripts-config-polarity.md)): must stay absent or empty; executable → `scripts/kit/`, data → `config/kit/`. |
+| `.dev.vars` · `.env` · CF secrets | product / env | **Never commit.** Copy from `*.example`. |
+| Wrangler product worker names / DB ids | product app | Only under **`apps/<product>-*/wrangler.toml`** (new file). `migrations_dir` must not resolve under `packages/` (not the apply path). |
+
+## Product local database commands
+
+The root `db:migrate` and `db:seed` commands operate on the kit's `example-api` only. A product runs its own workspace scripts:
+
+```bash
+cd apps/<product>-api
+bun run db:migrate
+bun run db:seed
+```
+
+Those scripts name the product Worker and local database; do not modify the root scripts to fan out across product Apps.
+
+
+## Stack map (`.dev/stack.yml`)
+
+Product-owned after inheritance ([ADR-0009](./architecture/adr/0009-kit-namespace-polarity-inheritance-marker.md) amendment, [ADR-0013](./architecture/adr/0013-root-github-workflow-ownership.md) D4, [Roxabi/roxabi-boilerplate-cf#260](https://github.com/Roxabi/roxabi-boilerplate-cf/issues/260)). Not in `protected_files`. Byte-equality is replaced by `scripts/kit/check-stack-contract.ts` (`bun run stack-contract:check`): kit mode checks shape; product mode diffs HEAD against `git show <upstreamCommit>:.dev/stack.yml`.
+
+| Key | Who fills it |
+|---|---|
+| `name` | product — must differ from upstream |
+| `backend.path` / `frontend` | product — `backend.path` is `apps/<product>-api` and must differ from upstream. Fill `frontend.path` (`apps/<product>-web`) or, for an API-only product, replace the whole `frontend` block with `frontend: null`. Keep that null on upgrade. No frontend App is required. The guard compares values, not filesystem existence; `~`, implicit empty, `Null`, a quoted string, a missing key, and a partial map still fail |
+| `release.component` | product (tag prefix `<component>/vX.Y.Z`) — must differ from upstream |
+| `worktree.copy` | product — add `apps/<product>-api/.dev.vars` (and `.env`) so omp-build worktrees copy the principal's real files instead of running on `*.example` values. Kept on upstream merge. `commands.worktree_setup` is required and pinned; `worktree.setup` must equal `bash <commands.worktree_setup>` |
+| `release.model` | inherited `trunk` |
+| `landing.mode` | inherited `merge-on-green`; override to `native` only on native branch protection |
+| `landing.required_checks` | forbidden — `check-stack-contract` rejects any value; `.github/workflows/merge-on-green.yml` owns the list |
+
+On `git merge upstream/main`, keep the product fill scalars (`name`, `backend.path`, `frontend.path` or an API-only `frontend: null`, `release.component`, and any `worktree.copy` additions) and take kit keys for everything else. Replacing the whole `frontend` block is how an API-only product fills it: keep `frontend: null` rather than the incoming kit map. Do not add a `bun.*version` key. Do not add a `review.roster` `never` the upstream file does not already have, and do not lower `max_agents`.
+
+---
+
+## Kit schema vs product schema (D1)
+
+Normative: [ADR-0008](./architecture/adr/0008-kit-schema-identity-product-compose.md) · operator: [`kit-schema-sync.md`](./kit-schema-sync.md).
+
+`example-api` is dogfood + **wrangler journal**, not a clone template. SQL identity is catalog **module `id` + `kitSha256`**. Products **compose** `@kit/*` and sync kit SQL; they do not edit kit migrations or reuse kit `NNNN_` as identity.
+
+| | Owner | Product may |
+|--|--------|-------------|
+| `apps/example-api/migrations/*` | **kit** (dogfood wrangler journal) | **Read only.** Never copy-then-domain-at-0009. Never edit. |
+| `config/kit/kit-schema-modules.json` | **kit** | Read only. Catalog of module `id` + hash — identity SSoT. |
+| `apps/<product>-api/migrations/*` | **product** | Local filenames (`0021_kit_rate_limit_audit.sql`, domain `1000_*`). Append via `scripts/kit/kit-schema-sync.sh` — never rewrite applied files. |
+| `apps/<product>-api/kit-schema-manifest.json` | **product** | **New product file (allowed).** Records `sets` (opt-in) plus `id` + `kitSha256` (hex of kit source bytes) + `productFile`. |
+
+Default sync (no `--modules`): `core` ∪ the manifest `sets` array. First opt-in of a named set stays explicit (`--modules core,<set>`) — [`start-product.md` § Core vs opt-in](./playbooks/start-product.md#core-vs-opt-in); do not fork that table here. An explicit list that omits a set still in `sets` exits non-zero when that set has catalog ids not yet in `modules`. Opt out by deleting the set from `sets`. Existing clones: freeze 0009–0020 domain history; `--adopt` (name every applied set, or the command exits 1); later runs omit `--modules`.
+
+Auth glue (ADR-0008 D6): import `createBetterAuth` from `@kit/auth/factory`, tables from `@kit/auth/schema`, env helpers from `@kit/auth`. SPA forgot/reset/change-password: `@kit/auth/react` forms (app owns routes + catalogs). Do **not** copy or dual-edit `apps/example-api/src/lib/better-auth.ts` as the factory. Never import `@kit/auth/react` from a Worker.
+
+`@kit/auth` 1.7 selects `account.issuer`. Sync and apply catalog module `better_auth_1_7_additive` **before** deploying a Worker on `@kit/auth` 1.7. Package bump first → `no such column: issuer` on sign-in, session lookup, and password reset.
+
+### Authentication reads and Organization-context migration
+
+`createBetterAuth` enables native Better Auth database joins. Its Drizzle schema includes the
+session/user, account/user and Organization-plugin relations; the factory builds those relations
+against the exact tables supplied through `schema`. Existing seven-table schema inputs remain
+accepted. `betterAuthDrizzleSchema` and `kitAuthSchema` include relation metadata; do not treat
+every value in those objects as a SQL table. The join optimization itself requires no table,
+migration, cookie-format or `SessionPort` change; Impersonation has its separate migration below.
+
+`createOrgMiddleware` now requires one Organization-context read instead of separate
+`findOrgById` and `findMembership` ports:
+
+```ts
+// Import repository functions from @kit/auth/repos/orgs.
+const orgMiddleware = createOrgMiddleware({
+  findOrgContext: (db, orgId, subject) =>
+    orgsRepo.findOrgContext(db as KitDb, orgId, subject),
+  getPlatformRole: (db, subject) =>
+    platformRolesRepo.getPlatformRole(db as KitDb, subject),
+  resolveModuleAccess: (db, input) =>
+    orgRolesService.resolveModuleAccess(db as KitDb, input),
+  isModuleEffective: (db, orgId, moduleId) =>
+    platformModulesService.isModuleEffective(db as KitDb, orgId, moduleId),
+})
+```
+
+Replace both old port properties in the same change; no compatibility fallback is retained.
+Keep `getPlatformRole` for the independent Platform Role guard. Standalone repository
+`findOrgById` and `findMembership` remain available for callers that need those records.
+The new `OrgContextRecord` exported by `@kit/auth/hono` is
+`{ status: string; membershipRole: string | null; platformRole: PlatformRole | null }`;
+`null` means the Organization does not exist. Custom adapters must scope membership to
+**Organization + authenticated subject**, normalize Platform Roles to the Kit allowlist and
+read current database facts on each request. Organization Role keys remain strings, including
+custom roles.
+
+Identity and API-key Organization checks precede the joined read. An ordinary nonmember gets
+the same 404 for missing, active and suspended Organizations. A member of a suspended Organization
+gets 403. Route-enabled super-admin support still requires an active Organization, explicit
+write break-glass permission and the bypass audit; it does not inherit another Organization's
+role. Module checks are unchanged. No identity or authorization cache spans requests, and
+Product-specific account checks remain Product-owned.
+
+Better Auth still owns session refresh, cookies and applied revocations. The join optimization
+does not change handler-only cookie issuance or session resolution behavior.
+The optimization does not implement the password-reset changes tracked by Roxabi/roxabi-boilerplate-cf#395. The refusal
+ordering coordinates with still-open Roxabi/roxabi-boilerplate-cf#398; this document is not a
+claim that either issue has been delivered. See the permanent [authentication regressions](./testing.md#authentication-regressions) and their limits.
+
+### Impersonation V1 migration
+
+Sync the catalog's additive `impersonation` core id (`0024_impersonation.sql` in the Example App journal), retaining `audit` and every other already selected schema set. `kitAuthSchema` exports `impersonationRolePermissions` and `impersonationSessions`; the repositories are available through `@kit/auth/repos/impersonation`. No permission is enabled by the migration or normal demo seed.
+
+`SessionPayload` now requires the verified Better Auth `sessionId`, not its cookie token. Consumers of `createBetterAuthSessionPort` receive it automatically; migrate custom session fixtures and port implementations rather than inventing an id. The cookie format and Better Auth session owner are unchanged. The shared `/api/me` parser now requires `impersonation` (nullable) and `impersonationPermissions` (independent read/write booleans).
+
+An App composing Impersonation must gate every request after verified session resolution and before route dispatch, including raw Better Auth, MCP and other paths outside `requireAuth`. Its operation policy is explicit and default-deny. Both identities must belong to the pinned Organization; target guards and live Module grants apply without operator bypass. Do not treat permission to administer users as permission to impersonate.
+
+Clients send `X-Impersonation-Id` with the exact public delegation id, or `none` for ordinary requests. It never authenticates a request. A stale fence must fail before any Bearer fallback can select another identity. `/api/me` remains available for recovery; `impersonation.active: false` means no business access, not an automatic return to the operator. The stop operation uses the real session and expected delegation id; refetch `/api/me` before assuming which identity is current.
+
+A completed refresh must prove a successful, non-aborted network `/api/me` read for the current identity transition before clearing recovery. Query-library cancellation may resolve with reverted cached data; that value is not authoritative. If refresh is cancelled or no fresh read is witnessed, retain recovery and explicit return until a later successful refresh.
+
+Audit start and permission changes atomically. Persist an attributed request **attempt** before an admitted business handler, without claiming that the mutation committed; trace failure prevents dispatch. Stop must not depend on audit availability. Synchronize principal changes across tabs, discard stale responses, preserve return controls on refresh failure, and never automatically replay a mutation.
+
+V1 does not implement consent requests, consent configuration/status, target notifications, a delegation duration limit or additional reauthentication. These are not optional flags or placeholder interfaces. Full authority constraints are in [ADR-0003 D15](./architecture/adr/0003-multi-tenant-rbac-modules.md#d15--session-bound-impersonation).
+
+---
+
+## Configuration without forking kit files
+
+| Need | Do this | Not this |
+|------|---------|----------|
+| CI auto-merge | Repository **`CI_APP_ID`**, **`CI_APP_PRIVATE_KEY`** and `HEAD_AUTH_*` authorization variables; see [CI App setup](./ci-app-setup.md#trust-and-setup). A shared installation requires the [owner exception](./ci-app-setup.md#shared-app-owner-exception). | Edit `merge-on-green.yml`; reuse a shared key without that exception or invent other secret names |
+| Session / CORS / SMTP / CF | `apps/<product>-api/.dev.vars` + CF dashboard secrets. **`CORS_ORIGINS` required** outside `development\|test` (never `*` / `null`). Planes / `[env.staging]`: [`environments.md`](./environments.md) | Commit secrets; edit kit examples permanently; rely on localhost CORS default in staging/prod |
+| Worker CSRF / security headers / D1 rate limit | `originGuard` + `securityHeaders` from `@kit/auth/hono`; `assertRateLimit` from `@kit/auth/repos/rate-limit` (table `rate_limit_buckets`, schema set `audit`). Better Auth: [§ Better Auth mount](#better-auth-mount), the one mount contract | Copy `example-api` middleware; import rate-limit from `@kit/auth` barrel (pulls Drizzle into the SPA); mount `auth.handler` without the kit throttle; keep a product-side throttle path list |
+| Public self-serve sign-up | Set `ALLOW_PUBLIC_SIGNUP=true` on the **product** Worker in `apps/<product>-api/wrangler.toml` `[env.<name>].vars` (durable). Unset / `false` = invite + admin only. SPA `/sign-up` follows `GET /health.allowPublicSignup` (UX only — BA `disableSignUp` is the gate) | Patch `example-web`; copy kit `[env.production]` (showcase hosts + open signup); rely on `.dev.vars` for remote |
+| Product Worker name / D1 / R2 | `apps/<product>-api/wrangler.toml` (**new**) · **two** planes, distinct ids ([`environments.md`](./environments.md)) | Edit `apps/example-api/wrangler.toml`; copy production `database_id` into `[env.staging]` |
+| Product UI routes | `apps/<product>-web/**` | Patch `example-web` into a product |
+| Product AGENTS / frame | `docs/product/AGENTS.md` or app-level AGENTS | Rewrite root `AGENTS.md` |
+| Durable execution (conversation, plan run, job) | Follow [ADR-0018](./architecture/adr/0018-durable-execution-ownership.md); its D5 says when a Product ADR under `docs/product/` is required | Rewrite or waive root `AGENTS.md` invariant 6 |
+| Approval notifications | A Product Workflow owner may pass optional `approvalNotifications.opened` and `.closed` ports to `driveFlowRun`. Notices identify the source by `orgId`, `runId` and `taskId`; closed carries the winning approval outcome. Native Workflow retries are bounded to three retries (four attempts total). Delivery is best-effort and may be lost; port failure does not change the approval decision, and forced termination does not guarantee a closed notice. Future E4 App-owned lifecycle guards and App wiring are not delivered here. | Treat notices as approval authority or guaranteed delivery; assume forced termination invokes closed |
+| Extra CI job / product CD | `.github/workflows/product-deploy.yml` (**new**) or product CF Builds on `apps/<product>-*` | Append jobs into kit `ci.yml` · never set `KIT_SHOWCASE_DEPLOY` · never run `cf:showcase:*` |
+| CD branch (inherited Deploy gate, Roxabi/roxabi-boilerplate-cf#256) | CF Builds / Pages production branch = **`deploy/main`** (prod) and **`deploy/staging`** (staging), moved only by the kit `deploy-gate.yml` to the newest SHA whose kit CI, Secret scan **and product workflows** are green. Declare those in **`config/product/deploy-gate.json`** (`{"workflows": [".github/workflows/product-ci.yml"]}`, `[]` if none; mandatory, read from the deploy branch); each runs as `name: Product CI` on every push, without a `paths:` filter. Product deploy scripts refuse any other branch. Needs the kit-ci App at repo level and the one-time cutover ([deploy-cloudflare.md](./deploy-cloudflare.md) § Cutover) | Point CF at `main` / `staging` (a red commit ships before CI ends) · push `deploy/*` by hand except break-glass ([deploy-cloudflare.md](./deploy-cloudflare.md) § Break-glass) · put a CF token on GitHub to deploy from Actions |
+| Deny push to kit | **Already in kit** lefthook + `scripts/kit/deny-upstream-push.sh`; GitHub write ACLs are the backstop | Copy-paste divergent lefthook or commit a disabling Lefthook local overlay in product |
+| Brand / design system | **Design overrides** (below) in `apps/<product>-web` | Edit `packages/ui/**` |
+| UI locales | Product `apps/<product>-web` owns catalogs and calls `createReactI18n({ catalogs, defaultLocale, storageKey })` from `@kit/i18n/react`. Mount its `LocaleProvider` and consume `useLocale()` (`locale`, `locales`, `setLocale`, `showSwitcher`, `m`). **One key = no switcher** (`LocaleSwitcher` hides). For non-React consumers use the pure `createI18n` from `@kit/i18n`. | Hardcode FR/EN buttons; patch `example-web`; fork `@kit/i18n` |
+| Gate “did we touch kit paths?” | `bun run zero-edit` (in `validate` / `validate:full`) | Hope merge conflicts never happen |
+| Env completeness | Product owns inventory for `apps/<product>-*` | Treat kit `env:check` as product-wide (it is **example-api only**) |
+| File-length god-file cap | `config/product/file_exemptions.txt` (copy [`config/kit/file_exemptions.example.txt`](../../config/kit/file_exemptions.example.txt)). Paths only under `apps/<product>-{api,web,mcp}/` with an explicit `# N lines` cap. **One commit** deletes product rows from `config/kit/file_exemptions.txt` and adds them here. product-validate must not export `QG_FILE_MAX` / `QG_FILE_EXEMPTIONS` | Edit `config/kit/file_exemptions.txt`; wildcard / cap-less / `packages/*` / `apps/example-*` lines |
+| Coverage bar run order | Membership is **discovered** (every workspace with a `test:coverage` script); only the risk tier is declared. Kit workspaces: `COVERAGE_*` tiers in `scripts/kit/test-coverage.sh`. Product workspaces: **`config/product/coverage-order.txt`**, one `<high\|medium\|lower> <workspace>` per line (`#` comments), read in every mode (product repo or kit-mode mirror, no `inheritance.json` needed). Run order = kit high, product high, kit medium, product medium, kit lower, product lower. A discovered workspace in neither place, a stale or duplicate entry, an unknown tier or a malformed line fails `bun run test:coverage` — no silent default tier. Self-test: `bun run test:coverage-order` | Edit `scripts/kit/test-coverage.sh`; drop `test:coverage` from a product workspace to avoid the bar |
+| File-length / folder / import exemptions | Kit registers: `config/kit/*_exemptions.txt`. Product caps: `config/product/*_exemptions.txt` (optional). Helpers: `scripts/product/`. Never add files under `tools/` ([ADR-0011](./architecture/adr/0011-tools-fold-scripts-config-polarity.md)) | Edit `tools/*`; put product scripts in `tools/` |
+
+### Better Auth mount
+
+The one contract for mounting Better Auth on a product Worker. ADR-0002's inject recipe, [start-product](./playbooks/start-product.md) step 8, [`deploy-cloudflare.md`](./deploy-cloudflare.md) and [`auth-abuse-response.md`](./auth-abuse-response.md) link here. `createBetterAuth` pins Better Auth's own limiter off, plugin rate-limit rules included, so a mount that skips this contract has no limiter at all.
+
+1. **Schema sets `core,audit`:** `bash scripts/kit/kit-schema-sync.sh --app apps/<product>-api --modules core,audit`, plus every set already in the manifest `sets`. `rate_limit_buckets` ships in `audit`. Without it every non-exempt Better Auth request fails closed with a 500.
+2. **One route: the org deny, then the kit throttle, then the handler.** A catch-all on `/api/auth/*` tests `isBaOrganizationRoute(pathname)` from `@kit/auth` on the raw pathname first. It answers 404 there, before any budget is spent. The deny covers every path under `/api/auth/organization/`, so a route that a Better Auth upgrade adds is denied too. ADR-0003 D10: Better Auth's organization routes skip the kit's role ceiling, org-status check and audit, and the kit organization APIs replace them. Then `throttleBetterAuthRequest(db, { request, ip, sessionId })` from `@kit/auth/repos/ba-throttle`, then `auth.handler(c.req.raw)`. Reference: `apps/example-api/src/routes/auth.ts`.
+3. **Inputs:**
+   - `request` is `c.req.raw`. The throttle routes on its raw pathname and reads the body from a clone.
+   - `ip` is `clientIp(c.req)` from `@kit/auth/repos/rate-limit`, passed as returned (`string | null`). Never template it, default it or read another header.
+   - `sessionId` is a callback, `async () => { const session = await auth.api.getSession({ headers: c.req.raw.headers, query: { disableRefresh: true } }); return session?.session.id ?? null }`. It returns the verified session id. It never returns the account id, the session token or a stub: a constant drops the session bucket. `disableRefresh` leaves the session refresh to Better Auth.
+4. **No side door:** `auth.fetch`, direct `auth.api.*` calls and any other Better Auth mount do not themselves spend a budget. A product route never sends caller input directly to `auth.api.*` or `auth.fetch`. A server read with the request's own headers (`getSession`, as the throttle and the session port do) is allowed.
+5. **Kit lists and limits:** deny by default covers the address bucket. The e-mail and session-ending sets are kit lists, so a plugin endpoint that names an account by e-mail needs a kit PR. Limits are kit constants (`BA_THROTTLE_LIMIT`, `BA_THROTTLE_WINDOW_MS`): tighten them through a kit PR, or in front with a Cloudflare edge rule.
+
+For a trusted internal operation, `throttleBetterAuthActorRequest(db, { request, actorId })` from the same repository entry point admits the synthetic Better Auth request before it is handled. The caller must authenticate the actor server-side, bind `actorId` to that verified subject, and separately enforce the operation's authorization and any confirmation. Never take actor authority from a model, request header or client assertion; this limiter authenticates nobody and must not replace the native HTTP mount above. A missing, non-string or blank actor is rejected, including for exempt reads.
+
+Internal requests spend a separate `ba-auth-actor:<actorId>` source bucket, not an IP or session bucket. They use the same exemptions, endpoint list, normalized e-mail bucket, limit and window as native requests. Consequently native and internal calls targeting the same e-mail can deny each other until the window ends. D1 errors fail closed. The actor identity is used verbatim; callers must supply a stable canonical subject, not a session ID.
+
+Buckets, exemptions and residual risks: [`auth-abuse-response.md`](./auth-abuse-response.md).
+
+---
+
+## Foreign org — first product outside kit-hosting org
+
+Kit workflows read fixed credential and authorization variable names. Use a target-only GitHub App in your org; the **names** are not org-specific.
+
+| Contract name | Kind | Role |
+|---|---|---|
+| **`CI_APP_ID`** | Actions **variable** (non-secret) | The target App's Client ID (`Iv…`), used for token minting |
+| **`CI_APP_PRIVATE_KEY`** | Repository Actions **secret** | Fresh target App PEM for App JWT → installation token |
+| **`HEAD_AUTH_REPOSITORY_ID`**, **`HEAD_AUTH_OPERATOR_IDS`**, **`HEAD_AUTH_APP_ID`**, **`HEAD_AUTH_BOT_USER_ID`** | Repository Actions **variables** | Immutable repository ID, JSON numeric human allowlist, numeric App ID and numeric bot user ID; see [setup](./ci-app-setup.md#trust-and-setup) |
+
+| Do | Do not |
+|---|---|
+| Create and install a target-only GitHub App on **your** org and generate a fresh repository-scoped PEM | Expect `kit-host` org secrets to appear on a foreign org or reuse a shared key |
+| Configure `CI_APP_ID`, `CI_APP_PRIVATE_KEY` and all `HEAD_AUTH_*` values as described in the setup guide | Rename the contract variables or substitute logins for numeric identities |
+| If `CI_APP_ID` is verified absent, use separately authorized manual merge; deploy-gate may still require an App | Treat a missing key, partial configuration or unreadable settings as inactive mode |
+
+Setup detail: [`docs/kit/ci-app-setup.md`](./ci-app-setup.md). Bootstrap narrative: [`docs/kit/playbooks/start-product.md`](./playbooks/start-product.md).
+
+> Historical note: kit briefly used `Kit_CI_APP_*`; canonical names are **`CI_APP_*`** only.
+
+---
+
+## Design overrides (accepted — no exception needed)
+
+Customize look & feel **without** forking `@kit/ui`. Machine-readable list: `config/kit/zero-edit-zones.json` → `design_overrides`.
+
+| Pattern | Where | How |
+|---------|--------|-----|
+| **CSS token override** | `apps/<product>-web/src/**/*.css` | Keep `@import "@kit/ui/styles.css"`, then redeclare tokens on `:root` / `.dark` (`--primary`, `--radius`, fonts, sidebar, charts) |
+| **Compose / wrap** | `apps/<product>-web/src/components/**` | Import primitives from `@kit/ui`; build product shells (`LoadingButton`, `BrandHeader`) |
+| **App Tailwind `@source`** | product CSS | `@source` kit UI + product app only |
+| **Assets** | `apps/<product>-web/public/**` | Favicon, OG, logo — not in `packages/ui` |
+
+Use `ThemeProvider` from `@kit/ui` with an App-owned storage key, for example `<ThemeProvider storageKey="ua.theme">`. Use `useTheme()` for the selection and resolved color scheme; keep any pre-React boot script aligned with that key. See [`@kit/ui` theme](./ui-kit.md#theme).
+
+Example product entry CSS:
+
+```css
+@import "@kit/ui/styles.css";
+@import "./theme/product-tokens.css"; /* overrides only */
+
+@source "../../../packages/ui/src/**/*.{ts,tsx}";
+@source "./**/*.{ts,tsx}";
+```
+
+```css
+/* theme/product-tokens.css */
+:root {
+  --primary: oklch(0.45 0.18 265);
+  --radius: 0.75rem;
+}
+.dark {
+  --primary: oklch(0.75 0.12 265);
+}
+```
+
+**Still need a kit change?** Open a PR on **kit** (promote reusable primitives). Do not brand `packages/ui` in the product repo.
+
+---
+
+## Exceptions (last resort — justified + time-boxed + traceable)
+
+When there is **no** viable design override or product path, and shipping cannot wait for an upstream PR, the product may diverge on a **specific kit path** only if registered in:
+
+```text
+config/product/zero-edit-exceptions.json   # PRODUCT repo only
+```
+
+Template (kit): [`config/kit/zero-edit-exceptions.example.json`](../../config/kit/zero-edit-exceptions.example.json).
+
+| Field | Rule |
+|-------|------|
+| `path` | Exact repo-relative path of the diverged **kit** file |
+| `reason` | Why the product needs this (≥10 chars) |
+| `owner` | Team or person accountable |
+| `expires` | `YYYY-MM-DD` — **hard fail after date** (renew or remove patch). An `expires` granted or extended on/after `exception_expiry.effective_from` (`config/kit/zero-edit-zones.json`, today `2026-10-03`) may be at most `exception_expiry.max_days` (90) days after the day it was granted — see below |
+| `ticket` | URL to kit issue/PR or product tracking issue |
+| `alternatives_considered` | Non-empty list (must include design override / product path attempts) |
+| `why_not_alternative` | Why those options fail today |
+| `kit_pr` | Optional link to in-flight kit PR that will remove the need |
+
+**Exception is not a license to drift forever.** Prefer: upstream fix → merge `upstream/main` → delete the exception entry (stale entries are warned by the checker).
+
+**Expiry cap.** The grant day is the author date of the first-parent commit that last *extended* the entry's `expires` (a new entry counts as extended); an uncommitted edit counts as granted today. Entries granted before `effective_from` are grandfathered until they expire; shortening an `expires` never re-dates the grant, extending it does (a renewal is capped from its own day). `OVER CAP <path>` fails the gate. The cap is read from git history, so it is a guard-rail against accidental open-ended exceptions, not tamper-proof: a rewritten author date defeats it, and review of exception PRs stays the control.
+
+```bash
+bun run zero-edit
+# product: compares HEAD + dirty tree to config/product/inheritance.json → upstreamCommit
+# kit:     allowlisted origin, config valid only (no upstream diff)
+```
+
+Mode is auto-detected (ADR-0009): inheritance marker → product; kit-origin allowlist → kit.  
+`ZERO_EDIT_MODE` is harness-only (requires `ZERO_EDIT_HARNESS_SENTINEL`). There is **no** `ZERO_EDIT_BASE_REF`.
+
+**What a green product-mode run attests.** Zero-edit is a guard-rail against *accidental* modification of kit-owned files (including by AI agents), not tamper-proof provenance. The base is self-declared by the product, so the checker refuses the cheap ways to move it onto the product's own history: the base must exist locally, be an ancestor of `HEAD`, and **must not descend from the commit that introduced `config/product/inheritance.json`** (that commit and everything after it is product-authored — this also refuses the delete-and-re-add of the marker). A shallow clone fails closed because that ancestry cannot be read. A deliberate maintainer with write access can still pick a base that predates the marker's introduction or rewrite history; real kit integrity is GitHub write ACLs plus review of marker changes (ADR-0009 D4 threat model).
+
+---
+
+## CI zero-edit base (product Actions)
+
+GitHub Actions on a **product** repo has:
+
+- **No `upstream` remote** (checkout only clones `origin`)
+- Often a **shallow** history unless you ask for full depth
+
+Kit `ci.yml` therefore:
+
+1. Checks out with **`fetch-depth: 0`** (full history — inherited tip SHAs must be reachable after merge, and the marker lineage check reads the whole ancestry: a shallow clone fails closed, the checker never auto-fetches).
+2. If `config/product/inheritance.json` exists, verifies `upstreamCommit` is in history, then runs `bun run validate:full`.
+3. Kit / mirror origins (allowlist in `config/kit/zero-edit-zones.json`) run kit-mode zero-edit (no marker).
+
+### Product file: `config/product/inheritance.json`
+
+```json
+{
+  "version": 1,
+  "upstreamCommit": "268536b3874aefd82cc795c6f1c28f445644b5af"
+}
+```
+
+`upstreamCommit` = full SHA of the **immediate parent tip actually merged** (e.g. silex tip for a go-silex product — not Roxabi HEAD unless that is the parent).
+
+After every `git merge upstream/main`:
+
+```bash
+mkdir -p config/product
+printf '{\n  "version": 1,\n  "upstreamCommit": "%s"\n}\n' "$(git rev-parse upstream/main)" > config/product/inheritance.json
+```
+
+Commit the file with the merge (or immediately after). Stale marker → false dual-edit failures against an old tip. Move the marker only to a tip of the parent (`upstream/main` after a real merge) — never to a commit of this repo, never delete-and-re-add it: the checker refuses both (`descends from … which introduced config/product/inheritance.json`).
+
+### Transition to an independent public lineage
+
+The approved public-first target is `go-silex/unkillable-kit`, initialized with an independent Git root. This is the planned publication identity, not a claim that the target exists or has passed its publication audit. Only the audited source tree and intended public refs may enter that lineage; legacy Git commits, historical refs and GitHub records are not imported. Future Kit changes are maintained in the public lineage after cutover rather than exported indefinitely from a private bridge.
+
+Existing direct and mirror-mediated consumers transition explicitly to the new immediate parent. This is not an ordinary remote rename or a permission to replace Product history:
+
+1. Work in a full-history disposable clone first. An already-public Product must start from its anonymous public origin only, not from a private clone that may contain additional history. Record the old consumer tip and the Product files, lawful stack values, exception entries and patches, and applied SQL filenames, hashes and schema-manifest records that must survive. The public parent must have no Product inheritance marker.
+2. Preserve the Product's `origin`. Point `upstream` at the approved public parent, keep its push URL `no_push`, fetch the exact candidate, and check its identity against `config/kit/zero-edit-zones.json`. Do not use identity environment overrides.
+3. Join the independent histories once with a real non-squashed merge (`--allow-unrelated-histories --no-ff --no-commit`). Resolve Kit-owned paths against the new parent's ownership manifest, retaining only approved Product exceptions. Preserve Product-owned content, stack scalars and additions, and all applied migration bytes and manifest identities. Retire removed Kit files rather than silently retaining protected differences. Root `LICENSE` is Product-owned ([Zones](#zones)): before committing, restore its pre-merge presence and bytes, conflict or not, with the `LICENSE` lines of [Pulling kit upgrades](#pulling-kit-upgrades); `HEAD` is still the pre-merge Product commit during `--no-commit`. Choosing new terms is the Product's own reviewed commit, not part of this merge.
+4. Update the **existing** inheritance marker to the public parent tip actually merged; retain its original introduction history. Commit the merge before running ancestry-dependent checks. Both the previous consumer tip and the declared public parent must be ancestors of the result; neither the marker commit nor an arbitrary equal tree is a valid parent pin.
+5. Run the applicable Kit and Product checks, then exercise a second, ordinary fetch/merge/marker update from a later public parent tip without `--allow-unrelated-histories`. Verify the same Product and migration preservation obligations again. A fetched but unmerged parent must still fail the ancestry check.
+
+Never push the Product transition merge, legacy parent history or a private bridge back into the public Kit. A private Product keeps the joined histories on its own private origin. Existing source and mirror repositories retain their history and are archived only after their supported consumers have transitioned. Any real migration, activation of automation, publication or rollback remains a separately authorized operation.
+
+An already-public Product must not become an alternate publication path for a private candidate:
+
+- Start from an anonymous, origin-only, full-history clone at the recorded public Product tip. Never fetch or merge the legacy private Kit source or mirror there, including an update while waiting for the public parent.
+- Publish its transition only after the selected Kit parent is anonymously reachable following its own exposure checkpoint. Rehearsals before that checkpoint stay in disposable clones without a public push.
+- At the initial transition result, `git rev-list <transition> --not <old-public-tip> <public-kit-tip>` must list exactly the new transition merge commit. Further Product-only changes require their own review; neither the first transition nor a later upgrade may introduce private-only Kit ancestry.
+- Push only an explicit reviewed branch refspec, not tags, `--all` or `--mirror`.
+
+Legacy history already published through a Product remains outside the new Kit candidate's bounded audit. That audit neither clears nor withdraws previously public material; any remediation needs a separate owner decision.
+
+The independent-history cases in `scripts/kit/dogfood-zero-edit.sh` exercise synthetic direct and mediated consumers. They do not prove the final public candidate, a real Product migration, hosted CI settings or deployment. The candidate's fresh-clone reader journey and final public-tip checks remain separate publication evidence.
+
+### Local / product-validate parity
+
+```bash
+# Local and CI — same path (marker only):
+bun run zero-edit
+```
+
+Do **not** dual-edit kit `ci.yml` for this — the pattern lives in the kit.  
+Do **not** rely on org secrets to fetch private `upstream` solely for zero-edit when the kit tip is already in product history after merge.  
+Do **not** use `upstream/main` as the zero-edit base (stale tracking refs ≠ dual-edit — Roxabi/roxabi-boilerplate-cf#103).
+
+---
+
+## Git remotes (every product clone)
+
+```bash
+# <kit-parent-url> = whatever your org uses as immediate kit parent (operator-owned).
+git remote add upstream <kit-parent-url>   # if missing
+git remote set-url --push upstream no_push
+
+# Never from a product clone:
+# git push upstream
+# LEFTHOOK=0 git push upstream
+```
+
+| Remote | Role |
+|--------|------|
+| **`origin`** | **Product** repo only (where you push) |
+| **`upstream`** | Immediate kit parent — **fetch-only** on products |
+| **`pushUrl`** | Must be `no_push` on the parent remote for products |
+
+| Context | Behavior |
+|---------|----------|
+| **Kit clone** (no `config/product/inheritance.json`) | **No-op** — maintainers may push any remote |
+| **Product** (marker present) | Denies remote name **`upstream`** and any URL matching the substring denylist (below) |
+
+**Extra chassis** (optional): `deny-upstream` has no product-side brand builtins. Kit HEAD ships `config/kit/deny-upstream-remotes.json` with `Roxabi/roxabi-boilerplate-cf` and `go-silex/unkillable-kit`. `owner/repo` entries match the normalized remote identity (exact). Other entries stay raw URL substrings. Products inherit the kit file and never list kit HEAD. The mirror must not edit that file: kit-mode does not run the protected-path diff; a mirror patch still conflicts on every HEAD inherit. The immediate parent is already denied via the remote name `upstream`. Use `docs/product/deny-upstream.json` only for an extra private chassis. Adding a remote to kit HEAD remains a topology bug.
+
+```bash
+# Runtime (session / CI / direnv) — comma-separated, trimmed; prefer repo-unique slugs
+export DENY_UPSTREAM_URL_SUBSTRINGS=my-private-chassis
+
+# Or commit product-owned config (zero-edit free path):
+# docs/product/deny-upstream.json
+# { "urlSubstrings": ["my-private-chassis"] }
+```
+
+Do **not** hardcode product chassis names into kit defaults. Prefer full repo slugs (not generic tokens like `api`).
+
+**Client-side only:** this hook is UX / footgun prevention. `LEFTHOOK=0` and `git push --no-verify` still bypass it. Real kit integrity = **GitHub write ACLs** (product has no write to boilerplate / chassis). Proof: `bun run test:deny-upstream` (**CP-DENY** in [`testing.md`](./testing.md)).
+
+**Misconfiguration:** a product without `inheritance.json` is treated as a kit clone (`deny-upstream` no-op). If origin is also not in `kit_origin_allowlist`, `zero-edit` fails closed (`cannot classify`). GitHub Fork of a kit repo is still **DENY**: PRs default to the kit parent and private/deletion stay coupled to that network ([`start-product.md`](./playbooks/start-product.md)).
+
+## Git branches
+
+| Repo | Branches |
+|---|---|
+| Kit HEAD | **`main` only.** There is no kit `staging`. Kit PRs target `main`. |
+| Product | **Trunk.** Feature PRs land on `main`. Do not create a landing branch named `staging`. Optional staging environment: a fast-forward pin `staging` from `main` feeding `deploy/staging` ([environments.md](./environments.md) §4). Inherited workflows already listen on `staging\|main` — do not edit `ci.yml` to add that trigger. |
+
+Pull kit updates from `upstream/main` into `main`. For `.dev/stack.yml`, keep the fill scalars and any `worktree.copy` additions; take kit keys for the rest.
+
+---
+
+## Day-1 product bootstrap (no kit file edits)
+
+1. Create an **empty** private repo `org/<product>`. Do **not** GitHub-fork the kit. `origin` must be this product URL.
+2. Inherit the **immediate parent** (Roxabi → HEAD, go-silex → mirror): rename that remote to `upstream` (fetch-only) and push `main` to product `origin`. Commit `config/product/inheritance.json` on day-0 pinning that parent tip ([`start-product.md`](./playbooks/start-product.md)).
+3. `bun install` (prepare wires lefthook only if `core.hooksPath` is unset; the lefthook postinstall does not run — `trustedDependencies` is `[]`, see `lefthook.yml` header).
+4. Copy env examples → gitignored local files only.
+5. Configure a target-only **kit-ci** App and repository-scoped credentials and authorization variables, or establish verified inactive App mode and use separately authorized manual merge — see [`ci-app-setup.md`](./ci-app-setup.md#trust-and-setup).
+6. Choose the Product's terms in the root `LICENSE` ([Zones](#zones)), then add product apps under `apps/<product>-*` only.
+7. When `apps/<product>-api` exists: `bash scripts/kit/kit-schema-sync.sh --app apps/<product>-api --modules core,audit` for a product that mounts Better Auth. The throttle needs the `audit` set. Omitted `--modules` syncs `core` ∪ the manifest `sets`, which is `core` only on a new product, and every non-exempt auth request then returns 500. Last-resort clones: `--adopt` immediately. Product domain SQL starts at `1000_`.
+8. Keep `bun run validate:full` green (kit bar). When `apps/<product>-*` exist, also wire product-validate / product-ci (see Product CI DoD below).
+
+Optional product-only files (safe for upstream merge):
+
+```text
+apps/<product>-api/
+apps/<product>-api/kit-schema-manifest.json  # allowed product file (kit schema manifest)
+apps/<product>-web/
+apps/<product>-mcp/
+docs/product/                              # AGENTS, frames, product prose
+config/product/inheritance.json           # upstreamCommit = last-merged parent tip (required product)
+docs/product/deny-upstream.json            # extra private chassis slugs (optional; not kit HEAD)
+config/product/zero-edit-exceptions.json     # last-resort dual-edit exceptions
+config/product/file_exemptions.txt         # product-owned file-length caps (optional)
+config/product/coverage-order.txt         # product coverage risk tiers: "<high|medium|lower> <workspace>" (optional)
+.github/workflows/product-*.yml
+scripts/product/                           # product helpers; not required by kit
+apps/<product>-web/src/theme/*.css         # design token overrides
+```
+
+
+### Product CI (recommended DoD when product apps exist)
+
+Kit `ci.yml` / `validate:full` stay **kit-only** and must not fail when product apps are absent.  
+**Kit bar ≠ product tested** — green `validate:full` does not typecheck/test/build `apps/<product>-*`.
+
+When the product repo has `apps/<product>-*`, product CI is **recommended DoD** (required in the [start-product playbook](./playbooks/start-product.md) checklist):
+
+1. **Copy** kit templates (do not dual-edit kit `ci.yml` / `test-coverage.sh` / root `package.json`):
+   - [`docs/kit/templates/product-validate.example.sh`](./templates/product-validate.example.sh) → `scripts/product/validate.sh`  
+     (or `apps/<product>-api/scripts/kit/product-validate.sh`)
+   - [`docs/kit/templates/product-ci.example.yml`](./templates/product-ci.example.yml) → `.github/workflows/product-ci.yml`
+2. Replace `<product>` placeholders with real package names.
+3. Keep kit `bun run validate:full` green **and** run product-validate in product CI.
+
+```text
+.github/workflows/product-ci.yml           # product-only; never edit kit ci.yml
+scripts/product/validate.sh                # preferred (zero-edit allowed)
+# or: apps/<product>-api/scripts/kit/product-validate.sh
+```
+
+Typical `product-validate` shape (SSoT template is the file under `docs/kit/templates/`):
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"   # adjust if app-local path
+cd "$ROOT"
+
+bun run deploy-gate:check   # deploy-gate.json + its workflows (Roxabi/roxabi-boilerplate-cf#317), main and staging when deploy/staging exists
+bun run zero-edit
+bun run --filter @kit/<product>-api typecheck
+bun run --filter @kit/<product>-api test
+bun run --filter @kit/<product>-web typecheck
+bun run --filter @kit/<product>-web test
+bun run --filter @kit/<product>-api build   # e.g. wrangler dry-run
+```
+
+Workflow job: checkout with **`fetch-depth: 0`** → setup-bun → `bun install --frozen-lockfile --minimum-release-age 0` (the inherited `bunfig.toml` gate covers new resolutions; a frozen install only reproduces the lock — [security-dependabot.md](./security-dependabot.md)) → `bash scripts/product/validate.sh`
+(`bun run zero-edit` reads `config/product/inheritance.json` — same path as local lefthook; see template).
+
+`promote-deploy.ts --check` reads `config/product/deploy-gate.json` and each declared workflow with promotion's own loader (name `Product CI`, push branches, no path filters, no job-level `if` it cannot prove true on push, and any YAML shape it does not model — quote `!` patterns, keep `needs` and local `uses:` callees resolvable, call no remote reusable workflow — is a finding; a local callee's jobs are judged by the same job rules). Kit `ci.yml` and `secret-scan.yml` are judged by the same push and job rules, without the Product CI name rule (Roxabi/roxabi-boilerplate-cf#325). An undeclared product workflow file stays admissible unless the local `refs/remotes/origin/deploy/<SOURCE_BRANCH>` snapshot still requires it (Roxabi/roxabi-boilerplate-cf#331). Those retained paths are judged in this working tree, not in the old blob; the check does not fetch. `continue-on-error` must be absent or boolean false on every inspected job, step, and callee. A local callee whose `on` has no `workflow_call` is a finding even when the tree is not a git project. A clean semantic check then runs pinned actionlint 1.7.12 with `-config-file config/kit/actionlint.yaml`, so a product `.github/actionlint.yaml` cannot ignore expression or reusable-call syntax errors; the binary is pinned in `config/kit/actionlint.version` and is never taken from PATH. It never reads GitHub and never moves `deploy/<branch>`. The enforcing run is the kit's: `validate:full` runs `deploy-gate:check` (for `main`, and for `staging` when `origin/deploy/staging` exists) in the required `ci` job. The call in `scripts/product/validate.sh` is an early signal only: it runs inside Product CI, the workflow under check, so a PR that stops Product CI from running never reaches it. Keep the template's draft-PR condition as is: it passes. A step-level `if` is still not a claim that the step runs. Once a product inherits it (Roxabi/roxabi-boilerplate-cf#317) and the kit-bar `lock-ranges:check` (Roxabi/roxabi-boilerplate-cf#319), it deletes its own copies of those checks from `scripts/product/validate.sh` — a second loader drifts from the gate's.
+
+`merge-on-green` uses the same pure declaration parser as promotion / `--check`, but judges a PR rather than a deploy branch: it resolves the **current** base once for each verdict, reads `config/product/inheritance.json` and `config/product/deploy-gate.json` at that immutable base SHA and at the PR head, and requires the union of declared `product-*.yml` workflows. A base without a declaration is allowed only for bootstrap; once Product mode is indicated, the head declaration is mandatory, readable and valid. Each declared workflow **MUST execute on the PR head**: its latest matching run must be completed `success`, name a valid explicit attempt, have a non-empty job list whose jobs on that exact attempt all succeed, and still be completed/successful when reread. A skipped, neutral, missing, queued, cancelled or failed Product run holds the merge; that is intentionally stricter than the Kit check policy, where completed `neutral` / `skipped` checks are accepted.
+
+Retire a Product workflow in two PRs for the merge hold: undeclare it while keeping its file and green PR-head run, merge, then delete the file. Rename one in the same two: add the new declaration and workflow while undeclaring the old one but keeping its file; both workflows need green PR-head runs because the base/head declaration union still requires the old one; merge, then delete the old file. Those two merges do not retire the deploy obligation. Deletion is legal for `promote-deploy.ts --check` only once the undeclaring commit is what each required local `refs/remotes/origin/deploy/<branch>` snapshot names — `deploy/main`, and `deploy/staging` when that ref exists. That is a promotion onto those branches, not another merge onto `main`. The check does not fetch: a stale local ref keeps the old obligation; a missing ref is bootstrap. A malformed or unreadable deployed declaration, or a real git read failure, fails closed. This merge gate reports structured declaration/read failures. It selects the latest matching workflow path and PR-head SHA, not a particular `pull_request` event, PR base or head repository; it does not prove GitHub event delivery, Product CI wiring in a live repository, branch protection, or an atomic read-and-merge transaction.
+
+### Inherited merge-on-green rollout and recovery
+
+Follow the [Cloudflare deploy runbook's canonical five-stage operator procedure](./deploy-cloudflare.md#merge-on-green-consumer-rollout-and-unreadable-recovery); do not duplicate or alter its commands in a product workflow. For a consumer, its essential boundaries are:
+
+- Each existing supported base is cut over through normal current-head independent review and green quality CI; the inheritance head is manually landed only after the all-label pause and old-job drain; the finite reset follows the landings, still paused, before enable. It never enters through the old automatic path.
+- The procedure freezes all labels that the actual old workflow can consume, drains/accounts for every old gate job, resets `reviewed`, contains pending Dependabot label writers, and checks only relevant `deps-automerge` PR refs against that base's `L_base`. It then enables and fresh-dispatches on the default branch; it never replays an old gate or authorization-label run.
+- An `unreadable` final red result may follow partial success and may have an API, kit-ci GitHub App permission/merge, or priority-input cause. Inspect that cause before another fresh default-branch scan; do not blindly retry candidates.
+
+This is process-only and non-atomic; it does not prove event/ref timing, Product workflow wiring, branch protection or a live Product. Local workflow files, declaration checks and inherited configuration leave live Product infrastructure **not proved / not wired** until current repository evidence shows the workflow and its runs.
+
+
+Do **not** add a kit workflow that filters product package names (it would go red on bare kit clones).  
+Do **not** commit live `product-*.yml` into the **kit** repo under `.github/workflows/` — only into product repos.
+
+---
+
+## Pulling kit upgrades
+
+```bash
+git fetch upstream
+# Read-only, printed on every path below (stop, up to date, merge):
+git diff -U0 HEAD upstream/main -- package.json | grep -q '^+.*"packageManager"' &&
+  echo "packageManager moves: set BUN_VERSION on each Workers Builds / Pages project just before this reaches its deploy/<branch> source branch (row 'Kit bumps packageManager')" >&2
+if git diff -U0 HEAD upstream/main -- .github/workflows | grep -q '^+.*create-github-app-token@'; then
+  echo "stop: this range bumps actions/create-github-app-token; establish the effective CI_APP_ID mode first (row 'Kit bumps actions/create-github-app-token')" >&2
+elif git merge-base --is-ancestor upstream/main HEAD; then
+  echo "already up to date with upstream/main"   # nothing to merge; the commit below would fail
+else
+  git merge --no-ff --no-commit upstream/main &&  # stop before the merge commit; resolve only if product violated zones
+  if git cat-file -e HEAD:LICENSE 2>/dev/null; then  # root LICENSE keeps its pre-merge presence and bytes (Zones)
+    git restore --source=HEAD --staged --worktree -- LICENSE
+  else
+    git rm -q -f --ignore-unmatch -- LICENSE
+  fi &&
+  git diff --quiet HEAD -- LICENSE &&
+  printf '{\n  "version": 1,\n  "upstreamCommit": "%s"\n}\n' "$(git rev-parse upstream/main)" > config/product/inheritance.json &&
+  bun install &&                   # kit may have added/removed a workspace; does NOT re-check versions the merge kept
+  bun run lock-ranges:check &&     # every bun.lock resolution inside its workspace range (Roxabi/roxabi-boilerplate-cf#319)
+  git add bun.lock config/product/inheritance.json && git commit --no-edit &&
+  bun run zero-edit                # must stay green (or refresh exceptions intentionally)
+fi
+```
+
+A range that sets a new pin of `actions/create-github-app-token` stops before the merge. Establish the effective `CI_APP_ID` mode using [CI App setup](./ci-app-setup.md#trust-and-setup): verified absence permits the inactive, separately authorized manual-merge path; a nonempty value requires the installed App's Client ID, valid authorization configuration and a successful mint established through a separately authorized exercise. A missing key or unknown state stops. Then run the merge lines by hand. Neither path waives review, local gates or CI. After a merge conflict, resolve it, refresh the existing inheritance marker to the tip actually merged, then run the remaining lines by hand: the merge commit waits for `lock-ranges:check`.
+
+If `lock-ranges:check` fails, the merge is still open (no merge commit yet). Each finding names its workspace; resume by owner:
+
+```bash
+# Product workspace (apps/<product>-*): bun update rewrites that package.json too, so stage both.
+(cd apps/<product>-web && bun update <dep>)
+git add bun.lock apps/<product>-web/package.json
+# Kit workspace (., packages/*, kit apps): never bun update — it edits a kit zone. Take the kit lock;
+# bun install re-adds the product's own entries (it may re-resolve them). A kit range that is wrong is fixed in the kit.
+git checkout upstream/main -- bun.lock && bun install
+# Either way, re-check before the merge commit:
+bun run lock-ranges:check && git add bun.lock config/product/inheritance.json && git commit --no-edit && bun run zero-edit
+```
+
+If conflict in a **kit zone** → product probably edited a forbidden path: restore kit version and move product change to a product path / design override.
+
+Root `LICENSE` is not a kit zone ([Zones](#zones)). Its lines run on every merge, conflict or not, and also settle a `LICENSE` conflict: the merge commit keeps the root `LICENSE` presence and bytes of the pre-merge `HEAD`. A change of Product terms is its own reviewed commit, never part of a Kit merge.
+
+If product build breaks after pull → fix product code or contribute a kit fix **in kit first**.
+
+---
+
+## What may still “break” (acceptable)
+
+| Event | Response |
+|-------|----------|
+| Kit renames package API | Product adapts imports |
+| Kit tightens banlist / extract / zero-edit | Product removes leaks or registers exception |
+| Kit changes auth (Better Auth M3) | Product follows ADR + examples |
+| Kit adds validate:full step | Product must stay green (no edit of script if possible; if product needs more, add **product** CI file) |
+| Kit reduces the `ci` execution timeout to five minutes (Roxabi/roxabi-boilerplate-cf#555) | The protected job runs the complete root gate, including declared Product coverage workspaces. After normal upstream inheritance, optimize Product-owned fixtures and setup without removing controls, lowering floors or weakening isolation, then prove the complete quality path succeeds within 300 seconds from actual run/job timestamps. This change grants no longer-timeout exception and does not change independent Product workflow timeouts. EtherOS adoption and its complete CI proof are tracked in go-silex/extern-client-etherOs#264. |
+| Declared Product workflow has no pull-request run, or any job is skipped on the PR | `merge-on-green` holds. Make the existing declared workflow run on pull requests for its target branch and make every job complete `success`. Only a product intentionally without Product CI may declare `{"workflows":[]}`; that does not bypass a workflow declared by the base until the undeclare PR merges. |
+| Inheriting `.dev/stack.yml` (Roxabi/roxabi-boilerplate-cf#260, Roxabi/roxabi-boilerplate-cf#591) | `stack-contract:check` goes red until `name`, `backend.path` and `release.component` differ from the inherited file, and `frontend` is either a differing `frontend.path` or the canonical null scalar `frontend: null` (replace the whole block; keep that null on upgrade; no frontend App). The guard compares values, not filesystem existence. On the next `git merge upstream/main`, keep those scalars and any `worktree.copy` additions; take kit keys for the rest — keeping the product file wholesale drops `release.model`. |
+| Exception `expires` date passed | Gate red until patch removed or exception renewed with new justification |
+| Exception granted or extended on/after `exception_expiry.effective_from` with `expires` more than 90 days out | `OVER CAP <path>`: shorten the `expires` to ≤ grant day + 90 days. Older exceptions stay valid until their own `expires` |
+| `upstreamCommit` points at a commit of the product (or the marker was deleted and re-added at one) | `base … descends from … which introduced config/product/inheritance.json`: re-pin to the parent tip you actually merged (`git rev-parse upstream/main`) |
+| Kit adds or removes a workspace under `packages/*` | Run `bun install` before pushing: product CI installs with `--frozen-lockfile` and fails on a lockfile that still lists the old workspace graph. `bun install` does **not** re-check a version the merge kept: that is `lock-ranges:check` (next row) |
+| A merge keeps a `bun.lock` resolution outside a product range (Roxabi/roxabi-boilerplate-cf#319) | `bun.lock` is co-owned and merged as text, so it can keep a kit resolution that a product range no longer admits. Bun 1.4.0 does not re-check a locked version whose spec text is unchanged: on a product's inherit merge (`488ffd8`, Roxabi/roxabi-boilerplate-cf#319) plain `bun install`, `--force` and `--frozen-lockfile` all exited 0 and left `bun.lock` byte-identical. `bun run lock-ranges:check` (in the sync block and `validate:full`) names the workspace, dependency, range and version. Repair a product workspace with `bun update <dep>` from it and stage its `package.json` with `bun.lock` (`bun update` rewrites the range); a kit workspace takes the kit lock instead (resume path under [Pulling kit upgrades](#pulling-kit-upgrades)) |
+| Kit bumps `packageManager` (Bun) | Set `BUN_VERSION` to the new version **per project**, just before the merge reaches the branch that project's `deploy/<branch>` is promoted from: production projects before `main`, staging projects before `staging`, in your model's order ([deploy-cloudflare.md](./deploy-cloudflare.md) §4b). The sync block prints a reminder. Workers Builds and Pages read no Bun version from the repository, and their own pre-install runs before your build command unless the project sets `SKIP_DEPENDENCY_INSTALL=1`: set it, and install in the build command after the check (§4b). Set every build command to `bash scripts/kit/cf-builds/require-bun-version.sh`, followed by `&& <existing build>` when there is one (a Workers project may have no build command, which runs no check): it fails the build on a missing or stale value (Roxabi/roxabi-boilerplate-cf#316). The kit's showcase entrypoints run it for the kit's own projects only. Node needs nothing on the dashboard: the image reads the inherited `.node-version` (same §4b) |
+| Kit protects `.node-version` and `.nvmrc` (Roxabi/roxabi-boilerplate-cf#316) | After the inherit merge, `zero-edit` goes red on a product `.nvmrc` (the kit ships none) and on a product `.node-version` that differs from the kit's. Take the kit file and drop the other one: `git checkout upstream/main -- .node-version` and `git rm .nvmrc`. Your builds then run the kit's Node major; unset any dashboard `NODE_VERSION` ([deploy-cloudflare.md](./deploy-cloudflare.md) §4b). A product that needs another major registers an [exception](#exceptions-last-resort--justified--time-boxed--traceable) or asks the kit |
+| Kit renames root `CONTEXT.md` to `GLOSSARY.md` (Roxabi/roxabi-boilerplate-cf#333) | Accept the rename. Do not keep a root `CONTEXT.md`. A product glossary under `docs/product/` is product-owned; retarget any link that pointed at the kit file. |
+| Kit renames root `knip.jsonc` to `knip.ts` (Roxabi/roxabi-boilerplate-cf#415) | Inherit the rename as is: take the kit `knip.ts` and delete any root `knip.jsonc`. The root `knip` script names its config file (`--config knip.ts`): once you inherit the pin, that script no longer loads a root `knip.json`, `knip.jsonc`, `.knip.json` or `.knip.jsonc`, so such a file is inert, not an override. The pin selects the config file only: Knip still merges a `knip` key of the root `package.json` under `knip.ts`, and `package.json` protection is what keeps a product from adding one. Before this change the unpinned script already loaded a root `knip.json` instead of the kit config. If yours did, `bun run knip` can turn red with the findings it hid: fix them, or register a justified, time-boxed and traceable [exception](#exceptions-last-resort--justified--time-boxed--traceable) on the affected Kit path or ask the Kit, then delete the file. Do not promote Product-specific exclusions into the upstream Kit `knip.ts`. The kit Knip rules do not change; `knip.ts` replaces `knip.jsonc` in the protected root files. Zero-edit still does not see a gitignored root `pnpm-workspace.yaml`, an ignored file under `protected_prefixes`, or `skip-worktree` / `assume-unchanged`. CI is the guardrail (Roxabi/roxabi-boilerplate-cf#426). |
+| Kit protects root `pnpm-workspace.yaml` (Roxabi/roxabi-boilerplate-cf#422) | After the inherit merge, `zero-edit` goes red on a product root `pnpm-workspace.yaml` that Git reports (the kit runs on Bun and ships none). It does not see a gitignored copy, an ignored file under `protected_prefixes`, or `skip-worktree` / `assume-unchanged`. CI is the guardrail (Roxabi/roxabi-boilerplate-cf#426). Knip read that file whatever `--config` named, and its `packages` list replaced `package.json#workspaces`. Delete a reported file: `git rm pnpm-workspace.yaml`; workspaces stay in the kit-owned `package.json#workspaces`. If yours excluded a workspace, `bun run knip` can turn red with the findings it hid: fix them, or register a justified, time-boxed and traceable [exception](#exceptions-last-resort--justified--time-boxed--traceable) on the affected Kit path or ask the Kit. Do not promote Product-specific exclusions into the upstream Kit `knip.ts`. |
+| Kit validates ADR frontmatter in `doc:check` (Roxabi/roxabi-boilerplate-cf#349, Roxabi/roxabi-boilerplate-cf#359) | `doc:check` now reads every kit ADR's `related` paths and the ADR index. Keep the inherited paths still named by retained ADR frontmatter. Historical evidence citations were removed from retained ADRs; the optional recorder is retired. Old local recorder authentication output must stay private; `/artifacts/` remains ignored. This change does not purge history. It also loads each kit ADR's frontmatter with the running Bun's YAML reader: run it with the inherited `packageManager` Bun. Product ADRs belong under `docs/product/`, which this check does not scan. |
+| Kit runs `deploy-gate:check` in `validate:full` (Roxabi/roxabi-boilerplate-cf#317) | The required `ci` job goes red on a declared workflow the check cannot prove runs on push. The conservative proof recognizes exact `always()` and push-event equality or inequality atoms; an OR needs one proven operand and an AND needs every operand proven. Other functions and atoms, including `!github.event.pull_request.draft` or `success()`, are not presumed true. The condition `github.event_name != 'pull_request' \|\| !github.event.pull_request.draft` passes because its known push atom proves the OR. Alternatively, delete the `if`. Pinned actionlint independently validates expression syntax. `bun run deploy-gate:check` locally lists every finding; the rules are in [CP-DEPLOY-GATE-CHECK](./testing.md) |
+| Kit judges kit workflows, `continue-on-error`, and callee `workflow_call` in `deploy-gate:check` (Roxabi/roxabi-boilerplate-cf#325) | `ci.yml` and `secret-scan.yml` use the same push and job rules as a declared workflow, without requiring the name `Product CI`. `continue-on-error` other than boolean false fails on an inspected job, step, or callee. A local callee whose `on` has no `workflow_call` fails even when the tree is not a git project. A present but undeclared product workflow file does not fail unless the local deploy ref still requires it (Roxabi/roxabi-boilerplate-cf#331). A clean semantic check then runs pinned actionlint (`config/kit/actionlint.version`) with `-config-file config/kit/actionlint.yaml`; a product `.github/actionlint.yaml` cannot ignore those syntax errors. A step-level `if` is still not refused, and the push `if` rule still does not evaluate the other `\|\|` operand. See [CP-DEPLOY-GATE-CHECK](./testing.md) |
+| Kit gates destructive D1 migrations (Roxabi/roxabi-boilerplate-cf#257) | `migrations-contract:check` fails on an **applied** product migration that removes or redefines a table, view, column or unique index, or rebuilds a table (e.g. a `1001_*` drop). Pin each one once in `config/product/migrations-contract-grandfathered.txt` (`<path> <sha256>`, product app paths only, never a new migration); a product path in the kit register `config/kit/migrations-contract-grandfathered.txt` is a config error (Roxabi/roxabi-boilerplate-cf#318). Every new destructive one is a contract step marked `-- kit:contract released=<full sha>` of a release deployed on **every** `deploy/*` branch (before your cutover: `main` and `staging`) ([deploy-cloudflare.md](./deploy-cloudflare.md) §5b). Kit modules synced by `kit-schema-sync` are judged at the kit source |
+| Kit adds `flows_run_approvals` (Roxabi/roxabi-boilerplate-cf#32) | Set `flows` gains module `flows_run_approvals`. Flows products re-run `kit-schema-sync` with no `--modules` (recorded `sets` are included, Roxabi/roxabi-boilerplate-cf#274) and apply it before deploying a Worker that wires `awaitApproval` |
+| Kit adds run cancel (Roxabi/roxabi-boilerplate-cf#226) | New route `POST /api/flows/runs/{runId}/cancel` (session owner/admin only; `sk_` cannot cancel). Wire UI/ops against CAS cancel + best-effort Workflow terminate; do not assume in-flight tool side effects abort |
+| Kit schema sync records opted-in sets (Roxabi/roxabi-boilerplate-cf#274) | Drop `--modules` from product upgrade scripts, or pass every set still listed in `kit-schema-manifest.json` `sets` (always include `core`). An explicit list that omits one of those sets exits 1 and names the new catalog ids. Opt out by deleting the set from `sets`, not by passing a narrower list. A clone `--adopt` with no `--modules` exits 1 if an applied file matches an unselected set — run the printed `run without --adopt: --modules <union>` (adopt cannot append a missing id of a partial set) |
+| Kit requires a declared `grantClass` on flows tools (2026-09-18) | Declare each tool in your `createToolRegistry` call — see below. Compile error, or a throw at construction for untyped input; never a silent empty grant |
+| Kit adds task receipt outcome `started` (Roxabi/roxabi-boilerplate-cf#229) | No route, migration or env change. Reading `receipt_json`: an absent receipt means the port was not called; `started` on a `queued`/`running` run means the effect is in flight; a terminal run never carries `started` (observed `started` is scrubbed to `fail` / `RECEIPT_LOST`; closing an open run that way also sets the run's `error_code` to `RECEIPT_LOST`). Exhaustive typed clients over the OpenAPI enum must add the `started` member |
+| Kit plan republish is byte-idempotent (Roxabi/roxabi-boilerplate-cf#228) | `POST /api/flows/plans` returns **200** with the same `id`/`version` when the posted YAML bytes equal a stored version in that org, including when two publishes overlap and when a version-unique failure re-reads identical bytes. **201** is a new version (`max+1`), including for the same parse or unequal stored bytes under the same key. **409** no longer means "already published". A 409 with `details.reason: 'PLAN_VERSION_RACE'` is a version-unique miss after re-read (retryable). JSON `digest` is still the FNV `plan_digest` index, not the identity key |
+| Kit schema set `flows` gains `flow_run_events` (Roxabi/roxabi-boilerplate-cf#230) | Re-run `kit-schema-sync` before a Worker that writes events: no `--modules` once `flows` is recorded in `sets` (Roxabi/roxabi-boilerplate-cf#274); a first opt-in for a product that mounts Better Auth is `--modules core,audit,flows`. Append-only trail; no HTTP list in this ticket |
+| Kit requires a model allowlist on infer grants (Roxabi/roxabi-boilerplate-cf#227) | Pass `OrgPolicyFacts.allowedModels` from your own server env (reference parser: example-api `parseFlowAllowedModels` over `FLOW_ALLOWED_MODELS`), never from the plan, the request body or an `sk_` payload. Unset means `[]`, so infer plans fail `EMPTY_MODELS`; an unlisted or missing model fails `MODEL_NOT_GRANTED`. Runs sealed before a list change keep their model ids until they end (no re-check). Stored infer plans whose model is missing or unlisted must be republished under a new plan id (same id → 409). A malformed list is a 500 for infer plans only. Not a RunnerView migration — `runnerViewVersion` stays 1 |
+| Kit allows only whole-value task-output bindings (Roxabi/roxabi-boilerplate-cf#232) | Plans may use `${{ tasks.<id>.output }}` as an entire arg string leaf only. Product invoke ports must call `resolveWholeBindings` with receipt outputs and must not resolve `env` / secrets into snapshots |
+| Kit set `tasks` gains `tasks_assignees_org` and `tasks_org_fk_contract` (ADR-0016, proposed) | Sync and deploy the `0018` expand before syncing the `0019` contract. The contract rebuilds assignees and links with `NOT NULL` + composite FKs and **deletes** rows whose org differs from their task's. **Before it runs on each live D1,** count the rows it would delete (queries in its header); inspect non-zero counts and approve any purge per database. Recovery is D1 Time Travel. The local catalog and journal include the contract; remote application is not established by that fact. Product API change: `assigneeIds` must be members of the task's org (400 `VALIDATION_ERROR` on `assigneeIds`); `@kit/tasks` repo signatures `listAssigneesForTasks(db, orgId, ids)` and `replaceAssignees(db, orgId, taskId, ids, now)` take `orgId`, and `createMemoryD1()` returns `{ db, sqlite, boundParams }`. Products that never mounted tasks do nothing |
+| Kit adds task assignee mutation deltas (Roxabi/roxabi-boilerplate-cf#473) | `replaceAssignees(db, orgId, taskId, ids, now)` now returns `{ added, removed }` for an owned task or `null` when it is not owned, instead of a boolean. Migrate callers to test for `null`, not compare with `true` or `false`; unchanged membership returns two empty arrays. The previous-membership read and replacement execute atomically in one D1 batch. `insertTask(db, row, assigneeIds?)` atomically inserts the task and deduplicated initial assignees in one D1 batch; omitting the argument retains unassigned creation. `TaskMutationEvent.assignees` is optional and separate from audit metadata: create reports unique added assignees and an empty `removed`; updates report exact set differences and omit the field when membership is unchanged. Existing hook callers need no changes. |
+| Kit exposes `allowedOperations.decideApproval` on `GET /api/flows/runs/:id` (Roxabi/roxabi-boilerplate-cf#288, Roxabi/roxabi-boilerplate-cf#468) | Advisory only (same pattern as plans list). UI must not invent a client role list. `POST …/approval` re-checks `canDecideFlowApproval` (session + org owner/admin; no platform shortcut). A same-decision repeat while its run is still running and its task is still waiting re-sends the Workflow wake and returns 200 with `woken`; a different or expired stored decision, a run that is no longer running, or a task that is no longer waiting returns 409. |
+| Kit drops platform `super_admin` shortcut for flows admin (Roxabi/roxabi-boilerplate-cf#286) | `canAdminFlows` / `canCreateFlowRun` are org owner/admin (+ session for create-run) only — same as HITL `canDecideFlowApproval`. A product that relied on ambient `platformRole === 'super_admin'` to toggle plans or create runs must grant the caller an org admin/owner role (or add an explicit audited break-glass of its own).
+| Kit redacts sensitive tool output at receipt write (Roxabi/roxabi-boilerplate-cf#231) | Set `sensitiveOutput: true` on tools whose invoke `output` must not land in D1. The Worker passes `isSensitive` from the live registry beside `hasTool` (not a RunnerView field). Absent flag keeps today's capped raw text. Marker is `REDACTED_OUTPUT_MARKER` (`[redacted]`). Does not change `grantClass`, allowlists, or `contentDigest` |
+| Kit bumps `actions/create-github-app-token` | The sync block in [Pulling kit upgrades](#pulling-kit-upgrades) stops before the merge. Follow [CI App setup](./ci-app-setup.md#trust-and-setup): verified empty permits separately authorized manual merge; active mode requires the target App's Client ID, valid authorization configuration and a successful mint in a separately authorized exercise; missing key or unknown state stops. A mirror that other products inherit from checks its own children before it syncs |
+| Kit pins Better Auth's own limiter off (Roxabi/roxabi-boilerplate-cf#394) | `createBetterAuth` sets `rateLimit: { enabled: false }`. A merge that keeps mounting `auth.handler` alone has no limiter. Before the next deploy, mount per [§ Better Auth mount](#better-auth-mount): `isBaOrganizationRoute`, then `throttleBetterAuthRequest`, then `auth.handler` |
+| Kit denies every Better Auth organization route (Roxabi/roxabi-boilerplate-cf#394) | The mount answers 404 on every path under `/api/auth/organization/`, reads and `set-active` included, where the old example deny listed mutation verbs. A product SPA that calls `authClient.organization.*` moves to the kit organization APIs (`/api/orgs`, `/api/me`) |
+| Kit `clientIp` returns `string \| null` (Roxabi/roxabi-boilerplate-cf#394) | It used to return `string`, and `'local'` when `cf-connecting-ip` was absent. It now returns `null` for an absent, blank or non-literal header. Pass it through as returned. Do not template it, default it, or read another header |
+| Kit `clientIp` returns an IPv6 /64 rate-limit key (Roxabi/roxabi-boilerplate-cf#360) | IPv6 callers in the same /64 share a key; IPv4-mapped IPv6 uses the IPv4 key. The result is not a full client IP for forensic logs. Consumers needing the full address must read `cf-connecting-ip` directly for that purpose, with its Cloudflare-only trust boundary, rather than using `clientIp`. Continue passing `clientIp` unchanged to the throttle |
+| Kit Better Auth throttle needs the `audit` migration first (Roxabi/roxabi-boilerplate-cf#394) | `rate_limit_buckets` ships in set `audit` (catalog id `rate_limit_audit`). Sync with `--modules` naming `core`, `audit` and every set already in the manifest `sets`. Then apply the file the manifest records as `modules.rate_limit_audit.productFile` **before** deploying a Worker that calls `throttleBetterAuthRequest`. Without the table every non-exempt Better Auth request returns 500 |
+| Kit isolates commitlint and pins `commitlint.config.cjs` (Roxabi/roxabi-boilerplate-cf#429) | The commit-msg hook runs `scripts/kit/lefthook-commit-msg.sh`: commitlint starts from an empty temporary directory with the checkout `GIT_DIR` and `GIT_WORK_TREE` exported, plus absolute repository `--cwd`, kit `--config` and message `--edit` paths. Product `.commitlintrc*`, `package.json#commitlint`, `package.yaml` and `.config/` discovery files no longer load, including executable cosmiconfig meta configs and their options, and a checkout `core.commentChar` still applies: move product rules upstream (kit first) or drop them. The hook remains local-only. A tracked Lefthook local overlay is forbidden but undetected; separately, per-developer `LEFTHOOK*` or `core.hooksPath` can disable it (detection non-claims, ADR-0013 amendment 2026-10-13, Roxabi/roxabi-boilerplate-cf#430). No CI job lints commit messages |
+
+### Migrating a product tool registry to a declared grant class
+
+`FlowToolDefinition.grantClass` is required and its values are `'mintable' | 'never'` (it replaces an optional `'read' | 'write' | 'external'`). **Do not map the old value mechanically** — the old field asked what the tool does, the new one asks who may reach it:
+
+> May any run of this Organization invoke this tool with no further policy than Module access?
+
+`'mintable'` means yes and puts the tool in every minted Capability Grant ceiling for that Organization. `'never'` means no. A read-only tool that exposes something sensitive is `'never'`, so `'read'` → `'mintable'` is a decision to re-take per tool, not a rename. `'write'` and `'external'` were never minted, so `'never'` preserves their behaviour exactly.
+
+A run is sealed only from the grant `mintCapabilityGrant` returned and a registry `createToolRegistry` built: a product that assembles a `CapabilityGrant` or a `ToolRegistry` by hand gets `GRANT_NOT_MINTED` / `REGISTRY_NOT_KIT_BUILT` at `createRunSnapshot`. Tests that used to write a grant literal must mint one (see `apps/example-api/src/lib/flows-dogfood.test.ts`).
+
+---
+
+
+### Whole-value bindings (Roxabi/roxabi-boilerplate-cf#232)
+
+Only `${{ tasks.<id>.output }}` as a whole arg value. Check rejects partial bindings (`BINDING_NOT_WHOLE`) and env/secret-shaped keys (`ARG_KEY_FORBIDDEN`). `createRunSnapshot` seals derived `after` edges; stored YAML is unchanged. Call `resolveWholeBindings` in the Worker invoke path from receipt outputs — never `process.env`. Unresolved bindings fail closed as `BINDING_UNRESOLVED`.
+
+### Sensitive tool output (Roxabi/roxabi-boilerplate-cf#231)
+
+Set `sensitiveOutput: true` on a `FlowToolDefinition` when the invoke result must not be stored in `flow_runs.receipt_json`. At D1 write, `@kit/flows` replaces the text with `REDACTED_OUTPUT_MARKER` (`[redacted]`). Wire `isSensitive: (name) => registry.tools.get(name)?.sensitiveOutput === true` next to `hasTool` in your Workflow/`driveFlowRun` call — the flag is **not** sealed into the RunnerView. Leave the flag off for dogfood/debug tools that need readable receipts.
+
+## Anti-patterns (create forever-conflicts)
+
+1. Product commits “small tweaks” to `lefthook.yml` / root `package.json` / kit workflows, or forks hooks through a tracked Lefthook local overlay  
+2. Product brands `example-web` instead of creating `apps/<product>-web`  
+3. Product puts domain types into `packages/*` without promoting via kit PR  
+4. Product edits `AGENTS.md` for product rules  
+5. `git push upstream` from product (or force-with-lease to kit)  
+6. Patching `packages/ui` for brand colors instead of CSS token override  
+7. Open-ended exceptions without `expires` / `ticket` / alternatives considered  
+8. Hand-copy `example-api/migrations` then domain SQL at 0009 (or rewrite `d1_migrations`) — [ADR-0008](./architecture/adr/0008-kit-schema-identity-product-compose.md)  
+
+---
+
+## Checklist — “can I pull upstream tomorrow?”
+
+- [ ] No uncommitted product changes on kit paths  
+- [ ] The sync block did not stop on `create-github-app-token`, or [CI App setup](./ci-app-setup.md#trust-and-setup) established verified inactive mode or valid active configuration and a successful mint in a separately authorized exercise
+- [ ] `git merge upstream/main` last time only touched product paths or pure kit updates  
+- [ ] `config/product/inheritance.json` updated to new `upstream/main` SHA  
+- [ ] Product apps don’t import from other product apps via kit packages  
+- [ ] CI vars/secrets only — no forked workflow diffs  
+- [ ] Deny-upstream hook active (kit lefthook; no edited hook file or tracked Lefthook local overlay; GitHub write ACLs are the backstop)  
+- [ ] If `apps/<product>-api` exists: run `bash scripts/kit/kit-schema-sync.sh --app apps/<product>-api` after merge (no `--modules` flag — recorded sets are included) and commit new `NNNN_kit_*` + manifest. A product that mounts Better Auth without `audit` in its manifest `sets` runs it once with `--modules` naming `core`, `audit` and every recorded set
+- [ ] `@kit/auth` 1.7: module `better_auth_1_7_additive` applied before Worker deploy
+- [ ] Better Auth throttle (Roxabi/roxabi-boilerplate-cf#394): mount per [§ Better Auth mount](#better-auth-mount). Catalog id `rate_limit_audit` is in the manifest, and its `productFile` is in the D1 journal before that Worker deploys
+- [ ] `bun run zero-edit` green (exceptions current or empty)  
+- [ ] Theming via design overrides, not `packages/ui` forks  
+
+---
+
+## Refs
+
+| Doc | Role |
+|-----|------|
+| [`AGENTS.md`](../../AGENTS.md) | Kit-only constitution + consumer DENY push |
+| [`ci-app-setup.md`](./ci-app-setup.md) | CI App; new product repo CI checklist |
+| [`config/kit/zero-edit-zones.json`](../../config/kit/zero-edit-zones.json) | Protected paths + design_overrides SSoT |
+| [`config/kit/zero-edit-exceptions.example.json`](../../config/kit/zero-edit-exceptions.example.json) | Exception schema template |
+| [`scripts/kit/check-zero-edit-zones.sh`](../../scripts/kit/check-zero-edit-zones.sh) | Gate implementation |
+| [ADR-0001](./architecture/adr/0001-primary-axis-packages-compose-apps.md) | packages compose apps |
+| [ADR-0008](./architecture/adr/0008-kit-schema-identity-product-compose.md) | Kit schema identity · compose, do not clone |
+| [`kit-schema-sync.md`](./kit-schema-sync.md) | Product D1 sync (append-only) |
+| [`environments.md`](./environments.md) | Git staging/main → Wrangler `--env` → isolated CF resources |
+| [`playbooks/start-product.md`](./playbooks/start-product.md) | Product setup through first issue |
