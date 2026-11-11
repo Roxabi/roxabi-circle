@@ -1,25 +1,28 @@
-import { isInvitableOrgRole, isPlatformRole, normalizeEmail, type PlatformRole } from '@kit/auth'
+import type { PlatformRole } from '@kit/auth'
+import { assertRateLimit } from '@kit/auth/repos/rate-limit'
 import { AppError } from '@kit/core'
 import { buildWelcomeSetPasswordEmailText, type EmailPort } from '@kit/email'
 import { hashPassword } from 'better-auth/crypto'
 import type { DrizzleD1Database } from 'drizzle-orm/d1'
 import type { schema } from '../db/schema'
-import { assertRateLimit } from '../lib/rate-limit'
 import * as orgsRepo from '../repos/orgs'
 import * as platformRolesRepo from '../repos/platform-roles'
 import * as usersRepo from '../repos/users'
+import {
+  assertAdminCreateActor,
+  assertEmailAvailable,
+  assertMembershipTargets,
+  resolvePlatformRole,
+  sendWelcomeOrCompensate,
+} from './admin-users-create'
 import * as auditService from './audit'
-import * as orgRolesService from './org-roles'
 import {
   newMemberId,
   newUserId,
   newWelcomeToken,
-  provisionUserShell,
   randomUnusablePassword,
   WELCOME_TTL_SEC,
 } from './user-shell'
-
-export { provisionUserShell }
 
 type Db = DrizzleD1Database<typeof schema>
 
@@ -28,7 +31,7 @@ const CREATE_WINDOW_MS = 60 * 60 * 1000
 const RESEND_LIMIT = 10
 const RESEND_WINDOW_MS = 60 * 60 * 1000
 
-export type MembershipInput = { orgId: string; role: string }
+type MembershipInput = { orgId: string; role: string }
 
 export type CreateAdminUserInput = {
   actorUserId: string
@@ -40,6 +43,8 @@ export type CreateAdminUserInput = {
   sendEmail?: boolean
   /** SPA origin for set-password link (e.g. http://localhost:5173). */
   webBaseUrl: string
+  /** CORS/web origins — must not be derived from the token URL. */
+  allowedOrigins: readonly string[]
   emailPort: EmailPort
   /** Optional path after set-password (safe relative only). */
   afterSetPasswordPath?: string
@@ -56,78 +61,16 @@ export async function createAdminUser(db: Db, input: CreateAdminUserInput) {
     CREATE_LIMIT,
     CREATE_WINDOW_MS,
   )
-
-  if (input.actorPlatformRole !== 'super_admin' && input.actorPlatformRole !== 'staff') {
-    throw AppError.forbidden('Platform role required')
-  }
-
-  const email = normalizeEmail(input.email)
-  if (!email?.includes('@')) {
-    throw AppError.fieldErrors('Invalid email', {
-      email: ['Valid email required'],
-    })
-  }
-
-  const existing = await usersRepo.findBaUserByEmail(db, email)
-  if (existing) {
-    // Staff: only conflict when target shares an org (match list privacy). Out-of-scope
-    // existing emails → notFound so staff cannot probe the full platform directory.
-    if (input.actorPlatformRole === 'staff') {
-      const actorOrgs = await orgsRepo.listMembershipsForUser(db, input.actorUserId)
-      const targetOrgs = await orgsRepo.listMembershipsForUser(db, existing.id)
-      const actorSet = new Set(actorOrgs.map((m) => m.organizationId))
-      const shared = targetOrgs.some((m) => actorSet.has(m.organizationId))
-      if (!shared) throw AppError.notFound('User not found')
-    }
-    throw AppError.conflict('User already exists')
-  }
-
-  // Ceiling: only super_admin may assign staff|super_admin
-  let platformRole: PlatformRole | null = null
-  if (input.platformRole != null && input.platformRole !== undefined) {
-    if (!isPlatformRole(input.platformRole)) {
-      throw AppError.fieldErrors('Invalid platformRole', {
-        platformRole: ['Invalid platform role'],
-      })
-    }
-    if (input.actorPlatformRole !== 'super_admin') {
-      throw AppError.forbidden('Only super_admin may assign platform roles')
-    }
-    platformRole = input.platformRole
-  }
-
+  const email = await assertAdminCreateActor(input)
+  await assertEmailAvailable(db, input, email)
+  const platformRole = await resolvePlatformRole(input)
   const memberships = input.memberships ?? []
-  const actorMemberships =
-    input.actorPlatformRole === 'staff'
-      ? await orgsRepo.listMembershipsForUser(db, input.actorUserId)
-      : []
-  const actorOrgIds = new Set(actorMemberships.map((m) => m.organizationId))
-
-  for (const m of memberships) {
-    const org = await orgsRepo.findOrgById(db, m.orgId)
-    if (org?.status !== 'active') {
-      throw AppError.notFound('Organization not found')
-    }
-    if (input.actorPlatformRole === 'staff' && !actorOrgIds.has(m.orgId)) {
-      throw AppError.notFound('Organization not found')
-    }
-    if (!isInvitableOrgRole(m.role)) {
-      const inviterRole =
-        input.actorPlatformRole === 'super_admin'
-          ? 'owner'
-          : (actorMemberships.find((x) => x.organizationId === m.orgId)?.role ?? 'member')
-      await orgRolesService.assertAssignableRole(db, m.orgId, m.role, inviterRole)
-    } else if (input.actorPlatformRole === 'staff') {
-      const inviterRole = actorMemberships.find((x) => x.organizationId === m.orgId)?.role ?? ''
-      await orgRolesService.assertAssignableRole(db, m.orgId, m.role, inviterRole)
-    }
-  }
+  await assertMembershipTargets(db, input, memberships)
 
   const userId = newUserId()
   const name = (input.name?.trim() || email.split('@')[0] || 'User').slice(0, 120)
   const passwordHash = await hashPassword(randomUnusablePassword())
   const now = new Date()
-  const sendEmail = input.sendEmail !== false
 
   await usersRepo.insertBaUserWithCredential(db, {
     id: userId,
@@ -163,36 +106,12 @@ export async function createAdminUser(db: Db, input: CreateAdminUserInput) {
     now,
   })
 
-  let welcomeEmailSent = false
-  if (sendEmail) {
-    const base = input.webBaseUrl.replace(/\/$/, '')
-    let setPasswordUrl = `${base}/reset-password?token=${encodeURIComponent(token)}`
-    if (
-      input.afterSetPasswordPath?.startsWith('/') &&
-      !input.afterSetPasswordPath.startsWith('//')
-    ) {
-      setPasswordUrl += `&next=${encodeURIComponent(input.afterSetPasswordPath)}`
-    }
-    const tmpl = buildWelcomeSetPasswordEmailText({
-      to: email,
-      setPasswordUrl,
-      expiresHint: 'about 1 hour',
-      name,
-    })
-    try {
-      const sent = await input.emailPort.send({
-        to: tmpl.to,
-        subject: tmpl.subject,
-        text: tmpl.text,
-        html: tmpl.html,
-      })
-      if (!sent.ok) throw new Error('email send returned not ok')
-      welcomeEmailSent = true
-    } catch {
-      await usersRepo.deleteBaUserCascade(db, userId)
-      throw AppError.internal('Failed to send welcome email')
-    }
-  }
+  const welcomeEmailSent = await sendWelcomeOrCompensate(db, input, {
+    userId,
+    email,
+    name,
+    token,
+  })
 
   await auditService.emitAdminUserProvisioned(db, {
     actorUserId: input.actorUserId,
@@ -216,7 +135,7 @@ export async function createAdminUser(db: Db, input: CreateAdminUserInput) {
   }
 }
 
-export { type ListAdminUsersInput, listAdminUsers } from './admin-users-list'
+export { listAdminUsers } from './admin-users-list'
 
 export async function resendWelcome(
   db: Db,
@@ -225,6 +144,7 @@ export async function resendWelcome(
     actorPlatformRole: PlatformRole
     userId: string
     webBaseUrl: string
+    allowedOrigins: readonly string[]
     emailPort: EmailPort
   },
 ) {
@@ -262,13 +182,14 @@ export async function resendWelcome(
 
   const base = input.webBaseUrl.replace(/\/$/, '')
   const setPasswordUrl = `${base}/reset-password?token=${encodeURIComponent(token)}`
-  const tmpl = buildWelcomeSetPasswordEmailText({
-    to: user.email,
-    setPasswordUrl,
-    expiresHint: 'about 1 hour',
-    name: user.name,
-  })
   try {
+    const tmpl = buildWelcomeSetPasswordEmailText({
+      to: user.email,
+      setPasswordUrl,
+      expiresHint: 'about 1 hour',
+      name: user.name,
+      allowedOrigins: input.allowedOrigins,
+    })
     const sent = await input.emailPort.send({
       to: tmpl.to,
       subject: tmpl.subject,

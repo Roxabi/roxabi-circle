@@ -1,88 +1,133 @@
-import { AppError } from '@kit/core'
-import { FLOWS_MODULE_ID } from '@kit/flows'
-import type { Context } from 'hono'
-import { Hono } from 'hono'
-import { requireModule, requireOrgContext } from '../middleware/org-context'
+import { OpenAPIHono } from '@hono/zod-openapi'
+import { requireOrgContext } from '../middleware/org-context'
 import { requireAuth } from '../middleware/require-auth'
 import { requireSession } from '../middleware/require-session'
 import * as flowsService from '../services/flows'
+import { decideRunApproval } from '../services/flows-approval'
+import { cancelFlowRun } from '../services/flows-cancel'
+import { flowConsoleCapabilities, flowRunCapabilities } from '../services/flows-capabilities'
 import type { AppEnv } from '../types'
+import {
+  checkPlan,
+  createPlan,
+  createRun,
+  getPlan,
+  listPlans,
+  setPlanEnabled,
+} from './flows.schemas'
+import { decideApproval } from './flows-approval.schemas'
+import { cancelRun } from './flows-cancel.schemas'
+import { getRun, listRuns } from './flows-runs.schemas'
 
-/** Blank body → `{}`. Invalid JSON → 400 (not aliased to empty). */
-async function readJsonOrEmpty(c: Context<AppEnv>): Promise<unknown> {
-  const text = await c.req.text()
-  if (!text.trim()) return {}
-  try {
-    return JSON.parse(text) as unknown
-  } catch {
-    throw AppError.validation('Invalid JSON')
-  }
-}
-
-export const flowsRoutes = new Hono<AppEnv>()
+export const flowsRoutes = new OpenAPIHono<AppEnv>()
 
 const orgMw = requireOrgContext({ allowSuperAdmin: false })
-const flowsRead = requireModule(FLOWS_MODULE_ID, 'read')
-const flowsWrite = requireModule(FLOWS_MODULE_ID, 'write')
 
 flowsRoutes.use('/api/flows', requireAuth, requireSession, orgMw)
 flowsRoutes.use('/api/flows/*', requireAuth, requireSession, orgMw)
 
-flowsRoutes.get('/api/flows/plans', flowsRead, async (c) => {
-  const plans = await flowsService.listPlansForOrg(c.get('db')!, c.get('orgId')!)
-  return c.json({ plans, requestId: c.get('requestId') })
+flowsRoutes.openapi(listPlans, async (c) => {
+  const db = c.get('db')!
+  const orgId = c.get('orgId')!
+  const plans = await flowsService.listPlansForOrg(db, orgId)
+  const allowedOperations = await flowConsoleCapabilities(db, {
+    orgId,
+    orgRole: c.get('orgRole'),
+    authMethod: c.get('authMethod'),
+  })
+  return c.json({ plans, allowedOperations, requestId: c.get('requestId') })
 })
 
-flowsRoutes.post('/api/flows/plans', flowsWrite, async (c) => {
-  const plan = await flowsService.createPlan(c.get('db')!, {
+flowsRoutes.openapi(createPlan, async (c) => {
+  const published = await flowsService.createPlan(c.get('db')!, c.env, {
     orgId: c.get('orgId')!,
     subject: c.get('subject')!,
     orgRole: c.get('orgRole'),
-    platformRole: c.get('platformRole'),
-    body: await readJsonOrEmpty(c),
+    body: c.req.valid('json'),
   })
-  return c.json({ plan, requestId: c.get('requestId') }, 201)
+  const body = { plan: published.plan, requestId: c.get('requestId') }
+  if (published.status === 200) return c.json(body, 200)
+  return c.json(body, 201)
 })
 
-flowsRoutes.get('/api/flows/plans/:planId', flowsRead, async (c) => {
+flowsRoutes.openapi(checkPlan, async (c) => {
+  await flowsService.checkPlanYaml(c.get('db')!, c.env, {
+    orgId: c.get('orgId')!,
+    orgRole: c.get('orgRole'),
+    body: c.req.valid('json'),
+  })
+  return c.json({ ok: true, requestId: c.get('requestId') })
+})
+
+flowsRoutes.openapi(getPlan, async (c) => {
   const plan = await flowsService.getPlanForOrg(
     c.get('db')!,
     c.get('orgId')!,
-    c.req.param('planId'),
+    c.req.valid('param').planId,
   )
   return c.json({ plan, requestId: c.get('requestId') })
 })
 
-flowsRoutes.patch('/api/flows/plans/:planId', flowsWrite, async (c) => {
+flowsRoutes.openapi(setPlanEnabled, async (c) => {
   const plan = await flowsService.setEnabled(c.get('db')!, {
     orgId: c.get('orgId')!,
-    planId: c.req.param('planId'),
+    planId: c.req.valid('param').planId,
     orgRole: c.get('orgRole'),
-    platformRole: c.get('platformRole'),
-    body: await readJsonOrEmpty(c),
+    body: c.req.valid('json'),
   })
   return c.json({ plan, requestId: c.get('requestId') })
 })
 
-flowsRoutes.post('/api/flows/plans/:planId/runs', flowsWrite, async (c) => {
+flowsRoutes.openapi(createRun, async (c) => {
   const run = await flowsService.createRun(c.get('db')!, c.env, {
     orgId: c.get('orgId')!,
-    planId: c.req.param('planId'),
+    planId: c.req.valid('param').planId,
     subject: c.get('subject')!,
     orgRole: c.get('orgRole'),
-    platformRole: c.get('platformRole'),
     authMethod: c.get('authMethod'),
-    body: await readJsonOrEmpty(c),
+    body: c.req.valid('json'),
   })
   return c.json({ run, requestId: c.get('requestId') }, 202)
 })
 
-flowsRoutes.get('/api/flows/runs', flowsRead, async (c) => {
+flowsRoutes.openapi(listRuns, async (c) => {
   const runs = await flowsService.listRunsForOrg(c.get('db')!, c.get('orgId')!)
   return c.json({ runs, requestId: c.get('requestId') })
 })
 
-flowsRoutes.get('/api/flows/runs/:runId', flowsRead, async (c) => {
-  const run = await flowsService.getRunForOrg(c.get('db')!, c.get('orgId')!, c.req.param('runId'))
+flowsRoutes.openapi(getRun, async (c) => {
+  const db = c.get('db')!
+  const orgId = c.get('orgId')!
+  const run = await flowsService.getRunForOrg(db, orgId, c.req.valid('param').runId)
+  const allowedOperations = await flowRunCapabilities(db, {
+    orgId,
+    orgRole: c.get('orgRole'),
+    authMethod: c.get('authMethod'),
+  })
+  return c.json({ run, allowedOperations, requestId: c.get('requestId') })
+})
+
+flowsRoutes.openapi(cancelRun, async (c) => {
+  const run = await cancelFlowRun(c.get('db')!, c.env, {
+    orgId: c.get('orgId')!,
+    runId: c.req.valid('param').runId,
+    orgRole: c.get('orgRole'),
+    authMethod: c.get('authMethod'),
+    body: c.req.valid('json'),
+  })
   return c.json({ run, requestId: c.get('requestId') })
+})
+
+flowsRoutes.openapi(decideApproval, async (c) => {
+  const { runId, taskId } = c.req.valid('param')
+  const { status, ...decision } = await decideRunApproval(c.get('db')!, c.env, {
+    orgId: c.get('orgId')!,
+    runId,
+    taskId,
+    subject: c.get('subject')!,
+    orgRole: c.get('orgRole'),
+    authMethod: c.get('authMethod'),
+    body: c.req.valid('json'),
+  })
+  return c.json({ ...decision, requestId: c.get('requestId') }, status)
 })

@@ -7,7 +7,7 @@
  *
  * - 2xx success: pass through (cookies intact)
  * - 429: pass through (rate limit is intentional signal)
- * - 5xx: pass through (ops must see server failure)
+ * - 5xx: pass through (route scrubber keeps status, kit envelope)
  * - other 4xx: force 401 + UNAUTHORIZED kit body (no Set-Cookie)
  */
 

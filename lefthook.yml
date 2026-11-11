@@ -1,14 +1,11 @@
 # Local quality gates — PRIMARY gate (CI is guardrail only).
 # SSoT: docs/kit/testing.md · AGENTS.md § Gates techniques · docs/kit/product-consumer-contract.md
 #
-# Install authority (two paths — do not over-claim prepare alone):
-# 1. package.json `prepare`: runs `lefthook install` only when `core.hooksPath` is unset
-#    (fresh clone). When hooksPath is set (org/personal shared hooks), prepare is a no-op.
-# 2. lefthook npm postinstall: still runs `lefthook install -f` on non-CI installs (upstream
-#    evilmartians/lefthook#1475). Force skips the v2 hooksPath guard. Residual: operators
-#    with a foreign hooksPath can still get kit hooks written into that path on `bun install`.
-#    CI sets CI=true → postinstall skips install. Mitigation until upstream: re-assert shared
-#    hooks after install, or install with CI=true when you must not touch hooksPath.
+# Install authority: package.json `prepare` only. It runs `lefthook install` when `core.hooksPath`
+# is unset (fresh clone); when hooksPath is set (org/personal shared hooks), prepare is a no-op.
+# The lefthook npm postinstall (`lefthook install -f`, which skips the v2 hooksPath guard —
+# upstream evilmartians/lefthook#1475) no longer runs: package.json `trustedDependencies` is `[]`,
+# so Bun runs no dependency lifecycle script (docs/kit/security-dependabot.md § Install-time layers).
 # Keep the vendored lefthook dep so this repo's lefthook.yml can run.
 # Skip (emergency only, document why): LEFTHOOK=0 git push
 # Policy: fix red HERE — do not push hoping CI will catch it.
@@ -20,13 +17,16 @@
 pre-commit:
   commands:
     kit:
-      # One process so EXIT restores the index if file-length/trufflehog fail (#148).
+      # One process so EXIT restores the index if file-length/trufflehog fail (Roxabi/roxabi-boilerplate-cf#148).
       run: bash scripts/kit/lefthook-pre-commit.sh
 
 commit-msg:
   commands:
     commitlint:
-      run: bunx commitlint --edit {1}
+      # Pin the kit config and isolate cosmiconfig's cwd meta search: --config alone still
+      # imports product .config/config.* modules and applies their options to the pinned load
+      # (Roxabi/roxabi-boilerplate-cf#429).
+      run: bash scripts/kit/lefthook-commit-msg.sh {1}
 
 # Full suite before code leaves the machine (= bun run validate:full).
 # steps = package.json `validate:full` — do not copy them here.
@@ -48,11 +48,3 @@ pre-push:
       skip: false
       run: bun run validate:full
 
-# PR attestation — not a git hook. CI job `semctx-working-empty` runs the same script
-# against `git ls-tree` of the PR SHA (required by merge-on-green).
-# Feature branches may keep `.semctx/working/*.sem` and still push.
-# Local: lefthook run pr
-pr:
-  commands:
-    semctx-working-empty:
-      run: bash scripts/kit/check-semctx-working-empty.sh

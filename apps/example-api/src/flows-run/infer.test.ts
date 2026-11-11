@@ -1,4 +1,11 @@
-import { createRunSnapshot, createToolRegistry, loadPlanFromYaml } from '@kit/flows'
+import {
+  createRunSnapshot,
+  createToolRegistry,
+  DEMO_ECHO_PLAN_YAML,
+  loadPlanFromYaml,
+  mintCapabilityGrant,
+  registryHas,
+} from '@kit/flows'
 import {
   DriveNonRetryableError,
   type DriveStep,
@@ -7,7 +14,9 @@ import {
   type InvokePort,
 } from '@kit/flows/run'
 import { describe, expect, it } from 'vitest'
+import { dogfoodToolRegistry } from '../lib/flows-dogfood'
 import { createMemoryEnv } from '../test/memory-env'
+import { inferMock, invokeEcho } from './ports'
 
 type RunRow = {
   status: string
@@ -22,6 +31,7 @@ type ReceiptTask = { outcome?: string; errorCode?: string }
 const TWO_INFER_PLAN_YAML = `flows: v0
 plan:
   id: two-infer
+  model: kit-infer
   max_tokens: 100
 permits:
   tools:
@@ -42,22 +52,28 @@ tasks:
 const immediateStep: DriveStep = async (_name, fn) => fn()
 
 const registry = createToolRegistry('example-api-drive-v0', [
-  { name: 'echo', description: 'Echo args (kit dogfood)', effect: 'read' },
+  { name: 'echo', description: 'Echo args (kit dogfood)', grantClass: 'mintable' },
 ])
 
 const INSTANCE_ID = 'wfinst_infer_v2'
 const ORG = 'org_a'
 
+// createRunSnapshot seals only a kit-minted grant, so the fixture mints instead of asserting one.
+function mintFixtureGrant(orgId: string) {
+  const minted = mintCapabilityGrant({
+    orgId,
+    registry,
+    facts: { moduleEffective: true, canRead: true, canWrite: true, allowedModels: ['kit-infer'] },
+  })
+  if (!minted.ok) throw new Error(`fixture grant must mint: ${minted.message}`)
+  return minted.grant
+}
+
 function seal(orgId: string) {
   const plan = loadPlanFromYaml(TWO_INFER_PLAN_YAML)
   const result = createRunSnapshot({
     plan,
-    grant: {
-      orgId,
-      allowedTools: ['echo'],
-      registryVersion: registry.version,
-      allowsInfer: true,
-    },
+    grant: mintFixtureGrant(orgId),
     registry,
     actorId: 'actor_1',
   })
@@ -223,5 +239,97 @@ describe('driveFlowRun infer meter', () => {
     expect(receipt.tasks.infer_b?.outcome).toBe('skip')
     expect(receipt.tokensUsed).toBe(0)
     expect(ports.inferCount).toBe(1)
+  })
+})
+
+describe('driveFlowRun dogfood DEMO_ECHO with InferPort test-double', () => {
+  it('succeeds echo then infer when InferPort is bound', async () => {
+    const env = createMemoryEnv()
+    const plan = loadPlanFromYaml(DEMO_ECHO_PLAN_YAML)
+    const snap = createRunSnapshot({
+      plan,
+      grant: (() => {
+        const minted = mintCapabilityGrant({
+          orgId: ORG,
+          registry: dogfoodToolRegistry,
+          facts: {
+            moduleEffective: true,
+            canRead: true,
+            canWrite: true,
+            allowedModels: ['kit-infer'],
+          },
+        })
+        if (!minted.ok) throw new Error(`fixture grant must mint: ${minted.message}`)
+        return minted.grant
+      })(),
+      registry: dogfoodToolRegistry,
+      actorId: 'actor_1',
+    })
+    if (!snap.ok) throw new Error('snapshot failed')
+    const runId = 'run_demo_echo_infer_mock'
+    await insertQueued(env.DB, {
+      runId,
+      orgId: ORG,
+      snapshotJson: JSON.stringify(snap.runnerView),
+      planDigest: snap.runnerView.planDigest,
+    })
+    await driveFlowRun({
+      step: immediateStep,
+      db: env.DB as unknown as D1Database,
+      invoke: invokeEcho,
+      infer: inferMock,
+      hasTool: (name) => registryHas(dogfoodToolRegistry, name),
+      payload: { runId, orgId: ORG },
+      instanceId: INSTANCE_ID,
+    })
+    const row = await loadRun(env.DB, runId, ORG)
+    expect(row?.status).toBe('succeeded')
+    const receipt = receiptOf(row?.receipt_json ?? null)
+    expect(receipt.tasks.echo_hello?.outcome).toBe('ok')
+    expect(receipt.tasks.summarize?.outcome).toBe('ok')
+    expect(receipt.tokensUsed).toBe(1)
+  })
+
+  it('forwards inherited plan.model to InferPort when the task omits model', async () => {
+    const env = createMemoryEnv()
+    const minted = mintCapabilityGrant({
+      orgId: ORG,
+      registry: dogfoodToolRegistry,
+      facts: {
+        moduleEffective: true,
+        canRead: true,
+        canWrite: true,
+        allowedModels: ['kit-infer'],
+      },
+    })
+    if (!minted.ok) throw new Error(`fixture grant must mint: ${minted.message}`)
+    const snap = createRunSnapshot({
+      plan: loadPlanFromYaml(DEMO_ECHO_PLAN_YAML),
+      grant: minted.grant,
+      registry: dogfoodToolRegistry,
+      actorId: 'actor_1',
+    })
+    if (!snap.ok) throw new Error('snapshot failed')
+    const seen: Array<string | undefined> = []
+    const runId = 'run_inherited_model'
+    await insertQueued(env.DB, {
+      runId,
+      orgId: ORG,
+      snapshotJson: JSON.stringify(snap.runnerView),
+      planDigest: snap.runnerView.planDigest,
+    })
+    await driveFlowRun({
+      step: immediateStep,
+      db: env.DB as unknown as D1Database,
+      invoke: invokeEcho,
+      infer: async (task) => {
+        seen.push(task.model)
+        return { text: 'ok', tokens: 1 }
+      },
+      hasTool: (name) => registryHas(dogfoodToolRegistry, name),
+      payload: { runId, orgId: ORG },
+      instanceId: INSTANCE_ID,
+    })
+    expect(seen).toEqual(['kit-infer'])
   })
 })

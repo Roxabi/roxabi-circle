@@ -1,37 +1,78 @@
 /**
  * License Checker — Dependency License Compliance (Chemin A kit)
  *
- * Scans monorepo dependencies (Bun node_modules / .bun), checks licenses against
- * `.license-policy.json`, writes `reports/licenses.json`.
+ * Scans all monorepo dependencies (direct and transitive) across workspace packages,
+ * checks each license against `.license-policy.json`, and produces a human-readable
+ * CLI summary plus a machine-readable JSON report (`reports/licenses.json`).
  *
- * Usage: bun run license:check
+ * Usage: bun run license:check   (live scan, then --self-test)
+ *        bun scripts/kit/licenseChecker.ts              live scan only
+ *        bun scripts/kit/licenseChecker.ts --self-test  gate self-test only
  *
- * Zero external deps. UNKNOWN licenses warn (exit 0); disallowed SPDX fails (exit 1).
  * Compliance hygiene — not a security/malware scan. See docs/kit/testing.md CP-LICENSE.
+ * Exit codes: 0 clean (UNKNOWN licenses only warn); 1 disallowed SPDX expression or
+ * missing node_modules; 2 unusable scan (empty scan, bad policy, `--root` misuse).
+ *
+ * --self-test proves the gate fails on each planted disallowed shape: a `license`
+ * string, its `{ type }` object form, a `licenses` array of objects or of strings,
+ * an AND expression, and malformed expressions whose first operand is allowed
+ * (lowercase or unknown operator, juxtaposed atoms, stray parenthesis). Each temp
+ * tree holds that one package under an MIT-only policy; the scan must exit 1 and
+ * report exactly that package as the single violation. It also proves the
+ * live-path guards below: an empty scan exits 2, `--root` outside a child exits 2,
+ * and QG_LICENSE_ROOT does not move the root.
+ * The work tree is never modified. A package whose licence the scan cannot read
+ * stays a warning (UNKNOWN) (CP-LICENSE): no package.json field and
+ * no LICENSE text it recognises (the patterns are permissive licences only, so a
+ * GPL-only LICENSE file is UNKNOWN too).
+ *
+ * The scan root is the repo root, two levels up. Only a --self-test child takes
+ * another one, by argv (`--self-test-child --root <tmp>`); no environment
+ * variable can move it. A live scan that finds zero packages exits 2.
+ *
+ * A missing node_modules is a hard failure (exit 1). There is no
+ * directory-absent skip in this checker.
+ *
+ * Zero external dependencies — uses only Bun built-ins and Node.js fs/path.
  *
  * Ported from kit-boilerplate tools/licenseChecker.ts (Bun-aware walker).
  */
 
+import { spawnSync } from 'node:child_process'
 import {
   existsSync,
   lstatSync,
   mkdirSync,
+  mkdtempSync,
   readdirSync,
   readFileSync,
   readlinkSync,
   realpathSync,
+  rmSync,
   writeFileSync,
 } from 'node:fs'
-import { join, resolve } from 'node:path'
+import { tmpdir } from 'node:os'
+import { dirname, join, resolve, sep } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-export interface LicensePolicy {
+interface LicensePolicy {
+  /** Resolved allowed licenses — from `allowlist` or `allowedLicenses` (the kit policy uses `allowedLicenses`). */
   allowedLicenses: string[]
   overrides: Record<string, string>
 }
 
-export interface PackageEntry {
+/** Raw shape of .license-policy.json on disk — either key accepted. */
+interface RawLicensePolicy {
+  /** Alternate key accepted alongside `allowedLicenses`; `allowlist` wins when both are present. */
+  allowlist?: string[]
+  /** Key used by the kit's `.license-policy.json`. */
+  allowedLicenses?: string[]
+  overrides?: Record<string, string>
+}
+
+interface PackageEntry {
   name: string
   version: string
   license: string | null
@@ -39,7 +80,7 @@ export interface PackageEntry {
   source: 'package.json' | 'LICENSE file' | 'override' | null
 }
 
-export interface LicenseReport {
+interface LicenseReport {
   timestamp: string
   summary: {
     totalPackages: number
@@ -54,15 +95,15 @@ export interface LicenseReport {
 
 // ─── Policy Loading ──────────────────────────────────────────────────────────
 
-export function loadPolicy(repoRoot: string): LicensePolicy {
+function loadPolicy(repoRoot: string): LicensePolicy {
   const policyPath = join(repoRoot, '.license-policy.json')
   if (!existsSync(policyPath)) {
     throw new Error('No .license-policy.json found at repo root')
   }
   const raw = readFileSync(policyPath, 'utf-8')
-  const policy = JSON.parse(raw) as LicensePolicy
+  const policy = JSON.parse(raw) as RawLicensePolicy
   return {
-    allowedLicenses: policy.allowedLicenses ?? [],
+    allowedLicenses: policy.allowlist ?? policy.allowedLicenses ?? [],
     overrides: policy.overrides ?? {},
   }
 }
@@ -73,6 +114,10 @@ interface RawPackageInfo {
   name: string
   version: string
   dir: string
+  /** License string extracted from package.json at scan time (string field). */
+  license?: string
+  /** Licenses array extracted from package.json at scan time (deprecated format). */
+  licenses?: Array<string | { type?: string }>
 }
 
 const IGNORED_ENTRIES = new Set(['.cache', '.bin', '.package-lock.json'])
@@ -133,6 +178,15 @@ function isWorkspaceSymlink(pkgDir: string): boolean {
   }
 }
 
+/** package.json `license`: an SPDX string, or the deprecated `{ type, url }` object form. */
+function licenseString(value: unknown): string | undefined {
+  if (typeof value === 'string') return value
+  if (value && typeof value === 'object' && 'type' in value && typeof value.type === 'string') {
+    return value.type
+  }
+  return undefined
+}
+
 function readPackageInfo(pkgDir: string): RawPackageInfo | null {
   // Skip workspace symlinks (project code, not third-party)
   if (isWorkspaceSymlink(pkgDir)) return null
@@ -143,6 +197,11 @@ function readPackageInfo(pkgDir: string): RawPackageInfo | null {
     const stat = lstatSync(pkgDir)
     if (stat.isSymbolicLink()) {
       realDir = realpathSync(pkgDir)
+      // Security: ensure the resolved path stays within the same node_modules directory
+      const nodeModulesDir = resolve(dirname(pkgDir))
+      if (!realDir.startsWith(nodeModulesDir + sep) && realDir !== nodeModulesDir) {
+        return null
+      }
     }
   } catch {
     return null
@@ -153,9 +212,21 @@ function readPackageInfo(pkgDir: string): RawPackageInfo | null {
 
   try {
     const raw = readFileSync(pkgJsonPath, 'utf-8')
-    const pkg = JSON.parse(raw)
+    const pkg = Object.assign(
+      Object.create(null) as Record<string, unknown>,
+      JSON.parse(raw) as Record<string, unknown>,
+    )
     if (!(pkg.name && pkg.version)) return null
-    return { name: pkg.name, version: pkg.version, dir: realDir }
+    const info: RawPackageInfo = {
+      name: String(pkg.name),
+      version: String(pkg.version),
+      dir: realDir,
+    }
+    const license = licenseString(pkg.license)
+    if (license !== undefined) info.license = license
+    if (Array.isArray(pkg.licenses))
+      info.licenses = pkg.licenses as Array<string | { type?: string }>
+    return info
   } catch {
     return null
   }
@@ -181,7 +252,7 @@ function collectWorkspaceNodeModules(repoRoot: string): string[] {
   }
 }
 
-export function scanDependencies(repoRoot: string): RawPackageInfo[] {
+function scanDependencies(repoRoot: string): RawPackageInfo[] {
   const seen = new Set<string>()
   const results: RawPackageInfo[] = []
 
@@ -243,7 +314,21 @@ function detectLicenseFromFile(pkgDir: string): string | null {
   return null
 }
 
-export function detectLicense(
+type LicenseFields = Pick<RawPackageInfo, 'license' | 'licenses'>
+
+/** 2. `license` string field, else 3. first entry of the deprecated `licenses` array, as carried by readPackageInfo. */
+function licenseFromFields(fields: LicenseFields): string | null {
+  if (typeof fields.license === 'string' && fields.license.trim()) return fields.license.trim()
+  const first = (Array.isArray(fields.licenses) ? fields.licenses[0] : undefined) as
+    | string
+    | { type?: string }
+    | null
+    | undefined
+  const licenseStr = typeof first === 'string' ? first : first?.type
+  return licenseStr || null
+}
+
+function detectLicense(
   pkg: RawPackageInfo,
   policy: LicensePolicy,
 ): { license: string | null; source: PackageEntry['source'] } {
@@ -254,26 +339,9 @@ export function detectLicense(
     return { license: policy.overrides[key], source: 'override' }
   }
 
-  // 2-3. package.json license field
-  const pkgJsonPath = join(pkg.dir, 'package.json')
-  try {
-    const raw = readFileSync(pkgJsonPath, 'utf-8')
-    const pkgJson = JSON.parse(raw)
-
-    // 2. license field (string)
-    if (typeof pkgJson.license === 'string' && pkgJson.license.trim()) {
-      return { license: pkgJson.license.trim(), source: 'package.json' }
-    }
-
-    // 3. licenses array (deprecated)
-    if (Array.isArray(pkgJson.licenses) && pkgJson.licenses.length > 0) {
-      const first = pkgJson.licenses[0]
-      const licenseStr = typeof first === 'string' ? first : first?.type
-      if (licenseStr) return { license: licenseStr, source: 'package.json' }
-    }
-  } catch {
-    // Fall through to file detection
-  }
+  // 2-3. package.json license fields
+  const fromPackageJson = licenseFromFields(pkg)
+  if (fromPackageJson) return { license: fromPackageJson, source: 'package.json' }
 
   // 4. LICENSE file
   const fileLicense = detectLicenseFromFile(pkg.dir)
@@ -283,41 +351,118 @@ export function detectLicense(
   return { license: null, source: null }
 }
 
-// ─── SPDX Expression Handling ────────────────────────────────────────────────
+// ─── SPDX Expression Evaluator ───────────────────────────────────────────────
+// Tokenizes the expression into: atoms (including "A WITH B" as one unit),
+// parentheses, and AND/OR operators. Then evaluates with correct precedence:
+// AND binds tighter than OR (SPDX spec §4.1).
 
-export function parseSpdxExpression(expression: string): string[] {
-  // Strip all parens and split on OR/AND
-  const cleaned = expression.replace(/[()]/g, '')
-  return cleaned
-    .split(/\s+(?:OR|AND)\s+/i)
-    .map((s) => s.trim())
-    .filter(Boolean)
+type SpdxToken = '(' | ')' | 'AND' | 'OR' | string
+
+function tokenizeSpdx(expr: string): SpdxToken[] {
+  // Split on whitespace first, then reassemble WITH pairs as single atoms.
+  // Note: WITH must appear between two atoms (e.g. "Apache-2.0 WITH LLVM-exception").
+  // Grouped forms like "(A) WITH B" are NOT valid SPDX — the paren/length cap in
+  // isLicenseAllowed() acts as the safety net for such malformed expressions.
+  const raw = expr.replace(/\(/g, ' ( ').replace(/\)/g, ' ) ').trim().split(/\s+/).filter(Boolean)
+
+  const tokens: SpdxToken[] = []
+  let i = 0
+  while (i < raw.length) {
+    const t = raw[i]
+    if (t === '(' || t === ')' || t === 'AND' || t === 'OR') {
+      tokens.push(t as SpdxToken)
+      i++
+    } else if (raw[i + 1] === 'WITH' && i + 2 < raw.length) {
+      // "A WITH B" → single opaque atom
+      tokens.push(`${t} WITH ${raw[i + 2]}`)
+      i += 3
+    } else {
+      tokens.push(t)
+      i++
+    }
+  }
+  return tokens
 }
 
-export function isLicenseAllowed(license: string | null, allowedLicenses: string[]): boolean {
+function isAtomAllowed(atom: string, allowedLicenses: string[]): boolean {
+  // Strip trailing '+' (e.g. GPL-2.0+ → GPL-2.0)
+  const normalized = atom.endsWith('+') ? atom.slice(0, -1) : atom
+  return allowedLicenses.includes(normalized)
+}
+
+// Recursive-descent: OR → AND → primary. Fails closed on anything malformed: an operator or ')'
+// where a licence belongs, an unclosed '(', or tokens left once the expression ends — otherwise
+// "MIT and GPL-3.0-only" or "MIT) AND GPL-3.0-only" would evaluate as their first operand.
+function evaluateSpdxExpression(expr: string, allowedLicenses: string[]): boolean {
+  const tokens = tokenizeSpdx(expr)
+  let pos = 0
+  let malformed = false
+
+  function parseOr(): boolean {
+    let result = parseAnd()
+    while (pos < tokens.length && tokens[pos] === 'OR') {
+      pos++
+      const right = parseAnd()
+      result = result || right
+    }
+    return result
+  }
+
+  function parseAnd(): boolean {
+    let result = parsePrimary()
+    while (pos < tokens.length && tokens[pos] === 'AND') {
+      pos++
+      const right = parsePrimary()
+      result = result && right
+    }
+    return result
+  }
+
+  function parsePrimary(): boolean {
+    const t = tokens[pos]
+    if (t === undefined || t === ')' || t === 'AND' || t === 'OR') {
+      malformed = true
+      return false
+    }
+    pos++
+    if (t === '(') {
+      const result = parseOr()
+      if (tokens[pos] === ')') pos++
+      else malformed = true
+      return result
+    }
+    return isAtomAllowed(t, allowedLicenses)
+  }
+
+  const result = parseOr()
+  return result && !malformed && pos === tokens.length
+}
+
+function isLicenseAllowed(license: string | null, allowedLicenses: string[]): boolean {
   if (!license) return false
 
-  // Direct match
+  // Direct match (fast path — also handles simple atoms with no operators)
   if (allowedLicenses.includes(license)) return true
 
-  // SPDX AND expression — all components must be allowed (check before OR/parens)
-  if (license.includes(' AND ')) {
-    const components = parseSpdxExpression(license)
-    return components.every((c) => allowedLicenses.includes(c))
+  // Guard against pathologically large or deeply nested expressions from untrusted
+  // package.json data (e.g. 50 000 nested parens → stack overflow in the evaluator).
+  // Real SPDX expressions are short; 512 chars and 20 open-parens are well above any
+  // legitimate expression seen in the wild.
+  const openParenCount = (license.match(/\(/g) ?? []).length
+  if (license.length > 512 || openParenCount > 20) {
+    process.stderr.write(
+      `license-check: expression too complex to evaluate safely, treating as disallowed: ${license.slice(0, 60)}...\n`,
+    )
+    return false
   }
 
-  // SPDX OR expression — at least one component must be allowed
-  if (license.includes(' OR ') || license.startsWith('(')) {
-    const components = parseSpdxExpression(license)
-    return components.some((c) => allowedLicenses.includes(c))
-  }
-
-  return false
+  // Evaluate as SPDX expression with correct precedence and grouping
+  return evaluateSpdxExpression(license, allowedLicenses)
 }
 
 // ─── Compliance Check ────────────────────────────────────────────────────────
 
-export function checkCompliance(packages: RawPackageInfo[], policy: LicensePolicy): LicenseReport {
+function checkCompliance(packages: RawPackageInfo[], policy: LicensePolicy): LicenseReport {
   const entries: PackageEntry[] = []
   const violations: PackageEntry[] = []
   const warnings: LicenseReport['warnings'] = []
@@ -385,7 +530,7 @@ export function checkCompliance(packages: RawPackageInfo[], policy: LicensePolic
 
 // ─── Report Generation ──────────────────────────────────────────────────────
 
-export function writeReport(report: LicenseReport, repoRoot: string): string {
+function writeReport(report: LicenseReport, repoRoot: string): string {
   const reportsDir = join(repoRoot, 'reports')
   if (!existsSync(reportsDir)) {
     mkdirSync(reportsDir, { recursive: true })
@@ -397,42 +542,48 @@ export function writeReport(report: LicenseReport, repoRoot: string): string {
 
 // ─── CLI Output ──────────────────────────────────────────────────────────────
 
-function printLicenseDistribution(licenses: Record<string, number>): void {
+function formatLicenseDistribution(licenses: Record<string, number>): string {
   const sorted = Object.entries(licenses).sort((a, b) => b[1] - a[1])
-  if (sorted.length === 0) return
-  console.log('Licenses found:')
+  if (sorted.length === 0) return ''
   const maxNameLen = Math.max(...sorted.map(([name]) => name.length))
+  const lines = ['Licenses found:']
   for (const [name, count] of sorted) {
-    console.log(`  ${name.padEnd(maxNameLen + 2)}${count}`)
+    lines.push(`  ${name.padEnd(maxNameLen + 2)}${count}`)
   }
-  console.log()
+  lines.push('')
+  return lines.join('\n')
 }
 
-function printViolations(violations: PackageEntry[]): void {
-  if (violations.length === 0) return
+function formatViolations(violations: PackageEntry[]): string {
+  if (violations.length === 0) return ''
   const s = violations.length > 1 ? 's' : ''
-  console.log(`\u274c ${violations.length} violation${s}:`)
+  const lines = [`\u274c ${violations.length} violation${s}:`]
   for (const v of violations) {
-    console.log(`  ${v.name}@${v.version}    ${v.license}`)
+    lines.push(`  ${v.name}@${v.version}    ${v.license}`)
   }
-  console.log()
+  lines.push('')
+  return lines.join('\n')
 }
 
-function printWarnings(warnings: LicenseReport['warnings']): void {
-  if (warnings.length === 0) return
+function formatWarnings(warnings: LicenseReport['warnings']): string {
+  if (warnings.length === 0) return ''
   const s = warnings.length > 1 ? 's' : ''
-  console.log(`\u26a0  ${warnings.length} package${s} with unknown license (see report)`)
+  const lines = [`\u26a0  ${warnings.length} package${s} with unknown license (see report)`]
   for (const w of warnings) {
-    console.log(`  ${w.name}@${w.version}    UNKNOWN`)
+    lines.push(`  ${w.name}@${w.version}    UNKNOWN`)
   }
-  console.log()
+  lines.push('')
+  return lines.join('\n')
 }
 
-export function printSummary(report: LicenseReport, reportPath: string): void {
+function printSummary(report: LicenseReport, reportPath: string): void {
   console.log(`\nLicense Check — ${report.summary.totalPackages} packages scanned\n`)
-  printLicenseDistribution(report.summary.licenses)
-  printViolations(report.violations)
-  printWarnings(report.warnings)
+  const dist = formatLicenseDistribution(report.summary.licenses)
+  if (dist) console.log(dist)
+  const viol = formatViolations(report.violations)
+  if (viol) console.log(viol)
+  const warn = formatWarnings(report.warnings)
+  if (warn) console.log(warn)
   if (report.violations.length === 0) {
     console.log('\u2705 No violations found')
   }
@@ -441,13 +592,195 @@ export function printSummary(report: LicenseReport, reportPath: string): void {
 
 // ─── Main ────────────────────────────────────────────────────────────────────
 
-function main(): void {
+/** The repo root, or the temp tree a `--self-test` child is handed by argv — never from the environment. */
+function resolveRepoRoot(argv: readonly string[]): string {
+  const at = argv.indexOf('--root')
+  if (at === -1) return resolve(import.meta.dirname ?? '.', '../..')
+  const root = argv[at + 1]
+  if (!(argv.includes('--self-test-child') && root)) {
+    throw new Error('--root is only accepted by a --self-test child')
+  }
+  return resolve(root)
+}
+
+/**
+ * One disallowed shape per tree, so a regression in one detection path cannot hide behind another.
+ * `license` is what the report must name as the single violation.
+ */
+const SELF_TEST_CASES: ReadonlyArray<{
+  shape: string
+  fields: Record<string, unknown>
+  license: string
+}> = [
+  { shape: 'license string', fields: { license: 'GPL-3.0-only' }, license: 'GPL-3.0-only' },
+  {
+    shape: 'license object',
+    fields: { license: { type: 'GPL-3.0-only' } },
+    license: 'GPL-3.0-only',
+  },
+  {
+    shape: 'licenses array of objects',
+    fields: { licenses: [{ type: 'GPL-3.0-only' }] },
+    license: 'GPL-3.0-only',
+  },
+  {
+    shape: 'licenses array of strings',
+    fields: { licenses: ['GPL-3.0-only'] },
+    license: 'GPL-3.0-only',
+  },
+  {
+    shape: 'AND expression',
+    fields: { license: '(MIT) AND GPL-3.0-only' },
+    license: '(MIT) AND GPL-3.0-only',
+  },
+  ...[
+    'MIT and GPL-3.0-only',
+    'MIT GPL-3.0-only',
+    'MIT / GPL-3.0-only',
+    'MIT) AND GPL-3.0-only',
+  ].map((license) => ({
+    shape: `malformed expression "${license}"`,
+    fields: { license },
+    license,
+  })),
+]
+
+/** The parts of a `--json` report the self-test judges, as JSON: package count and `name@version license` per violation. */
+function reportShape(report: unknown): string {
+  if (!(report && typeof report === 'object' && 'summary' in report && 'violations' in report)) {
+    return JSON.stringify(report)
+  }
+  const { summary, violations } = report
+  const totalPackages =
+    summary && typeof summary === 'object' && 'totalPackages' in summary
+      ? summary.totalPackages
+      : undefined
+  const named = Array.isArray(violations)
+    ? violations.map((v: unknown) =>
+        v && typeof v === 'object' && 'name' in v && 'version' in v && 'license' in v
+          ? `${String(v.name)}@${String(v.version)} ${String(v.license)}`
+          : v,
+      )
+    : violations
+  return JSON.stringify({ totalPackages, violations: named })
+}
+
+/** A temp tree under an MIT-only policy: `evil-gpl@1.0.0` with `fields`, or an empty node_modules for `null`. */
+function plantTree(fields: Record<string, unknown> | null): string {
+  const tmp = mkdtempSync(join(tmpdir(), 'license-checker-self-test-'))
+  mkdirSync(join(tmp, 'node_modules'))
+  if (fields) {
+    const pkgDir = join(tmp, 'node_modules', 'evil-gpl')
+    mkdirSync(pkgDir)
+    writeFileSync(
+      join(pkgDir, 'package.json'),
+      JSON.stringify({ name: 'evil-gpl', version: '1.0.0', ...fields }),
+    )
+  }
+  writeFileSync(join(tmp, '.license-policy.json'), JSON.stringify({ allowedLicenses: ['MIT'] }))
+  return tmp
+}
+
+/** This file run as a `--json` child with `args`, plus `env` over the current environment. */
+function runChild(args: readonly string[], env: Record<string, string> = {}) {
+  return spawnSync(process.execPath, [fileURLToPath(import.meta.url), '--json', ...args], {
+    encoding: 'utf8',
+    env: { ...process.env, ...env },
+  })
+}
+
+/**
+ * Scan `tmp`, a planted tree holding only `evil-gpl@1.0.0`, as a self-test child.
+ * Returns why the scan did not report exactly that package as the single violation, or null.
+ */
+function selfTestFailure(tmp: string, license: string): string | null {
+  const child = runChild(['--self-test-child', '--root', tmp])
+  if (child.status !== 1) {
+    if (child.stderr) process.stderr.write(child.stderr)
+    return `expected exit 1, got ${child.status}`
+  }
+  let parsed: unknown
   try {
-    const repoRoot = resolve(import.meta.dirname ?? '.', '../..')
+    parsed = JSON.parse(child.stdout)
+  } catch {
+    return 'exit 1 without a JSON report (the scan never ran)'
+  }
+  const want = JSON.stringify({ totalPackages: 1, violations: [`evil-gpl@1.0.0 ${license}`] })
+  const got = reportShape(parsed)
+  return got === want ? null : `expected ${want}, got ${got}`
+}
+
+function exitIs(child: { status: number | null }, code: number): string | null {
+  return child.status === code ? null : `expected exit ${code}, got ${child.status}`
+}
+
+/** A live scan (repo root) with QG_LICENSE_ROOT pointing at the planted tree must not scan that tree. */
+function envRootFailure(tmp: string): string | null {
+  const child = runChild([], { QG_LICENSE_ROOT: tmp })
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(child.stdout)
+  } catch {
+    return `no JSON report (exit ${child.status})`
+  }
+  return reportShape(parsed).includes('evil-gpl@') ? 'QG_LICENSE_ROOT moved the scan root' : null
+}
+
+/** The live-path guards: each check gets its own temp tree (planted or empty). */
+const GUARD_CASES: ReadonlyArray<{
+  guard: string
+  planted: boolean
+  check: (tmp: string) => string | null
+}> = [
+  {
+    guard: 'an empty scan exits 2',
+    planted: false,
+    check: (tmp) => exitIs(runChild(['--self-test-child', '--root', tmp]), 2),
+  },
+  {
+    guard: '--root outside a child exits 2',
+    planted: true,
+    check: (tmp) => exitIs(runChild(['--root', tmp]), 2),
+  },
+  { guard: 'no environment variable moves the root', planted: true, check: envRootFailure },
+]
+
+function withTree<T>(fields: Record<string, unknown> | null, run: (tmp: string) => T): T {
+  const tmp = plantTree(fields)
+  try {
+    return run(tmp)
+  } finally {
+    rmSync(tmp, { recursive: true, force: true })
+  }
+}
+
+function selfTest(): never {
+  const failures: string[] = []
+  for (const { shape, fields, license } of SELF_TEST_CASES) {
+    const failure = withTree(fields, (tmp) => selfTestFailure(tmp, license))
+    if (failure) failures.push(`(${shape}): ${failure}`)
+  }
+  for (const { guard, planted, check } of GUARD_CASES) {
+    const failure = withTree(planted ? { license: 'GPL-3.0-only' } : null, check)
+    if (failure) failures.push(`(${guard}): ${failure}`)
+  }
+  for (const failure of failures)
+    process.stderr.write(`ERROR: licenseChecker --self-test ${failure}\n`)
+  process.exit(failures.length ? 1 : 0)
+}
+
+function main(): void {
+  if (process.argv.includes('--self-test')) {
+    selfTest()
+  }
+  const jsonMode = process.argv.includes('--json')
+
+  try {
+    const repoRoot = resolveRepoRoot(process.argv)
 
     // 1. Validate node_modules exists
     if (!existsSync(join(repoRoot, 'node_modules'))) {
-      console.error('Error: Run `bun install` first')
+      if (!jsonMode) console.error('Error: Run `bun install` first')
       process.exit(1)
     }
 
@@ -456,19 +789,26 @@ function main(): void {
 
     // 3-5. Scan dependencies and check compliance
     const packages = scanDependencies(repoRoot)
+    // An empty scan proves nothing: a wrong root or an emptied node_modules would pass.
+    if (packages.length === 0) throw new Error(`no package found under ${repoRoot}/node_modules`)
     const report = checkCompliance(packages, policy)
 
-    // 6. Generate report
-    const reportPath = writeReport(report, repoRoot)
+    if (jsonMode) {
+      // Machine-readable output: emit JSON, suppress human output
+      process.stdout.write(JSON.stringify(report))
+    } else {
+      // 6. Generate report
+      const reportPath = writeReport(report, repoRoot)
 
-    // 7. Print CLI output
-    printSummary(report, reportPath)
+      // 7. Print CLI output
+      printSummary(report, reportPath)
+    }
 
     // 8. Exit with appropriate code
     process.exit(report.summary.violations > 0 ? 1 : 0)
   } catch (error) {
-    console.error(`Error: ${error instanceof Error ? error.message : error}`)
-    process.exit(1)
+    if (!jsonMode) console.error(`Error: ${error instanceof Error ? error.message : error}`)
+    process.exit(2)
   }
 }
 

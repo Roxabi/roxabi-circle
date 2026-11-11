@@ -1,0 +1,38 @@
+name: Bug
+description: Report a Kit defect with a minimal sanitized reproduction.
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Write this report for a public audience, as in CONTRIBUTING.md.
+        Vulnerability reports go by email to team@unkillablecompanies.com (SECURITY.md), not here.
+        The checkbox below is a reminder, not a scanner or confidentiality control.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What failed, in Kit terms.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Minimal sanitized reproduction
+      description: Steps, expected result, and observed result. Omit raw logs, client data, and secret values. An App or User identifier is not automatically a secret.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      description: Optional. A Kit commit or release, if you know it.
+    validations:
+      required: false
+  - type: checkboxes
+    id: public-safe
+    attributes:
+      label: Public-safe payload
+      description: Reminder only. Checking this box does not verify confidentiality.
+      options:
+        - label: This report omits secret values, raw logs, client data, and vulnerability details.
+          required: true

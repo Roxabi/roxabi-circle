@@ -1,5 +1,5 @@
 import { AppError, parseOrThrow } from '@kit/core'
-import type { Audience } from '@kit/tasks'
+import type { Audience, UpdateTaskInput } from '@kit/tasks'
 import {
   canSetVisibility,
   canViewTask,
@@ -10,22 +10,18 @@ import {
   suggestedDoneForStage,
   updateTaskInputSchema,
 } from '@kit/tasks'
+import type { kitTasks } from '@kit/tasks/schema'
 import type { DrizzleD1Database } from 'drizzle-orm/d1'
 import type { schema } from '../db/schema'
+import * as commentsRepo from '../repos/comments'
 import * as tasksRepo from '../repos/tasks'
+import type { NotificationRuntimePorts } from './notifications/service'
+import { recordTaskMutation } from './task-audit'
+import { assertAssigneesAreMembers, replaceAssigneesOrThrow } from './tasks-assignees'
 
 type Db = DrizzleD1Database<typeof schema>
 
 const DEFAULT_BOARD = 'main'
-
-export function resolveAudience(input: {
-  orgRole?: string | null
-  platformRole?: string | null
-}): Audience {
-  // reader ≈ external portal principal for dogfood IDOR matrix
-  if (input.orgRole === 'reader') return 'external'
-  return 'staff'
-}
 
 export async function ensureDefaultBoard(db: Db, orgId: string): Promise<void> {
   const existing = await tasksRepo.listStages(db, orgId, DEFAULT_BOARD)
@@ -71,10 +67,7 @@ export async function ensureDefaultBoard(db: Db, orgId: string): Promise<void> {
   }
 }
 
-function toApiTask(
-  row: typeof import('../db/schema').kitTasks.$inferSelect,
-  assigneeIds: string[],
-) {
+function toApiTask(row: typeof kitTasks.$inferSelect, assigneeIds: string[]) {
   return {
     id: row.id,
     orgId: row.orgId,
@@ -97,15 +90,20 @@ function toApiTask(
   }
 }
 
-export async function listTasksForOrg(db: Db, orgId: string, audience: Audience) {
-  await ensureDefaultBoard(db, orgId)
+export async function listTasksForOrg(
+  db: Db,
+  orgId: string,
+  audience: Audience,
+  options?: { readOnly?: boolean },
+) {
+  if (!options?.readOnly) await ensureDefaultBoard(db, orgId)
   const rows = await tasksRepo.listTasks(db, orgId)
   const visible = filterTasksForAudience(
     rows.map((r) => ({ ...r, visibility: r.visibility as 'internal' | 'shared' })),
     audience,
   )
   const ids = visible.map((r) => r.id)
-  const assignees = await tasksRepo.listAssigneesForTasks(db, ids)
+  const assignees = await tasksRepo.listAssigneesForTasks(db, orgId, ids)
   const byTask = new Map<string, string[]>()
   for (const a of assignees) {
     const list = byTask.get(a.taskId) ?? []
@@ -121,7 +119,7 @@ export async function getTaskForOrg(db: Db, orgId: string, id: string, audience:
   if (!canViewTask({ visibility: row.visibility as 'internal' | 'shared' }, audience)) {
     throw AppError.notFound('Task not found')
   }
-  const assignees = await tasksRepo.listAssigneesForTasks(db, [id])
+  const assignees = await tasksRepo.listAssigneesForTasks(db, orgId, [id])
   return toApiTask(
     row,
     assignees.map((a) => a.userId),
@@ -130,6 +128,7 @@ export async function getTaskForOrg(db: Db, orgId: string, id: string, audience:
 
 export async function createTaskForOrg(
   db: Db,
+  runtime: NotificationRuntimePorts,
   orgId: string,
   actorId: string,
   audience: Audience,
@@ -141,94 +140,63 @@ export async function createTaskForOrg(
     { ...(raw as object), orgId, createdBy: actorId },
     'Invalid task',
   )
+  await assertAssigneesAreMembers(db, orgId, input.assigneeIds)
   const visibility = input.visibility ?? 'shared'
   if (!canSetVisibility(audience, visibility)) {
     throw AppError.forbidden('Cannot set this visibility')
   }
   const stages = await tasksRepo.listStages(db, orgId, input.boardKey)
-  const stageRows = stages.map((s) => ({
-    id: s.id,
-    orgId: s.orgId,
-    boardKey: s.boardKey,
-    label: s.label,
-    position: s.position,
-    isDefault: s.isDefault,
-    isTerminal: s.isTerminal,
-  }))
   let stageId = input.stageId
   if (!stageId) {
-    const def = findDefaultStage(stageRows, orgId, input.boardKey)
+    const def = findDefaultStage(stages, orgId, input.boardKey)
     if (!def) throw AppError.validation('No default stage for board')
     stageId = def.id
-  } else if (!isStageOnBoard(stageRows, orgId, input.boardKey, stageId)) {
+  } else if (!isStageOnBoard(stages, orgId, input.boardKey, stageId)) {
     throw AppError.validation('Stage not on board')
   }
-  const doneHint = suggestedDoneForStage(stageRows, stageId)
+  const doneHint = suggestedDoneForStage(stages, stageId)
   const now = Date.now()
   const id = crypto.randomUUID()
-  await tasksRepo.insertTask(db, {
-    id,
+  const assignees = [...new Set(input.assigneeIds ?? [])]
+  await tasksRepo.insertTask(
+    db,
+    {
+      id,
+      orgId,
+      title: input.title,
+      description: input.description ?? null,
+      boardKey: input.boardKey,
+      stageId,
+      visibility,
+      scopeKind: input.scopeKind ?? null,
+      scopeId: input.scopeId ?? null,
+      priority: input.priority ?? null,
+      dueAt: input.dueAt ?? null,
+      done: input.done ?? doneHint ?? false,
+      orderIndex: input.order ?? 0,
+      externalUrl: input.externalUrl ?? null,
+      createdBy: actorId,
+      createdAt: now,
+      updatedAt: now,
+    },
+    assignees,
+  )
+  await recordTaskMutation(db, runtime, {
+    kind: 'create',
     orgId,
-    title: input.title,
-    description: input.description ?? null,
-    boardKey: input.boardKey,
-    stageId,
-    visibility,
-    scopeKind: input.scopeKind ?? null,
-    scopeId: input.scopeId ?? null,
-    priority: input.priority ?? null,
-    dueAt: input.dueAt ?? null,
-    done: input.done ?? doneHint ?? false,
-    orderIndex: input.order ?? 0,
-    externalUrl: input.externalUrl ?? null,
-    createdBy: actorId,
-    createdAt: now,
-    updatedAt: now,
+    taskId: id,
+    actorId,
+    assignees: { added: assignees, removed: [] },
+    meta: { boardKey: input.boardKey, stageId },
   })
-  await tasksRepo.replaceAssignees(db, id, input.assigneeIds ?? [], now)
   return getTaskForOrg(db, orgId, id, audience)
 }
-
-export async function updateTaskForOrg(
-  db: Db,
-  orgId: string,
-  id: string,
-  audience: Audience,
-  raw: unknown,
-) {
-  const existing = await tasksRepo.getTask(db, orgId, id)
-  if (!existing) throw AppError.notFound('Task not found')
-  if (!canViewTask({ visibility: existing.visibility as 'internal' | 'shared' }, audience)) {
-    throw AppError.notFound('Task not found')
-  }
-  if (audience === 'external') {
-    throw AppError.forbidden('External audience cannot update tasks')
-  }
-  const input = parseOrThrow(updateTaskInputSchema, raw, 'Invalid task patch')
-  if (input.visibility && !canSetVisibility(audience, input.visibility)) {
-    throw AppError.forbidden('Cannot set this visibility')
-  }
-  const boardKey = input.boardKey ?? existing.boardKey
-  const stages = await tasksRepo.listStages(db, orgId, boardKey)
-  const stageRows = stages.map((s) => ({
-    id: s.id,
-    orgId: s.orgId,
-    boardKey: s.boardKey,
-    label: s.label,
-    position: s.position,
-    isDefault: s.isDefault,
-    isTerminal: s.isTerminal,
-  }))
-  const stageId = input.stageId
-  if (stageId && !isStageOnBoard(stageRows, orgId, boardKey, stageId)) {
-    throw AppError.validation('Stage not on board')
-  }
-  const nextStage = stageId ?? existing.stageId
-  let done = input.done
-  if (stageId && done === undefined) {
-    done = suggestedDoneForStage(stageRows, nextStage)
-  }
-  const now = Date.now()
+function buildTaskPatch(
+  input: UpdateTaskInput,
+  stageId: string | undefined,
+  done: boolean | undefined,
+  now: number,
+): Parameters<typeof tasksRepo.updateTask>[3] {
   const patch: Parameters<typeof tasksRepo.updateTask>[3] = { updatedAt: now }
   if (input.title !== undefined) patch.title = input.title
   if (input.description !== undefined) patch.description = input.description
@@ -242,22 +210,83 @@ export async function updateTaskForOrg(
   if (done !== undefined) patch.done = done
   if (input.order !== undefined) patch.orderIndex = input.order
   if (input.externalUrl !== undefined) patch.externalUrl = input.externalUrl
-  await tasksRepo.updateTask(db, orgId, id, patch)
-  if (input.assigneeIds) {
-    await tasksRepo.replaceAssignees(db, id, input.assigneeIds, now)
+  return patch
+}
+
+export async function updateTaskForOrg(
+  db: Db,
+  runtime: NotificationRuntimePorts,
+  orgId: string,
+  id: string,
+  actorId: string,
+  audience: Audience,
+  raw: unknown,
+) {
+  const existing = await tasksRepo.getTask(db, orgId, id)
+  if (!existing) throw AppError.notFound('Task not found')
+  if (!canViewTask({ visibility: existing.visibility as 'internal' | 'shared' }, audience)) {
+    throw AppError.notFound('Task not found')
   }
+  if (audience === 'external') {
+    throw AppError.forbidden('External audience cannot update tasks')
+  }
+  const input = parseOrThrow(updateTaskInputSchema, raw, 'Invalid task patch')
+  if (input.assigneeIds) await assertAssigneesAreMembers(db, orgId, input.assigneeIds)
+  if (input.visibility && !canSetVisibility(audience, input.visibility)) {
+    throw AppError.forbidden('Cannot set this visibility')
+  }
+  const boardKey = input.boardKey ?? existing.boardKey
+  const stages = await tasksRepo.listStages(db, orgId, boardKey)
+  const stageId = input.stageId
+  if (stageId && !isStageOnBoard(stages, orgId, boardKey, stageId)) {
+    throw AppError.validation('Stage not on board')
+  }
+  const nextStage = stageId ?? existing.stageId
+  let done = input.done
+  if (stageId && done === undefined) {
+    done = suggestedDoneForStage(stages, nextStage)
+  }
+  const now = Date.now()
+  await tasksRepo.updateTask(db, orgId, id, buildTaskPatch(input, stageId, done, now))
+  const assignees =
+    input.assigneeIds !== undefined
+      ? await replaceAssigneesOrThrow(db, orgId, id, input.assigneeIds, now)
+      : undefined
+  await recordTaskMutation(db, runtime, {
+    kind: 'update',
+    orgId,
+    taskId: id,
+    actorId,
+    ...(assignees && assignees.added.length + assignees.removed.length > 0 ? { assignees } : {}),
+    meta: { boardKey, stageId: nextStage },
+  })
   return getTaskForOrg(db, orgId, id, audience)
 }
 
-export async function deleteTaskForOrg(db: Db, orgId: string, id: string, audience: Audience) {
+export async function deleteTaskForOrg(
+  db: Db,
+  runtime: NotificationRuntimePorts,
+  orgId: string,
+  id: string,
+  actorId: string,
+  audience: Audience,
+) {
   if (audience === 'external') throw AppError.forbidden('External audience cannot delete tasks')
   const existing = await tasksRepo.getTask(db, orgId, id)
   if (!existing) throw AppError.notFound('Task not found')
+  // Comments first: if the task delete then fails, the task is still there and a retry finishes.
+  await commentsRepo.deleteByTarget(db, orgId, 'task', id)
   await tasksRepo.deleteTask(db, orgId, id)
+  await recordTaskMutation(db, runtime, { kind: 'delete', orgId, taskId: id, actorId })
 }
 
-export async function listStagesForOrg(db: Db, orgId: string, boardKey?: string) {
-  await ensureDefaultBoard(db, orgId)
+export async function listStagesForOrg(
+  db: Db,
+  orgId: string,
+  boardKey?: string,
+  options?: { readOnly?: boolean },
+) {
+  if (!options?.readOnly) await ensureDefaultBoard(db, orgId)
   return tasksRepo.listStages(db, orgId, boardKey)
 }
 

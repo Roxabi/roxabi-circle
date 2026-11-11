@@ -1,67 +1,39 @@
-import { AppError, parseOrThrow } from '@kit/core'
-import { Hono } from 'hono'
-import { z } from 'zod'
+import { OpenAPIHono } from '@hono/zod-openapi'
+import { AppError } from '@kit/core'
 import { resolveEmailPort } from '../lib/email-port'
+import { invalidRequest } from '../lib/openapi'
 import { requireBaAdapter } from '../lib/require-ba-adapter'
 import { corsAllowlist } from '../lib/session-env'
-import {
-  requireOrgCapability,
-  requireOrgContext,
-  requirePlatformRole,
-} from '../middleware/org-context'
 import { requireAuth } from '../middleware/require-auth'
 import * as invitationsService from '../services/invitations'
 import * as orgRolesService from '../services/org-roles'
 import * as orgsService from '../services/orgs'
 import * as platformModulesService from '../services/platform-modules'
 import type { AppEnv } from '../types'
+import {
+  cancelInvitation,
+  createInvitation,
+  createOrg,
+  getOrg,
+  listInvitations,
+  listMembers,
+  listOrgs,
+} from './orgs.schemas'
+import {
+  listOrgModules,
+  listPlatformModules,
+  patchOrgModule,
+  patchPlatformModule,
+} from './orgs-modules.schemas'
+import { createRole, deleteRole, listRoles, patchRoleGrant } from './orgs-roles.schemas'
 
-const createSchema = z.object({
-  name: z.string().min(1).max(120),
-  slug: z.string().min(1).max(48).optional(),
-  // kind is server-forced to client for public create (review fix)
-})
-
-const patchModuleSchema = z.object({
-  enabled: z.boolean(),
-})
-
-const createRoleSchema = z
-  .object({
-    key: z.string().min(1).max(48),
-    name: z.string().min(1).max(80),
-    grants: z
-      .array(
-        z.object({
-          moduleId: z.string().min(1),
-          access: z.enum(['write', 'read', 'disabled']),
-        }),
-      )
-      .optional(),
-  })
-  .strict()
-
-const patchGrantSchema = z
-  .object({
-    access: z.enum(['write', 'read', 'disabled']),
-  })
-  .strict()
-
-const inviteCreateSchema = z
-  .object({
-    email: z.string().email().max(254),
-    /** System invitable keys or org custom role key (Phase B). */
-    role: z.string().min(1).max(48),
-  })
-  .strict()
-
-export const orgsRoutes = new Hono<AppEnv>()
+export const orgsRoutes = new OpenAPIHono<AppEnv>()
 
 orgsRoutes.use('/api/orgs', requireBaAdapter, requireAuth)
 orgsRoutes.use('/api/orgs/*', requireBaAdapter, requireAuth)
 orgsRoutes.use('/api/platform/*', requireBaAdapter, requireAuth)
 
-orgsRoutes.get('/api/orgs', async (c) => {
+orgsRoutes.openapi(listOrgs, async (c) => {
   const db = c.get('db')!
   const subject = c.get('subject')!
   let orgs = await orgsService.listOrgsForSubject(db, subject)
@@ -73,61 +45,45 @@ orgsRoutes.get('/api/orgs', async (c) => {
   return c.json({ orgs, requestId: c.get('requestId') })
 })
 
-orgsRoutes.post('/api/orgs', async (c) => {
-  if (c.get('authMethod') !== 'session') {
-    throw AppError.forbidden('Creating organizations requires a session')
-  }
-  const data = parseOrThrow(
-    createSchema,
-    await c.req.json().catch(() => null),
-    'Invalid organization payload',
-  )
-  const db = c.get('db')!
-  const org = await orgsService.createOrganization(db, {
-    name: data.name,
-    slug: data.slug,
-    kind: 'client',
-    ownerUserId: c.get('subject')!,
-  })
-  c.header('Location', `/api/orgs/${org.id}`)
-  return c.json({ org, requestId: c.get('requestId') }, 201)
-})
+orgsRoutes.openapi(
+  createOrg,
+  async (c) => {
+    const data = c.req.valid('json')
+    const db = c.get('db')!
+    const org = await orgsService.createOrganization(db, {
+      name: data.name,
+      slug: data.slug,
+      kind: 'client',
+      ownerUserId: c.get('subject')!,
+    })
+    c.header('Location', `/api/orgs/${org.id}`)
+    return c.json({ org, requestId: c.get('requestId') }, 201)
+  },
+  invalidRequest('Invalid organization payload'),
+)
 
-orgsRoutes.get('/api/orgs/:orgId', requireOrgContext({ allowSuperAdmin: true }), async (c) => {
+orgsRoutes.openapi(getOrg, async (c) => {
   const db = c.get('db')!
   const org = await orgsService.getOrgForSubject(db, c.get('orgId')!, c.get('subject')!)
   return c.json({ org, requestId: c.get('requestId') })
 })
 
-orgsRoutes.get(
-  '/api/orgs/:orgId/members',
-  requireOrgContext({ allowSuperAdmin: true }),
-  requireOrgCapability('manage_members'),
-  async (c) => {
-    const db = c.get('db')!
-    const members = await orgsService.listOrgMembers(db, c.get('orgId')!)
-    return c.json({ members, requestId: c.get('requestId') })
-  },
-)
+orgsRoutes.openapi(listMembers, async (c) => {
+  const db = c.get('db')!
+  const members = await orgsService.listOrgMembers(db, c.get('orgId')!)
+  return c.json({ members, requestId: c.get('requestId') })
+})
 
-orgsRoutes.post(
-  '/api/orgs/:orgId/invitations',
-  requireOrgContext(),
-  requireOrgCapability('manage_members'),
+orgsRoutes.openapi(
+  createInvitation,
   async (c) => {
-    if (c.get('authMethod') !== 'session') {
-      throw AppError.forbidden('Creating invitations requires a session cookie')
-    }
     const orgRole = c.get('orgRole')
     if (!orgRole) {
       throw AppError.forbidden('Organization membership required')
     }
-    const data = parseOrThrow(
-      inviteCreateSchema,
-      await c.req.json().catch(() => null),
-      'Invalid invitation payload',
-    )
-    const acceptBaseUrl = corsAllowlist(c.env)[0]
+    const data = c.req.valid('json')
+    const allowedOrigins = corsAllowlist(c.env)
+    const acceptBaseUrl = allowedOrigins[0]
     const invitation = await invitationsService.createInvitation(c.get('db')!, {
       orgId: c.get('orgId')!,
       inviterUserId: c.get('subject')!,
@@ -135,112 +91,76 @@ orgsRoutes.post(
       email: data.email,
       role: data.role,
       acceptBaseUrl,
+      allowedOrigins,
       emailPort: resolveEmailPort(c.env),
       requestId: c.get('requestId'),
     })
     c.header('Location', `/api/orgs/${c.get('orgId')}/invitations/${invitation.id}`)
     return c.json({ invitation, requestId: c.get('requestId') }, 201)
   },
+  invalidRequest('Invalid invitation payload'),
 )
 
-orgsRoutes.get(
-  '/api/orgs/:orgId/invitations',
-  requireOrgContext(),
-  requireOrgCapability('manage_members'),
-  async (c) => {
-    const statusParam = c.req.query('status')
-    const status =
-      statusParam === 'accepted' || statusParam === 'canceled' || statusParam === 'pending'
-        ? statusParam
-        : 'pending'
-    const invitations = await invitationsService.listInvitations(
-      c.get('db')!,
-      c.get('orgId')!,
-      status,
-    )
-    return c.json({ invitations, requestId: c.get('requestId') })
-  },
-)
+orgsRoutes.openapi(listInvitations, async (c) => {
+  const { status: statusParam } = c.req.valid('query')
+  const status =
+    statusParam === 'accepted' || statusParam === 'canceled' || statusParam === 'pending'
+      ? statusParam
+      : 'pending'
+  const invitations = await invitationsService.listInvitations(
+    c.get('db')!,
+    c.get('orgId')!,
+    status,
+  )
+  return c.json({ invitations, requestId: c.get('requestId') })
+})
 
-orgsRoutes.delete(
-  '/api/orgs/:orgId/invitations/:invitationId',
-  requireOrgContext(),
-  requireOrgCapability('manage_members'),
-  async (c) => {
-    if (c.get('authMethod') !== 'session') {
-      throw AppError.forbidden('Canceling invitations requires a session cookie')
-    }
-    await invitationsService.cancelInvitation(
-      c.get('db')!,
-      c.get('orgId')!,
-      c.req.param('invitationId'),
-    )
-    return c.json({ ok: true, requestId: c.get('requestId') })
-  },
-)
+orgsRoutes.openapi(cancelInvitation, async (c) => {
+  await invitationsService.cancelInvitation(
+    c.get('db')!,
+    c.get('orgId')!,
+    c.req.valid('param').invitationId,
+  )
+  return c.json({ ok: true, requestId: c.get('requestId') })
+})
 
-orgsRoutes.get(
-  '/api/orgs/:orgId/modules',
-  requireOrgContext({ allowSuperAdmin: true }),
-  async (c) => {
-    const db = c.get('db')!
-    const modules = await platformModulesService.getOrgModulesEffective(db, c.get('orgId')!)
-    return c.json({ modules, requestId: c.get('requestId') })
-  },
-)
+orgsRoutes.openapi(listOrgModules, async (c) => {
+  const db = c.get('db')!
+  const modules = await platformModulesService.getOrgModulesEffective(db, c.get('orgId')!, {
+    readOnly: Boolean(c.get('impersonationRow')),
+  })
+  return c.json({ modules, requestId: c.get('requestId') })
+})
 
-orgsRoutes.patch(
-  '/api/orgs/:orgId/modules/:moduleId',
-  requireOrgContext(),
-  requireOrgCapability('manage_modules'),
+orgsRoutes.openapi(
+  patchOrgModule,
   async (c) => {
-    if (c.get('authMethod') !== 'session') {
-      throw AppError.forbidden('Module settings require a session cookie')
-    }
-    const data = parseOrThrow(
-      patchModuleSchema,
-      await c.req.json().catch(() => null),
-      'Invalid module payload',
-    )
+    const data = c.req.valid('json')
     const db = c.get('db')!
     await platformModulesService.setOrgModuleEnabled(
       db,
       c.get('orgId')!,
-      c.req.param('moduleId'),
+      c.req.valid('param').moduleId,
       data.enabled,
     )
     const modules = await platformModulesService.getOrgModulesEffective(db, c.get('orgId')!)
     return c.json({ modules, requestId: c.get('requestId') })
   },
+  invalidRequest('Invalid module payload'),
 )
 
-/** Phase B — list system + custom roles with module grants. */
-orgsRoutes.get(
-  '/api/orgs/:orgId/roles',
-  requireOrgContext({ allowSuperAdmin: true }),
-  requireOrgCapability('manage_members'),
-  async (c) => {
-    const db = c.get('db')!
-    const roles = await orgRolesService.listRolesWithGrants(db, c.get('orgId')!)
-    return c.json({ roles, requestId: c.get('requestId') })
-  },
-)
+orgsRoutes.openapi(listRoles, async (c) => {
+  const db = c.get('db')!
+  const roles = await orgRolesService.listRolesWithGrants(db, c.get('orgId')!)
+  return c.json({ roles, requestId: c.get('requestId') })
+})
 
-orgsRoutes.post(
-  '/api/orgs/:orgId/roles',
-  requireOrgContext(),
-  requireOrgCapability('manage_members'),
+orgsRoutes.openapi(
+  createRole,
   async (c) => {
-    if (c.get('authMethod') !== 'session') {
-      throw AppError.forbidden('Role management requires a session')
-    }
     const orgRole = c.get('orgRole')
     if (!orgRole) throw AppError.forbidden('Organization role required')
-    const data = parseOrThrow(
-      createRoleSchema,
-      await c.req.json().catch(() => null),
-      'Invalid role payload',
-    )
+    const data = c.req.valid('json')
     const db = c.get('db')!
     const role = await orgRolesService.createCustomRole(db, {
       organizationId: c.get('orgId')!,
@@ -251,70 +171,53 @@ orgsRoutes.post(
     })
     return c.json({ role, requestId: c.get('requestId') }, 201)
   },
+  invalidRequest('Invalid role payload'),
 )
 
-orgsRoutes.patch(
-  '/api/orgs/:orgId/roles/:roleId/grants/:moduleId',
-  requireOrgContext(),
-  requireOrgCapability('manage_members'),
+orgsRoutes.openapi(
+  patchRoleGrant,
   async (c) => {
-    if (c.get('authMethod') !== 'session') {
-      throw AppError.forbidden('Role management requires a session')
-    }
     const orgRole = c.get('orgRole')
     if (!orgRole) throw AppError.forbidden('Organization role required')
-    const data = parseOrThrow(
-      patchGrantSchema,
-      await c.req.json().catch(() => null),
-      'Invalid grant payload',
-    )
+    const data = c.req.valid('json')
+    const { roleId, moduleId } = c.req.valid('param')
     const db = c.get('db')!
     const role = await orgRolesService.setRoleGrant(db, {
       organizationId: c.get('orgId')!,
-      roleId: c.req.param('roleId'),
-      moduleId: c.req.param('moduleId'),
+      roleId,
+      moduleId,
       access: data.access,
       actorRoleKey: orgRole,
     })
     return c.json({ role, requestId: c.get('requestId') })
   },
+  invalidRequest('Invalid grant payload'),
 )
 
-orgsRoutes.delete(
-  '/api/orgs/:orgId/roles/:roleId',
-  requireOrgContext(),
-  requireOrgCapability('manage_members'),
-  async (c) => {
-    if (c.get('authMethod') !== 'session') {
-      throw AppError.forbidden('Role management requires a session')
-    }
-    const db = c.get('db')!
-    await orgRolesService.deleteCustomRole(db, c.get('orgId')!, c.req.param('roleId'))
-    return c.json({ ok: true, requestId: c.get('requestId') })
-  },
-)
+orgsRoutes.openapi(deleteRole, async (c) => {
+  const db = c.get('db')!
+  await orgRolesService.deleteCustomRole(db, c.get('orgId')!, c.req.valid('param').roleId)
+  return c.json({ ok: true, requestId: c.get('requestId') })
+})
 
-orgsRoutes.get('/api/platform/modules', requirePlatformRole('super_admin', 'staff'), async (c) => {
+orgsRoutes.openapi(listPlatformModules, async (c) => {
   const db = c.get('db')!
   const modules = await platformModulesService.listPlatformPublic(db)
   return c.json({ modules, requestId: c.get('requestId') })
 })
 
-orgsRoutes.patch(
-  '/api/platform/modules/:moduleId',
-  requirePlatformRole('super_admin'),
+orgsRoutes.openapi(
+  patchPlatformModule,
   async (c) => {
-    if (c.get('authMethod') !== 'session') {
-      throw AppError.forbidden('Platform module settings require a session')
-    }
-    const data = parseOrThrow(
-      z.object({ available: z.boolean() }),
-      await c.req.json().catch(() => null),
-      'Invalid platform module payload',
-    )
+    const data = c.req.valid('json')
     const db = c.get('db')!
-    await platformModulesService.setPlatformAvailable(db, c.req.param('moduleId'), data.available)
+    await platformModulesService.setPlatformAvailable(
+      db,
+      c.req.valid('param').moduleId,
+      data.available,
+    )
     const modules = await platformModulesService.listPlatformPublic(db)
     return c.json({ modules, requestId: c.get('requestId') })
   },
+  invalidRequest('Invalid platform module payload'),
 )

@@ -1,7 +1,7 @@
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vitest/config'
-import { makeCoverage } from '../config/vitest-coverage.mjs'
+import { makeCoverage } from '../config/vitest-coverage.mts'
 
 const rootDir = path.dirname(fileURLToPath(import.meta.url))
 
@@ -12,6 +12,7 @@ export default defineConfig({
     },
   },
   test: {
+    maxWorkers: process.env.CI ? '100%' : undefined,
     environment: 'happy-dom',
     setupFiles: ['./src/test/setup.ts'],
     include: ['src/**/*.test.{ts,tsx}'],

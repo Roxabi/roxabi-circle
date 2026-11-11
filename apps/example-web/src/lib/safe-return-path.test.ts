@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { safeInviteReturnPath, safePostAuthPath } from './safe-return-path'
+import { safeInviteReturnPath, safeMcpOAuthResumePath, safePostAuthPath } from './safe-return-path'
 
 describe('safeInviteReturnPath', () => {
   it('allows invite accept with invitationId query', () => {
@@ -70,5 +70,22 @@ describe('safePostAuthPath', () => {
   it('rejects double-encoded traversal', () => {
     expect(safePostAuthPath('/app/%252e%252e/admin')).toBeNull()
     expect(safePostAuthPath('/app/%25252e%25252e/x')).toBeNull()
+  })
+})
+
+describe('safeMcpOAuthResumePath', () => {
+  const authorize = 'http://127.0.0.1:8788/authorize?client_id=c1&state=s1'
+
+  it('allows loopback authorize in r', () => {
+    const next = `/mcp-oauth/resume?r=${encodeURIComponent(authorize)}`
+    expect(safeMcpOAuthResumePath(next)).toBe(next)
+    expect(safePostAuthPath(next)).toBe(next)
+  })
+
+  it('rejects missing r, open redirects, and non-authorize paths', () => {
+    expect(safeMcpOAuthResumePath('/mcp-oauth/resume')).toBeNull()
+    expect(safeMcpOAuthResumePath('/mcp-oauth/resume?r=https://evil.example/authorize')).toBeNull()
+    expect(safeMcpOAuthResumePath('/mcp-oauth/resume?r=http://127.0.0.1:8788/mcp')).toBeNull()
+    expect(safePostAuthPath('/mcp-oauth/resume?r=https://evil.example/authorize')).toBeNull()
   })
 })

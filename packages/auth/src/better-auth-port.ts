@@ -1,5 +1,5 @@
 import type { SessionPayload } from './session'
-import { clearSessionCookieHeader, SESSION_COOKIE, sessionCookieHeader } from './session'
+import { clearSessionCookieHeader, SESSION_COOKIE } from './session'
 import type { ResolveSessionInput, SessionPort } from './session-port'
 
 /**
@@ -8,9 +8,13 @@ import type { ResolveSessionInput, SessionPort } from './session-port'
  */
 export type BetterAuthLike = {
   api: {
-    getSession: (opts: { headers: Headers }) => Promise<{
+    /** Bypass cookie cache and avoid refreshing expiry while resolving identity. */
+    getSession: (opts: {
+      headers: Headers
+      query?: { disableRefresh?: boolean; disableCookieCache?: boolean }
+    }) => Promise<{
       user: { id: string; email?: string | null }
-      session: { expiresAt?: Date | string | null }
+      session: { id: string; expiresAt?: Date | string | null }
     } | null>
   }
 }
@@ -53,13 +57,23 @@ export function createBetterAuthSessionPort(opts: CreateBetterAuthSessionPortOpt
     async resolveSession(input) {
       try {
         const auth = await opts.getAuth()
-        const session = await auth.api.getSession({ headers: headersFromInput(input) })
-        if (!session?.user?.id) return null
+        const session = await auth.api.getSession({
+          headers: headersFromInput(input),
+          query: { disableRefresh: true, disableCookieCache: true },
+        })
+        if (
+          !session?.user?.id ||
+          typeof session.session?.id !== 'string' ||
+          !session.session.id.trim()
+        ) {
+          return null
+        }
         const exp = expFromSession(session.session?.expiresAt)
         if (exp == null) return null
         if (exp < Math.floor(Date.now() / 1000)) return null
         return {
           sub: session.user.id,
+          sessionId: session.session.id,
           email: session.user.email ?? '',
           exp,
         } satisfies SessionPayload
@@ -68,11 +82,8 @@ export function createBetterAuthSessionPort(opts: CreateBetterAuthSessionPortOpt
         return null
       }
     },
-    cookieHeader(token, headerOpts) {
-      return sessionCookieHeader(token, headerOpts).replace(`${SESSION_COOKIE}=`, `${cookieName}=`)
-    },
     clearCookieHeader(headerOpts) {
-      return clearSessionCookieHeader(headerOpts).replace(`${SESSION_COOKIE}=`, `${cookieName}=`)
+      return clearSessionCookieHeader({ ...headerOpts, name: cookieName })
     },
   }
 }

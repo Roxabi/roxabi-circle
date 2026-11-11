@@ -48,7 +48,7 @@ function slugRoleKey(input: string): string {
  */
 export async function ensureSystemRoles(db: Db, organizationId: string): Promise<void> {
   const now = Date.now()
-  // V0: FLOWS_ADMIN_ROLES (owner|admin) only — do not auto-write for member/reader (#29 review).
+  // V0: FLOWS_ADMIN_ROLES (owner|admin) only — do not auto-write for member/reader (Roxabi/roxabi-boilerplate-cf#29 review).
   const seed = systemRoleGrantSeed(KIT_MODULE_IDS).map((row) => {
     if (row.moduleId !== FLOWS_MODULE_ID) return row
     if (row.roleKey === 'owner' || row.roleKey === 'admin')
@@ -75,6 +75,7 @@ export async function ensureSystemRoles(db: Db, organizationId: string): Promise
     for (const row of seed.filter((s) => s.roleKey === roleKey)) {
       if (have.has(row.moduleId)) continue
       await orgRolesRepo.upsertGrant(db, {
+        organizationId,
         roleId: role.id,
         moduleId: row.moduleId,
         access: row.access,
@@ -83,8 +84,12 @@ export async function ensureSystemRoles(db: Db, organizationId: string): Promise
   }
 }
 
-export async function listRolesWithGrants(db: Db, organizationId: string) {
-  await ensureSystemRoles(db, organizationId)
+export async function listRolesWithGrants(
+  db: Db,
+  organizationId: string,
+  options?: { readOnly?: boolean },
+) {
+  if (!options?.readOnly) await ensureSystemRoles(db, organizationId)
   const roles = await orgRolesRepo.listRolesForOrg(db, organizationId)
   const grants = await orgRolesRepo.listGrantsForRoles(
     db,
@@ -166,11 +171,16 @@ export async function createCustomRole(
     createdAt: Date.now(),
   })
   for (const g of grants) {
-    await orgRolesRepo.upsertGrant(db, { roleId: id, moduleId: g.moduleId, access: g.access })
+    await orgRolesRepo.upsertGrant(db, {
+      organizationId: input.organizationId,
+      roleId: id,
+      moduleId: g.moduleId,
+      access: g.access,
+    })
   }
-  return listRolesWithGrants(db, input.organizationId).then((roles) =>
-    roles.find((r) => r.id === id),
-  )
+  const created = (await listRolesWithGrants(db, input.organizationId)).find((r) => r.id === id)
+  if (!created) throw AppError.internal()
+  return created
 }
 
 export async function setRoleGrant(
@@ -184,13 +194,9 @@ export async function setRoleGrant(
   },
 ) {
   await ensureSystemRoles(db, input.organizationId)
-  const role = await orgRolesRepo.findRoleById(db, input.roleId)
-  if (!role || role.organizationId !== input.organizationId) {
-    throw AppError.notFound('Role not found')
-  }
-  if (role.isSystem) {
-    throw AppError.forbidden('System role grants are immutable')
-  }
+  const role = await orgRolesRepo.findRoleById(db, input.organizationId, input.roleId)
+  if (!role) throw AppError.notFound('Role not found')
+  if (role.isSystem) throw AppError.forbidden('System role grants are immutable')
   if (!KIT_MODULE_IDS.includes(input.moduleId as (typeof KIT_MODULE_IDS)[number])) {
     throw AppError.notFound('Unknown module')
   }
@@ -212,29 +218,30 @@ export async function setRoleGrant(
     throw AppError.forbidden('Cannot set grant beyond your own capabilities')
   }
 
-  await orgRolesRepo.upsertGrant(db, {
+  const granted = await orgRolesRepo.upsertGrant(db, {
+    organizationId: input.organizationId,
     roleId: role.id,
     moduleId: input.moduleId,
     access: input.access,
   })
-  return listRolesWithGrants(db, input.organizationId).then((roles) =>
-    roles.find((r) => r.id === role.id),
+  if (!granted) throw AppError.notFound('Role not found')
+  const updated = (await listRolesWithGrants(db, input.organizationId)).find(
+    (r) => r.id === role.id,
   )
+  if (!updated) throw AppError.internal()
+  return updated
 }
 
 export async function deleteCustomRole(db: Db, organizationId: string, roleId: string) {
-  const role = await orgRolesRepo.findRoleById(db, roleId)
-  if (!role || role.organizationId !== organizationId) {
+  const role = await orgRolesRepo.findRoleById(db, organizationId, roleId)
+  if (!role) throw AppError.notFound('Role not found')
+  if (role.isSystem) throw AppError.forbidden('System roles cannot be deleted')
+  const members = await orgsRepo.listMembers(db, organizationId)
+  if (members.some((m) => m.role === role.key))
+    throw AppError.conflict('Role is still assigned to members')
+  if (!(await orgRolesRepo.deleteRole(db, organizationId, roleId))) {
     throw AppError.notFound('Role not found')
   }
-  if (role.isSystem) {
-    throw AppError.forbidden('System roles cannot be deleted')
-  }
-  const members = await orgsRepo.listMembers(db, organizationId)
-  if (members.some((m) => m.role === role.key)) {
-    throw AppError.conflict('Role is still assigned to members')
-  }
-  await orgRolesRepo.deleteRole(db, roleId)
 }
 
 async function grantsMapForRoleKey(
@@ -266,6 +273,7 @@ export async function resolveModuleAccess(
     op: ModuleOp
     /** Super admin break-glass already decided at middleware. */
     orgBypass?: boolean
+    readOnly?: boolean
   },
 ): Promise<boolean> {
   if (input.orgBypass) return true
@@ -279,19 +287,13 @@ export async function resolveModuleAccess(
   )
   if (!platformOk) return false
 
-  await ensureSystemRoles(db, input.organizationId)
+  if (!input.readOnly) await ensureSystemRoles(db, input.organizationId)
   const role = await orgRolesRepo.findRoleByKey(db, input.organizationId, input.roleKey)
   if (!role) return false
   const grants = await orgRolesRepo.listGrantsForRole(db, role.id)
   const row = grants.find((g) => g.moduleId === input.moduleId)
-  if (!row || !isModuleAccess(row.access)) return false
+  if (!(row && isModuleAccess(row.access))) return false
   return accessAllows(row.access, input.op)
-}
-
-export async function customRoleKeys(db: Db, organizationId: string): Promise<string[]> {
-  await ensureSystemRoles(db, organizationId)
-  const roles = await orgRolesRepo.listRolesForOrg(db, organizationId)
-  return roles.filter((r) => !r.isSystem).map((r) => r.key)
 }
 
 /**
@@ -307,7 +309,8 @@ export async function assertAssignableRole(
   actorRoleKey: string,
 ): Promise<void> {
   await ensureSystemRoles(db, organizationId)
-  const custom = await customRoleKeys(db, organizationId)
+  const roles = await orgRolesRepo.listRolesForOrg(db, organizationId)
+  const custom = roles.filter((r) => !r.isSystem).map((r) => r.key)
   if (!isAssignableRoleKey(roleKey, custom)) {
     throw AppError.fieldErrors('Unknown role', {
       role: [roleKey],

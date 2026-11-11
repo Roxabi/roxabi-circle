@@ -1,0 +1,172 @@
+name: Deploy gate
+
+# Roxabi/roxabi-boilerplate-cf#256 — Cloudflare Workers Builds and Pages start on the push webhook of their production branch
+# and cannot wait for a GitHub check. Their production branch is therefore `deploy/<branch>`, and
+# only this workflow moves it: to the newest first-parent commit of main|staging, descending from
+# it, whose required workflows all succeeded on their push run for that SHA. Required = kit CI +
+# Secret scan, plus the union of Product workflows declared at the resolved deployed SHA and at
+# that candidate (git data, never a checkout of the candidate). A candidate can add a requirement
+# immediately; it cannot erase one the deployed SHA still declares. Undeclaring while the old push
+# run is still green can move the baseline — not an eternal veto. Fast-forward only, never forced.
+# This union is in force only once the revision that contains it has itself reached deploy/<branch>.
+# Cloudflare stays the executor: no Cloudflare token on GitHub.
+# Runbook: docs/kit/deploy-cloudflare.md § "Only when CI is green" and § Cutover.
+#
+# Trust: the job runs inside a checkout of the already-promoted deploy/<branch> (green by
+# construction): the decision script, its Bun version and runtime config come from there, never
+# from the untested tip. The Product declaration used as the baseline is the blob at the resolved
+# deployed SHA, so a dirty worktree cannot widen or shrink it. Residual by design: this YAML itself
+# is always the default branch's (GitHub loads workflow_run definitions from it). The push uses the
+# kit-ci App token (contents + workflows), minted only after a decision, for that step alone.
+
+on:
+  workflow_run:
+    workflows: [CI, Secret scan, Product CI]
+    types: [completed]
+    branches: [main, staging]
+  # Reconcile by hand: re-evaluates a branch; the decision still comes from deploy/<branch>.
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: Source branch to evaluate
+        type: choice
+        options: [main, staging]
+        default: main
+
+permissions:
+  contents: read
+  actions: read
+
+# Only real evaluations share a slot, so a skipped PR-event run cannot cancel a pending push one.
+concurrency:
+  group: deploy-gate-${{ (github.event_name == 'workflow_dispatch' || github.event.workflow_run.event == 'push') && (github.event.workflow_run.head_branch || inputs.branch) || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.event == 'push'
+    name: promote-deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      SOURCE_BRANCH: ${{ github.event.workflow_run.head_branch || inputs.branch }}
+    steps:
+      # Before the cutover there is no deploy/<branch>: a 404 with no branch_deletion
+      # is that case (notice, nothing promoted, no red run). A 404 with a branch_deletion
+      # means the branch existed and was deleted: fail, naming who, when, the last
+      # promoted SHA and the fast-forward restore. An activity lookup that fails, and
+      # any other branch lookup failure (auth, 5xx), is an error, never "not bootstrapped".
+      - name: Is the deploy branch bootstrapped?
+        id: boot
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if out="$(gh api "repos/${GITHUB_REPOSITORY}/branches/deploy%2F${SOURCE_BRANCH}" --silent 2>&1)"; then
+            echo "ready=true" >>"${GITHUB_OUTPUT}"
+          elif [[ "$out" == *"HTTP 404"* ]]; then
+            # per_page=1: empty array = never bootstrapped; one event = deleted.
+            # shellcheck disable=SC2016 # jq program: $e is jq, not shell
+            jq_prog='
+              if type != "array" then
+                error("activity response is not an array")
+              elif length == 0 then
+                "none"
+              else
+                .[0] as $e
+                | if ($e.activity_type != "branch_deletion")
+                    or (($e.timestamp // "") | test("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$") | not)
+                    or (($e.actor.login // "") | test("^[A-Za-z0-9]([A-Za-z0-9-]){0,38}$") | not)
+                    or (($e.before // "") | test("^[0-9a-f]{40}$") | not)
+                  then
+                    error("unparseable deletion event")
+                  else
+                    "\($e.actor.login)\t\($e.timestamp)\t\($e.before)"
+                  end
+              end
+            '
+            if ! activity="$(gh api "repos/${GITHUB_REPOSITORY}/activity?ref=refs/heads/deploy/${SOURCE_BRANCH}&activity_type=branch_deletion&per_page=1" --jq "$jq_prog" 2>&1)"; then
+              activity="${activity//$'\n'/ }"
+              activity="${activity//$'\r'/ }"
+              echo "::error title=Deploy gate cannot read the activity of deploy/${SOURCE_BRANCH}::${activity}"
+              exit 1
+            fi
+            if [[ "$activity" == "none" ]]; then
+              echo "::notice title=Deploy gate not bootstrapped::deploy/${SOURCE_BRANCH} does not exist, nothing is promoted. Cutover: docs/kit/deploy-cloudflare.md § Cutover."
+            else
+              IFS=$'\t' read -r actor timestamp before <<<"$activity"
+              if [[ ! "$before" =~ ^[0-9a-f]{40}$ || -z "$actor" || -z "$timestamp" ]]; then
+                echo "::error title=Deploy gate cannot read the activity of deploy/${SOURCE_BRANCH}::unparseable deletion event"
+                exit 1
+              fi
+              echo "::error title=Deploy branch deleted::${actor} deleted deploy/${SOURCE_BRANCH} at ${timestamp}; last promoted SHA ${before}. Restore (fast-forward): git push origin ${before}:refs/heads/deploy/${SOURCE_BRANCH}. docs/kit/deploy-cloudflare.md § Cutover."
+              exit 1
+            fi
+          else
+            echo "::error title=Deploy gate cannot read deploy/${SOURCE_BRANCH}::${out}"
+            exit 1
+          fi
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: steps.boot.outputs.ready == 'true'
+        with:
+          ref: deploy/${{ env.SOURCE_BRANCH }}
+          fetch-depth: 0
+
+      - name: Is the gate on the promoted revision?
+        if: steps.boot.outputs.ready == 'true'
+        run: |
+          if [ ! -f scripts/kit/promote-deploy.ts ]; then
+            echo "::error title=Deploy gate missing on deploy/${SOURCE_BRANCH}::bootstrap deploy/${SOURCE_BRANCH} at a green commit that contains scripts/kit/promote-deploy.ts (docs/kit/deploy-cloudflare.md § Cutover)."
+            exit 1
+          fi
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        if: steps.boot.outputs.ready == 'true'
+        with:
+          bun-version-file: package.json
+
+      - name: Decide
+        if: steps.boot.outputs.ready == 'true'
+        id: gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bun scripts/kit/promote-deploy.ts
+
+      - name: Require the kit-ci App
+        if: steps.gate.outputs.promote != ''
+        env:
+          APP_ID: ${{ vars.CI_APP_ID }}
+        run: |
+          if [ -z "$APP_ID" ]; then
+            echo "::error title=kit-ci App not configured::deploy/${SOURCE_BRANCH} cannot move without repo-level CI_APP_ID / CI_APP_PRIVATE_KEY (docs/kit/ci-app-setup.md)."
+            exit 1
+          fi
+
+      - name: Mint the push token
+        if: steps.gate.outputs.promote != ''
+        id: app
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          # client-id takes the numeric App ID too (same auth path as deprecated app-id) — docs/kit/ci-app-setup.md
+          client-id: ${{ vars.CI_APP_ID }}
+          private-key: ${{ secrets.CI_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-workflows: write
+
+      - name: Fast-forward the deploy branch
+        if: steps.gate.outputs.promote != ''
+        env:
+          TOKEN: ${{ steps.app.outputs.token }}
+          SHA: ${{ steps.gate.outputs.promote }}
+          TARGET: ${{ steps.gate.outputs.target }}
+        run: |
+          set -euo pipefail
+          auth="$(printf 'x-access-token:%s' "$TOKEN" | base64 -w0)"
+          echo "::add-mask::${auth}"
+          # Reset the checkout's credential header, then push with the App's. No --force:
+          # the server refuses anything but a fast-forward.
+          git -c http.https://github.com/.extraheader= \
+            -c "http.https://github.com/.extraheader=AUTHORIZATION: basic ${auth}" \
+            push origin "${SHA}:refs/heads/${TARGET}"
+          echo "::notice title=Deploy gate::${TARGET} → ${SHA}"

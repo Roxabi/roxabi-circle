@@ -1,15 +1,24 @@
 import type { ApiErrorBody, ErrorCodeName, FieldErrors, ValidationDetails } from '@kit/types'
 
-export class ApiError extends Error {
-  readonly code: string
-  readonly requestId: string
+/** An HTTP response outside the 2xx range, including non-Kit responses. */
+export class HttpError extends Error {
   readonly status: number
+
+  constructor(status: number, message = `HTTP ${status}`) {
+    super(message)
+    this.name = 'HttpError'
+    this.status = status
+  }
+}
+
+export class ApiError extends HttpError {
+  readonly code: string
+  readonly requestId: string | undefined
   readonly details?: unknown
 
-  constructor(status: number, body: ApiErrorBody) {
-    super(body.error.message)
+  constructor(status: number, body: Omit<ApiErrorBody, 'requestId'> & { requestId?: string }) {
+    super(status, body.error.message)
     this.name = 'ApiError'
-    this.status = status
     this.code = body.error.code
     this.requestId = body.requestId
     this.details = body.error.details
@@ -55,65 +64,119 @@ export type ApiClientOptions = {
   credentials?: RequestCredentials
   fetch?: typeof fetch
   defaultHeaders?: HeadersInit
-  /** Called on HTTP 401 before throw — app clears session / redirects. */
-  onUnauthorized?: (err: ApiError) => void
+  /** Called once on every HTTP 401 before rejection. Callback failures do not replace the HTTP error. */
+  onUnauthorized?: (err: HttpError) => void | Promise<void>
 }
 
-export type ApiFetch = <T>(path: string, init?: RequestInit) => Promise<T>
+/**
+ * RequestInit plus optional parse-on-read. `parse` is never forwarded to fetch.
+ * Without `parse`, JSON is trusted as `T` (compile-time only).
+ */
+export type ApiFetchInit<T = unknown> = RequestInit & {
+  parse?: (data: unknown) => T
+}
+
+export type ApiFetch = <T>(path: string, init?: ApiFetchInit<T>) => Promise<T>
+
+function parseResponseBody(text: string): unknown {
+  if (!text) return null
+  try {
+    return JSON.parse(text) as unknown
+  } catch {
+    throw new Error('Invalid JSON response')
+  }
+}
+
+function httpError(status: number, data: unknown): HttpError {
+  if (data && typeof data === 'object' && 'error' in data) {
+    const error = data.error
+    if (
+      error &&
+      typeof error === 'object' &&
+      'code' in error &&
+      'message' in error &&
+      typeof error.code === 'string' &&
+      typeof error.message === 'string'
+    ) {
+      const requestId =
+        'requestId' in data && typeof data.requestId === 'string' ? data.requestId : undefined
+      return new ApiError(status, {
+        error: {
+          code: error.code as ErrorCodeName,
+          message: error.message,
+          ...('details' in error ? { details: error.details } : {}),
+        },
+        requestId,
+      })
+    }
+  }
+  return new HttpError(status)
+}
+
+function parseOkBody<T>(data: unknown, parse?: (value: unknown) => T): T {
+  if (!parse) return data as T
+  try {
+    return parse(data)
+  } catch (cause) {
+    throw new Error('Invalid API response', { cause })
+  }
+}
+
+async function rejectHttpResponse(
+  res: Response,
+  onUnauthorized?: ApiClientOptions['onUnauthorized'],
+): Promise<never> {
+  let data: unknown = null
+  try {
+    data = parseResponseBody(await res.text())
+  } catch {
+    // Unreadable or non-JSON error bodies are never exposed.
+  }
+  const error = httpError(res.status, data)
+  if (res.status === 401 && onUnauthorized) {
+    try {
+      await onUnauthorized(error)
+    } catch {
+      // Preserve the HTTP failure even if session cleanup fails.
+    }
+  }
+  throw error
+}
 
 export function createApiClient(opts: ApiClientOptions = {}): { apiFetch: ApiFetch } {
   const baseUrl = opts.baseUrl ?? ''
   const credentials = opts.credentials ?? 'include'
   const fetchFn = opts.fetch ?? globalThis.fetch.bind(globalThis)
-
-  const apiFetch: ApiFetch = async <T>(path: string, init?: RequestInit): Promise<T> => {
+  const apiFetch: ApiFetch = async <T>(path: string, init?: ApiFetchInit<T>): Promise<T> => {
+    const { parse, ...fetchInit } = init ?? {}
     const headers = new Headers(opts.defaultHeaders)
-    if (init?.headers) {
-      new Headers(init.headers).forEach((value, key) => {
+    if (fetchInit.headers) {
+      new Headers(fetchInit.headers).forEach((value, key) => {
         headers.set(key, value)
       })
     }
-    if (init?.body != null && !headers.has('content-type')) {
+    if (fetchInit.body != null && !headers.has('content-type')) {
       headers.set('content-type', 'application/json')
     }
 
     const res = await fetchFn(`${baseUrl}${path}`, {
-      ...init,
+      ...fetchInit,
       credentials,
       headers,
     })
-
-    const text = await res.text()
-    let data: unknown = null
-    if (text) {
-      try {
-        data = JSON.parse(text) as unknown
-      } catch {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        throw new Error('Invalid JSON response')
-      }
-    }
-
-    if (!res.ok) {
-      const body = data as ApiErrorBody
-      if (body?.error?.code) {
-        const err = new ApiError(res.status, body)
-        if (res.status === 401) {
-          opts.onUnauthorized?.(err)
-        }
-        throw err
-      }
-      throw new Error(`HTTP ${res.status}`)
-    }
-
-    return data as T
+    if (!res.ok) return rejectHttpResponse(res, opts.onUnauthorized)
+    return parseOkBody(parseResponseBody(await res.text()), parse)
   }
 
   return { apiFetch }
 }
 
 /** One-shot helper; prefer `createApiClient` when sharing options across calls. */
-export function apiFetch<T>(path: string, init?: RequestInit, opts?: ApiClientOptions): Promise<T> {
+export function apiFetch<T>(
+  path: string,
+  init?: ApiFetchInit<T>,
+  opts?: ApiClientOptions,
+): Promise<T> {
   return createApiClient(opts).apiFetch<T>(path, init)
 }
 

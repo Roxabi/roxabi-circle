@@ -91,6 +91,48 @@
       "file": "0015_api_keys_org_not_null.sql",
       "set": "core",
       "kitSha256": "d6ba3f1506fc1695eaff563f11ce0abb5f4cb9f4b37395f8d839ca6aac1489f9"
+    },
+    {
+      "id": "flows_run_approvals",
+      "file": "0016_flows_run_approvals.sql",
+      "set": "flows",
+      "kitSha256": "01c1be6fbc8622f6f70da21aca76b85d8e19999422659c04a0e519221f4bb20b"
+    },
+    {
+      "id": "flow_run_events",
+      "file": "0017_flow_run_events.sql",
+      "set": "flows",
+      "kitSha256": "02920dd7ff11e45ae0762df5186a8d83b516673bf1c001548fa40f2cb2cb4031"
+    },
+    {
+      "id": "tasks_assignees_org",
+      "file": "0018_tasks_assignees_org.sql",
+      "set": "tasks",
+      "kitSha256": "14bdc77afb201792b225e4d41ab65aef2e64e8135ce96a8c1caf71f392591e8f"
+    },
+    {
+      "id": "tasks_org_fk_contract",
+      "file": "0019_tasks_org_fk_contract.sql",
+      "set": "tasks",
+      "kitSha256": "493041af03a9260a8f7176cf4d46405795314c67dc105f7c88795778957a109f"
+    },
+    {
+      "id": "kit_tasks_stage_org_guard",
+      "file": "0020_tasks_stage_org_guard.sql",
+      "set": "tasks",
+      "kitSha256": "d7274599c48e848f0c6b978e39f6803a1d6e4a8fcb6c0ef40cc5a42f1e9dc570"
+    },
+    {
+      "id": "notifications",
+      "file": "0023_notifications.sql",
+      "set": "notifications",
+      "kitSha256": "5992713b29bbae67efe612659cfb664e1c38c97aa9b3bce65c932a371c4210dd"
+    },
+    {
+      "id": "impersonation",
+      "file": "0024_impersonation.sql",
+      "set": "core",
+      "kitSha256": "6ff6a4e5ee69496fe6f0d535f87965b30b5dd9a78c13356ec8d2f975ee29faf3"
     }
   ]
 }

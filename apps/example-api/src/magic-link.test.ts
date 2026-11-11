@@ -1,12 +1,13 @@
+import { assertRateLimit } from '@kit/auth/repos/rate-limit'
 import { baUser, baVerification } from '@kit/auth/schema'
 import { createDb } from '@kit/db'
 import { eq } from 'drizzle-orm'
 import { describe, expect, it } from 'vitest'
 import { createApp } from './app'
 import { schema } from './db/schema'
-import { assertRateLimit } from './lib/rate-limit'
-import { seedDemoDatabase } from './seed/seed-db'
 import { DEMO_EMAIL } from './services/auth'
+import { createSeededDemoApi } from './test/api-fixture'
+import { captureMail, expectTokenAbsentFromVerification } from './test/mail-capture'
 import { createMemoryEnv } from './test/memory-env'
 
 const ORIGIN = 'http://localhost:5173'
@@ -22,11 +23,7 @@ const BA_ENV = {
 }
 
 async function seedEnv() {
-  const app = createApp()
-  const env = createMemoryEnv(BA_ENV)
-  const db = createDb(env.DB as unknown as D1Database, schema)
-  await seedDemoDatabase(db, { notes: false, environment: 'test' })
-  return { app, env, db }
+  return createSeededDemoApi({ env: BA_ENV, seed: { notes: false, environment: 'test' } })
 }
 
 async function verificationCount(db: ReturnType<typeof createDb>): Promise<number> {
@@ -39,7 +36,7 @@ async function userCountByEmail(db: ReturnType<typeof createDb>, email: string):
   return rows.length
 }
 
-describe('magic link (B-magic #59)', () => {
+describe('magic link (B-magic go-silex/silex-boilerplate#59)', () => {
   it('request for known email returns success and stores a verification row', async () => {
     const { app, env, db } = await seedEnv()
     const before = await verificationCount(db)
@@ -61,6 +58,64 @@ describe('magic link (B-magic #59)', () => {
     expect(bodyText).not.toMatch(/password/i)
     const after = await verificationCount(db)
     expect(after).toBeGreaterThan(before)
+  })
+
+  it('verify known-email token sets session cookie and /api/me works', async () => {
+    const { app, env, db } = await seedEnv()
+    const mail = captureMail()
+    const sent = await app.request(
+      '/api/auth/sign-in/magic-link',
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', Origin: ORIGIN },
+        body: JSON.stringify({
+          email: DEMO_EMAIL,
+          callbackURL: `${ORIGIN}/app`,
+        }),
+      },
+      env,
+    )
+    expect(sent.status, await sent.clone().text()).toBeLessThan(400)
+
+    const link = mail.link(DEMO_EMAIL, 'Sign-in link')
+    expect(link.pathname).toBe('/api/auth/magic-link/verify')
+    const token = link.searchParams.get('token')
+    expect(token).toBeTruthy()
+    await expectTokenAbsentFromVerification(db, token!)
+    const evilLink = new URL(link)
+    evilLink.searchParams.set('callbackURL', 'https://evil.example/')
+    const evil = await app.request(
+      `${evilLink.pathname}${evilLink.search}`,
+      { headers: { Origin: ORIGIN } },
+      env,
+    )
+    expect(evil.status).toBe(403)
+    expect(evil.headers.get('set-cookie')).toBeNull()
+    const verifyPath = `${link.pathname}${link.search}`
+
+    const verify = await app.request(
+      verifyPath,
+      {
+        method: 'GET',
+        headers: { Origin: ORIGIN },
+      },
+      env,
+    )
+    const location = verify.headers.get('location')
+    expect({ status: verify.status, location }).toEqual({ status: 302, location: `${ORIGIN}/app` })
+    const cookie = verify.headers.get('set-cookie') ?? ''
+    expect(cookie.toLowerCase()).toMatch(/httponly/)
+    expect(cookie).toMatch(/Path=\//i)
+    expect(cookie).toMatch(/SameSite=Lax/i)
+
+    const me = await app.request('/api/me', { headers: { cookie, Origin: ORIGIN } }, env)
+    expect(me.status).toBe(200)
+    const meBody = (await me.json()) as { subject?: string }
+    expect(meBody.subject).toBeTruthy()
+    const replay = await app.request(verifyPath, { headers: { Origin: ORIGIN } }, env)
+    expect(replay.status).toBe(302)
+    expect(new URL(replay.headers.get('location')!).searchParams.get('error')).toBe('INVALID_TOKEN')
+    expect(replay.headers.get('set-cookie')).toBeNull()
   })
 
   it('request for unknown email does not create a user when signup disabled', async () => {
@@ -85,7 +140,7 @@ describe('magic link (B-magic #59)', () => {
     expect(await userCountByEmail(db, unknown)).toBe(0)
   })
 
-  it('magic-link path is rate-limited via BA_SENSITIVE', async () => {
+  it('magic-link path is rate-limited by the kit BA throttle', async () => {
     const app = createApp()
     const env = createMemoryEnv(BA_ENV)
     const db = createDb(env.DB as unknown as D1Database, schema)
@@ -111,7 +166,7 @@ describe('magic link (B-magic #59)', () => {
     expect(body.error.code).toBe('RATE_LIMITED')
   })
 
-  it('magic-link/verify path is rate-limited via BA_SENSITIVE', async () => {
+  it('magic-link/verify path is rate-limited by the kit BA throttle', async () => {
     const app = createApp()
     const env = createMemoryEnv(BA_ENV)
     const db = createDb(env.DB as unknown as D1Database, schema)

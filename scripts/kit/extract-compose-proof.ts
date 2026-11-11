@@ -10,7 +10,6 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync 
 import { createRequire } from 'node:module'
 import { dirname, join, resolve } from 'node:path'
 
-// biome-ignore lint/suspicious/noUndeclaredEnvVars: gate script override
 const ROOT = resolve(process.env.EXTRACT_ROOT ?? join(import.meta.dirname, '../..'))
 const MIG_DIR = join(ROOT, 'apps/example-api/migrations')
 const API_PKG = join(ROOT, 'apps/example-api/package.json')
@@ -164,12 +163,7 @@ export async function runComposeProof(): Promise<void> {
   })
 
   const orgMw = createOrgMiddleware({
-    findOrgById: orgsRepo.findOrgById,
-    findMembership: async (db, orgId, subject) => {
-      const row = await orgsRepo.findMembership(db as never, orgId, subject)
-      if (!row) return null
-      return { role: row.role as 'member' }
-    },
+    findOrgContext: (db, orgId, subject) => orgsRepo.findOrgContext(db as never, orgId, subject),
     getPlatformRole: platformRolesRepo.getPlatformRole,
     resolveModuleAccess: async () => true,
     isModuleEffective: async () => true,

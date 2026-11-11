@@ -1,6 +1,7 @@
 import { createApp } from './app'
 import type { Env } from './env'
-import { handleDemoJob, handleScheduledTick } from './jobs/demo-handler'
+import { consumeQueueMessage, handleScheduledTick } from './jobs/demo-handler'
+import { runNotificationMaintenance } from './notifications-delivery/maintenance'
 
 const app = createApp()
 
@@ -8,33 +9,24 @@ export default {
   fetch: app.fetch,
 
   async queue(batch: MessageBatch<unknown>, _env: Env, _ctx: ExecutionContext) {
+    // Honors disposition; throw retries. Product copies: max_retries + DLQ.
     for (const msg of batch.messages) {
-      try {
-        handleDemoJob(msg.body)
-        msg.ack()
-      } catch (err) {
-        console.error(
-          JSON.stringify({
-            level: 'error',
-            msg: 'demo_queue_handler_error',
-            error: err instanceof Error ? err.message : String(err),
-          }),
-        )
-        // Demo-only always-ack: drops poison messages so local/CI queue never loops.
-        // Product handlers MUST NOT copy this — use msg.retry() / dead-letter policy
-        // (max retries + DLQ) so failed work is retried or parked, not silently lost.
-        msg.ack()
-      }
+      await consumeQueueMessage(msg)
     }
   },
 
-  async scheduled(controller: ScheduledController, _env: Env, _ctx: ExecutionContext) {
-    handleScheduledTick({
-      cron: controller.cron,
-      scheduledTime: controller.scheduledTime,
-    })
+  async scheduled(controller: ScheduledController, env: Env, _ctx: ExecutionContext) {
+    if (controller.cron === '0 * * * *') {
+      handleScheduledTick({
+        cron: controller.cron,
+        scheduledTime: controller.scheduledTime,
+      })
+    } else if (controller.cron === '*/5 * * * *') {
+      await runNotificationMaintenance(env)
+    }
   },
 }
 
 export { FlowRunWorkflow } from './flows-run/workflow'
+export { NotificationDeliveryWorkflow } from './notifications-delivery/workflow'
 export { createApp }

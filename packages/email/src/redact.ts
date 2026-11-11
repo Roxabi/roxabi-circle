@@ -22,7 +22,7 @@ export function redactEmailAddress(to: string): string {
   if (at <= 0 || at === trimmed.length - 1) return '[redacted]'
   const local = trimmed.slice(0, at)
   const domain = trimmed.slice(at + 1)
-  if (!local || !domain) return '[redacted]'
+  if (!(local && domain)) return '[redacted]'
   const masked = local.length === 1 ? '*' : `${local[0]}***`
   return `${masked}@${domain}`
 }
@@ -35,7 +35,7 @@ export function redactEmailBody(text: string): string {
   out = out
     .split('\n')
     .map((line) => {
-      if (!/https?:\/\//i.test(line) && !/token=/i.test(line)) return line
+      if (!(/https?:\/\//i.test(line) || /token=/i.test(line))) return line
       return line.replace(LONG_TOKEN, (m) => (m.length >= 20 ? '[REDACTED]' : m))
     })
     .join('\n')

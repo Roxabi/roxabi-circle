@@ -23,6 +23,33 @@ describe('checkNewLink', () => {
     expect(issues.some((i) => i.code === 'DUPLICATE_EDGE')).toBe(true)
   })
 
+  it('ignores duplicate, second-parent, and reverse-cycle links from another org', () => {
+    expect(
+      checkNewLink([{ orgId: 'o2', fromTaskId: 'a', toTaskId: 'b', kind: 'blocks' }], {
+        orgId: 'o1',
+        fromTaskId: 'a',
+        toTaskId: 'b',
+        kind: 'blocks',
+      }),
+    ).toEqual([])
+    expect(
+      checkNewLink([{ orgId: 'o2', fromTaskId: 'p1', toTaskId: 'c', kind: 'parent' }], {
+        orgId: 'o1',
+        fromTaskId: 'p2',
+        toTaskId: 'c',
+        kind: 'parent',
+      }),
+    ).toEqual([])
+    expect(
+      checkNewLink([{ orgId: 'o2', fromTaskId: 'a', toTaskId: 'b', kind: 'blocks' }], {
+        orgId: 'o1',
+        fromTaskId: 'b',
+        toTaskId: 'a',
+        kind: 'blocks',
+      }),
+    ).toEqual([])
+  })
+
   it('rejects second parent', () => {
     const existing = [{ orgId: 'o1', fromTaskId: 'p1', toTaskId: 'c', kind: 'parent' as const }]
     const issues = checkNewLink(existing, {
@@ -68,6 +95,76 @@ describe('checkNewLink', () => {
       kind: 'blocks',
     })
     expect(issues.some((i) => i.code === 'CYCLE')).toBe(true)
+  })
+
+  it('rejects a short blocks cycle in a wide graph', () => {
+    const existing = Array.from({ length: 300 }, (_, index) => ({
+      orgId: 'o1',
+      fromTaskId: 'a',
+      toTaskId: `b${index}`,
+      kind: 'blocks' as const,
+    }))
+    existing.push({ orgId: 'o1', fromTaskId: 'b0', toTaskId: 'x', kind: 'blocks' as const })
+    const issues = checkNewLink(existing, {
+      orgId: 'o1',
+      fromTaskId: 'x',
+      toTaskId: 'a',
+      kind: 'blocks',
+    })
+    expect(issues.some((issue) => issue.code === 'CYCLE')).toBe(true)
+  })
+
+  it('accepts a link into a wide acyclic graph', () => {
+    const existing = Array.from({ length: 300 }, (_, index) => ({
+      orgId: 'o1',
+      fromTaskId: 'a',
+      toTaskId: `b${index}`,
+      kind: 'blocks' as const,
+    }))
+    existing.push(
+      { orgId: 'o1', fromTaskId: 'b0', toTaskId: 'x', kind: 'blocks' as const },
+      { orgId: 'o1', fromTaskId: 'b299', toTaskId: 'x', kind: 'blocks' as const },
+    )
+    expect(
+      checkNewLink(existing, {
+        orgId: 'o1',
+        fromTaskId: 'y',
+        toTaskId: 'a',
+        kind: 'blocks',
+      }),
+    ).toEqual([])
+  })
+
+  it('accepts a link when an existing cycle does not reach its source', () => {
+    const existing = [
+      { orgId: 'o1', fromTaskId: 'a', toTaskId: 'c', kind: 'blocks' as const },
+      { orgId: 'o1', fromTaskId: 'c', toTaskId: 'd', kind: 'blocks' as const },
+      { orgId: 'o1', fromTaskId: 'd', toTaskId: 'c', kind: 'blocks' as const },
+    ]
+    expect(
+      checkNewLink(existing, {
+        orgId: 'o1',
+        fromTaskId: 'y',
+        toTaskId: 'a',
+        kind: 'blocks',
+      }),
+    ).toEqual([])
+  })
+
+  it('rejects a cycle closed through a long chain', () => {
+    const existing = Array.from({ length: 300 }, (_, index) => ({
+      orgId: 'o1',
+      fromTaskId: `c${index}`,
+      toTaskId: `c${index + 1}`,
+      kind: 'blocks' as const,
+    }))
+    const issues = checkNewLink(existing, {
+      orgId: 'o1',
+      fromTaskId: 'c300',
+      toTaskId: 'c0',
+      kind: 'blocks',
+    })
+    expect(issues.some((issue) => issue.code === 'CYCLE')).toBe(true)
   })
 })
 

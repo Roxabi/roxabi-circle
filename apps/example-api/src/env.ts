@@ -1,9 +1,11 @@
+import type { DeliveryRef } from '@kit/notifications'
 import type { WorkerStringEnv } from './env.schema'
 
 /**
- * Minimal CF Email Sending binding (ADR-0004). Full types from `wrangler types` when available.
+ * Structural subset of CF Email Sending (ADR-0004) the kit's email port consumes. The runtime
+ * binding type is the `SendEmail` global from `worker-configuration.d.ts`.
  */
-export type SendEmailBinding = {
+type SendEmailBinding = {
   send: (msg: {
     to: string | string[]
     from: string | { email: string; name?: string }
@@ -26,13 +28,6 @@ export type Env = WorkerStringEnv & {
   DEMO_QUEUE?: Queue
   /** Wrangler [[workflows]] binding. Instance names are account-scoped / env-distinct. */
   FLOW_RUN: Workflow<{ runId: string; orgId: string }>
+  /** Native owner of notification deliveries. */
+  NOTIFICATION_DELIVERY: Workflow<DeliveryRef>
 }
-
-export {
-  parseWorkerStringEnv,
-  WORKER_BINDINGS,
-  WORKER_STRING_ENV_KEYS,
-  type WorkerBindingName,
-  type WorkerStringEnv,
-  workerStringEnvSchema,
-} from './env.schema'

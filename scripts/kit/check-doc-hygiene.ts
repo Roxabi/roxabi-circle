@@ -4,14 +4,11 @@ import { existsSync, readdirSync, readFileSync, realpathSync, statSync } from 'n
 import { dirname, join, relative, resolve, sep } from 'node:path'
 
 const ROOT = realpathSync(
-  resolve(
-    // biome-ignore lint/suspicious/noUndeclaredEnvVars: fixture override is intentionally outside Turbo
-    process.env.DOC_HYGIENE_ROOT ?? join(import.meta.dirname, '../..'),
-  ),
+  resolve(process.env.DOC_HYGIENE_ROOT ?? join(import.meta.dirname, '../..')),
 )
-const STACK = '.claude/stack.yml'
+const STACK = '.dev/stack.yml'
 const INDEX = 'docs/kit/README.md'
-const REQUIRED_MARKDOWN = ['AGENTS.md', 'CLAUDE.md', 'README.md']
+const REQUIRED_MARKDOWN = ['AGENTS.md', 'README.md']
 
 type Issue = { file: string; line: number; message: string }
 type Link = { line: number; raw: string; target: string }
@@ -60,47 +57,52 @@ function scalar(value: string): string | null {
   if (/^[[{]|[\]}]$/.test(clean)) return null
   return clean
 }
+function ingestStackMapping(
+  section: string,
+  match: RegExpMatchArray,
+  index: number,
+  state: { standards: Target[]; docsPath: Target | null },
+): void {
+  const value = scalar(match[2])
+  if (section === 'standards') {
+    if (value === null) report(STACK, index + 1, `standard ${match[1]} must have a path`)
+    else state.standards.push({ line: index + 1, key: match[1], value })
+    return
+  }
+  if (match[1] === 'path') {
+    if (value === null) report(STACK, index + 1, 'docs.path must be a path')
+    else state.docsPath = { line: index + 1, key: 'docs.path', value }
+  }
+}
 
-function parseStack(): Target[] {
-  const path = join(ROOT, STACK)
-  if (!existsSync(path)) {
-    report(STACK, 1, 'missing stack manifest')
-    return []
+function ingestStackLine(
+  raw: string,
+  index: number,
+  state: { section: string; standards: Target[]; docsPath: Target | null },
+): void {
+  const uncommented = stripYamlComment(raw)
+  if (!uncommented) return
+  const indent = raw.match(/^ */)?.[0].length ?? 0
+  if (indent === 0) {
+    state.section = uncommented.match(/^([A-Za-z0-9_-]+):\s*$/)?.[1] ?? ''
+    return
   }
-  const lines = readFileSync(path, 'utf8').split(/\r?\n/)
-  const standards: Target[] = []
-  let section = ''
-  let docsPath: Target | null = null
-  for (let index = 0; index < lines.length; index += 1) {
-    const raw = lines[index]
-    const uncommented = stripYamlComment(raw)
-    if (!uncommented) continue
-    const indent = raw.match(/^ */)?.[0].length ?? 0
-    if (indent === 0) {
-      section = uncommented.match(/^([A-Za-z0-9_-]+):\s*$/)?.[1] ?? ''
-      continue
+  if (state.section !== 'standards' && state.section !== 'docs') return
+  if (indent !== 2) {
+    if (state.section === 'standards') {
+      report(STACK, index + 1, 'standards must be a flat key: path mapping')
     }
-    if (section !== 'standards' && section !== 'docs') continue
-    if (indent !== 2) {
-      if (section === 'standards') {
-        report(STACK, index + 1, 'standards must be a flat key: path mapping')
-      }
-      continue
-    }
-    const match = uncommented.trim().match(/^([A-Za-z0-9_-]+):\s*(.*)$/)
-    if (!match) {
-      report(STACK, index + 1, `invalid ${section} mapping`)
-      continue
-    }
-    const value = scalar(match[2])
-    if (section === 'standards') {
-      if (value === null) report(STACK, index + 1, `standard ${match[1]} must have a path`)
-      else standards.push({ line: index + 1, key: match[1], value })
-    } else if (match[1] === 'path') {
-      if (value === null) report(STACK, index + 1, 'docs.path must be a path')
-      else docsPath = { line: index + 1, key: 'docs.path', value }
-    }
+    return
   }
+  const match = uncommented.trim().match(/^([A-Za-z0-9_-]+):\s*(.*)$/)
+  if (!match) {
+    report(STACK, index + 1, `invalid ${state.section} mapping`)
+    return
+  }
+  ingestStackMapping(state.section, match, index, state)
+}
+
+function validateStackTargets(standards: Target[], docsPath: Target | null): void {
   if (standards.length === 0) report(STACK, 1, 'standards block is missing or empty')
   if (!docsPath) report(STACK, 1, 'docs.path is missing')
   const targets = docsPath ? [...standards, docsPath] : standards
@@ -116,7 +118,25 @@ function parseStack(): Target[] {
       report(STACK, target.line, `${target.key} resolves outside repository: ${target.value}`)
     }
   }
-  return standards
+}
+
+function parseStack(): Target[] {
+  const path = join(ROOT, STACK)
+  if (!existsSync(path)) {
+    report(STACK, 1, 'missing stack manifest')
+    return []
+  }
+  const state: { section: string; standards: Target[]; docsPath: Target | null } = {
+    section: '',
+    standards: [],
+    docsPath: null,
+  }
+  const lines = readFileSync(path, 'utf8').split(/\r?\n/)
+  for (let index = 0; index < lines.length; index += 1) {
+    ingestStackLine(lines[index], index, state)
+  }
+  validateStackTargets(state.standards, state.docsPath)
+  return state.standards
 }
 
 function walkMarkdown(dir: string, output: string[]): void {
@@ -128,6 +148,27 @@ function walkMarkdown(dir: string, output: string[]): void {
     else if (stat.isFile() && name.endsWith('.md')) output.push(path)
   }
 }
+function toggleFence(fence: string, marker: string): string {
+  if (!marker) return fence
+  if (!fence) return marker
+  if (marker[0] === fence[0] && marker.length >= fence.length) return ''
+  return fence
+}
+
+function collectLineLinks(line: string, lineNo: number, links: Link[]): void {
+  const found = new Set<string>()
+  const add = (raw: string): void => {
+    if (found.has(raw)) return
+    found.add(raw)
+    const target = raw.startsWith('<') && raw.endsWith('>') ? raw.slice(1, -1) : raw
+    links.push({ line: lineNo, raw, target })
+  }
+  for (const match of line.matchAll(/!?\[[^\]]*\]\(\s*(<[^>]*>|[^)\s]+)(?:\s+[^)]*)?\)/g)) {
+    add(match[1])
+  }
+  const definition = line.match(/^\s{0,3}\[[^\]]+\]:\s*(<[^>]+>|\S+)/)
+  if (definition) add(definition[1])
+}
 
 function markdownLinks(path: string): Link[] {
   const links: Link[] = []
@@ -137,23 +178,11 @@ function markdownLinks(path: string): Link[] {
     const line = lines[index]
     const marker = line.match(/^\s*(`{3,}|~{3,})/)?.[1] ?? ''
     if (marker) {
-      if (!fence) fence = marker
-      else if (marker[0] === fence[0] && marker.length >= fence.length) fence = ''
+      fence = toggleFence(fence, marker)
       continue
     }
     if (fence) continue
-    const found = new Set<string>()
-    const add = (raw: string): void => {
-      if (found.has(raw)) return
-      found.add(raw)
-      const target = raw.startsWith('<') && raw.endsWith('>') ? raw.slice(1, -1) : raw
-      links.push({ line: index + 1, raw, target })
-    }
-    for (const match of line.matchAll(/!?\[[^\]]*\]\(\s*(<[^>]*>|[^)\s]+)(?:\s+[^)]*)?\)/g)) {
-      add(match[1])
-    }
-    const definition = line.match(/^\s{0,3}\[[^\]]+\]:\s*(<[^>]+>|\S+)/)
-    if (definition) add(definition[1])
+    collectLineLinks(line, index + 1, links)
   }
   return links
 }
@@ -198,19 +227,7 @@ function resolveLink(source: string, link: Link, diagnose: boolean): string | nu
   }
   return actual
 }
-
-function checkClaudeImports(): void {
-  const path = join(ROOT, 'CLAUDE.md')
-  if (!existsSync(path)) return
-  const lines = readFileSync(path, 'utf8').split(/\r?\n/)
-  if (lines[0]?.trim() !== '@AGENTS.md') {
-    report('CLAUDE.md', 1, 'first line must import @AGENTS.md')
-  }
-}
-
-function main(): void {
-  const standards = parseStack()
-  checkClaudeImports()
+function collectMarkdownFiles(): string[] {
   const markdown: string[] = []
   for (const file of REQUIRED_MARKDOWN) {
     const path = join(ROOT, file)
@@ -219,6 +236,13 @@ function main(): void {
   }
   walkMarkdown(join(ROOT, 'docs/kit'), markdown)
   markdown.sort((a, b) => compareText(rel(a), rel(b)))
+  return markdown
+}
+
+function checkAllLinks(markdown: string[]): {
+  linksByFile: Map<string, Link[]>
+  checkedLinks: number
+} {
   const linksByFile = new Map<string, Link[]>()
   let checkedLinks = 0
   for (const file of markdown) {
@@ -229,24 +253,32 @@ function main(): void {
       resolveLink(file, link, true)
     }
   }
+  return { linksByFile, checkedLinks }
+}
+
+function checkIndexCoverage(markdown: string[], linksByFile: Map<string, Link[]>): void {
   const indexPath = join(ROOT, INDEX)
-  if (!existsSync(indexPath)) report(INDEX, 1, 'central documentation index is missing')
-  else {
-    const indexed = new Set(
-      (linksByFile.get(indexPath) ?? markdownLinks(indexPath))
-        .map((link) => resolveLink(indexPath, link, false))
-        .filter((path): path is string => path !== null),
-    )
-    for (const file of markdown) {
-      if (
-        rel(file).startsWith('docs/kit/') &&
-        rel(file) !== INDEX &&
-        !indexed.has(realpathSync(file))
-      ) {
-        report(rel(file), 1, `document is not referenced by ${INDEX}`)
-      }
+  if (!existsSync(indexPath)) {
+    report(INDEX, 1, 'central documentation index is missing')
+    return
+  }
+  const indexed = new Set(
+    (linksByFile.get(indexPath) ?? markdownLinks(indexPath))
+      .map((link) => resolveLink(indexPath, link, false))
+      .filter((path): path is string => path !== null),
+  )
+  for (const file of markdown) {
+    if (
+      rel(file).startsWith('docs/kit/') &&
+      rel(file) !== INDEX &&
+      !indexed.has(realpathSync(file))
+    ) {
+      report(rel(file), 1, `document is not referenced by ${INDEX}`)
     }
   }
+}
+
+function finishDocHygiene(standards: number, markdown: number, checkedLinks: number): void {
   issues.sort(
     (a, b) => compareText(a.file, b.file) || a.line - b.line || compareText(a.message, b.message),
   )
@@ -257,8 +289,16 @@ function main(): void {
     return
   }
   console.log(
-    `check-doc-hygiene: OK (${standards.length} standards, ${markdown.length} Markdown files, ${checkedLinks} internal links)`,
+    `check-doc-hygiene: OK (${standards} standards, ${markdown} Markdown files, ${checkedLinks} internal links)`,
   )
+}
+
+function main(): void {
+  const standards = parseStack()
+  const markdown = collectMarkdownFiles()
+  const { linksByFile, checkedLinks } = checkAllLinks(markdown)
+  checkIndexCoverage(markdown, linksByFile)
+  finishDocHygiene(standards.length, markdown.length, checkedLinks)
 }
 
 main()

@@ -2,7 +2,7 @@
 # Fail if agent rules, normative docs, or lefthook re-enumerate validate:full.
 #
 # SSoT for the step list is root package.json scripts["validate:full"].
-# Tokenize that script on `bun run <name>` / `&&`. Naming the script is allowed.
+# Extract the ordered task inventory from the canonical side-effect-free plan.
 # A CP row listing inner names without the bar name is allowed. Heuristic: the
 # line/block mentions `validate:full` AND ≥ THRESHOLD of those tokens (or a
 # middot-wrapped continuation of that).
@@ -48,31 +48,9 @@ TOKEN_OUT=""
 TOKEN_EC=0
 set +e
 TOKEN_OUT="$(
-  BAR_SSOT_PKG="${PKG}" bun -e '
-const fs = require("fs");
-const p = process.env.BAR_SSOT_PKG;
-let j;
-try {
-  j = JSON.parse(fs.readFileSync(p, "utf8"));
-} catch (e) {
-  console.error("check-bar-ssot: unparseable package.json");
-  process.exit(1);
-}
-const s = j && j.scripts && j.scripts["validate:full"];
-if (typeof s !== "string" || !s.trim()) {
-  console.error("check-bar-ssot: missing scripts[\"validate:full\"]");
-  process.exit(1);
-}
-const names = [];
-const re = /bun run ([^\s&]+)/g;
-let m;
-while ((m = re.exec(s))) names.push(m[1]);
-if (names.length === 0) {
-  console.error("check-bar-ssot: validate:full has no bun run <name> tokens");
-  process.exit(1);
-}
-for (const n of names) process.stdout.write(n + "\n");
-' 2>"${TOKEN_ERR}"
+  cd "${ROOT}"
+  bun run validate:full -- --plan 2>"${TOKEN_ERR}" |
+    bun -e 'const plan = JSON.parse(await Bun.stdin.text()); if (!Array.isArray(plan.tasks) || !plan.tasks.length) process.exit(1); for (const task of plan.tasks) console.log(task)'
 )"
 TOKEN_EC=$?
 set -e
@@ -88,7 +66,7 @@ rm -f "${TOKEN_ERR}"
 
 mapfile -t TOKENS <<< "${TOKEN_OUT}"
 if [[ "${#TOKENS[@]}" -eq 0 ]]; then
-  echo "check-bar-ssot: validate:full has no bun run <name> tokens" >&2
+  echo "check-bar-ssot: validate:full plan has no tasks" >&2
   exit 1
 fi
 
@@ -128,18 +106,19 @@ mentions_validate_full() {
   [[ "${text}" == *'validate:full'* ]]
 }
 
-# Command invoke: optional YAML list dash + optional `run:` prefix, then
-# `bun run validate:full`. Not a substring inside echo/comments.
+# A hook must execute the unflagged full bar. CI may instead invoke the
+# substantive join; plan and individual groups are not complete verdicts.
 line_invokes_validate_full() {
-  local stripped="$1"
+  local stripped="$1" role="$2"
   [[ "${stripped}" == \#* ]] && return 1
   if [[ "${stripped}" == -* ]]; then
     stripped="${stripped#-}"
     stripped="${stripped#"${stripped%%[![:space:]]*}"}"
   fi
   [[ "${stripped}" == \#* ]] && return 1
-  local re='^(run:[[:space:]]*)?bun[[:space:]]+run[[:space:]]+validate:full([[:space:]]|$)'
-  [[ "${stripped}" =~ ${re} ]]
+  local full='^(run:[[:space:]]*)?bun[[:space:]]+run[[:space:]]+validate:full[[:space:]]*(#.*)?$'
+  local join='^(run:[[:space:]]*)?bun[[:space:]]+run[[:space:]]+validate:full[[:space:]]+--[[:space:]]+--ci-join[[:space:]]+[^[:space:]]+[[:space:]]+--producers-result[[:space:]]+[^[:space:]]+[[:space:]]*(#.*)?$'
+  [[ "${stripped}" =~ ${full} ]] || { [[ "${role}" == ci ]] && [[ "${stripped}" =~ ${join} ]]; }
 }
 
 FAIL=0
@@ -202,7 +181,7 @@ if [[ -f "${LEFTHOOK}" ]]; then
   while IFS= read -r line || [[ -n "${line}" ]]; do
     line="${line%$'\r'}"
     stripped="${line#"${line%%[![:space:]]*}"}"
-    if line_invokes_validate_full "${stripped}"; then
+    if line_invokes_validate_full "${stripped}" hook; then
       found=1
       break
     fi
@@ -219,7 +198,7 @@ if [[ -f "${CI}" ]]; then
   while IFS= read -r line || [[ -n "${line}" ]]; do
     line="${line%$'\r'}"
     stripped="${line#"${line%%[![:space:]]*}"}"
-    if line_invokes_validate_full "${stripped}"; then
+    if line_invokes_validate_full "${stripped}" ci; then
       found=1
       break
     fi

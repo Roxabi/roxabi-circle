@@ -1,8 +1,8 @@
 # Runbook — Cloudflare deploy (kit showcase)
 
 **Status:** shipping.  
-**CD model:** **Cloudflare Builds** (git pull → build + deploy **on Cloudflare**).  
-GitHub CI = **quality only** (`validate:full`). GH does **not** ship the showcase.
+**CD model:** **Cloudflare Builds** (git pull → build + deploy **on Cloudflare**) from the CI-gated branch **`deploy/main`**.  
+GitHub CI = quality (`validate:full`) + the **Deploy gate** that moves `deploy/main`. GH does **not** ship the showcase.
 
 | Related | Role |
 |---------|------|
@@ -19,46 +19,110 @@ GitHub CI = **quality only** (`validate:full`). GH does **not** ship the showcas
 
 Generic protocol (staging **and** production, product + kit): [`environments.md`](./environments.md).
 
-This page is the **kit showcase** instance: CD on **`main` only** until B4 adds `[env.staging]` for `example-*`.
+This page is the **kit showcase** instance: CD from **`deploy/main` only** until B4 adds `[env.staging]` for `example-*`.
 
 ```text
-dev → PR → GitHub CI (validate:full)     # prove quality
-         → merge to main only when green  # process / merge-on-green
-              → push main
-                   → Cloudflare Workers Builds  (API)
-                   → Cloudflare Pages build     (SPA)
-                        → live on *.roxabi.dev
+dev → PR → GitHub CI (validate:full)       # prove quality
+         → merge to main (merge-on-green)   # process gate
+              → push main → CI + Secret scan on that SHA
+                   → Deploy gate: all green → fast-forward deploy/main to that SHA
+                        → Cloudflare Workers Builds  (API)   ← production branch deploy/main
+                        → Cloudflare Pages build     (SPA)   ← production branch deploy/main
+                             → live on *.roxabi.dev
 ```
 
 | Layer | Who | What |
 |-------|-----|------|
-| **CI** | GitHub Actions `ci.yml` | lint, typecheck, tests, banlist, zero-edit, … — **no deploy** |
-| **CD** | **Cloudflare** | clone monorepo, `bun install`, migrate D1, `wrangler deploy`, Vite build + Pages |
+| **CI** | GitHub Actions `ci.yml` · `secret-scan.yml` | lint, typecheck, tests, banlist, zero-edit, secret scan — **no deploy** |
+| **Gate** | GitHub Actions `deploy-gate.yml` → `scripts/kit/promote-deploy.ts` | moves `deploy/main`, fast-forward only, to a SHA whose required push workflows (including `ci` and Secret scan) are green |
+| **CD** | **Cloudflare** | clone `deploy/main`, `bun install`, migrate D1, `wrangler deploy`, Vite build + Pages |
 | **Live** | Cloudflare | Worker `boilerplate-api`, Pages `boilerplate`, D1/R2 |
 
-**No** GitHub deploy job, **no** `kit-deploy` artifact, **no** `CLOUDFLARE_API_TOKEN` required on GH for day-to-day CD.
+**No** GitHub deploy job, **no** `kit-deploy` artifact, **no** `CLOUDFLARE_API_TOKEN` on GH.
 
 ### “Only when CI is green”
 
-Workers Builds / Pages trigger on **push to `main`**. They do **not** natively wait for a GitHub check.
+Workers Builds / Pages trigger on the **push** to their production branch and cannot wait for a GitHub check. On GitHub Free private, merge-on-green is process, not enforcement: a red commit can still reach `main` (Roxabi/roxabi-boilerplate-cf#256: a consumer's D1 migrations and Worker went live 30 s before its CI finished). So CF never builds `main`:
 
-| Want | Reality |
-|------|---------|
-| CF only deploys after GH CI green | **No built-in Workers Builds switch** for that |
-| Practical gate | Keep red code off `main` (lefthook + merge-on-green + optional Team branch protection) |
-| Optional later | External CD: GH deploys only on `workflow_run` success |
+| Piece | Rule |
+|-------|------|
+| CF production branch | **`deploy/main`** (Workers Builds + Pages). Never `main`. |
+| Who moves it | `deploy-gate.yml` only: on every completed **push** run of **CI**, **Secret scan** or **Product CI** on `main` (a PR run never moves it), or by hand via *Run workflow* (reconcile) |
+| What it pushes | the **newest first-parent commit** of `main` ahead of `deploy/main` whose required workflows all `success` on their **push** run for that exact SHA — never `main` HEAD, never a newer untested push. Any trigger re-evaluates the whole range, so the branch converges |
+| Required workflows | kit `ci.yml` + `secret-scan.yml`, plus the union of Product workflows declared at the resolved deployed SHA and at the candidate commit (`config/product/deploy-gate.json`; product mode when `inheritance.json` is present; `{"workflows": [".github/workflows/product-ci.yml"]}` — mandatory in product mode, `[]` if the product has no CI of its own). The union is monotone for that decision only: a candidate can add a requirement immediately, and omitting one does not erase what the deployed SHA still declares. It is not an eternal veto — promoting a commit that undeclares a workflow while that workflow's push run is still green moves the baseline; the next decision no longer requires it. Deleting the file before that promotion leaves the obligation missing and blocks. A workflow declared on the deployed SHA must run as **`Product CI`** (a gate trigger); another name there is refused. A wrong name only on a candidate-only path excludes that candidate and does not refuse the run. Each required workflow must run on every push to the branch, without a `paths:` filter (a missing run is not green). Latest run per workflow decides; `skipped`, `cancelled`, `queued`, missing → not green. Retirement is two promotions, not two merges onto `main`. The merge hold is two PRs: undeclare while the file and its green run stay, merge, then delete ([product-consumer-contract.md](./product-consumer-contract.md) § Product CI). The first promotion fast-forwards each required `deploy/<branch>` (`deploy/main`, and `deploy/staging` when that train exists) to the undeclaring commit while the old file's push run is still green. Until that promotion, deleting the file blocks. After it, a later commit may delete the file; shipping that deletion is the second promotion. `bun scripts/kit/promote-deploy.ts --check` is the local signal of that wait: it reads the local `refs/remotes/origin/deploy/<SOURCE_BRANCH>` snapshot (no fetch, no GitHub API) and judges those paths in the candidate working tree, not the old blob. A missing ref is bootstrap; a stale local ref still imposes the old obligation; a git or deployed-declaration failure refuses. It also validates the working-tree declaration with promotion's own loader, then each declared workflow: name, a `push` trigger whose `branches` admit the source branch under GitHub's filter syntax, no `paths` / `paths-ignore` / `branches-ignore`, no job-level `if` it cannot prove true on push. The same push and job rules apply to kit `ci.yml` and `secret-scan.yml`, without the Product CI name rule. An undeclared product workflow file is admissible unless that snapshot still requires it. `continue-on-error` must be absent or boolean false on every inspected job, step, and callee. A local callee whose `on` has no `workflow_call` is refused even outside a git project. A clean semantic check then runs pinned actionlint with `-config-file config/kit/actionlint.yaml` (Roxabi/roxabi-boilerplate-cf#325). A step-level `if` is not a claim that the step runs. No push of `deploy/<branch>`; `SOURCE_BRANCH=staging` when the product has `deploy/staging` (either staging model). Kit `validate:full` runs it as `deploy-gate:check` in the required `ci` job, and that run is the enforcing one; the product bar template runs it too, as an early signal inside Product CI, the workflow under check (Roxabi/roxabi-boilerplate-cf#317, Roxabi/roxabi-boilerplate-cf#325, Roxabi/roxabi-boilerplate-cf#331). This union is what the job enforces only once the revision that contains it has itself reached `deploy/<branch>`; until that cutover the promoted script is the previous one. |
+| How | fast-forward only; a `deploy/main` that is not an ancestor of `main` is **refused**, never forced |
+| Trust | the job runs **inside a checkout of `deploy/<branch>`** (already promoted, green by construction): the decision script, `package.json` (Bun version), anything Bun reads from the working directory (`bunfig.toml` — committed, install-time supply-chain policy — and `.env`, none committed) come from there, never from the untested tip. The Product baseline is the blob at the resolved deployed SHA, so a dirty worktree cannot widen or shrink it. Candidate declarations are read with git and never checked out or executed; they can only add requirements for that decision. Until this revision is itself on `deploy/<branch>`, the checkout still runs the previous script, which does not union candidate declarations. Residual: the workflow YAML itself is always the default branch's (GitHub loads `workflow_run` definitions from it), and *Run workflow* runs the YAML of the chosen ref — both need write access, which can push `deploy/*` anyway |
+| Token | the **kit-ci App** (repo-level `CI_APP_ID` / `CI_APP_PRIVATE_KEY`, [ci-app-setup.md](./ci-app-setup.md)), minted with `contents` + `workflows` write after the decision, for the push step only. `GITHUB_TOKEN` cannot move a branch over a workflow-file change. Without the App the gate fails, visibly |
+| Secret scan | the push scan covers only its own diff, so the gate also requires every scanned commit in `deploy/<branch>..candidate` to have a green Secret scan: a key pushed in P1 blocks P2 and later even when their own scans are green. Scans are never cancelled (one concurrency group per SHA) |
+| Scripts | `api-deploy.sh` / `web-build.sh` refuse any branch ≠ `deploy/main` (a `refs/heads/` prefix is stripped) before migrate, deploy or build. `install-monorepo.sh` only installs. All three refuse a Bun other than `package.json#packageManager` (§4b) |
+
+Product consumers inherit the workflow and the script unchanged: `main` → `deploy/main`, `staging` → `deploy/staging` ([environments.md](./environments.md) §4). Inheriting them does **not** protect an already-connected product until its cutover is done.
+
+This **push**-run promotion policy is independent from the PR merge hold: before a Product PR reaches `main`, `merge-on-green` requires strict current-head Product evidence and the base/head declaration union ([product-consumer-contract.md](./product-consumer-contract.md) § Product CI). Two merges onto `main` do not retire a deployed workflow. The undeclaring commit must be promoted onto each required `deploy/<branch>` before a later commit may delete the file; `--check` waits on the local ref snapshot, not a fetch. Neither policy supplies branch protection or proves a live Product workflow is wired.
+
+### Merge-on-green consumer rollout and unreadable recovery
+
+Treat a change to inherited `merge-on-green` admission or concurrency as a five-stage operator cutover, not as a normal pull.
+
+1. **Prepare.** Inspect the consumer's **actual old** workflow revision: its jobs, event/ref set and authorization-label writers. Do not assume Kit HEAD filters or equate merge candidates with event sources; an older revision can react to **any** label from any actor, including drafts or forks. For every existing supported base — `main`, and `staging` only when present — prepare an unlabelled inheritance PR with normal current-head independent review and green quality CI, and record its eventual landing as `L_base`. A PR is pre-cutover for a base when its current merge ref may predate that base's `L_base`, including a PR opened between the `main` and `staging` landings. This does not authorize a deployment.
+2. **Pause.** Freeze **all** human or tooling label additions, not only authorization labels, on pre-cutover PRs in the actual old event-source set until their current merge ref is observed to include `L_base`. Disable the existing gate:
+
+   ```bash
+   gh workflow disable merge-on-green.yml --repo OWNER/REPO
+   ```
+
+   This also disables its `reviewed` push/reopen revoker; it does not cancel existing jobs, roll back writes, or stop the separate Dependabot label lifecycle. Keep `dependabot-automerge.yml` enabled, but handle its in-flight writers in stage 4.
+3. **Drain and land.** Account for, then drain or cancel **every** old Merge on Green job, including revocation-only jobs and every old concurrency group. Manually land only the approved, green, unchanged inheritance heads into **all** existing supported bases; a changed head requires new normal review and CI. Do not land inheritance through the old automatic path. Repeat the terminal sweep after those landings.
+4. **Finite reset before enable.** While still paused, remove `reviewed` from **all** remaining open PRs. Account for old Dependabot label-evaluation runs still in flight: finish them, or cancel them and remove that PR's `deps-automerge`, so no pre-cutover writer undoes the reset. The separate normal deps revoker stays enabled. For remaining `deps-automerge`, inspect relevant actual old-workflow event sources (known case: open same-repository conflict-free PRs targeting `main`/`staging`, drafts included because a draft label can full-scan other candidates): `L_base` must be an ancestor of the current `refs/pull/<N>/merge`. If it is not current or verifiable, remove **that PR's** authorization label; do not wait for every PR ref to refresh. Other-base, fork or conflicting PRs do not block when the actual old trigger excludes them. Do not require universal file-byte equality. Keep the admission freeze through immediate enable.
+5. **Resume and readmit.** The finite enable boundary is: every existing supported base landed; every old gate job terminal/accounted; no `reviewed` immediately before enable; no unchecked pending old label writer; and every remaining relevant deps-authorized ref structurally includes `L_base` or its label was removed. Enable, then dispatch a fresh **full** scan on the default branch — no alternate `--ref`:
+
+   ```bash
+   gh workflow enable merge-on-green.yml --repo OWNER/REPO
+   gh workflow run merge-on-green.yml --repo OWNER/REPO
+   ```
+
+   **Never** re-run a gate or Dependabot authorization-label run created before cutover, including a cancelled run: it replays its old SHA, ref, code and group. Obtain a new deps evaluation only through a Dependabot-authored refresh such as `@dependabot rebase` or `@dependabot recreate`; never hand-add `deps-automerge`. A human branch update on a Dependabot PR deliberately withholds automatic eligibility; use normal independent review followed by fresh native or manual admission and an exact-head receipt, or a bot-recreated PR. After enable, human-reviewed heads require that same explicit fresh admission; see [CI App setup](./ci-app-setup.md#reviewed-head-authorization). Before **any** label addition to a pre-cutover PR in the old trigger set (drafts included), verify `L_base` ancestry in its current merge ref; if it is stale, leave that PR's labels frozen — an ordinary PR needs a normal branch update/recheck, a Dependabot PR needs the bot-authored refresh. This never blocks global enable.
+
+A final red **Merge on Green** run whose failure is `unreadable` is not a transactional rollback or proof that no candidate merged, and it is not necessarily an API-read failure. Inspect the failing stage, each named PR and its status; correct the actual cause — API availability, kit-ci GitHub App permissions or merge conditions, or a bad optional priority PR input (clear or correct it) — then use another fresh default-branch full scan. Do not blindly wait for reads or retry every candidate.
+
+The read/check/merge sequence and the all-label-freeze-to-enable coordination remain process-only and non-atomic. [`pull_request` uses `refs/pull/<N>/merge`](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#pull_request), but this runbook does not observe branch-ref/event-delivery timing or claim that reading mergeability refreshes a ref. PR-authored workflow/CJS can change inherited behaviour even when `L_base` is an ancestor; that source-authorship residual is judged in normal independent review/manual cutover, not by isolation or byte-equality. Write users can bypass this process; old gate/label-run replays and alternate-ref dispatches are outside recovery. There is no automatic retry or backoff controller.
+
+For Product consumers, local inheritance and a green declaration check are not evidence that Product CI is wired or running in GitHub. Keep that infrastructure status **not proved / not wired** until current repository evidence shows the live workflow and its runs.
+
+### Cutover (once per repository)
+
+The dashboards keep building `main` until someone switches them, and a push that lands before the switch is not replayed. Order:
+
+1. Land the gate on `main`. Wait for `main`'s CI to go green.
+2. **Bootstrap** `deploy/main` at that green SHA — one that contains `scripts/kit/promote-deploy.ts`: `git push origin <green-sha>:refs/heads/deploy/main`. Until then, a branch that has never existed only logs the notice `Deploy gate not bootstrapped` (nothing is promoted, no red run). A branch that existed and was deleted is red (`Deploy branch deleted`: who, when, the last promoted SHA, and `git push origin <sha>:refs/heads/deploy/<branch>`, fast-forward). An activity lookup that fails is red too, never the notice. The dashboard branch picker only lists existing branches. Products: also `config/product/deploy-gate.json` on `main` before that SHA, and `deploy/staging` the same way.
+3. Set **Production branch = `deploy/main`** on every Workers Builds project and every Pages project (§3–4). Keep non-production builds off. Products: `deploy/staging` on the staging projects ([environments.md](./environments.md) §4).
+4. Product deploy scripts (`apps/<product>-*/scripts/…`) refuse any branch but `deploy/main` / `deploy/staging` before migrate. The kit's scripts only guard the showcase.
+5. Retry the latest build from the dashboard if step 2's push landed before step 3. From then on, every green push moves `deploy/main` and Cloudflare deploys it.
+
+### Break-glass
+
+When CI is broken and production needs a fix now, push the exact commit by hand: `git push origin <sha>:refs/heads/deploy/main` (fast-forward), and Cloudflare builds it. Then land the fix on `main` with a **merge commit**, never squash or rebase, so that `main` contains `<sha>`. Until then the gate reports `deploy/main … is not an ancestor of main` and does not overwrite the hand push. If `main` can no longer contain it (squashed, reverted), reset the deploy branch to a green `main` commit on purpose: `git push --force-with-lease=deploy/main:<current-deploy-sha> origin <green-main-sha>:refs/heads/deploy/main`. A laptop deploy (`KIT_SHOWCASE_DEPLOY=1 bun run cf:showcase:deploy-api`) needs a local checkout of `deploy/main`. "Only the gate moves `deploy/*`" is a rule backed by review, not by the platform: on GitHub Free, any writer can push that branch.
+
+A deleted `deploy/<branch>` is not this case. The gate goes red (`Deploy branch deleted`) and names who deleted it, when, and the last promoted SHA. Restore that SHA with the same fast-forward push (`git push origin <sha>:refs/heads/deploy/<branch>`), not `--force-with-lease`. Until that push, every later run stays red; it does not fall back to the not-bootstrapped notice.
+
+**Gate decided, push refused** (§ 10, `Repository not found` after a green mint): compute the decision again instead of copying it from the failed run's log. The deploy branch, the runs or a § 5b freeze may have changed since.
+
+1. `gh api repos/<owner>/<repo>/actions/workflows/deploy-gate.yml --jq .state` prints `active`. Anything else means a freeze is under way: stop.
+2. In a fresh clone of `deploy/<branch>` (the gate's trusted revision), run `GITHUB_REPOSITORY=<owner>/<repo> SOURCE_BRANCH=<branch> bun scripts/kit/promote-deploy.ts`. It reads the runs with your `gh` login and only decides. Continue only if it prints `promote=<sha>` and `target=deploy/<branch>`.
+3. `git push origin <sha>:refs/heads/deploy/<branch>` (fast-forward, no `--force`). The range usually changes workflow files, so the push needs SSH or an HTTPS credential with the `workflow` scope (`gh auth refresh -s workflow`). A refused push (non-fast-forward, fetch first) means the branch moved since step 2: stop. `Everything up-to-date` means it was already promoted. There is nothing to land on `main` afterwards, since the source branch already contains the SHA.
 
 ### Success AC (showcase dogfood)
 
 | AC | Expect |
 |----|--------|
 | Merge to kit `main` | GitHub CI green (process) |
-| CF Builds | `KIT_SHOWCASE_DEPLOY=1` · commands §3–4 · **main only** |
+| Deploy gate | `deploy/main` = the merge SHA once its CI and Secret scan push runs are green |
+| CF Builds | `KIT_SHOWCASE_DEPLOY=1` · commands §3–4 · **`deploy/main` only** |
 | Live | `/health` + SPA 200 |
 
 ### Product consumer — deploy *your* product
 
-Showcase scripts refuse without `KIT_SHOWCASE_DEPLOY=1` and refuse non-`main`.
+Showcase scripts refuse without `KIT_SHOWCASE_DEPLOY=1` and refuse any branch ≠ `deploy/main`.
 
 ```text
 1. apps/<product>-api + apps/<product>-web   # new paths
@@ -98,7 +162,6 @@ bunx wrangler queues create boilerplate-api-demo   # optional
 
 # Runtime secrets (Worker) — once; not in git
 printf '%s' "$(openssl rand -hex 32)" | bunx wrangler secret put BETTER_AUTH_SECRET --env production
-# SESSION_SECRET is HMAC leftover — not required for BA sessions.
 ```
 
 First production deploy creates Workflow **`boilerplate-api-flow-run`** (`[[env.production.workflows]]` name) — no separate `wrangler` create. Showcase / this Workflow must run on **Workers Paid** (Free = 10 ms CPU/step). Cloudflare **Workflows ≠ Workers for Platforms** (WfP unsupported here).
@@ -109,10 +172,10 @@ Optional **first** laptop deploy (showcase only):
 
 ```bash
 export KIT_SHOWCASE_DEPLOY=1
-# on branch main
+# on a local checkout of deploy/main (the CI-gated branch)
 bun run cf:showcase:deploy-api
 bun run cf:showcase:build-web
-cd apps/example-web && bunx wrangler pages deploy dist --project-name=boilerplate --branch=main
+cd apps/example-web && bunx wrangler pages deploy dist --project-name=boilerplate --branch=deploy/main
 ```
 
 Afterwards: **CF Builds only**.
@@ -125,15 +188,15 @@ Dashboard → **Workers & Pages** → Worker **`boilerplate-api`**.
 
 | Setting | Value |
 |---------|--------|
-| **Production branch** | `main` only |
+| **Production branch** | **`deploy/main`** only (CI-gated — never `main`) |
 | **Root directory** | *(empty — repo root)* |
 | **Build command** | `bun run cf:showcase:install` |
 | **Deploy command** | `bun run cf:showcase:deploy-api` |
-| **Build variable** | `KIT_SHOWCASE_DEPLOY` = `1` |
+| **Build variables** | `KIT_SHOWCASE_DEPLOY` = `1` · `BUN_VERSION` = the version in `package.json#packageManager` · `SKIP_DEPENDENCY_INSTALL` = `1` (the build command installs; §4b) |
 | **Non-production builds** | **Disabled** (required) |
 | **Watch paths** (optional) | `apps/example-api/**`, `packages/**`, `scripts/kit/cf-builds/**`, `bun.lock` |
 
-Scripts **refuse** without `KIT_SHOWCASE_DEPLOY=1` and refuse if branch ≠ `main`.
+Scripts **refuse** without `KIT_SHOWCASE_DEPLOY=1` and refuse if branch ≠ `deploy/main`.
 
 Token: include **D1 Edit** if migrate fails with auth errors.
 
@@ -143,12 +206,33 @@ Token: include **D1 Edit** if migrate fails with auth errors.
 
 | Setting | Value |
 |---------|--------|
-| **Production branch** | `main` only |
+| **Production branch** | **`deploy/main`** only (CI-gated — never `main`) |
 | **Root directory** | *(empty)* |
 | **Build command** | `bun run cf:showcase:build-web` |
 | **Build output directory** | `apps/example-web/dist` |
-| **Build variables** | `KIT_SHOWCASE_DEPLOY=1` · `VITE_API_URL=https://api.boilerplate.roxabi.dev` |
+| **Build variables** | `KIT_SHOWCASE_DEPLOY=1` · `VITE_API_URL=https://api.boilerplate.roxabi.dev` · `BUN_VERSION` = the version in `package.json#packageManager` · `SKIP_DEPENDENCY_INSTALL=1` (`web-build.sh` installs when `node_modules` is absent; §4b) |
 | **Non-production / preview** | prefer **off** for showcase |
+
+---
+
+## 4b. Bun and Node versions
+
+The build image ships its own Bun and Node and changes them with no code change ([Workers Builds](https://developers.cloudflare.com/workers/ci-cd/builds/build-image/) and [Pages](https://developers.cloudflare.com/pages/configuration/build-image/) build image policy). It also runs its own `bun install`, with that Bun, **before** the build command: product build `732fa190` (Roxabi/roxabi-boilerplate-cf#316) logs `Detected the following tools from environment: …`, then `bun install`, then `Executing user build command`. A check inside the build command is too late for that first install, unless the project sets the build variable `SKIP_DEPENDENCY_INSTALL=1`, which both images document ([Workers Builds](https://developers.cloudflare.com/workers/ci-cd/builds/build-image/#skip-dependency-install), [Pages](https://developers.cloudflare.com/pages/configuration/build-image/#skip-dependency-install)): the image then installs nothing, and the build command installs after the check.
+
+| Tool | Declared in the repository | On every Workers Builds and Pages project | Check |
+|---|---|---|---|
+| Bun | `package.json#packageManager`, the only declaration (CP-BUN-VERSION) | **`BUN_VERSION` build variable, required**, equal to that version. Bun has no version file the image reads, so this variable is the only way the image's pre-install, and the build command's `bun`, use the right Bun. **`SKIP_DEPENDENCY_INSTALL=1`** beside it on every project whose build command installs, so no install runs before the check | `scripts/kit/cf-builds/require-bun-version.sh` refuses any other `bun --version`. The showcase runs it in `install-monorepo.sh` before installing, and in `api-deploy.sh` / `web-build.sh` when the image already installed `node_modules`. **Products** run none of those: set every Workers Builds and Pages build command to `bash scripts/kit/cf-builds/require-bun-version.sh`, followed by `&& <existing build>` when the project has one: `bash scripts/kit/cf-builds/require-bun-version.sh && bun install --frozen-lockfile && <build>` with `SKIP_DEPENDENCY_INSTALL=1`. Workers Builds makes the build command optional, and an empty one runs no check |
+| Node | `.node-version` at the repository root (a major; the image resolves the minor). The image also reads `.nvmrc`; the kit ships none, and zero-edit protects that name so a product cannot add a second declaration | **Leave `NODE_VERSION` unset.** The image reads `.node-version` itself; a dashboard value would be a second declaration outside the repository | none in the build: the image applies the file. `zero-edit` refuses a product `.nvmrc` |
+
+`BUN_VERSION` is a copy of `packageManager` kept outside the repository, and nothing updates it. It is set **per project**, because each project builds its own `deploy/<branch>`. Set a project's new value just before the commit that moves `packageManager` reaches the branch its `deploy/<branch>` is promoted from (`main` for `deploy/main`, `staging` for `deploy/staging`). The Deploy gate promotes that commit as soon as its CI is green. Until then, a rebuild of the older `deploy/<branch>` commit refuses on the new value; setting it earlier widens that window.
+
+| Model ([environments.md](./environments.md) §4) | Order |
+|---|---|
+| Kit HEAD (`deploy/main` only) | every showcase project (Workers Builds API, Pages SPA), then push `main` |
+| Trunk + staging pin | production projects, then push `main`; staging projects, then fast-forward `staging` |
+| Staging-train | staging projects, then land on `staging`; production projects, then `/promote` to `main` |
+
+A kit Bun bump reaches products through the inherited root `package.json` ([product-consumer-contract.md](./product-consumer-contract.md) § Pulling kit upgrades).
 
 ---
 
@@ -156,8 +240,9 @@ Token: include **D1 Edit** if migrate fails with auth errors.
 
 | Keep | Drop |
 |------|------|
-| `ci.yml` quality | GH auto-deploy showcase |
+| `ci.yml` quality · `secret-scan.yml` | GH auto-deploy showcase |
 | merge-on-green | Arming product with `KIT_SHOWCASE_DEPLOY` |
+| `deploy-gate.yml` (moves `deploy/main`, nothing else) | A Cloudflare token on GitHub |
 
 ---
 
@@ -172,11 +257,69 @@ These are **two Cloudflare APIs**. There is **no** cross-product transaction tha
 
 | Failure | State | What to do |
 |---------|--------|------------|
-| Migrate fails | D1 unchanged, Worker old | Fix migration; retry |
+| Migrate fails on the **first** pending file | D1 unchanged (the failing file is rolled back as a whole), Worker old | Fix the migration; retry |
+| Migrate fails on the **Nth** pending file | files 1…N-1 **applied**, file N rolled back as a whole, N… still pending; Worker old | The old Worker now runs on a partly-new schema (safe only for expand-only files). Fix file N and retry, or restore the recovery point (§ Recover a migration) |
 | Migrate OK, deploy fails | D1 **new**, Worker **old** | Fix deploy; retry (migrations are idempotent once applied) |
+| Both OK, the app breaks, the migration was expand-only, data intact | Aligned, code wrong | Roll the Worker (and Pages) back only — no D1 restore (§ Recover a migration, *Code only*) |
+| Both OK, data damaged, or a contract (destructive) migration broke it | Aligned, schema or data wrong | § Recover a migration, *Full* |
 | Both OK | Aligned | — |
 
-Mitigations: **expand/contract** migrations (old code tolerates new schema); watch CF build logs; dogfood only.
+The two migrate rows were measured, not assumed (throwaway remote D1, wrangler 4.132.0, 2026-09-25, Roxabi/roxabi-boilerplate-cf#258): with 0002 (`ADD COLUMN`) and 0003 (`CREATE TABLE`, then an `INSERT` into a missing table) pending, `migrations apply --remote` printed `0002 ✅`, `0003 🕒️` and `no such table: does_not_exist: SQLITE_ERROR [code: 7500]`. Afterwards `d1_migrations` held 0001 and 0002, the column existed, 0003's table did **not** (the file is atomic), and 0003 was pending again.
+
+Between the two steps, the **old** Worker serves traffic on the **new** schema. That lasts ~12 s when both succeed, and indefinitely when the deploy step fails. Roxabi/roxabi-boilerplate-cf#257 recorded a consumer migration that dropped tables in the same push as the code that stopped using them. It was safe only because the tables had been checked empty by hand.
+
+### Expand → deploy → contract (enforced)
+
+| Step | Release | Migration |
+|------|---------|-----------|
+| **Expand** | N | additive only (`CREATE`, `ADD COLUMN`, new index); code reads and writes both shapes |
+| **Deploy** | N | ships; no live code reads the old object any more |
+| **Contract** | N+1 or later | destructive, marked `-- kit:contract released=<full sha of release N>` |
+
+`bun run migrations-contract:check` (in `validate:full`, `scripts/kit/check-migrations-contract.ts`) **measures** each migration instead of reading its text. It applies every chain — each D1 `migrations_dir` of every wrangler toml/json/jsonc under `apps/`, nested ones included, found and parsed by `scripts/kit/lib/wrangler-d1.ts` like the CP-KIT-SCHEMA gate — in order to an in-memory SQLite, **each file in one transaction as D1 applies it** (a runtime error anywhere in the file, or a deferred foreign-key violation at commit, fails closed). A file is destructive when something that existed before it is gone or different after it: a table, a view, a column, a column definition (type, `NOT NULL`, default, primary key — a view's columns too), a `UNIQUE` or `PRIMARY KEY` index, or a table's storage (a rebuild or a rename). Objects the file creates and drops itself do not count, so the D1 rebuild recipe (`PRAGMA defer_foreign_keys`, new table, copy, drop, rename) is judged a rebuild. Not seen: a column dropped and re-added identically at the end of its table (same definition, data lost), and data-only changes (`DELETE`, `UPDATE`).
+
+- `released=` must be a **full 40-hex sha** (a ref or short sha moves, and would re-judge the file on every later commit) that does **not** contain the migration yet and that was **deployed everywhere the file will be applied**: an ancestor of **every** `origin/deploy/*` branch (the Deploy gate, §0) — `deploy/main` too on a staging train. Before a repository's cutover, the branches Cloudflare builds stand in (`origin/main`, and `origin/staging` when it exists), so a contract in the same push as its release fails. A file already on every one of those branches is applied and is not re-judged. The gate proves the release ran before the contract; review still checks that release N really stopped reading the object.
+
+- With no `origin/deploy/*` and no `origin/main`, a marked migration still fails closed unless its raw worktree bytes (`git hash-object --no-filters`) are the blob at that path in a commit reachable from `HEAD` whose raw commit header has no `parent` line (Roxabi/roxabi-boilerplate-cf#591). That commit is an initial snapshot of this repository, not a deployed predecessor. A shallow repository does not qualify: shallow commit objects retain their parent headers; revision walking hides those parents, it does not remove them from the object. An active graft file (`info/grafts` or `GIT_GRAFT_FILE`) or any `refs/replace` does not qualify. A non-sha marker, a missing marker, or a resolvable sha that already contains the path still fails. The exception does not prove commits this repository does not contain. Once any baseline ref exists, the previous bullet is unchanged, including when that ref does not contain the file.
+- Migrations applied before the gate are pinned with path + sha256 in `config/kit/migrations-contract-grandfathered.txt` (kit app paths only) or `config/product/migrations-contract-grandfathered.txt` (product app paths only); a path in the other owner's register is a config error (Roxabi/roxabi-boilerplate-cf#318). Kit apps are the `apps/<name>/` entries of `protected_prefixes` in `config/kit/zero-edit-zones.json`, not a name pattern: a product app named `example-*` is a product app. An edited pinned file fails. A pin records *already applied*: never pin a new migration to skip its marker.
+- A product copy written by `kit-schema-sync` (4-line `-- kit-schema:` header, payload = catalog `kitSha256`, `scripts/kit/lib/kit-schema-payload.ts`) is judged at its kit source, where it is additive, marked or pinned. An edited copy is judged like any product file. In a product (`config/product/inheritance.json`), a kit app's contract keeps its marker requirement but its `released=` was judged against the kit's deploys, not the product's.
+
+### Recovery point (in the build log)
+
+Before `migrations apply`, `api-deploy.sh` lists the pending migrations. When there are any, it records the D1 Time Travel bookmark (`wrangler d1 time-travel info <db> --env production --json`) and prints, before anything is applied:
+
+```text
+== D1 recovery point (Roxabi/roxabi-boilerplate-cf#258) — before migrating boilerplate-api (production) ==
+bookmark: 00000097-…
+pending:  0016_….sql 0017_….sql
+runbook:  docs/kit/deploy-cloudflare.md § 5b "Recover a migration" — freeze, triage and roll the Worker back first
+restore:  (runbook step 4 only, human in a TTY) cd apps/example-api && bunx wrangler d1 time-travel restore boilerplate-api --env production --bookmark=00000097-…
+```
+
+Nothing is printed when nothing is pending (only wrangler's stdout table is read; its stderr hints go to the log untouched). If the listing fails or is not recognised, or Time Travel returns no bookmark, the deploy stops **before** migrating. When the migration itself fails, the recovery point is already in the log. Products: copy the pattern into `apps/<product>-*` deploy scripts (the kit script only deploys the showcase).
+
+### Recover a migration (D1 Time Travel)
+
+Run every command from `apps/example-api` with the repository's wrangler (`cd apps/example-api && bunx wrangler …`): `deployments list` and `rollback` need its `wrangler.toml`.
+
+**Freeze first, both paths.** Every green commit on `main` still contains the bad one, and merge-on-green and Dependabot keep landing them; the gate would promote the next one and Cloudflare would ship it again. `gh workflow disable "Deploy gate"` stops new runs only, so also cancel the unfinished ones — `gh run list --workflow "Deploy gate" --json databaseId,status -q '.[] | select(.status != "completed") | .databaseId'`, then `gh run cancel <id>` — wait for (or cancel) any running Workers Builds and Pages build, and record `F=$(git ls-remote origin refs/heads/deploy/main | cut -f1)`. Re-check that `deploy/main` still equals `F` before each step below; if it moved, a build is on its way: stop and start over.
+
+**Triage.** A D1 restore throws away every write since the bookmark. Choose *Code only* when the release broke the code but the schema and the data are fine. The contract gate proves only that no table, view, column or unique constraint was removed or changed; an added index, `UNIQUE` constraint, trigger, or a data statement (`UPDATE`, `DELETE`, `INSERT … SELECT`) can still break the old Worker or the data — check them before choosing *Code only*. Otherwise *Full*.
+
+*Code only* — roll the Worker back: `bunx wrangler rollback <version-id> --env production`, with the id of the version before the release (the `Current Version ID` of its build log, or the dashboard; `bunx wrangler deployments list --env production` shows only the last 10 — the id is the UUID on the `Version(s)` line). Pages: roll the SPA back from the dashboard if it changed. Then revert the **code** on `main` and **keep the migration files**: they are applied, and D1 journals by file name (ADR-0008) — deleting one leaves production ahead of the repository. Unfreeze as in step 6.
+
+*Full*:
+
+1. **Freeze** — as above.
+2. **Bookmark** — the earliest build-log `bookmark:` whose `pending:` line lists the first bad file (a release can migrate across several builds, e.g. a retry after an Nth-file failure). Without a log: `bunx wrangler d1 time-travel info boilerplate-api --env production --timestamp=<RFC 3339 time before the first migrating build> --json`.
+3. **Roll the Worker back first** (and Pages) to the version before the release, as in *Code only*. The code that ran before the release matched the schema the restore brings back; the release's code does not.
+4. **Restore D1** — `bunx wrangler d1 time-travel restore boilerplate-api --env production --bookmark=<bookmark>`, by a human in an interactive terminal: the `OK to proceed (y/N)` prompt only appears on a TTY — in CI or an agent shell wrangler answers *yes* itself. Check the bookmark and `--env` before running. Keep the **undo bookmark** it prints (restoring that one undoes the restore).
+5. **Check the remote state** — `bunx wrangler d1 execute boilerplate-api --remote --env production --command "SELECT name FROM d1_migrations ORDER BY id"` no longer lists the bad files (`migrations list` compares against your checkout, so it cannot prove this); smoke (§7).
+6. **Unfreeze** — land the revert (here the migration files go too: the restore un-applied them) or the fix on `main` as commit `R`, and wait until `R`'s CI and Secret scan are green. Then `gh workflow enable "Deploy gate"`, `gh workflow run "Deploy gate" -f branch=main`, and check that `deploy/main` is now `R` or a newer green commit on top of it (`git merge-base --is-ancestor R $(git ls-remote origin refs/heads/deploy/main | cut -f1)`). Anything else: freeze again.
+
+**What is lost:** every write to the database after the bookmark, in **all** tables, not only the migrated ones. Other stores are **not** restored: R2 objects, queue messages, Workflows instances and sent emails that refer to dropped rows stay, and restored `AUTOINCREMENT` / rowid values can be reused for new rows — reconcile them. **Window:** Workers Paid 30 days, Free 7 days; at most 10 restores per 10 minutes per database (Cloudflare D1 limits). Time Travel restores the whole database; it cannot restore one table.
+
+Also: watch the CF build logs.
 
 ---
 
@@ -192,7 +335,7 @@ Public email sign-up is **opt-in** (`ALLOW_PUBLIC_SIGNUP=true`):
 
 Showcase production sets `ALLOW_PUBLIC_SIGNUP=true` (intentional dogfood). Product consumers leave the var **unset or false** unless they want open registration — do not copy the showcase block.
 
-Auth-sensitive BA paths already hit **D1 fixed-window rate limit** (e.g. **20 / IP / 15 min** on sign-in / sign-up / magic-link / reset — see `apps/example-api/src/routes/auth.ts` + `lib/rate-limit.ts`). Enough for dogfood; not a full WAF.
+The showcase API mounts Better Auth per the [Better Auth mount contract](./product-consumer-contract.md#better-auth-mount) (`apps/example-api/src/routes/auth.ts`): a **D1 fixed-window rate limit**, kit constants, on every request but the two session reads. Buckets and residual risks: [`auth-abuse-response.md`](./auth-abuse-response.md). Enough for dogfood; not a full WAF.
 
 **Edge (no product code)** — zone `roxabi.dev` in CF dashboard:
 
@@ -221,7 +364,8 @@ Captcha in-app is optional for showcase; prefer zone bot/WAF if abuse grows.
 |-------|--------|
 | `GET https://api.boilerplate.roxabi.dev/health` | 200 + `environment":"production"` |
 | `GET https://boilerplate.roxabi.dev/` | 200 SPA |
-| CF dashboard → Deployments | New version after push `main` |
+| CF dashboard → Deployments | New version after `deploy/main` moves (Deploy gate run after CI green) |
+| `git ls-remote origin deploy/main` | = the newest first-parent `main` commit whose required push runs are green and whose range has no red Secret scan |
 
 ---
 
@@ -245,7 +389,9 @@ Health path: **`/health`**.
 - [ ] Workers Builds connected on **`boilerplate-api`** (commands §3)  
 - [ ] Pages build connected on **`boilerplate`** (commands §4)  
 - [ ] Custom domains OK  
-- [ ] Push to `main` after CI green → CF builds green  
+- [ ] Production branch = `deploy/main` on **both** Workers Builds and Pages (§3–4)  
+- [ ] `deploy/main` bootstrapped at a green SHA; kit-ci App vars set (§ Cutover)  
+- [ ] Push to `main` → CI green → Deploy gate moves `deploy/main` → CF builds green  
 - [ ] Smoke §7  
 - [ ] GH deploy disarmed / removed  
 
@@ -261,8 +407,18 @@ Health path: **`/health`**.
 | SPA calls wrong API | `VITE_API_URL` build var missing |
 | Schema errors after deploy | migrate failed or half-deploy — see §5b |
 | `refusing deploy — KIT_SHOWCASE_DEPLOY` | Build var not set to `1` (or product wrongly using showcase scripts) |
-| `refusing deploy — branch is …` | Non-main build; disable non-prod Builds |
-| CF deploys broken main | Merged without green CI — process gate only (§0) |
+| `refusing deploy — branch is …` | CF building a branch other than `deploy/main` (production branch still `main`, or non-prod Builds on); set §3–4 |
+| No deploy after a merge | Deploy gate log: `not green (ci.yml=… secret-scan.yml=…)` (red or not finished — the next completed run, or `gh workflow run "Deploy gate" -f branch=<source>`, re-evaluates) or `not an ancestor` (hand push — see Break-glass) |
+| notice `Deploy gate not bootstrapped` | `deploy/<branch>` missing (HTTP 404) and the activity log has no `branch_deletion` — never bootstrapped, expected before the cutover, § Cutover step 2. Nothing is promoted |
+| `Deploy branch deleted` | HTTP 404 and a `branch_deletion` — the branch existed and was deleted. The annotation names who, when, the last promoted SHA and the fast-forward restore (`git push origin <sha>:refs/heads/deploy/<branch>`). Red; never the notice. § Cutover step 2 |
+| `Deploy gate cannot read the activity of deploy/<branch>` | the 404's activity lookup failed (non-zero `gh`, unparseable body) — re-run; never treated as not bootstrapped |
+| `Deploy gate cannot read deploy/<branch>` | the branch lookup failed otherwise (auth, 5xx) — re-run; never treated as not bootstrapped |
+| `spans N pushes (> 200)` | the deploy branch is too far behind to read every push's Secret scan — promote by hand, § Break-glass |
+| `Deploy gate missing on deploy/<branch>` | bootstrapped at a commit older than the gate — re-bootstrap at a green commit that contains it |
+| `runs as '…', not 'Product CI'` | a declared product workflow has another `name:` — rename it, or it would never trigger the gate |
+| `kit-ci App not configured` / token mint fails | repo-level `CI_APP_ID` / `CI_APP_PRIVATE_KEY` missing, or the App lacks `contents`/`workflows` write ([ci-app-setup.md](./ci-app-setup.md)) |
+| `Fast-forward the deploy branch` fails with `Repository not found` after a green mint, and the post-job cleanup logs `Token revoked` | GitHub refused the App token over git HTTPS while its REST API accepted the same token (the revocation). Seen 2026-09-30 for at least 19 min across two mints (run 36706032065); the unchanged workflow pushed a few hours later (run 36733924245). Cause not identified; ruled out that day: App installation, workflow, secrets, runner image, token age. The green mint already proved the installation covers the repo with `contents`/`workflows` write: never widen the App installation for this. githubstatus.com showed no incident that day, so a green status page rules nothing out. Re-run with `gh workflow run "Deploy gate" -f branch=<source>` (it runs the default branch's YAML) after ~30 min, and again later while red. Nothing is lost meanwhile (the next run re-evaluates the whole range), but that deploy environment stays on the old SHA: when it cannot wait, § Break-glass (gate decided, push refused) |
+| `deploy/main` behind `main` | Expected while CI runs on the newer SHA; only green SHAs move it |
 
 ---
 

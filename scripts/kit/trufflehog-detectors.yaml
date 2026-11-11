@@ -20,7 +20,7 @@
 #
 # Whole worktree, this pattern (trufflehog 3.97.0, filesystem + exclude SSoT):
 #   chunks: 854  bytes: 3785061  unverified_secrets: 0
-# Previously measured (3.96.0, #51): --only-verified on isolated 48 hex → 0 (discarded)
+# Previously measured (3.96.0, Roxabi/roxabi-boilerplate-cf#51): --only-verified on isolated 48 hex → 0 (discarded)
 #
 # => Any run using this config MUST NOT pass `--only-verified`.
 #    Runs that keep `--only-verified` (generic detectors) must NOT use this config.

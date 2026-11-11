@@ -1,11 +1,11 @@
 /**
- * Seed dual-KDF note (M-01 hygiene):
- * - `demo_users` is a **legacy demo table** (notes ownership / roleForSubject ids).
- *   It is **not** the Better Auth login path. Hashes use kit `@kit/auth` PBKDF2.
+ * Seed note:
+ * - `demo_users` is a **legacy demo table** (notes / items ownership ids).
+ *   It is **not** the Better Auth login path. `password_hash` is a NOT NULL
+ *   sentinel — not a live credential hash.
  * - Real session login is BA-only: `seedBaDemoUsers` writes `ba_user` + `ba_account`
- *   with `better-auth/crypto` `hashPassword` (scrypt). Do not mix KDFs across tables.
+ *   with `better-auth/crypto` `hashPassword` (scrypt).
  */
-import { hashPassword } from '@kit/auth'
 import { baAccount, baUser } from '@kit/auth/schema'
 import { hashPassword as baHashPassword } from 'better-auth/crypto'
 import { eq } from 'drizzle-orm'
@@ -30,7 +30,7 @@ export type SeedResult = {
 }
 
 /** Wipe demo tables (local/dev only). Order: keys → notes → users. */
-export async function resetDemoTables(db: Db): Promise<void> {
+async function resetDemoTables(db: Db): Promise<void> {
   await db.delete(apiKeys).run()
   await db.delete(demoNotes).run()
   await db.delete(demoItems).run()
@@ -39,14 +39,15 @@ export async function resetDemoTables(db: Db): Promise<void> {
 
 /**
  * BA credential accounts for SEED_USERS (ADR-0002 BA-only login).
- * Idempotent — same ids as demo_users for roleForSubject / notes ownership.
+ * Idempotent — same ids as demo_users for notes / items ownership.
  *
- * **Login path:** uses Better Auth `hashPassword` (not kit PBKDF2).
+ * **Login path:** uses Better Auth `hashPassword`.
  * Kit `demo_users` rows below are legacy demo data only — not checked at sign-in.
  */
-export async function seedBaDemoUsers(
+async function seedBaDemoUsers(
   db: Db,
-  opts?: { now?: Date },
+  opts: { now?: Date } | undefined,
+  hashCredential: typeof baHashPassword,
 ): Promise<{ id: string; email: string; created: boolean }[]> {
   const now = opts?.now ?? new Date()
   const out: { id: string; email: string; created: boolean }[] = []
@@ -56,7 +57,7 @@ export async function seedBaDemoUsers(
       out.push({ id: u.id, email: u.email, created: false })
       continue
     }
-    const passwordHash = await baHashPassword(u.password)
+    const passwordHash = await hashCredential(u.password)
     await db.insert(baUser).values({
       id: u.id,
       name: u.email.split('@')[0] ?? u.id,
@@ -80,28 +81,10 @@ export async function seedBaDemoUsers(
   return out
 }
 
-/**
- * Idempotent seed: insert missing users/notes.
- * With `reset: true`, tables are cleared first then fully re-seeded.
- * `notes: false` — users only (login lazy path).
- */
-export async function seedDemoDatabase(
-  db: Db,
-  opts?: { reset?: boolean; now?: number; notes?: boolean; environment?: string | null },
-): Promise<SeedResult> {
-  const reset = opts?.reset ?? false
-  const withNotes = opts?.notes ?? true
-  const now = opts?.now ?? Date.now()
-
-  if (reset) {
-    await resetDemoTables(db)
-  }
-
-  // Legacy `demo_users` only (kit PBKDF2). Not BA login — see seedBaDemoUsers.
+async function seedLegacyDemoUsers(db: Db, now: number): Promise<SeedResult['users']> {
   const existingUsers = await db.select().from(demoUsers).all()
   const userIds = new Set(existingUsers.map((u) => u.id))
   const users: SeedResult['users'] = []
-
   for (const u of SEED_USERS) {
     if (userIds.has(u.id)) {
       users.push({ id: u.id, email: u.email, role: u.role, created: false })
@@ -112,14 +95,89 @@ export async function seedDemoDatabase(
       .values({
         id: u.id,
         email: u.email,
-        // @kit/auth PBKDF2 — legacy demo_users table; BA login uses baHashPassword
-        passwordHash: await hashPassword(u.password),
+        // leftover NOT NULL ballast — not a login hash
+        passwordHash: 'unused',
         createdAt: now,
       })
       .run()
     users.push({ id: u.id, email: u.email, role: u.role, created: true })
   }
+  return users
+}
 
+async function seedDemoNotesRows(db: Db, now: number): Promise<SeedResult['notes']> {
+  const notes: SeedResult['notes'] = []
+  const existingNotes = await db.select().from(demoNotes).all()
+  const noteIds = new Set(existingNotes.map((n) => n.id))
+  for (const n of SEED_NOTES) {
+    if (noteIds.has(n.id)) {
+      notes.push({ id: n.id, subject: n.subject, title: n.title, created: false })
+      continue
+    }
+    await db
+      .insert(demoNotes)
+      .values({
+        id: n.id,
+        subject: n.subject,
+        title: n.title,
+        body: n.body,
+        createdAt: now,
+      })
+      .run()
+    notes.push({ id: n.id, subject: n.subject, title: n.title, created: true })
+  }
+  return notes
+}
+
+async function seedDemoItemRows(db: Db, now: number): Promise<SeedResult['items']> {
+  const items: SeedResult['items'] = []
+  const existingItems = await db.select().from(demoItems).all()
+  const itemIds = new Set(existingItems.map((i) => i.id))
+  for (const it of SEED_ITEMS) {
+    if (itemIds.has(it.id)) {
+      items.push({ id: it.id, subject: it.subject, code: it.code, created: false })
+      continue
+    }
+    try {
+      await db
+        .insert(demoItems)
+        .values({
+          id: it.id,
+          subject: it.subject,
+          code: it.code,
+          label: it.label,
+          description: it.description,
+          active: true,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .run()
+      items.push({ id: it.id, subject: it.subject, code: it.code, created: true })
+    } catch {
+      /* table may be missing pre-migration */
+      items.push({ id: it.id, subject: it.subject, code: it.code, created: false })
+    }
+  }
+  return items
+}
+
+/**
+ * With `reset: true`, tables are cleared first then fully re-seeded.
+ * `notes: false` — users only (login lazy path).
+ */
+export async function seedDemoDatabase(
+  db: Db,
+  opts?: { reset?: boolean; now?: number; notes?: boolean; environment?: string | null },
+  hashCredential: typeof baHashPassword = baHashPassword,
+): Promise<SeedResult> {
+  const reset = opts?.reset ?? false
+  const withNotes = opts?.notes ?? true
+  const now = opts?.now ?? Date.now()
+  if (reset) {
+    await resetDemoTables(db)
+  }
+  // Legacy `demo_users` only. Not BA login — see seedBaDemoUsers.
+  const users = await seedLegacyDemoUsers(db, now)
   // Kit demo admin → platform super_admin for catalogue ops
   const admin = SEED_USERS.find((u) => u.role === 'admin')
   if (admin) {
@@ -129,83 +187,30 @@ export async function seedDemoDatabase(
       /* table may be missing on pre-migration */
     }
   }
-
   // BA-only login: mirror SEED_USERS into Better Auth credential accounts
   try {
-    await seedBaDemoUsers(db, { now: new Date(now) })
+    await seedBaDemoUsers(db, { now: new Date(now) }, hashCredential)
   } catch {
     /* BA tables may be missing on incomplete migration */
   }
-
-  const notes: SeedResult['notes'] = []
-  if (withNotes) {
-    const existingNotes = await db.select().from(demoNotes).all()
-    const noteIds = new Set(existingNotes.map((n) => n.id))
-
-    for (const n of SEED_NOTES) {
-      if (noteIds.has(n.id)) {
-        notes.push({ id: n.id, subject: n.subject, title: n.title, created: false })
-        continue
-      }
-      await db
-        .insert(demoNotes)
-        .values({
-          id: n.id,
-          subject: n.subject,
-          title: n.title,
-          body: n.body,
-          createdAt: now,
-        })
-        .run()
-      notes.push({ id: n.id, subject: n.subject, title: n.title, created: true })
-    }
-  }
-
-  const items: SeedResult['items'] = []
-  {
-    const existingItems = await db.select().from(demoItems).all()
-    const itemIds = new Set(existingItems.map((i) => i.id))
-    for (const it of SEED_ITEMS) {
-      if (itemIds.has(it.id)) {
-        items.push({ id: it.id, subject: it.subject, code: it.code, created: false })
-        continue
-      }
-      try {
-        await db
-          .insert(demoItems)
-          .values({
-            id: it.id,
-            subject: it.subject,
-            code: it.code,
-            label: it.label,
-            description: it.description,
-            active: true,
-            createdAt: now,
-            updatedAt: now,
-          })
-          .run()
-        items.push({ id: it.id, subject: it.subject, code: it.code, created: true })
-      } catch {
-        /* table may be missing pre-migration */
-        items.push({ id: it.id, subject: it.subject, code: it.code, created: false })
-      }
-    }
-  }
-
+  const notes = withNotes ? await seedDemoNotesRows(db, now) : []
+  const items = await seedDemoItemRows(db, now)
   const beforeIds = new Set((await modulesRepo.listKitModules(db)).map((r) => r.id))
   await modulesService.ensureKitModules(db)
   // ADR-0003 dual-level catalogue (migrated from kit_modules via SQL + ensure)
   await platformModulesService.ensurePlatformModules(db)
-
   // Multi-tenant BA personas/orgs (dev|test only) — may flip platform.available (N0 demo)
   let tenancy: TenancySeedResult | undefined
   try {
-    tenancy = await seedTenancyDemo(db, { environment: opts?.environment ?? 'test' })
+    tenancy = await seedTenancyDemo(
+      db,
+      { environment: opts?.environment ?? 'test' },
+      hashCredential,
+    )
   } catch {
     // Pre-migration or incomplete BA schema — skip tenancy seed
     tenancy = undefined
   }
-
   const modulesAfter = await modulesService.getModulesState(db)
   const modules = Object.entries(modulesAfter).map(([id, state]) => ({
     id,
@@ -213,15 +218,9 @@ export async function seedDemoDatabase(
     configured: state.configured,
     created: !beforeIds.has(id),
   }))
-
   return { reset, users, notes, items, modules, tenancy }
 }
 
-/**
- * Lazy bootstrap for login path — users only (notes via `bun run db:seed`).
- * **Only** when `environment` is explicitly `development` | `test`.
- * Staging/prod (or missing env) must provision users out-of-band — no auto-seed of demo passwords.
- */
 export async function ensureDemoUsers(
   db: Db,
   opts?: { environment?: string | null },

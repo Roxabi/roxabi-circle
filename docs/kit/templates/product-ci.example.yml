@@ -43,7 +43,7 @@ jobs:
           bun-version-file: package.json
 
       - name: Install
-        run: bun install --frozen-lockfile
+        run: bun install --frozen-lockfile --minimum-release-age 0
 
       # Product CI on Actions has no `upstream` remote — zero-edit uses
       # config/product/inheritance.json (full history required above).

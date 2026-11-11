@@ -5,7 +5,7 @@
 import { readdir, readFile, stat } from 'node:fs/promises'
 import path from 'node:path'
 
-const root = path.resolve(import.meta.dir, '..')
+const root = path.resolve(import.meta.dir, '../..')
 const covRoot = path.join(root, 'coverage')
 
 function pct(metric) {

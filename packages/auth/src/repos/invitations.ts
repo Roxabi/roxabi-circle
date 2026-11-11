@@ -53,11 +53,15 @@ export async function listInvitationsForOrg(
 export async function setInvitationStatus(
   db: Db,
   id: string,
+  organizationId: string,
   status: InvitationStatus,
 ): Promise<boolean> {
-  const res = await db.update(baInvitation).set({ status }).where(eq(baInvitation.id, id))
-  // drizzle d1 returns various shapes; treat as best-effort
-  return res !== undefined
+  const rows = await db
+    .update(baInvitation)
+    .set({ status })
+    .where(and(eq(baInvitation.id, id), eq(baInvitation.organizationId, organizationId)))
+    .returning({ id: baInvitation.id })
+  return rows.length > 0
 }
 
 export async function findPendingByOrgAndEmail(db: Db, organizationId: string, email: string) {

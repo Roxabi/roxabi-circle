@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
-# #148 — leftover-biome-staged.sh must not unstage deletions.
+# Roxabi/roxabi-boilerplate-cf#148 — leftover-biome-staged.sh must not unstage deletions.
 set -euo pipefail
-# leftover / worktree shells can export GIT_DIR. git init then ignores $TMP
-# and reinitializes the principal as bare (user=kit@example.com).
-unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR 2>/dev/null || true
+# shellcheck source=lib/hermetic-git.sh
+source "$(cd "$(dirname "$0")" && pwd -P)/lib/hermetic-git.sh"
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 SCRIPT="${ROOT}/scripts/kit/lefthook-biome-staged.sh"
@@ -71,6 +70,16 @@ st=$(git -C "$TMP" diff --cached --name-status)
 assert "D restored after failed gate" '[[ "$st" == *"D	gone.txt"* ]]'
 gd="$(git -C "$TMP" rev-parse --git-dir)"
 assert "no orphan leftover-index-tree" '[[ ! -f "${gd}/lefthook-index-tree" ]]'
+
+echo "== git diff failure is a hard error =="
+# rc != 0 only. git's die() text is translated. The fail-open path is a silent
+# exit 0 (empty staged list, no success banner).
+mkdir -p "${TMP}/not-an-index"
+set +e
+out=$(cd "$TMP" && GIT_INDEX_FILE="${TMP}/not-an-index" bash "$SCRIPT" 2>&1)
+rc=$?
+set -e
+assert "failing git diff --cached is not an empty list" '[[ "$rc" -ne 0 ]]'
 
 echo "== summary: ${PASS} pass, ${FAIL} fail =="
 [ "$FAIL" -eq 0 ]

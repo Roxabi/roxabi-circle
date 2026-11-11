@@ -136,6 +136,7 @@ cleanup_temps() {
   [ -n "${PRODUCT_APPLY:-}" ] && rm -f "$PRODUCT_APPLY"
   [ -n "${SEEN_FILE:-}" ] && rm -f "$SEEN_FILE"
   [ -n "${KIT_PATHS:-}" ] && rm -f "$KIT_PATHS"
+  [ -n "${STAGED_NUL:-}" ] && rm -f "$STAGED_NUL"
   return 0
 }
 trap cleanup_temps EXIT
@@ -373,7 +374,16 @@ under_root() {
 
 scan_staged() {
   local file root
-  mapfile -t STAGED < <(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(ts|tsx)$' || true)
+  # NUL-delimited: a newline in a path is one name. A git failure is a hard
+  # error — `|| true` used to read it as "nothing staged" (Roxabi/roxabi-boilerplate-cf#265 class).
+  STAGED_NUL=$(mktemp)
+  git diff --cached --name-only --diff-filter=ACM -z >"$STAGED_NUL"
+  STAGED=()
+  while IFS= read -r -d '' file || [ -n "${file:-}" ]; do
+    case "$file" in
+      *.ts|*.tsx) STAGED+=("$file") ;;
+    esac
+  done <"$STAGED_NUL"
   if [ "${#STAGED[@]}" -eq 0 ]; then
     return 0
   fi

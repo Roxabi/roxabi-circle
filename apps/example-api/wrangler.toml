@@ -7,7 +7,6 @@ compatibility_flags = ["nodejs_compat"]
 # CF secrets (BETTER_AUTH_SECRET). Do NOT put ENVIRONMENT=development in deployable vars —
 # missing BETTER_AUTH_SECRET + development would use the public kit placeholder.
 # Local: copy .dev.vars.example → .dev.vars (ENVIRONMENT=development, BETTER_AUTH_SECRET=…).
-# SESSION_SECRET is HMAC leftover — not read on the BA session path.
 
 [[d1_databases]]
 binding = "DB"
@@ -32,7 +31,7 @@ name = "EMAIL"
 DEMO_USER_EMAIL = "demo@kit.local"
 CORS_ORIGINS = "http://localhost:5173,http://127.0.0.1:5173"
 
-# B6 P4 #84 — demo queue + hourly cron (local/remote names)
+# B6 P4 go-silex/silex-boilerplate#84 — demo queue + hourly cron (local/remote names)
 [[queues.producers]]
 binding = "DEMO_QUEUE"
 queue = "example-api-demo"
@@ -43,7 +42,12 @@ max_batch_size = 10
 max_batch_timeout = 5
 
 [triggers]
-crons = ["0 * * * *"]
+crons = ["0 * * * *", "*/5 * * * *"]
+
+# Workers Logs (docs/kit/observability.md). Non-inheritable: repeated in [env.production].
+[observability]
+enabled = true
+head_sampling_rate = 1
 
 # CF Workflows is non-inheritable. Names are account-scoped and must be
 # distinct per env (≤64). Do not add schedules here.
@@ -51,6 +55,11 @@ crons = ["0 * * * *"]
 binding = "FLOW_RUN"
 name = "example-api-flow-run"
 class_name = "FlowRunWorkflow"
+
+[[workflows]]
+binding = "NOTIFICATION_DELIVERY"
+name = "example-api-notification-delivery"
+class_name = "NotificationDeliveryWorkflow"
 
 # ── production (kit showcase — resource ids are not secrets) ─────────
 # Account / zone: operator local config (config/kit/deploy.cf.local.toml).
@@ -85,10 +94,19 @@ max_batch_size = 10
 max_batch_timeout = 5
 
 [env.production.triggers]
-crons = ["0 * * * *"]
+crons = ["0 * * * *", "*/5 * * * *"]
+
+[env.production.observability]
+enabled = true
+head_sampling_rate = 1
 
 # Non-inheritable — repeat; name distinct from default env (account-scoped).
 [[env.production.workflows]]
 binding = "FLOW_RUN"
 name = "boilerplate-api-flow-run"
 class_name = "FlowRunWorkflow"
+
+[[env.production.workflows]]
+binding = "NOTIFICATION_DELIVERY"
+name = "boilerplate-api-notification-delivery"
+class_name = "NotificationDeliveryWorkflow"

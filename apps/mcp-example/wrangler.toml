@@ -1,0 +1,29 @@
+# Local hosted MCP (Streamable HTTP + Worker OAuth).
+# Start: bun run --filter @kit/mcp-example dev:http
+# Connect: claude mcp add --transport http kit-mcp http://127.0.0.1:8788/mcp
+# Then /mcp in Claude — no --header JWT, no stdio proxy.
+#
+# Do NOT put Cloudflare Access in front of /mcp (it blocks the OAuth handshake).
+# A public showcase hostname is not required to close this dogfood.
+name = "mcp-example"
+main = "src/worker.ts"
+compatibility_date = "2026-07-01"
+compatibility_flags = ["nodejs_compat", "global_fetch_strictly_public"]
+
+# wrangler dev --port 8788  (documented local host)
+# [vars] are local-only defaults. Secrets stay out of this file.
+# A deployed compose also sets ENVIRONMENT and MCP_PUBLIC_URL (its https origin, MCP at
+# <origin>/mcp). Unset, only a loopback development host serves OAuth, on its own origin.
+
+[[kv_namespaces]]
+binding = "OAUTH_KV"
+id = "local-mcp-oauth-kv"
+
+# Workers Logs (docs/kit/observability.md).
+[observability]
+enabled = true
+head_sampling_rate = 1
+
+[vars]
+API_BASE_URL = "http://127.0.0.1:8787"
+WEB_ORIGIN = "http://127.0.0.1:5173"

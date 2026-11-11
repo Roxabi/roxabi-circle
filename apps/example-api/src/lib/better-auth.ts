@@ -28,6 +28,7 @@ export function createBetterAuth(env: Env, baseURL: string): KitBetterAuth {
     secret: getBetterAuthSecret(env),
     allowKitPlaceholderSecret: isDevLikeEnvironment(env),
     baseURL,
+    requestDerivedBaseURL: !env.BETTER_AUTH_URL?.trim(),
     cookieName: sessionCookieNameFromEnv(env),
     useSecureCookies: useSecureCookie(env),
     allowPublicSignup: allowPublicSignup(env),

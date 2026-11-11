@@ -26,6 +26,41 @@ async function seedPlan(enabled = true) {
   return db
 }
 
+describe('insertPlan', () => {
+  it('returns conflict when the same org key is inserted again', async () => {
+    const db = await seedPlan()
+    const again = await flowsRepo.insertPlan(db, {
+      id: 'plan_dup',
+      orgId: ORG,
+      planKey: 'echo-only',
+      version: 1,
+      enabled: true,
+      planJson: '{}',
+      planDigest: 'digest_plan',
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    })
+    expect(again).toEqual({ ok: false, reason: 'conflict' })
+  })
+
+  it('throws a NOT NULL error even when planKey contains unique', async () => {
+    const db = await seedPlan()
+    await expect(
+      flowsRepo.insertPlan(db, {
+        id: 'plan_null_json',
+        orgId: ORG,
+        planKey: 'unique_plan',
+        version: 1,
+        enabled: true,
+        planJson: undefined as unknown as string,
+        planDigest: 'digest_plan',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      }),
+    ).rejects.toThrow()
+  })
+})
+
 function queuedRow(id: string, now = Date.now()) {
   return {
     id,

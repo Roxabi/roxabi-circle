@@ -1,18 +1,22 @@
 import { describe, expect, it } from 'vitest'
 import { interpretRun } from './interpret'
+import { mintCapabilityGrant } from './mint'
+import type { ReceiptBundle, TaskReceiptOutcome } from './receipts'
 import { createToolRegistry } from './registry'
 import { createRunSnapshot, type RunnerView } from './snapshot'
 
 const registry = createToolRegistry('reg-1', [
-  { name: 'echo', description: 'Echo args', effect: 'read' },
+  { name: 'echo', description: 'Echo args', grantClass: 'mintable' },
 ])
 
-const grant = {
+// Sealing requires a kit-minted grant, so mint it instead of writing the shape by hand.
+const minted = mintCapabilityGrant({
   orgId: 'org_1',
-  allowedTools: ['echo'],
-  registryVersion: 'reg-1',
-  allowsInfer: true,
-}
+  registry,
+  facts: { moduleEffective: true, canRead: true, canWrite: true, allowedModels: [] },
+})
+if (!minted.ok) throw new Error(`fixture grant must mint: ${minted.message}`)
+const grant = minted.grant
 
 const emptyReceipts = { receiptVersion: 1 as const, tokensUsed: 0, tasks: {} }
 
@@ -42,6 +46,28 @@ function mustView(tasks: Record<string, { after?: string[] }>): RunnerView {
   return snap.runnerView
 }
 
+function mustApproveChain(): RunnerView {
+  const snap = createRunSnapshot({
+    plan: {
+      flows: 'v0',
+      plan: { id: 'p' },
+      permits: { tools: ['echo'] },
+      tasks: {
+        gate: { approve: {} },
+        echo_hello: { after: ['gate'], invoke: { tool: 'echo' } },
+      },
+    },
+    grant,
+    registry,
+    actorId: 'user_1',
+    createdAt: '2026-08-06T00:00:00.000Z',
+  })
+  if (!snap.ok) {
+    throw new Error(`expected approve snapshot: ${JSON.stringify(snap.issues)}`)
+  }
+  return snap.runnerView
+}
+
 function cloneView(view: RunnerView): RunnerView {
   return JSON.parse(JSON.stringify(view)) as RunnerView
 }
@@ -56,7 +82,9 @@ function withAfter(view: RunnerView, edges: Record<string, string[]>): RunnerVie
   return cloned
 }
 
-function bundle(tasks: Record<string, { outcome: string; errorCode?: string }>) {
+function bundle(
+  tasks: Record<string, { outcome: TaskReceiptOutcome; errorCode?: string }>,
+): ReceiptBundle {
   return {
     receiptVersion: 1 as const,
     tokensUsed: 0,
@@ -107,15 +135,27 @@ describe('interpretRun', () => {
     })
   })
 
-  describe('waiting fail-closed', () => {
-    it('fails with WAITING_NOT_SUPPORTED and does not echo waiting in output receipts', () => {
+  describe('waiting is approval', () => {
+    it('fails closed when waiting is on a non-approve task', () => {
       const view = mustView({ a: {}, b: { after: ['a'] } })
       const result = interpretRun(view, bundle({ a: { outcome: 'waiting' } }))
       expect(result.rollup).toBe('failed')
       expect(result.readyTaskIds).toEqual([])
+      expect(result.waitingTaskIds).toEqual([])
       expect(result.stuck).toBe('WAITING_NOT_SUPPORTED')
       const outcomes = Object.values(result.receipts.tasks).map((task) => task.outcome)
       expect(outcomes).not.toContain('waiting')
+    })
+
+    it('holds an approve task and its dependents without terminating the run', () => {
+      const view = mustApproveChain()
+      const result = interpretRun(view, bundle({ gate: { outcome: 'waiting' } }))
+      expect(result.stuck).toBeUndefined()
+      expect(result.rollup).toBe('running')
+      expect(result.readyTaskIds).toEqual([])
+      expect(result.waitingTaskIds).toEqual(['gate'])
+      expect(result.receipts.tasks.gate?.outcome).toBe('waiting')
+      expect(result.receipts.tasks.echo_hello).toBeUndefined()
     })
   })
 
@@ -235,6 +275,26 @@ describe('interpretRun', () => {
         bundle({ a: { outcome: 'fail', errorCode: 'INVOKE_FAILED' }, b: { outcome: 'ok' } }),
       )
       expect(result.receipts.tasks.c?.outcome).toBe('skip')
+    })
+  })
+
+  describe('receipt lost', () => {
+    it('does not schedule started and does not roll it up succeeded or running', () => {
+      const lost = interpretRun(
+        mustView({ a: {}, b: { after: ['a'] } }),
+        bundle({ a: { outcome: 'started' } }),
+      )
+      expect(lost.readyTaskIds).toEqual([])
+      expect(lost.waitingTaskIds ?? []).toEqual([])
+      expect(lost.receipts.tasks.b?.outcome).toBe('skip')
+      expect(lost.rollup).toBe('failed')
+      expect(lost.stuck).toBeUndefined()
+      const pending = interpretRun(
+        mustView({ a: {}, b: { after: ['a'] } }),
+        bundle({ a: { outcome: 'ok' } }),
+      )
+      expect(pending.readyTaskIds).toEqual(['b'])
+      expect(pending.rollup).toBe('running')
     })
   })
 })

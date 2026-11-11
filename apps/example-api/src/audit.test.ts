@@ -1,13 +1,11 @@
 import { encodeListCursor, MAX_REPRESENTABLE_EPOCH_MS, MIN_REPRESENTABLE_EPOCH_MS } from '@kit/core'
-import { createDb } from '@kit/db'
 import { eq } from 'drizzle-orm'
 import { describe, expect, it, vi } from 'vitest'
-import { createApp } from './app'
-import { auditEvents, schema } from './db/schema'
-import { seedDemoDatabase } from './seed/seed-db'
+import { auditEvents } from './db/schema'
+import * as orgsRepo from './repos/orgs'
 import { TENANCY_PASSWORD } from './seed/tenancy-data'
 import * as auditService from './services/audit'
-import { createMemoryEnv } from './test/memory-env'
+import { createSeededDemoApi, loginCookie } from './test/api-fixture'
 
 const ORIGIN = 'http://localhost:5173'
 
@@ -21,33 +19,10 @@ const BA_ENV = {
 }
 
 async function seedEnv() {
-  const app = createApp()
-  const env = createMemoryEnv(BA_ENV)
-  const db = createDb(env.DB as unknown as D1Database, schema)
-  await seedDemoDatabase(db, { notes: false, environment: 'test' })
-  return { app, env, db }
+  return createSeededDemoApi({ env: BA_ENV, seed: { notes: false, environment: 'test' } })
 }
 
-async function signIn(
-  app: ReturnType<typeof createApp>,
-  env: ReturnType<typeof createMemoryEnv>,
-  email: string,
-  password = TENANCY_PASSWORD,
-) {
-  const res = await app.request(
-    '/api/auth/sign-in/email',
-    {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', Origin: ORIGIN },
-      body: JSON.stringify({ email, password }),
-    },
-    env,
-  )
-  expect(res.status, `sign-in ${email}`).toBeLessThan(400)
-  return res.headers.get('set-cookie')!.split(';')[0]!
-}
-
-describe('audit (B-auth-harden #61)', () => {
+describe('audit (B-auth-harden go-silex/silex-boilerplate#61)', () => {
   it('sanitizeAuditMeta strips secrets and token URLs', () => {
     const clean = auditService.sanitizeAuditMeta('user.created', {
       emailDomain: 'example.com',
@@ -61,7 +36,7 @@ describe('audit (B-auth-harden #61)', () => {
 
   it('create user emits user.created + membership + optional platform_role', async () => {
     const { app, env, db } = await seedEnv()
-    const cookie = await signIn(app, env, 'super@kit.local')
+    const cookie = await loginCookie(app, env, 'super@kit.local', TENANCY_PASSWORD, ORIGIN)
     const email = `audit-user-${Date.now()}@example.com`
     const res = await app.request(
       '/api/admin/users',
@@ -96,11 +71,15 @@ describe('audit (B-auth-harden #61)', () => {
 
   it('first_login is idempotent across two sessions', async () => {
     const { app, env, db } = await seedEnv()
-    await signIn(app, env, 'super@kit.local')
-    await signIn(app, env, 'super@kit.local')
+    await loginCookie(app, env, 'super@kit.local', TENANCY_PASSWORD, ORIGIN)
+    await loginCookie(app, env, 'super@kit.local', TENANCY_PASSWORD, ORIGIN)
     const me = await app.request(
       '/api/me',
-      { headers: { cookie: await signIn(app, env, 'super@kit.local') } },
+      {
+        headers: {
+          cookie: await loginCookie(app, env, 'super@kit.local', TENANCY_PASSWORD, ORIGIN),
+        },
+      },
       env,
     )
     const subject = ((await me.json()) as { subject: string }).subject
@@ -111,8 +90,8 @@ describe('audit (B-auth-harden #61)', () => {
 
   it('GET /api/admin/audit-events super_admin only', async () => {
     const { app, env } = await seedEnv()
-    const superCookie = await signIn(app, env, 'super@kit.local')
-    const staffCookie = await signIn(app, env, 'staff@kit.local')
+    const superCookie = await loginCookie(app, env, 'super@kit.local', TENANCY_PASSWORD, ORIGIN)
+    const staffCookie = await loginCookie(app, env, 'staff@kit.local', TENANCY_PASSWORD, ORIGIN)
 
     const ok = await app.request(
       '/api/admin/audit-events?limit=10',
@@ -135,9 +114,53 @@ describe('audit (B-auth-harden #61)', () => {
     expect(unauth.status).toBe(401)
   })
 
+  it('GET /api/admin/audit-events rejects an org-bound super_admin API key', async () => {
+    const { app, env, db } = await seedEnv()
+    const superCookie = await loginCookie(app, env, 'super@kit.local', TENANCY_PASSWORD, ORIGIN)
+    await orgsRepo.insertMember(db, {
+      id: 'mem_super_acme_audit',
+      organizationId: 'org_acme',
+      userId: 'user_super',
+      role: 'owner',
+      createdAt: new Date(),
+    })
+
+    const mint = await app.request(
+      '/api/keys',
+      {
+        method: 'POST',
+        headers: {
+          cookie: superCookie,
+          'content-type': 'application/json',
+          Origin: ORIGIN,
+        },
+        body: JSON.stringify({ organizationId: 'org_acme' }),
+      },
+      env,
+    )
+    expect(mint.status).toBe(200)
+    const { key } = (await mint.json()) as { key: string }
+
+    const denied = await app.request(
+      '/api/admin/audit-events',
+      { headers: { authorization: `Bearer ${key}` } },
+      env,
+    )
+    expect(denied.status).toBe(403)
+    const body = (await denied.json()) as { error: { code: string } }
+    expect(body.error.code).toBe('FORBIDDEN')
+
+    const ok = await app.request(
+      '/api/admin/audit-events?limit=10',
+      { headers: { cookie: superCookie } },
+      env,
+    )
+    expect(ok.status).toBe(200)
+  })
+
   it('GET /api/admin/audit-events returns an opaque two-page envelope without duplicate ids', async () => {
     const { app, env, db } = await seedEnv()
-    const cookie = await signIn(app, env, 'super@kit.local')
+    const cookie = await loginCookie(app, env, 'super@kit.local', TENANCY_PASSWORD, ORIGIN)
     const limit = 2
     await db.insert(auditEvents).values(
       Array.from({ length: limit + 1 }, (_, index) => ({
@@ -188,7 +211,7 @@ describe('audit (B-auth-harden #61)', () => {
 
   it('GET /api/admin/audit-events rejects a legacy createdAt:id cursor', async () => {
     const { app, env } = await seedEnv()
-    const cookie = await signIn(app, env, 'super@kit.local')
+    const cookie = await loginCookie(app, env, 'super@kit.local', TENANCY_PASSWORD, ORIGIN)
     const res = await app.request(
       '/api/admin/audit-events?cursor=123456%3Aevt_x',
       { headers: { cookie } },
@@ -203,7 +226,7 @@ describe('audit (B-auth-harden #61)', () => {
 
   it('GET /api/admin/audit-events rejects out-of-range and fractional cursor createdAt values', async () => {
     const { app, env } = await seedEnv()
-    const cookie = await signIn(app, env, 'super@kit.local')
+    const cookie = await loginCookie(app, env, 'super@kit.local', TENANCY_PASSWORD, ORIGIN)
     const invalidCursors = [
       encodeListCursor({ createdAt: 1e300, id: 'evt_x' }),
       encodeListCursor({ createdAt: -1e300, id: 'evt_x' }),
@@ -227,7 +250,7 @@ describe('audit (B-auth-harden #61)', () => {
 
   it('GET /api/admin/audit-events accepts representable boundary cursor createdAt values', async () => {
     const { app, env } = await seedEnv()
-    const cookie = await signIn(app, env, 'super@kit.local')
+    const cookie = await loginCookie(app, env, 'super@kit.local', TENANCY_PASSWORD, ORIGIN)
 
     const minCursor = encodeListCursor({
       createdAt: MIN_REPRESENTABLE_EPOCH_MS,

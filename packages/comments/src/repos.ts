@@ -39,3 +39,17 @@ export async function deleteComment(db: Db, orgId: string, id: string) {
     .where(and(eq(kitComments.orgId, orgId), eq(kitComments.id, id)))
     .run()
 }
+
+/** Deletes every comment of one target in `orgId`: the target's owner calls it when the target goes. */
+export async function deleteByTarget(db: Db, orgId: string, targetType: string, targetId: string) {
+  await db
+    .delete(kitComments)
+    .where(
+      and(
+        eq(kitComments.orgId, orgId),
+        eq(kitComments.targetType, targetType),
+        eq(kitComments.targetId, targetId),
+      ),
+    )
+    .run()
+}

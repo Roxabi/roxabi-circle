@@ -2,6 +2,7 @@
 flows: v0
 plan:
   id: demo-echo
+  model: kit-infer
   description: Echo text then single-shot infer summary (kit dogfood)
   max_tokens: 2000
 permits:

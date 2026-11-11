@@ -9,57 +9,34 @@
  * Env:
  * - AUTHORIZATION=sk_… or API_KEY=sk_…  (machine key)
  * - API_BASE_URL=http://127.0.0.1:8787  (kit API origin; required for verified:true)
- * - MCP_ALLOWED_HOSTS=localhost,127.0.0.1  (optional override, comma-separated)
+ * - MCP_ALLOWED_HOSTS=localhost,127.0.0.1  (optional; loopback only unless break-glass)
+ * - MCP_ALLOW_NONLOCAL_HOSTS=1  (break-glass: allow non-loopback MCP_ALLOWED_HOSTS)
  */
-import {
-  createToolCatalogue,
-  extractBearerFromEnv,
-  handlePing,
-  handleWhoami,
-  pingResultSchema,
-  type ToolDef,
-  whoamiResultSchema,
-} from '@kit/mcp'
+import { extractBearerFromEnv, handleWhoami } from '@kit/mcp'
 import { FastMCP } from 'fastmcp'
-import { z } from 'zod'
+import { createExampleCatalogue } from './catalogue'
 
 function whoamiOptsFromEnv() {
-  const hosts = process.env.MCP_ALLOWED_HOSTS?.split(',')
-    .map((s) => s.trim())
-    .filter(Boolean)
+  const raw = process.env.MCP_ALLOWED_HOSTS
+  const hosts =
+    typeof raw === 'string'
+      ? raw
+          .split(',')
+          .map((part) => part.trim())
+          .filter(Boolean)
+      : undefined
   return {
     apiBaseUrl: process.env.API_BASE_URL ?? null,
     allowedHosts: hosts && hosts.length > 0 ? hosts : undefined,
+    allowNonLocalHosts: process.env.MCP_ALLOW_NONLOCAL_HOSTS === '1',
   }
 }
 
-const emptyInput = z.object({})
-
-const pingTool: ToolDef = {
-  name: 'ping',
-  description: 'Health check',
-  input: emptyInput,
-  output: pingResultSchema,
-  effect: 'read',
-  auth: 'none',
-  execute: async () => handlePing(),
-}
-
-const whoamiTool: ToolDef = {
-  name: 'whoami',
-  description: 'Verify API key via GET /api/me (set API_BASE_URL + AUTHORIZATION/API_KEY)',
-  input: emptyInput,
-  output: whoamiResultSchema,
-  effect: 'read',
-  auth: 'api_key',
-  execute: async () => {
-    const key = extractBearerFromEnv(process.env as Record<string, string | undefined>)
-    return handleWhoami(key, whoamiOptsFromEnv())
-  },
-}
-
 /** App catalogue SSoT — smoke imports names from here (not orphan hardcode). */
-export const catalogue = createToolCatalogue([pingTool, whoamiTool])
+export const catalogue = createExampleCatalogue(async () => {
+  const key = extractBearerFromEnv(process.env as Record<string, string | undefined>)
+  return handleWhoami(key, whoamiOptsFromEnv())
+})
 
 /** Live export for smoke + tests — same array as catalogue.names. */
 export const REGISTERED_TOOL_NAMES = catalogue.names

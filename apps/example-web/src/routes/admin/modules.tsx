@@ -25,6 +25,42 @@ type PlatformModulesResponse = {
   requestId: string
 }
 
+function PlatformModuleRow({
+  moduleId,
+  mod,
+  labels,
+}: {
+  moduleId: string
+  mod: PlatformModuleState
+  labels: {
+    notConfigured: string
+    errIntegration: string
+    on: string
+    off: string
+  }
+}) {
+  return (
+    <li className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-sm">
+      <div className="min-w-0">
+        <div className="font-mono text-xs">{moduleId}</div>
+        {mod.configPath ? (
+          <div className="truncate text-xs text-muted-foreground">{mod.configPath}</div>
+        ) : null}
+      </div>
+      <div className="flex items-center gap-1.5">
+        {mod.configured ? null : (
+          <Badge variant="outline" className="text-[10px]" title={labels.errIntegration}>
+            {labels.notConfigured}
+          </Badge>
+        )}
+        <Badge variant={mod.available ? 'secondary' : 'outline'} className="text-[10px]">
+          {mod.available ? labels.on : labels.off}
+        </Badge>
+      </div>
+    </li>
+  )
+}
+
 export function AdminModulesPage() {
   const { m } = useLocale()
 
@@ -62,34 +98,17 @@ export function AdminModulesPage() {
           ) : (
             <ul className="divide-y divide-border rounded-lg border border-border">
               {entries.map(([moduleId, mod]) => (
-                <li
+                <PlatformModuleRow
                   key={moduleId}
-                  className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-sm"
-                >
-                  <div className="min-w-0">
-                    <div className="font-mono text-xs">{moduleId}</div>
-                    {mod.configPath ? (
-                      <div className="truncate text-xs text-muted-foreground">{mod.configPath}</div>
-                    ) : null}
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    {mod.configured ? null : (
-                      <Badge
-                        variant="outline"
-                        className="text-[10px]"
-                        title={m.errIntegrationNotConfigured}
-                      >
-                        {m.moduleNotConfigured}
-                      </Badge>
-                    )}
-                    <Badge
-                      variant={mod.available ? 'secondary' : 'outline'}
-                      className="text-[10px]"
-                    >
-                      {mod.available ? m.moduleOn : m.moduleOff}
-                    </Badge>
-                  </div>
-                </li>
+                  moduleId={moduleId}
+                  mod={mod}
+                  labels={{
+                    notConfigured: m.moduleNotConfigured,
+                    errIntegration: m.errIntegrationNotConfigured,
+                    on: m.moduleOn,
+                    off: m.moduleOff,
+                  }}
+                />
               ))}
             </ul>
           )}

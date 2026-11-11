@@ -40,6 +40,38 @@ function normalizeOriginUrl(url) {
   return u
 }
 
+function classifyFromMarkers({ hasInheritance, onAllowlist, identity, inheritanceFile }) {
+  if (hasInheritance) {
+    if (onAllowlist) {
+      throw new Error(
+        `inheritance marker present on kit-allowlisted origin "${identity}" — mirrors/kits must not carry product markers`,
+      )
+    }
+    return 'product'
+  }
+  if (onAllowlist) return 'kit'
+  throw new Error(
+    `cannot classify repo (no marker, origin/identity "${identity || '(empty)'}" not in kit_origin_allowlist).\n` +
+      `  Product: add ${inheritanceFile} after merge upstream.\n` +
+      `  Kit/mirror: add repo to config/kit/zero-edit-zones.json kit_origin_allowlist.`,
+  )
+}
+
+function modeFromHarness(modeEnv, classifiedMode, harnessSentinel) {
+  const harnessOk = modeEnv && harnessSentinel && existsSync(harnessSentinel)
+  if (!harnessOk) {
+    throw new Error(
+      `EXTRACT_MODE is set but EXTRACT_HARNESS_SENTINEL is missing/unusable — forbidden on normal lefthook/CI (ADR-0009 D5)`,
+    )
+  }
+  if (!['kit', 'product', 'strict', 'mono'].includes(modeEnv)) {
+    throw new Error(`unknown EXTRACT_MODE "${modeEnv}" (use kit|product|strict|mono)`)
+  }
+  if (modeEnv === 'kit' || modeEnv === 'strict') return 'kit'
+  // product / mono: permissive audit labels — never bypass kit allowlist on kit trees.
+  return classifiedMode === 'kit' ? 'kit' : 'product'
+}
+
 /**
  * @param {{
  *   root: string
@@ -57,7 +89,7 @@ export function resolveTreeIdentity({
 }) {
   const zonesPath = join(root, zonesFile)
   const zones = loadJson(zonesPath, 'zones')
-  if (!zones || zones.version !== 1) {
+  if (zones?.version !== 1) {
     throw new Error(`zones config must have version: 1 (${zonesPath})`)
   }
 
@@ -73,50 +105,19 @@ export function resolveTreeIdentity({
 
   const inheritanceDoc = loadJson(inheritancePath, 'inheritance')
   const hasInheritance = Boolean(inheritanceDoc?.upstreamCommit)
+  const classifiedMode = classifyFromMarkers({
+    hasInheritance,
+    onAllowlist,
+    identity,
+    inheritanceFile,
+  })
 
-  let classifiedMode
-  if (hasInheritance) {
-    if (onAllowlist) {
-      throw new Error(
-        `inheritance marker present on kit-allowlisted origin "${identity}" — mirrors/kits must not carry product markers`,
-      )
-    }
-    classifiedMode = 'product'
-  } else if (onAllowlist) {
-    classifiedMode = 'kit'
-  } else {
-    throw new Error(
-      `cannot classify repo (no marker, origin/identity "${identity || '(empty)'}" not in kit_origin_allowlist).\n` +
-        `  Product: add ${inheritanceFile} after merge upstream.\n` +
-        `  Kit/mirror: add repo to config/kit/zero-edit-zones.json kit_origin_allowlist.`,
-    )
+  if (!modeEnv) return { mode: classifiedMode, identity, classifiedMode }
+  return {
+    mode: modeFromHarness(modeEnv, classifiedMode, harnessSentinel),
+    identity,
+    classifiedMode,
   }
-
-  const harnessOk = modeEnv && harnessSentinel && existsSync(harnessSentinel)
-
-  if (modeEnv) {
-    if (!harnessOk) {
-      throw new Error(
-        `EXTRACT_MODE is set but EXTRACT_HARNESS_SENTINEL is missing/unusable — forbidden on normal lefthook/CI (ADR-0009 D5)`,
-      )
-    }
-    if (!['kit', 'product', 'strict', 'mono'].includes(modeEnv)) {
-      throw new Error(`unknown EXTRACT_MODE "${modeEnv}" (use kit|product|strict|mono)`)
-    }
-    let mode = classifiedMode
-    if (modeEnv === 'kit' || modeEnv === 'strict') {
-      mode = 'kit'
-    } else if (modeEnv === 'mono') {
-      // Permissive audit label — never bypass kit allowlist on kit-classified trees.
-      mode = classifiedMode === 'kit' ? 'kit' : 'product'
-    } else if (modeEnv === 'product') {
-      // Permissive label — never bypass the kit allowlist on kit-classified trees.
-      mode = classifiedMode === 'kit' ? 'kit' : 'product'
-    }
-    return { mode, identity, classifiedMode }
-  }
-
-  return { mode: classifiedMode, identity, classifiedMode }
 }
 
 const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]

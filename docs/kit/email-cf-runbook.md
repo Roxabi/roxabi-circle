@@ -1,7 +1,7 @@
 # Runbook — Cloudflare Email Sending (kit)
 
 SSoT decision: [ADR-0004](./architecture/adr/0004-email-transport-cf-default.md).  
-Implementation epic: GitHub **#21**.
+Implementation epic: GitHub **go-silex/silex-boilerplate#21**.
 
 Transactional only (reset, invites, demo). **Not** marketing bulk. **Not** inbound routing.
 
@@ -112,6 +112,16 @@ EMAIL_TRANSPORT=log
 | `EMAIL_FROM must be @example.com` | Staging From on non-Kit domain |
 | `EMAIL_RECIPIENT_DOMAIN_NOT_ALLOWED` | `to` not in allowlist (expected if DB has non-client domains) |
 | Tokens visible in logs | Use `createLogEmailPort` / `createEmailPort` only (redacts body); never custom `console.log` of URL |
+
+### Notification Delivery behavior
+
+- `EmailPort` request/result shapes remain unchanged. Its three existing local address/allowlist refusals now expose typed `EmailPolicyError` codes; staging protections and the single physical send remain in the port.
+- The Example App's notification Channel classifies typed local refusals and documented structured CF `Error.code` values. Unknown/network/opaque provider failures stay scrubbed and retryable; message text is not used to infer permanence.
+- Only `NotificationDeliveryWorkflow` owns notification retries and terminal receipts. Generic authentication/invitation email is not moved into this owner. `sent` records transport acceptance, never recipient receipt or exactly-once sending.
+- Notification content uses configured trusted origins and the authenticated rules API link, not request Host/Origin or a nonexistent preferences screen. Staging fixtures must also use explicit non-loopback origins; production policy is not relaxed for local proof.
+
+See [notification runtime evidence and non-claims](testing.md#notifications-email-delivery-owner). Effective native success/error retention still requires operational verification before deployment; local instance deletion only models old-owner absence.
+
 
 ---
 

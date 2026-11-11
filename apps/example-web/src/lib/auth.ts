@@ -1,65 +1,126 @@
+import { type MeResponse, meResponseSchema, type PlatformRole, parseMe } from '@kit/api-client/me'
 import type { QueryClient } from '@tanstack/react-query'
 import { useQuery } from '@tanstack/react-query'
-import { ApiError, apiFetch } from './api'
-import { safeInviteReturnPath } from './safe-return-path'
+import { apiFetch, HttpError, invalidatePrincipalGeneration, setImpersonationFence } from './api'
+import { safeInviteReturnPath, safeMcpOAuthResumePath } from './safe-return-path'
 
-export type KitRole = 'admin' | 'user'
+export {
+  type MeOrg,
+  type MeResponse,
+  meOrgSchema,
+  meResponseSchema,
+  type PlatformRole,
+} from '@kit/api-client/me'
 
-export type PlatformRole = 'super_admin' | 'staff'
-
-export type MeOrg = {
-  id: string
-  name: string
-  slug: string
-  kind: 'client' | 'internal'
-  status: 'active' | 'suspended' | 'archived'
-  role: 'owner' | 'admin' | 'member' | 'reader'
+/** Sole /api/me network reader. Optimistic me-cache patches go through writeMeCache. */
+let onFenceChange: (() => void) | undefined
+let beforeMeRead: (signal?: AbortSignal) => Promise<() => void> = async (signal) => () => {
+  if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
 }
 
-export type MeResponse = {
-  subject: string
-  email?: string
-  /** Display name from BA user (when set). */
-  name?: string
-  authMethod: string
-  /** @deprecated kit demo KitRole — do not use for BO gates */
-  role: KitRole
-  platformRole: PlatformRole | null
-  orgs: MeOrg[]
-  requestId: string
+export function setMeReadBarrier(barrier: (signal?: AbortSignal) => Promise<() => void>): void {
+  beforeMeRead = barrier
+}
+
+export function setFenceChangeHandler(handler: () => void): void {
+  onFenceChange = handler
+}
+
+export async function fetchMe(context?: { signal: AbortSignal }): Promise<MeResponse> {
+  const signal = context?.signal
+  const assertCurrent = await beforeMeRead(signal)
+  assertCurrent()
+  try {
+    const me = await apiFetch<MeResponse>('/api/me', { parse: parseMe, signal })
+    assertCurrent()
+    if (setImpersonationFence(me.impersonation?.id ?? null)) onFenceChange?.()
+    return me
+  } catch (error) {
+    if (error instanceof HttpError && error.status === 401) {
+      assertCurrent()
+      setImpersonationFence(null)
+    }
+    throw error
+  }
 }
 
 export const meQueryKey = ['me'] as const
 
+/**
+ * Sole me-cache writer besides fetchMe. Re-parses the full MeResponse so
+ * ensureQueryData cannot serve an unvalidated optimistic patch to route gates.
+ */
+export function writeMeCache(
+  queryClient: QueryClient,
+  updater: (prev: MeResponse) => unknown,
+): void {
+  queryClient.setQueryData<MeResponse>(meQueryKey, (prev) => {
+    if (!prev) return prev
+    return parseMe(updater(prev))
+  })
+}
+
 export async function ensureMe(queryClient: QueryClient): Promise<MeResponse> {
-  return queryClient.ensureQueryData({
+  const data = await queryClient.ensureQueryData({
     queryKey: meQueryKey,
-    queryFn: () => apiFetch<MeResponse>('/api/me'),
+    queryFn: fetchMe,
+  })
+  const parsed = meResponseSchema.safeParse(data)
+  if (parsed.success) return parsed.data
+  queryClient.removeQueries({ queryKey: meQueryKey })
+  return queryClient.fetchQuery({
+    queryKey: meQueryKey,
+    queryFn: fetchMe,
   })
 }
 
 export function useMe(opts?: { enabled?: boolean }) {
   return useQuery({
     queryKey: meQueryKey,
-    queryFn: () => apiFetch<MeResponse>('/api/me'),
+    queryFn: fetchMe,
     retry: false,
     enabled: opts?.enabled ?? true,
+    select: parseMe,
   })
 }
 
 /**
- * BA sign-out then clear client `me` cache.
+ * Drop every cached query when the principal changes.
+ * Sign-in, sign-up, sign-out, and a protected 401 all call this — nothing else.
+ */
+export function dropPrincipalCache(qc: QueryClient): void {
+  invalidatePrincipalGeneration()
+  qc.clear()
+}
+
+/**
+ * A 401 on a protected resource means the cached principal is gone.
+ * The `me` query's own 401 is anonymous bootstrap — clearing there loops.
+ */
+export function onSessionUnauthorized(
+  qc: QueryClient,
+  error: unknown,
+  sourceQueryKey?: readonly unknown[],
+): void {
+  if (!(error instanceof HttpError) || error.status !== 401) return
+  if (sourceQueryKey?.[0] === meQueryKey[0]) return
+  setImpersonationFence(null)
+  dropPrincipalCache(qc)
+}
+
+/**
+ * BA sign-out then clear client cache.
  * Fail-closed: throws if server revoke fails — callers must not navigate as if signed out.
  * Shared by app-shell + settings (SH3 / anti parallel-path drift).
  */
 export async function signOutAndClearSession(qc: QueryClient): Promise<void> {
   await apiFetch('/api/auth/sign-out', { method: 'POST', body: '{}' })
-  await qc.invalidateQueries({ queryKey: meQueryKey })
-  qc.removeQueries({ queryKey: meQueryKey })
+  setImpersonationFence(null)
+  dropPrincipalCache(qc)
 }
 
 export function isUnauthorized(err: unknown): boolean {
-  return err instanceof ApiError && err.status === 401
+  return err instanceof HttpError && err.status === 401
 }
 
 export function hasPlatformRole(me: MeResponse | undefined, ...roles: PlatformRole[]): boolean {
@@ -83,9 +144,9 @@ export function defaultHomePath(me: MeResponse | undefined): '/admin' | '/app' {
   return isPlatformActor(me) ? '/admin' : '/app'
 }
 
-/** Post sign-in / sign-up navigation: allowlisted invite `next`, else default home. */
+/** Post sign-in / sign-up navigation: allowlisted invite or MCP OAuth resume, else default home. */
 export function postAuthTarget(me: MeResponse, next: string | undefined): string {
-  return safeInviteReturnPath(next) ?? defaultHomePath(me)
+  return safeInviteReturnPath(next) ?? safeMcpOAuthResumePath(next) ?? defaultHomePath(me)
 }
 
 /** FE convenience — server still enforces manage_members. */

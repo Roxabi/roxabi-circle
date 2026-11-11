@@ -14,7 +14,6 @@
     "playwright@claude-plugins-official": true,
     "roxabi-issues@roxabi-live-marketplace": true,
     "security-guidance@claude-plugins-official": true,
-    "semctx@semctx-stable": true,
     "typescript-lsp@claude-plugins-official": true
   },
   "extraKnownMarketplaces": {
@@ -66,13 +65,6 @@
       "source": {
         "source": "github",
         "repo": "cocoindex-io/cocoindex-code"
-      },
-      "autoUpdate": true
-    },
-    "semctx-stable": {
-      "source": {
-        "source": "github",
-        "repo": "hoklims/semctx"
       },
       "autoUpdate": true
     },

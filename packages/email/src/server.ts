@@ -100,7 +100,7 @@ export async function sendSmtp(
   const from = scrubHeaderLine(input.from).trim()
   const to = scrubHeaderLine(input.to).trim()
   const subject = scrubHeaderLine(input.subject).trimEnd()
-  if (!isValidMailboxAddress(from) || !isValidMailboxAddress(to)) {
+  if (!(isValidMailboxAddress(from) && isValidMailboxAddress(to))) {
     return {
       ok: false,
       transport: 'smtp',

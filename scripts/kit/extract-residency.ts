@@ -8,7 +8,6 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, relative, resolve, sep } from 'node:path'
 
-// biome-ignore lint/suspicious/noUndeclaredEnvVars: gate script override
 const ROOT = resolve(process.env.EXTRACT_ROOT ?? join(import.meta.dirname, '../..'))
 
 const SOURCE_EXT = new Set(['.ts', '.tsx'])

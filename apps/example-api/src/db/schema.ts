@@ -1,6 +1,7 @@
 import { kitAuthSchema } from '@kit/auth/schema'
 import { commentsDrizzleSchema } from '@kit/comments/schema'
 import { flowsDrizzleSchema } from '@kit/flows/schema'
+import { notificationsDrizzleSchema } from '@kit/notifications/schema'
 import { tasksDrizzleSchema } from '@kit/tasks/schema'
 import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
@@ -33,22 +34,9 @@ export const demoItems = sqliteTable('demo_items', {
 export {
   apiKeys,
   auditEvents,
-  kitModules,
-  organizationModules,
-  organizationRoleModuleGrants,
-  organizationRoles,
-  platformModules,
-  rateLimitBuckets,
   userPlatformRoles,
 } from '@kit/auth/schema'
-export { kitComments } from '@kit/comments/schema'
-export { flowPlans, flowRuns } from '@kit/flows/schema'
-export {
-  kitTaskAssignees,
-  kitTaskLinks,
-  kitTaskStages,
-  kitTasks,
-} from '@kit/tasks/schema'
+export { flowPlans, flowRunApprovals, flowRuns } from '@kit/flows/schema'
 
 export const schema = {
   demoNotes,
@@ -58,4 +46,5 @@ export const schema = {
   ...flowsDrizzleSchema,
   ...tasksDrizzleSchema,
   ...commentsDrizzleSchema,
+  ...notificationsDrizzleSchema,
 }

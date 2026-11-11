@@ -9,7 +9,7 @@
 # Kit `validate:full` / `scripts/kit/test-coverage.sh` stay kit-only — do not dual-edit them
 # to add product packages.
 #
-# See: docs/kit/product-consumer-contract.md · docs/kit/playbooks/start-product.md §8
+# See: docs/kit/product-consumer-contract.md · docs/kit/playbooks/start-product.md#day-0-checklist (item 9)
 set -euo pipefail
 
 # Resolve monorepo root from this script location.
@@ -27,6 +27,14 @@ fi
 cd "$ROOT"
 
 echo "→ product-validate (ROOT=$ROOT)"
+
+# Deploy-gate declaration (Roxabi/roxabi-boilerplate-cf#317): the inherited kit script runs promote-deploy.ts --check for main,
+# and for staging when origin/deploy/staging exists (the CI checkout, fetch-depth: 0, carries every
+# origin/deploy/* ref). Call it, never re-type it: this file is product-owned and would freeze a copy.
+# Early local signal only: this script runs inside Product CI, the workflow under check, so a PR
+# that stops Product CI from running never reaches it. Kit `validate:full` runs the same script in
+# the required `ci` job; that is the enforcing path.
+bun run deploy-gate:check
 
 # Product mode: kit zones clean vs upstream (or inheritance.json in CI).
 bun run zero-edit

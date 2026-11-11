@@ -2,7 +2,7 @@ import { Button, Card, CardContent, CardHeader, CardTitle, Textarea } from '@kit
 import { apiErrorToMessage } from '../lib/api'
 import type { Messages } from '../messages/fr'
 
-export type CommentRow = { id: string; body: string; visibility: string; createdAt: number }
+type CommentRow = { id: string; body: string; visibility: string; createdAt: number }
 
 type Props = {
   m: Messages

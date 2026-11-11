@@ -2,6 +2,7 @@ import {
   createRunSnapshot,
   createToolRegistry,
   loadPlanFromYaml,
+  mintCapabilityGrant,
   parseReceipts,
   readRunRollup,
 } from '@kit/flows'
@@ -24,22 +25,28 @@ type RunRow = {
 const immediateStep: DriveStep = async (_name, fn) => fn()
 
 const registry = createToolRegistry('example-api-drive-v0', [
-  { name: 'echo', description: 'Echo args (kit dogfood)', effect: 'read' },
+  { name: 'echo', description: 'Echo args (kit dogfood)', grantClass: 'mintable' },
 ])
 
 const INSTANCE_ID = 'wfinst_persist_fail_v3'
 const ORG = 'org_a'
 
+// createRunSnapshot seals only a kit-minted grant, so the fixture mints instead of asserting one.
+function mintFixtureGrant(orgId: string) {
+  const minted = mintCapabilityGrant({
+    orgId,
+    registry,
+    facts: { moduleEffective: true, canRead: true, canWrite: false, allowedModels: [] },
+  })
+  if (!minted.ok) throw new Error(`fixture grant must mint: ${minted.message}`)
+  return minted.grant
+}
+
 function seal(orgId: string) {
   const plan = loadPlanFromYaml(INVOKE_ONLY_PLAN_YAML)
   const result = createRunSnapshot({
     plan,
-    grant: {
-      orgId,
-      allowedTools: ['echo'],
-      registryVersion: registry.version,
-      allowsInfer: false,
-    },
+    grant: mintFixtureGrant(orgId),
     registry,
     actorId: 'actor_1',
   })

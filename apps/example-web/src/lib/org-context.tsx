@@ -37,29 +37,32 @@ function writeStoredOrgId(id: string | null) {
   }
 }
 
+/** Membership id only. A stored or caller id outside the list is never returned. */
+function membershipOrgId(
+  orgs: readonly { id: string }[],
+  candidate: string | null | undefined,
+): string | null {
+  if (candidate && orgs.some((org) => org.id === candidate)) return candidate
+  return orgs[0]?.id ?? null
+}
+
 export function OrgProvider({ me, children }: { me: MeResponse | undefined; children: ReactNode }) {
   const orgs = me?.orgs ?? []
-  const [activeOrgId, setActiveOrgIdState] = useState<string | null>(() => readStoredOrgId())
-
-  const setActiveOrgId = useCallback((id: string | null) => {
-    setActiveOrgIdState(id)
-    writeStoredOrgId(id)
-  }, [])
-
-  // Keep selection valid when me.orgs changes
-  useEffect(() => {
-    if (orgs.length === 0) {
-      if (activeOrgId != null) setActiveOrgId(null)
-      return
-    }
-    if (activeOrgId && orgs.some((o) => o.id === activeOrgId)) return
-    setActiveOrgId(orgs[0]!.id)
-  }, [orgs, activeOrgId, setActiveOrgId])
-
+  const [picked, setPicked] = useState<string | null>(() => readStoredOrgId())
+  const activeOrgId = membershipOrgId(orgs, picked)
   const activeOrg = useMemo(
-    () => orgs.find((o) => o.id === activeOrgId) ?? null,
+    () => orgs.find((org) => org.id === activeOrgId) ?? null,
     [orgs, activeOrgId],
   )
+
+  const setActiveOrgId = useCallback((id: string | null) => {
+    setPicked(id)
+  }, [])
+
+  useEffect(() => {
+    writeStoredOrgId(activeOrgId)
+    if (picked !== activeOrgId) setPicked(activeOrgId)
+  }, [activeOrgId, picked])
 
   const value = useMemo(
     () => ({ orgs, activeOrgId, activeOrg, setActiveOrgId }),

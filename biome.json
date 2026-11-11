@@ -1,6 +1,10 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.5.3/schema.json",
-  "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
+  "$schema": "https://biomejs.dev/schemas/2.5.15/schema.json",
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
   "files": {
     "includes": [
       "**",
@@ -9,7 +13,8 @@
       "!**/node_modules",
       "!**/coverage",
       "!**/*.lock",
-      "!**/artifacts/visuals"
+      "!**/worker-configuration.d.ts",
+      "!docs/kit/openapi/*.json"
     ]
   },
   "formatter": {
@@ -18,13 +23,36 @@
     "indentWidth": 2,
     "lineWidth": 100
   },
-  "assist": { "actions": { "source": { "organizeImports": "on" } } },
+  "assist": {
+    "actions": {
+      "source": {
+        "organizeImports": "on"
+      }
+    }
+  },
   "linter": {
     "enabled": true,
     "rules": {
       "preset": "recommended",
-      "suspicious": { "noExplicitAny": "warn" },
-      "style": { "noNonNullAssertion": "off" }
+      "suspicious": {
+        "noExplicitAny": "error"
+      },
+      "complexity": {
+        "preset": "all",
+        "noExcessiveCognitiveComplexity": {
+          "level": "error",
+          "options": {
+            "maxAllowedComplexity": 15
+          }
+        },
+        "noVoid": "off",
+        "useMaxParams": "off",
+        "noExcessiveLinesPerFunction": "off",
+        "noImplicitCoercions": "off"
+      },
+      "style": {
+        "noNonNullAssertion": "off"
+      }
     }
   },
   "javascript": {
@@ -58,6 +86,16 @@
             "noDocumentCookie": "off",
             "noDoubleEquals": "off",
             "noArrayIndexKey": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["scripts/**", "tooling/**"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noUndeclaredEnvVars": "off"
           }
         }
       }

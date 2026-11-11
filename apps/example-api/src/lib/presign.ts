@@ -31,7 +31,7 @@ export function createAppPresignSigner(env: {
     // Kit v1 has no aws4fetch signer yet — S3 mode requires full creds and is not mock-shaped.
     const id = env.R2_ACCESS_KEY_ID
     const secret = env.R2_SECRET_ACCESS_KEY
-    if (!id || !secret || !env.R2_ACCOUNT_ID || !env.R2_BUCKET_NAME) {
+    if (!(id && secret && env.R2_ACCOUNT_ID && env.R2_BUCKET_NAME)) {
       throw new Error(
         'PRESIGN_MODE=s3 requires R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME',
       )
@@ -52,7 +52,8 @@ export async function presignDemoUpload(opts: {
   contentType: string
   expiresIn?: number
 }): Promise<PresignResult & { key: string }> {
-  const safeName = opts.filename.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 120) || 'file.bin'
+  const sanitized = opts.filename.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 120)
+  const safeName = !sanitized || sanitized === '.' || sanitized === '..' ? 'file.bin' : sanitized
   // Dummy bucket: presign only builds a prefix-safe key + signs (no R2 I/O).
   const client = new StorageClient({} as KitR2Bucket, 'demo')
   return client.presign(opts.signer, {

@@ -1,14 +1,10 @@
+import { resetPasswordIdentifier } from '@kit/auth/factory'
 import { baAccount, baMember, baUser, baVerification } from '@kit/auth/schema'
 import { and, desc, eq, inArray, like, lt, or } from 'drizzle-orm'
 import type { DrizzleD1Database } from 'drizzle-orm/d1'
-import { demoUsers, type schema, userPlatformRoles } from '../db/schema'
+import { type schema, userPlatformRoles } from '../db/schema'
 
 type Db = DrizzleD1Database<typeof schema>
-
-export async function findUserByEmail(db: Db, email: string) {
-  const rows = await db.select().from(demoUsers).where(eq(demoUsers.email, email)).all()
-  return rows[0] ?? null
-}
 
 /** BA user row by id (session subject). */
 export async function findBaUserById(db: Db, userId: string) {
@@ -113,7 +109,7 @@ export async function listBaUsers(db: Db, opts?: ListBaUsersOpts) {
   return ordered.limit(limit)
 }
 
-/** Mint BA-compatible reset-password verification token. Returns raw token. */
+/** Mint a BA-compatible reset-password verification record for the supplied token. */
 export async function insertResetPasswordToken(
   db: Db,
   input: { userId: string; token: string; expiresAt: Date; now?: Date },
@@ -121,7 +117,7 @@ export async function insertResetPasswordToken(
   const now = input.now ?? new Date()
   await db.insert(baVerification).values({
     id: `ver_${crypto.randomUUID().replace(/-/g, '')}`,
-    identifier: `reset-password:${input.token}`,
+    identifier: await resetPasswordIdentifier(input.token),
     value: input.userId,
     expiresAt: input.expiresAt,
     createdAt: now,

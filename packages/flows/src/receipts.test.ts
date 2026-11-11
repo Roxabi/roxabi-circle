@@ -98,17 +98,70 @@ describe('TASK_RECEIPT_OUTCOMES', () => {
     })
     expect(result.ok).toBe(true)
   })
+
+  it('accepts a strict approval stamp and rejects a non-ISO at', () => {
+    const ok = parseReceipts({
+      receiptVersion: 1,
+      tokensUsed: 0,
+      tasks: {
+        gate: {
+          taskId: 'gate',
+          outcome: 'ok',
+          approval: { by: 'user_staff', at: '2026-09-25T12:00:00.000Z' },
+        },
+      },
+    })
+    expect(ok.ok).toBe(true)
+    const bad = parseReceipts({
+      receiptVersion: 1,
+      tokensUsed: 0,
+      tasks: {
+        gate: {
+          taskId: 'gate',
+          outcome: 'fail',
+          errorCode: 'APPROVAL_REJECTED',
+          approval: { by: 'user_staff', at: 'yesterday', extra: true },
+        },
+      },
+    })
+    expect(bad.ok).toBe(false)
+  })
+
+  it('accepts started without output', () => {
+    expect(TASK_RECEIPT_OUTCOMES).toContain('started')
+    const result = parseReceipts({
+      receiptVersion: 1,
+      tokensUsed: 0,
+      tasks: { a: { taskId: 'a', outcome: 'started' } },
+    })
+    expect(result.ok).toBe(true)
+  })
+
+  it('rejects started that carries output', () => {
+    const result = parseReceipts({
+      receiptVersion: 1,
+      tokensUsed: 0,
+      tasks: { a: { taskId: 'a', outcome: 'started', output: 'leaked' } },
+    })
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(result.issues.some((issue) => issue.path?.includes('output'))).toBe(true)
+    }
+  })
 })
 
 describe('readRunRollup', () => {
   it('returns app status and parsed receipts and ignores extra instanceStatus', () => {
     expect(readRunRollup.length).toBe(1)
-    const result = readRunRollup({
+    // Not an object literal: `readRunRollup`'s param has no `instanceStatus`, and the
+    // point of the test is that a D1 row carrying one is ignored, not rejected.
+    const row = {
       status: 'failed',
       receiptJson: JSON.stringify(emptyBundle),
       errorCode: 'ORG_MISMATCH',
       instanceStatus: 'complete',
-    })
+    }
+    const result = readRunRollup(row)
     expect(result.status).toBe('failed')
     expect(result.status).not.toBe('complete')
     expect(result.receipts).toMatchObject(emptyBundle)

@@ -2,6 +2,7 @@
   "name": "@kit/storage",
   "version": "0.0.1",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "exports": {
     ".": {
@@ -17,7 +18,6 @@
     "build": "echo ok"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20250620.0",
-    "vitest": "^4.1.11"
+    "vitest": "^5.1.0"
   }
 }

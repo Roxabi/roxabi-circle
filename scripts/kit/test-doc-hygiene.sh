@@ -5,13 +5,15 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd -P)"
 SCANNER="${ROOT}/scripts/kit/check-doc-hygiene.ts"
 [[ -f "$SCANNER" ]] || { echo "FAIL: missing $SCANNER" >&2; exit 1; }
+# GATE: the package.json launch flags of this scanner.
+source "${ROOT}/scripts/kit/lib/gate-launch.sh"
 
 PASS=0
 FAIL=0
 assert_case() {
   local name="$1" expected="$2" tree="$3" marker="$4"
   local output rc=0
-  output="$(DOC_HYGIENE_ROOT="$tree" bun "$SCANNER" 2>&1)" || rc=$?
+  output="$(DOC_HYGIENE_ROOT="$tree" bun "${GATE[@]}" "$SCANNER" 2>&1)" || rc=$?
   if [[ "$rc" -eq "$expected" ]] && [[ "$output" == *"$marker"* ]]; then
     echo "PASS: $name"
     PASS=$((PASS + 1))
@@ -24,19 +26,16 @@ assert_case() {
 
 write_base() {
   local tree="$1"
-  mkdir -p "$tree/.claude" "$tree/docs/kit"
-  cat >"$tree/.claude/stack.yml" <<'EOF'
+  mkdir -p "$tree/.dev" "$tree/docs/kit"
+  cat >"$tree/.dev/stack.yml" <<'EOF'
 schema_version: "1.0"
 docs:
   path: docs/kit
 standards:
   testing: docs/kit/testing.md
-  agent_entry: CLAUDE.md
+  agent_entry: AGENTS.md
   agents: AGENTS.md
   contributing: README.md
-EOF
-  cat >"$tree/CLAUDE.md" <<'EOF'
-@AGENTS.md
 EOF
   cat >"$tree/AGENTS.md" <<'EOF'
 # Agents
@@ -81,7 +80,7 @@ assert_case "broken internal link" 1 "$BROKEN" "README.md:5: broken internal lin
 
 STANDARD="$TMP/missing-standard"
 cp -R "$BASE" "$STANDARD"
-printf '  absent: docs/kit/absent.md\n' >>"$STANDARD/.claude/stack.yml"
+printf '  absent: docs/kit/absent.md\n' >>"$STANDARD/.dev/stack.yml"
 assert_case "missing standard target" 1 "$STANDARD" "absent target does not exist"
 
 ORPHAN="$TMP/orphan"
@@ -89,21 +88,8 @@ cp -R "$BASE" "$ORPHAN"
 printf '# Orphan\n' >"$ORPHAN/docs/kit/orphan.md"
 assert_case "documentation not indexed" 1 "$ORPHAN" "document is not referenced by docs/kit/README.md"
 
-AGENTS_FIRST="$TMP/agents-first"
-cp -R "$BASE" "$AGENTS_FIRST"
-cat >"$AGENTS_FIRST/CLAUDE.md" <<'EOF'
-# Claude
-@AGENTS.md
-EOF
-assert_case "agents import is first line" 1 "$AGENTS_FIRST" "first line must import @AGENTS.md"
-
-STACK_STILL="$TMP/stack-still-imported"
-cp -R "$BASE" "$STACK_STILL"
-cat >"$STACK_STILL/CLAUDE.md" <<'EOF'
-@.claude/stack.yml
-@AGENTS.md
-EOF
-assert_case "stack import is no longer the entry" 1 "$STACK_STILL" "first line must import @AGENTS.md"
+# A cwd .env or bunfig preload re-points the root unless the package.json flags close it.
+assert_gate_launch DOC_HYGIENE_ROOT "$BROKEN" "README.md:5: broken internal link: missing.md"
 
 echo "== doc hygiene summary: $PASS pass, $FAIL fail =="
 [[ "$FAIL" -eq 0 ]]

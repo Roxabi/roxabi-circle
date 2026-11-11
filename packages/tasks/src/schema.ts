@@ -30,6 +30,21 @@ const optionalUrl = z
   .optional()
   .transform((v) => (v === '' || v === undefined ? null : v))
 
+function refineScopePair(
+  value: { scopeKind?: string | null; scopeId?: string | null },
+  ctx: z.RefinementCtx,
+) {
+  const hasKind = value.scopeKind != null && value.scopeKind !== ''
+  const hasId = value.scopeId != null && value.scopeId !== ''
+  if (hasKind !== hasId) {
+    ctx.addIssue({
+      code: 'custom',
+      message: 'scopeKind and scopeId must both be set or both null',
+      path: hasKind ? ['scopeId'] : ['scopeKind'],
+    })
+  }
+}
+
 /** Stage row (kanban column) — product seeds labels; kit owns position/terminal rules. */
 export const taskStageSchema = z
   .object({
@@ -69,17 +84,7 @@ export const taskSchema = z
     updatedAt: z.number().int().nonnegative().optional(),
   })
   .strict()
-  .superRefine((value, ctx) => {
-    const hasKind = value.scopeKind != null && value.scopeKind !== ''
-    const hasId = value.scopeId != null && value.scopeId !== ''
-    if (hasKind !== hasId) {
-      ctx.addIssue({
-        code: 'custom',
-        message: 'scopeKind and scopeId must both be set or both null',
-        path: hasKind ? ['scopeId'] : ['scopeKind'],
-      })
-    }
-  })
+  .superRefine(refineScopePair)
 
 export type Task = z.infer<typeof taskSchema>
 
@@ -103,17 +108,7 @@ export const createTaskInputSchema = z
     assigneeIds: z.array(idSchema).max(MAX_ASSIGNEES).optional().default([]),
   })
   .strict()
-  .superRefine((value, ctx) => {
-    const hasKind = value.scopeKind != null && value.scopeKind !== ''
-    const hasId = value.scopeId != null && value.scopeId !== ''
-    if (hasKind !== hasId) {
-      ctx.addIssue({
-        code: 'custom',
-        message: 'scopeKind and scopeId must both be set or both null',
-        path: hasKind ? ['scopeId'] : ['scopeKind'],
-      })
-    }
-  })
+  .superRefine(refineScopePair)
 
 export type CreateTaskInput = z.infer<typeof createTaskInputSchema>
 
@@ -134,6 +129,7 @@ export const updateTaskInputSchema = z
     assigneeIds: z.array(idSchema).max(MAX_ASSIGNEES).optional(),
   })
   .strict()
+  .superRefine(refineScopePair)
 
 export type UpdateTaskInput = z.infer<typeof updateTaskInputSchema>
 

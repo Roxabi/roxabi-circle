@@ -6,8 +6,8 @@ import type { PlanDocument } from './schema'
  * Plan permits may only narrow this set.
  *
  * **Caller trust:** pure `checkPlan` validates grant shape but not provenance.
- * Apps (#31) MUST mint grants from server session / org module policy —
- * never from plan body or untrusted client JSON.
+ * Production grants MUST come from `mintCapabilityGrant` (`mint.ts`), minted from
+ * caller-resolved org module policy facts — never from plan body or untrusted client JSON.
  *
  * **allowsInfer:** explicit capability for single-shot `infer` tasks (not implied
  * by tool allowlists). Ambient-infer residual closed at check (option A).
@@ -25,6 +25,11 @@ export type CapabilityGrant = {
    * When false/absent after parse, any infer task fails check.
    */
   allowsInfer: boolean
+  /**
+   * Model ids minted from server env. Plan model strings may only narrow this
+   * list. Required — absent is not "allow all".
+   */
+  allowedModels: readonly string[]
 }
 
 export type EffectiveAuthority = {

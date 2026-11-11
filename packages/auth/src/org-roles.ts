@@ -19,13 +19,20 @@ export function roleAtLeast(have: string, need: OrgRoleKey): boolean {
   return RANK[have] >= RANK[need]
 }
 
-export type OrgCapability = 'read' | 'write' | 'manage_members' | 'manage_modules' | 'delete_org'
+export type OrgCapability =
+  | 'read'
+  | 'write'
+  | 'manage_members'
+  | 'manage_modules'
+  | 'manage_notifications'
+  | 'delete_org'
 
 const CAPABILITY_MIN: Record<OrgCapability, OrgRoleKey> = {
   read: 'reader',
   write: 'member',
   manage_members: 'admin',
   manage_modules: 'admin',
+  manage_notifications: 'admin',
   delete_org: 'owner',
 }
 
@@ -48,7 +55,7 @@ export function isInvitableOrgRole(value: string): value is InvitableOrgRole {
  * - member/reader cannot invite
  */
 export function canInviteRole(inviterRole: string, invitedRole: string): boolean {
-  if (!isOrgRoleKey(inviterRole) || !isInvitableOrgRole(invitedRole)) return false
+  if (!(isOrgRoleKey(inviterRole) && isInvitableOrgRole(invitedRole))) return false
   if (inviterRole === 'owner') return true
   if (inviterRole === 'admin') return invitedRole === 'member' || invitedRole === 'reader'
   return false
@@ -61,6 +68,12 @@ export function normalizeEmail(email: string): string {
 
 export const PLATFORM_ROLES = ['super_admin', 'staff'] as const
 export type PlatformRole = (typeof PLATFORM_ROLES)[number]
+
+export type OrgContextRecord = {
+  status: string
+  membershipRole: string | null
+  platformRole: PlatformRole | null
+}
 
 export function isPlatformRole(value: string): value is PlatformRole {
   return (PLATFORM_ROLES as readonly string[]).includes(value)

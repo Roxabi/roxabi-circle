@@ -1,4 +1,5 @@
 import { cleanup, render, screen } from '@testing-library/react'
+import { useRef } from 'react'
 import { afterEach, describe, expect, it } from 'vitest'
 import type { MeResponse } from './auth'
 import { OrgProvider, useOrgContext } from './org-context'
@@ -9,11 +10,14 @@ afterEach(() => {
 })
 
 function Probe() {
-  const { orgs, activeOrgId } = useOrgContext()
+  const { activeOrgId } = useOrgContext()
+  const seen = useRef<string[]>([])
+  seen.current.push(activeOrgId ?? 'null')
   return (
     <div>
-      <span data-testid="count">{orgs.length}</span>
+      <span data-testid="count">{useOrgContext().orgs.length}</span>
       <span data-testid="active">{activeOrgId ?? 'null'}</span>
+      <span data-testid="seen">{seen.current.join(',')}</span>
     </div>
   )
 }
@@ -21,8 +25,9 @@ function Probe() {
 const meWithOrgs: MeResponse = {
   subject: 'user_x',
   authMethod: 'session',
-  role: 'user',
   platformRole: null,
+  impersonation: null,
+  impersonationPermissions: { read: false, write: false },
   requestId: 'r',
   orgs: [
     {
@@ -69,13 +74,15 @@ describe('OrgProvider / useOrgContext', () => {
     expect(screen.getByTestId('active').textContent).toBe('org_b')
   })
 
-  it('resets invalid stored org id', () => {
+  it('never exposes a stale stored org id, including on the first render', () => {
     localStorage.setItem('kit.activeOrgId', 'org_gone')
     render(
       <OrgProvider me={meWithOrgs}>
         <Probe />
       </OrgProvider>,
     )
+    expect(screen.getByTestId('seen').textContent).toBe('org_a')
     expect(screen.getByTestId('active').textContent).toBe('org_a')
+    expect(screen.getByTestId('seen').textContent).not.toContain('org_gone')
   })
 })

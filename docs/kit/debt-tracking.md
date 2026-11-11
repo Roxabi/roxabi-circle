@@ -12,9 +12,12 @@ Biome / TypeScript strictness will tighten (plan 007 Phase C). Silent `biome-ign
 `@ts-expect-error` accumulate into invisible debt. This policy **surfaces** untagged and
 stale markers on stderr so debt is **visible and reviewable**.
 
-**Honest defaults (v1):** both gates start as **warn** (exit 0). A green `validate:full` does
-**not** prove debt is managed until `DEBT_*_MODE=fail`. Expiry uses a **file last-commit
-proxy** (any meaningful touch resets the clock), not line-level blame.
+**Honest defaults:** untagged suppressions **fail** (exit 1). Expiry stays **warn**
+(exit 0) — a green `validate:full` does **not** prove stale debt is gone until
+`DEBT_EXPIRY_MODE=fail`. Expiry uses a **file last-commit proxy** (any meaningful
+touch resets the clock), not line-level blame.
+
+**Checker reliability:** `warn` tolerates **stale debt**, not an inability to determine it. When expiry needs a Git lookup for an unpinned marker, unavailable Git, a failing Git command, or nonempty invalid Git output is a hard check failure (exit 1), never a clean result. `off`, hard-pinned markers, and scans with no eligible marker do not preflight Git; a successful Git query with empty output means the file has no history and is not stale.
 
 ---
 
@@ -44,8 +47,8 @@ Every suppression in **`apps/`** and **`packages/`** must carry `DEBT:<slug>` af
 
 | Gate | Env | Default | Fail when |
 |---|---|---|---|
-| **Untagged** | `DEBT_UNTAGGED_MODE=warn\|fail` | **warn** | `fail` + marker without `DEBT:<slug>` |
-| **Expiry** | `DEBT_EXPIRY_MODE=off\|warn\|fail` | **warn** | `fail` + stale (see below) |
+| **Untagged** | `DEBT_UNTAGGED_MODE=warn\|fail` | **fail** | marker without `DEBT:<slug>` |
+| **Expiry** | `DEBT_EXPIRY_MODE=off\|warn\|fail` | **warn** | `fail` + stale; or an unpinned marker's required Git lookup cannot complete |
 | **Grace** | `DEBT_EXPIRY_MONTHS` | **6** | — |
 
 ### Stale definition (expiry)
@@ -59,30 +62,38 @@ A `DEBT:` line is **stale** when **all** hold:
 
 Remediation: remove the debt · add `DEBT:slug #N` pin · or touch the file with a meaningful fix (resets the file-level clock for all markers in that file).
 
-**First land:** both gates default to **warn** (exit 0, stderr findings). Flip to `fail` after one sprint when the tree is tagged clean.
+**Landed:** untagged flipped to **fail** after the tree was tagged clean (M-18).
+Expiry stays **warn** until stale markers are pinned or removed.
 
 ---
 
 ## Commands
 
 ```bash
-bun run debt:check              # default warn/warn
-DEBT_UNTAGGED_MODE=fail bun run debt:check
+bun run debt:check              # default fail/warn
+DEBT_UNTAGGED_MODE=warn bun run debt:check
 DEBT_EXPIRY_MODE=fail bun run debt:check
 bun run test:debt               # CP-DEBT self-test (temp tree)
 ```
 
-Wired into `validate:full` (warn defaults — does not block until mode=fail).
+Wired into `validate:full` (untagged fail, expiry warn — stale debt does not block until `DEBT_EXPIRY_MODE=fail`; a required Git lookup failure always blocks).
 
 ---
 
 ## Light registry (optional)
 
-No per-slug `artifacts/debt/*.md` required in the kit. If a slug is reused often, add a row:
+No per-slug Markdown file is required in the kit. If a slug is reused often, add a row:
 
 | Slug | Why it exists | Drain |
 |---|---|---|
 | `fastmcp-zod-boundary` | FastMCP + Zod infer mismatch | when FastMCP types stabilize |
+| `fastmcp-duck-type` | FastMCP `addTool` parameter is not assignable without a wide type | when FastMCP types stabilize |
+| `cog-gate` | gate script decision procedure; branches are the spec | [Roxabi/roxabi-boilerplate-cf#287](https://github.com/Roxabi/roxabi-boilerplate-cf/issues/287): split by responsibility, not by moving branches into a helper. Ceiling in `config/kit/debt-ceilings.json` |
+| `cog-authz` | flows authority / plan decision table | Roxabi/roxabi-boilerplate-cf#287, same rule |
+| `cog-svc` | example service or seed decision procedure | Roxabi/roxabi-boilerplate-cf#287, same rule |
+| `cog-ui` | UI composition branches | Roxabi/roxabi-boilerplate-cf#287, same rule |
+| `cog-map` | boundary mapping (client, auth middleware, email, MCP budget) | Roxabi/roxabi-boilerplate-cf#287, same rule |
+| `cog-shadcn` | shadcn chart primitive; do not hand-edit for a score | vendor bump (not Roxabi/roxabi-boilerplate-cf#287) |
 | `modal-a11y-*` | Base UI modal patterns | product design pass |
 
 Keep the table short; prefer issue refs on the marker line.

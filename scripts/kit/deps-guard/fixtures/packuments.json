@@ -1,0 +1,370 @@
+{
+  "hono": {
+    "repository": {
+      "url": "git+https://github.com/honojs/hono.git",
+      "type": "git"
+    },
+    "time": {
+      "4.13.3": "2026-08-18T10:56:09.752Z",
+      "4.13.5": "2026-08-26T02:00:22.990Z",
+      "4.13.9": "2026-09-24T01:32:02.438Z",
+      "4.13.12": "2026-09-30T09:43:03.233Z"
+    },
+    "versions": {
+      "4.13.3": {
+        "_npmUser": {
+          "name": "GitHub Actions",
+          "email": "npm-oidc-no-reply@github.com",
+          "approver": {
+            "name": "yusukebe",
+            "email": "yusuke@kamawada.com"
+          },
+          "trustedPublisher": {
+            "id": "github",
+            "oidcConfigId": "oidc:4f58518f-c773-4172-885e-5ea4bad8c637"
+          }
+        },
+        "repository": {
+          "url": "git+https://github.com/honojs/hono.git",
+          "type": "git"
+        },
+        "dist": {
+          "attestations": {
+            "url": "https://registry.npmjs.org/-/npm/v1/attestations/hono@4.13.3",
+            "provenance": {
+              "predicateType": "https://slsa.dev/provenance/v1"
+            }
+          }
+        },
+        "scripts": {}
+      },
+      "4.13.5": {
+        "_npmUser": {
+          "name": "GitHub Actions",
+          "email": "npm-oidc-no-reply@github.com",
+          "approver": {
+            "name": "yusukebe",
+            "email": "yusuke@kamawada.com"
+          },
+          "trustedPublisher": {
+            "id": "github",
+            "oidcConfigId": "oidc:4f58518f-c773-4172-885e-5ea4bad8c637"
+          }
+        },
+        "repository": {
+          "url": "git+https://github.com/honojs/hono.git",
+          "type": "git"
+        },
+        "dist": {
+          "attestations": {
+            "url": "https://registry.npmjs.org/-/npm/v1/attestations/hono@4.13.5",
+            "provenance": {
+              "predicateType": "https://slsa.dev/provenance/v1"
+            }
+          }
+        },
+        "scripts": {}
+      },
+      "4.13.9": {
+        "_npmUser": {
+          "name": "GitHub Actions",
+          "email": "npm-oidc-no-reply@github.com",
+          "approver": {
+            "name": "yusukebe",
+            "email": "yusuke@kamawada.com"
+          },
+          "trustedPublisher": {
+            "id": "github",
+            "oidcConfigId": "oidc:4f58518f-c773-4172-885e-5ea4bad8c637"
+          }
+        },
+        "repository": {
+          "url": "git+https://github.com/honojs/hono.git",
+          "type": "git"
+        },
+        "dist": {
+          "attestations": {
+            "url": "https://registry.npmjs.org/-/npm/v1/attestations/hono@4.13.9",
+            "provenance": {
+              "predicateType": "https://slsa.dev/provenance/v1"
+            }
+          }
+        },
+        "scripts": {}
+      },
+      "4.13.12": {
+        "_npmUser": {
+          "name": "GitHub Actions",
+          "email": "npm-oidc-no-reply@github.com",
+          "trustedPublisher": {
+            "id": "github",
+            "oidcConfigId": "4f58518f-c773-4172-885e-5ea4bad8c637"
+          },
+          "approver": {
+            "name": "yusukebe",
+            "email": "yusuke@kamawada.com"
+          }
+        },
+        "repository": {
+          "url": "git+https://github.com/honojs/hono.git",
+          "type": "git"
+        },
+        "dist": {
+          "attestations": {
+            "url": "https://registry.npmjs.org/-/npm/v1/attestations/hono@4.13.12",
+            "provenance": {
+              "predicateType": "https://slsa.dev/provenance/v1"
+            }
+          }
+        },
+        "scripts": {}
+      }
+    }
+  },
+  "why-is-node-running": {
+    "repository": {
+      "url": "git+https://github.com/mafintosh/why-is-node-running.git",
+      "type": "git"
+    },
+    "time": {
+      "2.3.0": "2024-07-08T12:57:23.951Z",
+      "3.2.2": "2025-01-08T15:02:27.953Z"
+    },
+    "versions": {
+      "2.3.0": {
+        "_npmUser": {
+          "name": "mafintosh",
+          "email": "mathiasbuus@gmail.com"
+        },
+        "repository": {
+          "url": "git+https://github.com/mafintosh/why-is-node-running.git",
+          "type": "git"
+        },
+        "dist": {},
+        "scripts": {}
+      },
+      "3.2.2": {
+        "_npmUser": {
+          "name": "jkoops",
+          "email": "jonkoops@gmail.com"
+        },
+        "repository": {
+          "url": "git+https://github.com/mafintosh/why-is-node-running.git",
+          "type": "git"
+        },
+        "dist": {},
+        "scripts": {}
+      }
+    }
+  },
+  "esbuild": {
+    "repository": {
+      "url": "git+https://github.com/evanw/esbuild.git",
+      "type": "git"
+    },
+    "time": {
+      "0.28.0": "2026-04-02T20:38:46.463Z",
+      "0.28.1": "2026-06-11T22:47:05.085Z"
+    },
+    "versions": {
+      "0.28.0": {
+        "_npmUser": {
+          "name": "GitHub Actions",
+          "email": "npm-oidc-no-reply@github.com",
+          "trustedPublisher": {
+            "id": "github",
+            "oidcConfigId": "oidc:b0cf120c-134e-4e78-a95a-6cbbb5de631f"
+          }
+        },
+        "repository": {
+          "url": "git+https://github.com/evanw/esbuild.git",
+          "type": "git"
+        },
+        "dist": {
+          "attestations": {
+            "url": "https://registry.npmjs.org/-/npm/v1/attestations/esbuild@0.28.0",
+            "provenance": {
+              "predicateType": "https://slsa.dev/provenance/v1"
+            }
+          }
+        },
+        "scripts": {
+          "postinstall": "node install.js"
+        }
+      },
+      "0.28.1": {
+        "_npmUser": {
+          "name": "GitHub Actions",
+          "email": "npm-oidc-no-reply@github.com",
+          "trustedPublisher": {
+            "id": "github",
+            "oidcConfigId": "oidc:b0cf120c-134e-4e78-a95a-6cbbb5de631f"
+          }
+        },
+        "repository": {
+          "url": "git+https://github.com/evanw/esbuild.git",
+          "type": "git"
+        },
+        "dist": {
+          "attestations": {
+            "url": "https://registry.npmjs.org/-/npm/v1/attestations/esbuild@0.28.1",
+            "provenance": {
+              "predicateType": "https://slsa.dev/provenance/v1"
+            }
+          }
+        },
+        "scripts": {
+          "postinstall": "node install.js"
+        }
+      }
+    }
+  },
+  "tinybench": {
+    "repository": {
+      "url": "tinylibs/tinybench",
+      "type": "git"
+    },
+    "time": {
+      "2.9.0": "2024-08-02T15:09:44.961Z",
+      "6.1.4": "2026-08-28T21:56:22.883Z"
+    },
+    "versions": {
+      "2.9.0": {
+        "_npmUser": {
+          "name": "aslemammad",
+          "email": "zorofight94@gmail.com"
+        },
+        "repository": {
+          "url": "git+https://github.com/tinylibs/tinybench.git",
+          "type": "git"
+        },
+        "dist": {},
+        "scripts": {}
+      },
+      "6.1.4": {
+        "_npmUser": {
+          "name": "GitHub Actions",
+          "email": "npm-oidc-no-reply@github.com",
+          "approver": {
+            "name": "fraggle",
+            "email": "jerome.benoit@piment-noir.org"
+          },
+          "trustedPublisher": {
+            "id": "github",
+            "oidcConfigId": "oidc:4c7f2996-c40e-4d25-a241-8738cdc49d73"
+          }
+        },
+        "repository": {
+          "url": "tinylibs/tinybench",
+          "type": "git"
+        },
+        "dist": {
+          "attestations": {
+            "url": "https://registry.npmjs.org/-/npm/v1/attestations/tinybench@6.1.4",
+            "provenance": {
+              "predicateType": "https://slsa.dev/provenance/v1"
+            }
+          }
+        },
+        "scripts": {}
+      }
+    }
+  },
+  "scheduler": {
+    "repository": {
+      "url": "git+https://github.com/react/react.git",
+      "type": "git",
+      "directory": "packages/scheduler"
+    },
+    "time": {
+      "0.27.0": "2025-10-01T21:39:15.208Z",
+      "0.28.0": "2026-09-09T17:17:30.281Z"
+    },
+    "versions": {
+      "0.27.0": {
+        "_npmUser": {
+          "name": "react-bot",
+          "email": "react-core@meta.com"
+        },
+        "repository": {
+          "url": "git+https://github.com/facebook/react.git",
+          "type": "git",
+          "directory": "packages/scheduler"
+        },
+        "dist": {},
+        "scripts": {}
+      },
+      "0.28.0": {
+        "_npmUser": {
+          "name": "GitHub Actions",
+          "email": "npm-oidc-no-reply@github.com",
+          "trustedPublisher": {
+            "id": "github",
+            "oidcConfigId": "oidc:92323e41-1b65-4acb-a5ae-294377b47da1"
+          }
+        },
+        "repository": {
+          "url": "git+https://github.com/react/react.git",
+          "type": "git",
+          "directory": "packages/scheduler"
+        },
+        "dist": {
+          "attestations": {
+            "url": "https://registry.npmjs.org/-/npm/v1/attestations/scheduler@0.28.0",
+            "provenance": {
+              "predicateType": "https://slsa.dev/provenance/v1"
+            }
+          }
+        },
+        "scripts": {}
+      }
+    }
+  },
+  "@apidevtools/json-schema-ref-parser": {
+    "repository": {
+      "url": "git+https://github.com/APIDevTools/json-schema-ref-parser.git",
+      "type": "git"
+    },
+    "time": {
+      "14.0.1": "2025-06-16T22:22:53.296Z",
+      "16.0.3": "2026-09-20T19:20:43.423Z"
+    },
+    "versions": {
+      "14.0.1": {
+        "_npmUser": {
+          "name": "philsturgeon",
+          "email": "me@philsturgeon.uk"
+        },
+        "repository": {
+          "url": "git+https://github.com/APIDevTools/json-schema-ref-parser.git",
+          "type": "git"
+        },
+        "dist": {},
+        "scripts": {}
+      },
+      "16.0.3": {
+        "_npmUser": {
+          "name": "GitHub Actions",
+          "email": "npm-oidc-no-reply@github.com",
+          "trustedPublisher": {
+            "id": "github",
+            "oidcConfigId": "oidc:7b20e5f9-4c31-4bc5-aa59-4fe1d923908d"
+          }
+        },
+        "repository": {
+          "url": "git+https://github.com/APIDevTools/json-schema-ref-parser.git",
+          "type": "git"
+        },
+        "dist": {
+          "attestations": {
+            "url": "https://registry.npmjs.org/-/npm/v1/attestations/@apidevtools%2fjson-schema-ref-parser@16.0.3",
+            "provenance": {
+              "predicateType": "https://slsa.dev/provenance/v1"
+            }
+          }
+        },
+        "scripts": {}
+      }
+    }
+  }
+}

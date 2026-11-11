@@ -79,7 +79,7 @@ name = "foo-api"
 binding = "DB"
 migrations_dir = "../../packages/auth/migrations"
 EOF
-assert_exit "toml packages/auth/migrations → 1" 1 "${BAD_TOML}" "packages/*/migrations are sketches"
+assert_exit "toml packages/auth/migrations → 1" 1 "${BAD_TOML}" "packages/*/migrations are not the apply path"
 
 # --- fixture: JSONC points at packages ---
 BAD_JSON="${TMP}/bad-json"
@@ -92,7 +92,7 @@ cat >"${BAD_JSON}/apps/foo-api/wrangler.jsonc" <<'EOF'
   ]
 }
 EOF
-assert_exit "jsonc packages/auth/migrations → 1" 1 "${BAD_JSON}" "packages/*/migrations are sketches"
+assert_exit "jsonc packages/auth/migrations → 1" 1 "${BAD_JSON}" "packages/*/migrations are not the apply path"
 
 # --- fixture: wrangler.json (not only jsonc) ---
 BAD_JSON_PLAIN="${TMP}/bad-json-plain"
@@ -105,7 +105,7 @@ cat >"${BAD_JSON_PLAIN}/apps/foo-api/wrangler.json" <<'EOF'
   ]
 }
 EOF
-assert_exit "json packages/auth/migrations → 1" 1 "${BAD_JSON_PLAIN}" "packages/*/migrations are sketches"
+assert_exit "json packages/auth/migrations → 1" 1 "${BAD_JSON_PLAIN}" "packages/*/migrations are not the apply path"
 
 # --- fixture: wrangler file under packages/ (default ./migrations) ---
 BAD_PKG="${TMP}/bad-pkg"
@@ -130,7 +130,7 @@ migrations_dir = "migrations"
 binding = "DB"
 migrations_dir = "../../packages/flows/migrations"
 EOF
-assert_exit "env.production sketch dir → 1" 1 "${BAD_ENV}" "packages/*/migrations are sketches"
+assert_exit "env.production sketch dir → 1" 1 "${BAD_ENV}" "packages/*/migrations are not the apply path"
 
 # --- fixture: product clone extra wrangler files (web + second API) ---
 PROD="${TMP}/prod"
@@ -171,7 +171,7 @@ migrations_dir = "../../packages/auth/migrations"
 EOF
 echo 'name = "web"' >"${PROD_SKETCH}/apps/example-web/wrangler.toml"
 echo 'name = "web"' >"${PROD_SKETCH}/apps/lgu-web/wrangler.toml"
-assert_exit "product tree sketch dir → 1" 1 "${PROD_SKETCH}" "packages/*/migrations are sketches"
+assert_exit "product tree sketch dir → 1" 1 "${PROD_SKETCH}" "packages/*/migrations are not the apply path"
 
 # --- fixture: split-line JSONC migrations_dir (same-line grep used to miss this) ---
 SPLIT_JSON="${TMP}/split-json"
@@ -188,7 +188,7 @@ cat >"${SPLIT_JSON}/apps/foo-api/wrangler.jsonc" <<'EOF'
   ]
 }
 EOF
-assert_exit "split-line jsonc packages/auth/migrations → 1" 1 "${SPLIT_JSON}" "packages/*/migrations are sketches"
+assert_exit "split-line jsonc packages/auth/migrations → 1" 1 "${SPLIT_JSON}" "packages/*/migrations are not the apply path"
 
 # --- fixture: unparseable wrangler file ---
 BAD_PARSE="${TMP}/bad-parse"
@@ -209,7 +209,7 @@ name = "foo-api"
 binding = "DB"
 database_name = "foo"
 EOF
-assert_exit "omitted migrations_dir symlink to packages/ → 1" 1 "${OMIT_SYMLINK}" "packages/*/migrations are sketches"
+assert_exit "omitted migrations_dir symlink to packages/ → 1" 1 "${OMIT_SYMLINK}" "packages/*/migrations are not the apply path"
 
 # --- fixture: omitted migrations_dir with a real local apps/<api>/migrations ---
 OMIT_LOCAL="${TMP}/omit-local"

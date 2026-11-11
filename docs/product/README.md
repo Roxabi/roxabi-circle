@@ -5,7 +5,7 @@ Gated Discord community (AI + OSS). Entry = GitHub OAuth + PR d’entrée (D11) 
 ## Lineage (direct)
 
 ```text
-Roxabi/roxabi-cf-template  (upstream, fetch-only)
+go-silex/unkillable-kit    (upstream, fetch-only; publication pending)
         │  merge upstream/main
         ▼
 Roxabi/roxabi-circle       (this product — origin)

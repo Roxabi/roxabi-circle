@@ -22,7 +22,7 @@ export function AccountProfileForm() {
     validators: {
       onSubmit: ({ value }) => {
         const parsed = profileNameSchema.safeParse(value)
-        if (parsed.success) return undefined
+        if (parsed.success) return
         return {
           form: m.errValidation,
           fields: {

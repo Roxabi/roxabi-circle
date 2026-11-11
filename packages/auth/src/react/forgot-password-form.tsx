@@ -38,7 +38,7 @@ export function ForgotPasswordForm({
     validators: {
       onSubmit: ({ value }) => {
         const parsed = forgotPasswordSchema.safeParse(value)
-        if (parsed.success) return undefined
+        if (parsed.success) return
         return { form: copy.errValidation, fields: { email: copy.errEmailInvalid } }
       },
     },

@@ -124,7 +124,7 @@ export function DashboardPage() {
             <CardDescription>{m.keysDesc}</CardDescription>
           </CardHeader>
           <CardContent>
-            <Button render={<Link to="/app/keys" />} variant="secondary">
+            <Button render={<Link to="/app/keys" />} nativeButton={false} variant="secondary">
               <KeyRound className="size-4" />
               {m.mintKey}
             </Button>
@@ -136,7 +136,7 @@ export function DashboardPage() {
             <CardDescription>{m.settingsDesc}</CardDescription>
           </CardHeader>
           <CardContent>
-            <Button render={<Link to="/app/settings" />} variant="outline">
+            <Button render={<Link to="/app/settings" />} nativeButton={false} variant="outline">
               {m.navSettings}
             </Button>
           </CardContent>

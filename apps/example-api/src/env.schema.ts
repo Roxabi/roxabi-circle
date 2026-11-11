@@ -5,22 +5,24 @@
  * String keys must be documented in apps/example-api/.dev.vars.example.
  *
  * Live session secret is BETTER_AUTH_SECRET (getBetterAuthSecret).
- * SESSION_SECRET / getSessionSecret is HMAC leftover — not on the BA path.
  * Inventory + env:check must use this module, not a freehand Env type.
  */
 import { z } from 'zod'
 
 /** D1 / R2 / Email / Queues / Workflows — wrangler only, never .dev.vars. */
-export const WORKER_BINDINGS = ['DB', 'BUCKET', 'EMAIL', 'DEMO_QUEUE', 'FLOW_RUN'] as const
-export type WorkerBindingName = (typeof WORKER_BINDINGS)[number]
-
+export const WORKER_BINDINGS = [
+  'DB',
+  'BUCKET',
+  'EMAIL',
+  'DEMO_QUEUE',
+  'FLOW_RUN',
+  'NOTIFICATION_DELIVERY',
+] as const
 /**
  * Secrets + plain vars available on `c.env` as strings.
  * All optional at the type level; production requirements live in getBetterAuthSecret / deploy.
  */
-export const workerStringEnvSchema = z.object({
-  /** HMAC leftover; unused on the BA session path. Min 32 if still set. */
-  SESSION_SECRET: z.string().optional(),
+const workerStringEnvSchema = z.object({
   PRESIGN_MODE: z.enum(['mock', 's3']).optional(),
   /** development | test | production | staging */
   ENVIRONMENT: z.string().optional(),
@@ -66,6 +68,15 @@ export const workerStringEnvSchema = z.object({
   EMAIL_FROM_DOMAIN: z.string().optional(),
   /** Resend API key when EMAIL_TRANSPORT=resend (escape hatch). */
   RESEND_API_KEY: z.string().optional(),
+  /**
+   * Comma-separated model ids minted into flows grants (ADR-0005 D2).
+   * Unset or blank is an empty allowlist: infer plans fail check. Not a secret.
+   */
+  FLOW_ALLOWED_MODELS: z.string().optional(),
+  /** Positive integer days; defaults to 90 at maintenance time. */
+  NOTIFICATIONS_RETENTION_DAYS: z.string().optional(),
+  /** Positive integer days; defaults to 30 at maintenance time. */
+  NOTIFICATION_DELIVERIES_RETENTION_DAYS: z.string().optional(),
 })
 
 export type WorkerStringEnv = z.infer<typeof workerStringEnvSchema>
@@ -74,11 +85,3 @@ export type WorkerStringEnv = z.infer<typeof workerStringEnvSchema>
 export const WORKER_STRING_ENV_KEYS = Object.keys(
   workerStringEnvSchema.shape,
 ) as (keyof WorkerStringEnv)[]
-
-/**
- * Soft-parse string env from a partial record (tests / tooling).
- * Does not enforce production fail-closed rules.
- */
-export function parseWorkerStringEnv(input: Record<string, unknown>): WorkerStringEnv {
-  return workerStringEnvSchema.parse(input)
-}

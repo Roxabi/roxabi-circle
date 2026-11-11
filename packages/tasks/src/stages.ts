@@ -22,7 +22,6 @@ export function stagesForBoard(
 ): TaskStage[] {
   return stages
     .filter((s) => s.orgId === orgId && s.boardKey === boardKey)
-    .slice()
     .sort((a, b) => a.position - b.position || a.id.localeCompare(b.id))
 }
 
@@ -41,7 +40,7 @@ export function isStageOnBoard(
   boardKey: string,
   stageId: string,
 ): boolean {
-  return stagesForBoard(stages, orgId, boardKey).some((s) => s.id === stageId)
+  return stages.some((s) => s.orgId === orgId && s.boardKey === boardKey && s.id === stageId)
 }
 
 export function isTerminalStage(stages: readonly TaskStage[], stageId: string): boolean {

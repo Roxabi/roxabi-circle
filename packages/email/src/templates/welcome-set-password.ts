@@ -3,21 +3,25 @@
  * Header scrub is at EmailPort boundary (scrubHeaderLine).
  */
 import { escapeHtml } from '../escape-html'
+import { assertSafeTokenHref, type TokenHrefPolicy } from '../safe-token-href'
 
-export function WelcomeSetPasswordEmail(props: {
-  to: string
-  setPasswordUrl: string
-  expiresHint?: string
-  name?: string
-}) {
-  const safeUrl = escapeHtml(props.setPasswordUrl)
+export function WelcomeSetPasswordEmail(
+  props: {
+    to: string
+    setPasswordUrl: string
+    expiresHint?: string
+    name?: string
+  } & TokenHrefPolicy,
+) {
+  const href = assertSafeTokenHref(props.setPasswordUrl, props)
+  const safeUrl = escapeHtml(href)
   const who = props.name?.trim() ? props.name.trim() : 'there'
   const subject = 'Welcome — set your password — Kit kit'
   const exp = props.expiresHint ?? 'about 1 hour'
   const text = [
     `Hi ${who},`,
     'An account was created for you on Kit Kit.',
-    `Set your password: ${props.setPasswordUrl}`,
+    `Set your password: ${href}`,
     `This link expires in ${exp}.`,
     'If you did not expect this email, ignore it.',
   ].join('\n')

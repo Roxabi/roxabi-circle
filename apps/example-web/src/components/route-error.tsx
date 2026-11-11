@@ -1,19 +1,21 @@
 import { Button } from '@kit/ui'
+import type { ErrorComponentProps } from '@tanstack/react-router'
 import { Link } from '@tanstack/react-router'
 import { useLocale } from '../lib/locale'
 
 /** TanStack Router defaultErrorComponent — ShipFast-style error + support CTA. */
-export function RouteErrorComponent({ error }: { error: Error }) {
+export function RouteErrorComponent({ error }: ErrorComponentProps) {
   const { m } = useLocale()
+  const detail = error instanceof Error ? error.message : error != null ? String(error) : ''
   const support = `mailto:support@example.com?subject=${encodeURIComponent(m.errPageTitle)}`
 
   return (
     <div className="flex min-h-svh flex-col items-center justify-center gap-4 p-8 text-center">
       <h1 className="text-2xl font-semibold tracking-tight">{m.errPageTitle}</h1>
       <p className="max-w-md text-sm text-muted-foreground">{m.loadFailed}</p>
-      {import.meta.env.DEV && error?.message ? (
+      {import.meta.env.DEV && detail ? (
         <pre className="max-w-lg overflow-auto rounded-md border bg-muted p-3 text-left text-xs">
-          {error.message}
+          {detail}
         </pre>
       ) : null}
       <div className="flex flex-wrap items-center justify-center gap-2">

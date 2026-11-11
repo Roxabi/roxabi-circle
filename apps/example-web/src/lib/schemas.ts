@@ -1,7 +1,8 @@
+import { createOrgResponseSchema } from '@kit/api-client/me'
 import { changePasswordSchema, forgotPasswordSchema, resetPasswordSchema } from '@kit/auth'
 import { z } from 'zod'
 
-export { changePasswordSchema, forgotPasswordSchema, resetPasswordSchema }
+export { changePasswordSchema, createOrgResponseSchema, forgotPasswordSchema, resetPasswordSchema }
 
 /** Shared Zod schemas for TanStack Form (stack contract). */
 export const loginSchema = z.object({
@@ -19,7 +20,7 @@ export const signupSchema = z
   })
   .refine((v) => v.password === v.confirm, { path: ['confirm'], message: 'mismatch' })
 
-/** Magic-link request — email only (B-magic #59). */
+/** Magic-link request — email only (B-magic go-silex/silex-boilerplate#59). */
 export const magicLinkSchema = z.object({
   email: z.string().email(),
 })
@@ -47,20 +48,44 @@ export const createOrgSchema = z.object({
   slug: z.string().trim().max(48).optional(),
 })
 
-/** Admin user create — email required; name optional. */
+/** Items create — aligns with example-api POST /api/items. */
+export const createItemSchema = z.object({
+  code: z
+    .string()
+    .min(1)
+    .max(64)
+    .regex(/^[a-z0-9][a-z0-9_-]*$/i),
+  label: z.string().min(1).max(200),
+  description: z.string().max(2000).optional(),
+})
+
+/** Items edit — aligns with example-api PATCH /api/items/:id. */
+export const updateItemSchema = z.object({
+  label: z.string().min(1).max(200),
+  description: z.string().max(2000),
+  active: z.boolean(),
+})
+
+/** Org invite — system invitable keys or custom role key. */
+export const inviteMemberSchema = z.object({
+  email: z.string().trim().email().max(254),
+  role: z.string().trim().min(1).max(48),
+})
+
+/** Custom org role create — aligns with example-api POST /api/orgs/:id/roles. */
+export const createOrgRoleSchema = z.object({
+  key: z.string().trim().min(1).max(48),
+  name: z.string().trim().min(1).max(80),
+})
+
+/** Admin user create — email required; name optional; platform role enum. */
 export const createAdminUserSchema = z.object({
   email: z.string().trim().email().max(254),
   name: z.string().trim().max(120).optional(),
+  platformRole: z.enum(['staff', 'super_admin']).nullable().optional(),
+  orgId: z.string().trim().max(64).optional(),
+  orgRole: z.string().trim().min(1).max(48).optional(),
 })
 
-export type LoginValues = z.infer<typeof loginSchema>
-export type SignupValues = z.infer<typeof signupSchema>
-export type ForgotPasswordValues = z.infer<typeof forgotPasswordSchema>
-export type MagicLinkValues = z.infer<typeof magicLinkSchema>
-export type ResetPasswordValues = z.infer<typeof resetPasswordSchema>
-export type ChangePasswordValues = z.infer<typeof changePasswordSchema>
-export type ProfileNameValues = z.infer<typeof profileNameSchema>
-export type CreateNoteValues = z.infer<typeof createNoteSchema>
-export type CreateTaskValues = z.infer<typeof createTaskSchema>
-export type CreateOrgValues = z.infer<typeof createOrgSchema>
+export type CreateItemValues = z.infer<typeof createItemSchema>
 export type CreateAdminUserValues = z.infer<typeof createAdminUserSchema>

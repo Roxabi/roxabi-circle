@@ -10,6 +10,8 @@ export type TaskMutationEvent = {
   orgId: string
   taskId?: string
   actorId: string
+  /** Membership changes, separate from audit metadata. */
+  assignees?: { added: string[]; removed: string[] }
   /** Opaque bag for product (status change, stage change, …). */
   meta?: Record<string, unknown>
 }

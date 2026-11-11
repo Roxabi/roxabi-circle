@@ -6,22 +6,12 @@
  * Resource links: deferred until kit/product resource system exists.
  */
 
-/** @deprecated Prefer `requireModule` / org grants in apps — pure role matrix only (tests / legacy). */
-export {
-  canAdminTaskBoards,
-  canReadTasks,
-  canWriteTasks,
-  isTasksAdminRole,
-  TASKS_ADMIN_ROLES,
-  type TasksAdminRole,
-} from './access'
 export type { Audience, AudiencePort } from './audience'
 export { AUDIENCES, isAudience } from './audience'
-
+export { TASK_AUDIT_ACTIONS, type TaskMutationAudit, taskMutationAudit } from './audit'
 export {
   MAX_ASSIGNEES,
   MAX_BOARD_KEY_LEN,
-  MAX_LINK_TRAVERSAL,
   MAX_SCOPE_ID_LEN,
   MAX_SCOPE_KIND_LEN,
   MAX_STAGE_LABEL_LEN,
@@ -36,7 +26,6 @@ export {
   type TaskPriority,
   type TaskVisibility,
 } from './constants'
-
 export type {
   TaskMutationEvent,
   TaskMutationHooks,

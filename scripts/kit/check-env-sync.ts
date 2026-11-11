@@ -63,45 +63,31 @@ async function fileLooksLikeRealSecrets(path: string): Promise<string[]> {
   }
   return hits
 }
-
-async function main() {
-  console.log('env:check — schema ↔ .dev.vars.example ↔ root .env.example\n')
-  console.log(`Worker string keys (SSoT): ${WORKER_STRING_ENV_KEYS.join(', ')}`)
-  console.log(`Bindings (not in .dev.vars): ${[...BINDING_SET].join(', ')}\n`)
-
-  let failed = false
+function collectDevKeyErrors(devKeys: Set<string>): string[] {
   const errors: string[] = []
-  const warns: string[] = []
-
-  const devKeys = await parseEnvFileKeys(DEV_VARS_EXAMPLE)
-  const rootKeys = await parseEnvFileKeys(ROOT_ENV_EXAMPLE)
-
   for (const key of WORKER_STRING_ENV_KEYS) {
     if (!devKeys.has(key)) {
       errors.push(`${key} is in env.schema but missing from apps/example-api/.dev.vars.example`)
-      failed = true
     }
   }
-
   for (const key of devKeys) {
     if (BINDING_SET.has(key)) {
       errors.push(`${key} is a binding — must not appear in .dev.vars.example`)
-      failed = true
       continue
     }
     if (!WORKER_STRING_ENV_KEYS.includes(key as (typeof WORKER_STRING_ENV_KEYS)[number])) {
       errors.push(`${key} is in .dev.vars.example but not in env.schema (WORKER_STRING_ENV_KEYS)`)
-      failed = true
     }
   }
+  return errors
+}
 
+function collectRootKeyFindings(rootKeys: Set<string>): { errors: string[]; warns: string[] } {
+  const errors: string[] = []
+  const warns: string[] = []
   for (const key of ROOT_DOCUMENTED_KEYS) {
-    if (!rootKeys.has(key)) {
-      errors.push(`${key} missing from root .env.example`)
-      failed = true
-    }
+    if (!rootKeys.has(key)) errors.push(`${key} missing from root .env.example`)
   }
-
   for (const key of rootKeys) {
     if (WORKER_STRING_ENV_KEYS.includes(key as (typeof WORKER_STRING_ENV_KEYS)[number])) {
       warns.push(
@@ -109,19 +95,39 @@ async function main() {
       )
     }
   }
+  return { errors, warns }
+}
 
+async function collectSecretErrors(): Promise<string[]> {
+  const errors: string[] = []
   for (const path of [DEV_VARS_EXAMPLE, ROOT_ENV_EXAMPLE]) {
     for (const hit of await fileLooksLikeRealSecrets(path)) {
       errors.push(`possible real secret pattern: ${hit}`)
-      failed = true
     }
   }
+  return errors
+}
+
+async function main() {
+  console.log('env:check — schema ↔ .dev.vars.example ↔ root .env.example\n')
+  console.log(`Worker string keys (SSoT): ${WORKER_STRING_ENV_KEYS.join(', ')}`)
+  console.log(`Bindings (not in .dev.vars): ${[...BINDING_SET].join(', ')}\n`)
+
+  const devKeys = await parseEnvFileKeys(DEV_VARS_EXAMPLE)
+  const rootKeys = await parseEnvFileKeys(ROOT_ENV_EXAMPLE)
+  const rootFindings = collectRootKeyFindings(rootKeys)
+  const errors = [
+    ...collectDevKeyErrors(devKeys),
+    ...rootFindings.errors,
+    ...(await collectSecretErrors()),
+  ]
+  const warns = rootFindings.warns
 
   for (const w of warns) console.warn(`WARN:  ${w}`)
   for (const e of errors) console.error(`ERROR: ${e}`)
 
   console.log()
-  if (failed) {
+  if (errors.length > 0) {
     console.error(
       'env:check failed. Fix schema / .dev.vars.example drift (see docs/kit/testing.md CP-ENV).',
     )

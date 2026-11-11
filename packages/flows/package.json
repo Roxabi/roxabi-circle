@@ -2,6 +2,7 @@
   "name": "@kit/flows",
   "version": "0.0.1",
   "private": true,
+  "license": "MIT",
   "description": "Incubating (ADR-0005 D6): pure plan check + RunnerView + interpret/receipts. Not promoted until second call site + example dogfood on request path.",
   "type": "module",
   "exports": {
@@ -16,9 +17,9 @@
       "default": "./src/drizzle-schema.ts"
     },
     "./repos": {
-      "types": "./src/repos.ts",
-      "import": "./src/repos.ts",
-      "default": "./src/repos.ts"
+      "types": "./src/repos/index.ts",
+      "import": "./src/repos/index.ts",
+      "default": "./src/repos/index.ts"
     },
     "./run": {
       "types": "./src/run/index.ts",
@@ -33,14 +34,15 @@
     "build": "echo ok"
   },
   "dependencies": {
-    "drizzle-orm": "^0.45.2",
-    "yaml": "^2.8.0",
-    "zod": "^4.5.4"
+    "@kit/db": "workspace:*",
+    "drizzle-orm": "^0.45.4",
+    "yaml": "^2.9.1",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20250620.0",
+    "@cloudflare/workers-types": "^5.20261107.1",
     "@types/better-sqlite3": "^9.6.0",
     "better-sqlite3": "^13.0.2",
-    "vitest": "^4.1.11"
+    "vitest": "^5.1.0"
   }
 }

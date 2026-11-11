@@ -6,9 +6,8 @@ name: Deploy main
 # This workflow is kept as a no-op so old workflow_run subscriptions and docs links
 # do not confuse operators. It never deploys.
 #
-# Break-glass laptop (branch main + KIT_SHOWCASE_DEPLOY=1):
-#   bun run cf:showcase:deploy-api
-#   bun run cf:showcase:build-web && cd apps/example-web && bunx wrangler pages deploy dist --project-name=boilerplate --branch=main
+# Break-glass: docs/kit/deploy-cloudflare.md § Break-glass (production ships from deploy/main,
+# moved by the Deploy gate; see deploy-gate.yml).
 
 on:
   workflow_dispatch:

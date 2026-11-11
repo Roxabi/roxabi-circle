@@ -8,6 +8,8 @@ import {
   Label,
   LocaleSwitcher,
   Separator,
+  type Theme,
+  useTheme,
 } from '@kit/ui'
 import { useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
@@ -18,7 +20,6 @@ import { PageHeader } from '../components/app-shell'
 import { signOutAndClearSession, useMe } from '../lib/auth'
 import { localeLabels } from '../lib/i18n'
 import { useLocale } from '../lib/locale'
-import { type Theme, useTheme } from '../lib/theme'
 
 export function SettingsPage() {
   const { m, locale, setLocale, locales, showSwitcher } = useLocale()

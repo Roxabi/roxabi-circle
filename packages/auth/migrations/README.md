@@ -1,9 +1,10 @@
-# Sketches — not the apply path
+# Not the apply path
 
-These SQL files are **historical sketches**. They are **not** exported from `@kit/auth`.
+This directory has **no SQL**. It is **not** exported from `@kit/auth`.
 
-Applied D1 SSoT is `apps/example-api/migrations/*`. Products sync via
-`scripts/kit/kit-schema-sync.sh` (catalog id + sha256). See ADR-0008 D3.
+SQL identity is catalog **module `id` + `kitSha256`**
+(`config/kit/kit-schema-modules.json`). Products sync via
+`scripts/kit/kit-schema-sync.sh`.
 
-Do **not** `wrangler d1 migrations apply` this directory. Do **not** copy these
-`NNNN_` filenames into a product app.
+`apps/example-api/migrations/*` is the **dogfood wrangler journal**.
+Do **not** `wrangler d1 migrations apply` this directory.

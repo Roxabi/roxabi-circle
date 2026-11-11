@@ -6,22 +6,70 @@ R2 helpers for Chemin A kit apps: safe keys, prefix-enforced client, light **PUT
 
 | Export | Role |
 |--------|------|
-| `joinObjectKey` / `assertObjectKey` | Path join; reject `..` / empty |
+| `joinObjectKey` / `assertObjectKey` | Path join; reject empty / `.` / `..` (no silent elision) |
 | `StorageClient` | Prefix-enforced put/get/delete/head/list/**presign** — **product path** |
 | `StorageClient.presign(signer, { parts, … })` | Preferred product presign (prefix-safe key + sign) |
-| `createPresignedUrl(signer, input)` | Advanced: path-safe sign only — **no** prefix; full trusted keys |
+| `createPresignedUrl(signer, input)` | Low-level: key **must** sit under required `prefix` |
 | `createMockPresignSigner` | Local/CI mock (no CF account / secrets) |
 
 There are **no** free `putObject` / `getObject` / `deleteObject` helpers. Product object I/O
-goes through `StorageClient` so keys stay under `basePrefix`. Advanced free-key
-`createPresignedUrl` remains for trusted full keys only (no prefix enforcement).
+goes through `StorageClient` so keys stay under constructor `basePrefix`.
+`createPresignedUrl` only checks that `key` sits under the **caller-supplied**
+`prefix` (same-call consistency — not a tenant boundary). Pass `prefix` from app
+config, not request input. Prefer `StorageClient.presign`.
+
+## Streaming downloads
+
+`get(parts)` returns an object or `null` when it is absent. Pass its `body`
+directly to `Response` to stream the bytes without buffering them with `text()`;
+`text()` remains available when the caller actually needs text. The optional
+`httpMetadata.contentType` can populate the response's content type.
+
+```ts
+import { StorageClient, type KitR2Bucket } from '@kit/storage'
+
+async function download(
+  bucket: KitR2Bucket,
+  parts: string[],
+  authorize: (parts: string[]) => Promise<boolean>,
+): Promise<Response> {
+  const privateHeaders = { 'Cache-Control': 'private, no-store' }
+
+  try {
+    // The app authenticates the caller and authorizes this object before storage I/O.
+    if (!(await authorize(parts))) {
+      return new Response('Forbidden', { status: 403, headers: privateHeaders })
+    }
+
+    const object = await new StorageClient(bucket, 'demo').get(parts)
+    if (!object) {
+      return new Response('Not found', { status: 404, headers: privateHeaders })
+    }
+
+    const headers = new Headers(privateHeaders)
+    headers.set('Content-Type', object.httpMetadata?.contentType ?? 'application/octet-stream')
+    return new Response(object.body, { headers })
+  } catch {
+    return new Response('Download failed', { status: 500, headers: privateHeaders })
+  }
+}
+```
+
+The app owns authentication and authorization, including how `parts` are
+selected; prefix enforcement is not an access-control policy. The status codes
+above are examples: map authorization, missing objects, and storage errors to
+the app's HTTP contract without exposing internal details. Choose private cache
+headers and any download behavior (such as a safe `Content-Disposition`
+filename) at the app boundary. Streaming errors after the response has started
+cannot be converted into a different HTTP status.
 
 ## Presign (kit v1)
 
 - **Preferred path:** `client.presign(signer, { parts })` — builds the key under
   `basePrefix`, asserts prefix, then signs. Returns `{ url, method, headers?, expiresAt, key }`.
-- **Advanced:** `createPresignedUrl(signer, { key, … })` — validates path safety only
-  (no product prefix). Use when you already hold a full trusted key (e.g. from `client.key`).
+- **Advanced:** `createPresignedUrl(signer, { key, prefix, … })` — key must equal
+  `prefix` or sit under `${prefix}/`. `prefix` is caller-declared (use a configured
+  product root). Prefer `client.presign`.
 - **PUT only** (A25 light helper — no video multipart).
 - Package **never** holds R2 secrets — apps inject a `PresignSigner` (mock or future S3/aws4fetch).
 - Example app: `PRESIGN_MODE=mock` (default) · `s3` **fail-closed** until a real signer is wired.
@@ -39,9 +87,9 @@ const { url, headers, expiresAt, key } = await client.presign(signer, {
   contentType: 'application/octet-stream',
 })
 
-// Advanced (custom full key — no prefix enforcement):
+// Advanced (full key + required prefix):
 // import { createPresignedUrl } from '@kit/storage'
-// await createPresignedUrl(signer, { key, method: 'PUT', expiresIn: 300 })
+// await createPresignedUrl(signer, { key, prefix: 'demo', method: 'PUT', expiresIn: 300 })
 ```
 
 Demo HTTP (auth required):

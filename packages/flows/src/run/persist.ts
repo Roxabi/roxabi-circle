@@ -5,8 +5,11 @@ import { flowsDrizzleSchema } from '../drizzle-schema'
 import {
   claimRun as claimRunRepo,
   getRun,
+  getRunApproval,
   persistRunBundle as persistRunBundleRepo,
+  recordRunApproval as recordRunApprovalRepo,
 } from '../repos'
+import { persistReceiptJson as persistReceiptJsonRepo } from '../repos/events'
 
 export type FlowRunRow = {
   id: string
@@ -82,4 +85,46 @@ export async function persistBundle(
   },
 ): Promise<number> {
   return persistRunBundleRepo(dbFromD1(db), input)
+}
+
+/** Receipt-only scrub. Does not change status or error_code. */
+export async function scrubReceiptJson(
+  db: D1Database,
+  input: { runId: string; orgId: string; receiptJson: string; now?: number },
+): Promise<number> {
+  return persistReceiptJsonRepo(dbFromD1(db), input)
+}
+
+export type RunApproval = {
+  decision: 'approved' | 'rejected' | 'expired'
+  decidedBy: string
+  decidedAt: number
+}
+
+/** Org+run scoped decision. Missing or other-org row → null. */
+export async function loadRunApproval(
+  db: D1Database,
+  input: { runId: string; orgId: string; taskId: string },
+): Promise<RunApproval | null> {
+  const row = await getRunApproval(dbFromD1(db), input)
+  if (!row) return null
+  if (row.decision !== 'approved' && row.decision !== 'rejected' && row.decision !== 'expired') {
+    return null
+  }
+  return { decision: row.decision, decidedBy: row.decidedBy, decidedAt: row.decidedAt }
+}
+
+/** Conditional decision insert. See repos.recordRunApproval. */
+export async function recordRunApproval(
+  db: D1Database,
+  input: {
+    orgId: string
+    runId: string
+    taskId: string
+    decision: 'approved' | 'rejected' | 'expired'
+    decidedBy: string
+    now?: number
+  },
+) {
+  return recordRunApprovalRepo(dbFromD1(db), input)
 }

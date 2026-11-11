@@ -3,10 +3,11 @@ import { en } from '../messages/en'
 import { fr, type Messages } from '../messages/fr'
 
 export type Locale = 'fr' | 'en'
+export const catalogs = { fr, en }
 
 const engine = createI18n<Locale, Messages>({
   defaultLocale: 'fr',
-  catalogs: { fr, en },
+  catalogs,
 })
 
 export function t(locale: Locale): Messages {

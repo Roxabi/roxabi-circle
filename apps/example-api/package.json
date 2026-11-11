@@ -2,10 +2,12 @@
   "name": "@kit/example-api",
   "version": "0.0.1",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "wrangler dev",
-    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "types": "wrangler types src/worker-configuration.d.ts --include-env=false",
+    "typecheck": "wrangler types src/worker-configuration.d.ts --include-env=false --check && tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "db:migrate": "wrangler d1 migrations apply example-api-local --local",
@@ -15,25 +17,28 @@
     "build": "wrangler deploy --dry-run --outdir=dist"
   },
   "dependencies": {
+    "@hono/zod-openapi": "1.6.3",
+    "@kit/api-client": "workspace:*",
     "@kit/auth": "workspace:*",
+    "@kit/comments": "workspace:*",
     "@kit/core": "workspace:*",
     "@kit/db": "workspace:*",
     "@kit/email": "workspace:*",
-    "@kit/comments": "workspace:*",
     "@kit/flows": "workspace:*",
+    "@kit/i18n": "workspace:*",
+    "@kit/notifications": "workspace:*",
     "@kit/storage": "workspace:*",
     "@kit/tasks": "workspace:*",
     "@kit/types": "workspace:*",
-    "better-auth": "^1.7.2",
-    "drizzle-orm": "^0.45.2",
-    "hono": "^4.13.5",
-    "zod": "^4.5.4"
+    "better-auth": "^1.7.18",
+    "drizzle-orm": "^0.45.4",
+    "hono": "^4.13.17",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20250620.0",
     "@types/better-sqlite3": "^9.6.0",
     "better-sqlite3": "^13.0.2",
-    "vitest": "^4.1.11",
-    "wrangler": "^4.127.1"
+    "vitest": "^5.1.0",
+    "wrangler": "^4.152.0"
   }
 }

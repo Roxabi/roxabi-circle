@@ -1,6 +1,7 @@
 {
   "version": 1,
   "app": "apps/foo-api",
+  "sets": ["core", "audit"],
   "modules": {
     "init": {
       "kitSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",

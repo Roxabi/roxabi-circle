@@ -1,31 +1,14 @@
-import { createDb } from '@kit/db'
 import { describe, expect, it } from 'vitest'
 import { createApp } from './app'
-import { schema } from './db/schema'
 import { DEMO_EMAIL, DEMO_PASSWORD } from './seed/demo-data'
-import { seedDemoDatabase } from './seed/seed-db'
+import { loginCookie, seedDemoEnv, sessionHeaders } from './test/api-fixture'
 import { createMemoryEnv } from './test/memory-env'
 
 const ORIGIN = 'http://localhost:5173'
 
-function sessionMutation(cookie: string): Record<string, string> {
-  return { cookie, 'content-type': 'application/json', Origin: ORIGIN }
-}
-
 async function login(app: ReturnType<typeof createApp>, env: ReturnType<typeof createMemoryEnv>) {
-  const db = createDb(env.DB as unknown as D1Database, schema)
-  await seedDemoDatabase(db, { notes: false, environment: 'test' })
-  const loginRes = await app.request(
-    '/api/auth/sign-in/email',
-    {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', Origin: ORIGIN },
-      body: JSON.stringify({ email: DEMO_EMAIL, password: DEMO_PASSWORD }),
-    },
-    env,
-  )
-  expect(loginRes.status).toBeLessThan(400)
-  return loginRes.headers.get('set-cookie')!.split(';')[0]!
+  await seedDemoEnv(env, { notes: false, environment: 'test' })
+  return loginCookie(app, env, DEMO_EMAIL, DEMO_PASSWORD, ORIGIN)
 }
 
 describe('uploads presign demo', () => {
@@ -54,7 +37,7 @@ describe('uploads presign demo', () => {
       '/api/uploads/presign',
       {
         method: 'POST',
-        headers: sessionMutation(cookie),
+        headers: sessionHeaders(cookie, undefined, ORIGIN),
         body: JSON.stringify({
           filename: 'big.bin',
           contentType: 'application/octet-stream',
@@ -69,7 +52,7 @@ describe('uploads presign demo', () => {
       '/api/uploads/presign',
       {
         method: 'POST',
-        headers: sessionMutation(cookie),
+        headers: sessionHeaders(cookie, undefined, ORIGIN),
         body: JSON.stringify({
           filename: 'photo.jpg',
           contentType: 'image/jpeg',
@@ -97,7 +80,7 @@ describe('uploads presign demo', () => {
       `/api/uploads/${body.uploadId}/complete`,
       {
         method: 'POST',
-        headers: sessionMutation(cookie),
+        headers: sessionHeaders(cookie, undefined, ORIGIN),
         body: JSON.stringify({ key: body.key }),
       },
       env,

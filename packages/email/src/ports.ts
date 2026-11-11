@@ -9,17 +9,12 @@ import { type CfEmailAddress, type SendEmailBinding, sendCf } from './cf'
 import { emailDomain, isRecipientDomainAllowed, isValidMailboxAddress } from './domain'
 import { redactEmailAddress, redactEmailBody } from './redact'
 import { scrubEmailAddress, scrubHeaderLine } from './scrub'
-import type { EmailPort } from './types'
+import { EmailPolicyError, type EmailPort } from './types'
 
 export type { EmailPort }
 
 /** Scrub to/subject at send boundary (idempotent with leaf scrubs). */
-export function scrubPortInput(input: {
-  to: string
-  subject: string
-  text: string
-  html?: string
-}): {
+function scrubPortInput(input: { to: string; subject: string; text: string; html?: string }): {
   to: string
   subject: string
   text: string
@@ -92,8 +87,9 @@ export function createResendEmailPort(apiKey: string, from: CfEmailAddress): Ema
   return {
     async send(input) {
       const scrubbed = scrubPortInput(input)
-      if (!isValidMailboxAddress(scrubbed.to) || !isValidMailboxAddress(fromEmail)) {
-        throw new Error(
+      if (!(isValidMailboxAddress(scrubbed.to) && isValidMailboxAddress(fromEmail))) {
+        throw new EmailPolicyError(
+          'EMAIL_ADDRESS_INVALID',
           'EMAIL_ADDRESS_INVALID: to/from must be a single printable-ASCII mailbox (exactly one @)',
         )
       }
@@ -112,8 +108,7 @@ export function createResendEmailPort(apiKey: string, from: CfEmailAddress): Ema
         }),
       })
       if (!res.ok) {
-        const detail = await res.text().catch(() => '')
-        throw new Error(`Resend send failed: ${res.status} ${detail.slice(0, 200)}`)
+        throw new Error(`Resend send failed: ${res.status}`)
       }
       return { ok: true, transport: 'resend' }
     },
@@ -131,13 +126,17 @@ export function withRecipientAllowlist(port: EmailPort, allowDomains: string[]):
     async send(input) {
       const scrubbed = scrubPortInput(input)
       if (!isValidMailboxAddress(scrubbed.to)) {
-        throw new Error(
+        throw new EmailPolicyError(
+          'EMAIL_RECIPIENT_ADDRESS_INVALID',
           'EMAIL_RECIPIENT_ADDRESS_INVALID: need single printable-ASCII mailbox (exactly one @)',
         )
       }
       if (!isRecipientDomainAllowed(scrubbed.to, allowDomains)) {
         const d = emailDomain(scrubbed.to) ?? '(invalid)'
-        throw new Error(`EMAIL_RECIPIENT_DOMAIN_NOT_ALLOWED: ${d} not in EMAIL_ALLOW_DOMAINS`)
+        throw new EmailPolicyError(
+          'EMAIL_RECIPIENT_DOMAIN_NOT_ALLOWED',
+          `EMAIL_RECIPIENT_DOMAIN_NOT_ALLOWED: ${d} not in EMAIL_ALLOW_DOMAINS`,
+        )
       }
       return port.send(scrubbed)
     },

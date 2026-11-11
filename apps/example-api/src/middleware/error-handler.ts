@@ -1,10 +1,11 @@
+import { applySecurityHeaders } from '@kit/auth/hono'
 import { AppError, createLogger, toApiErrorBody } from '@kit/core'
 import { StorageError } from '@kit/storage'
 import type { Context } from 'hono'
+import { HTTPException } from 'hono/http-exception'
 import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import type { Env } from '../env'
 import type { AppVariables } from './request-id'
-import { applySecurityHeaders } from './security-headers'
 
 const rootLog = createLogger({ service: 'example-api' })
 
@@ -21,9 +22,27 @@ export function mapStorageError(err: unknown): AppError | null {
   return AppError.internal()
 }
 
+/**
+ * Map known Hono JSON validation faults to the safe client-error envelope.
+ * The validator throws 400 for malformed/empty JSON and 415 when a required
+ * JSON body has an unsupported media type. Neither is an internal fault.
+ */
+export function mapHttpException(err: unknown): AppError | null {
+  if (!(err instanceof HTTPException)) return null
+  // Other Hono statuses stay unmapped; never pass through unauthored messages.
+  if (err.status === 400) {
+    // Stable client-facing copy; do not forward Hono's wording.
+    return AppError.validation('Invalid JSON')
+  }
+  if (err.status === 415) {
+    return AppError.validation('Invalid JSON content type')
+  }
+  return null
+}
+
 export function onError(err: Error, c: Context<{ Bindings: Env; Variables: AppVariables }>) {
   const requestId = c.get('requestId') || 'req_unknown'
-  const mapped = mapStorageError(err) ?? err
+  const mapped = mapStorageError(err) ?? mapHttpException(err) ?? err
   const { body, status } = toApiErrorBody(mapped, requestId)
   const code = mapped instanceof AppError ? mapped.code : 'INTERNAL_ERROR'
   const log = rootLog.child({ requestId })

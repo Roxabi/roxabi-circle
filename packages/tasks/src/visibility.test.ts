@@ -1,5 +1,21 @@
+import {
+  canViewByAudience,
+  filterForAudience,
+  canSetVisibility as sharedCanSetVisibility,
+} from '@kit/types'
 import { describe, expect, it } from 'vitest'
 import { canSetVisibility, canViewTask, filterTasksForAudience } from './visibility'
+
+describe('shared object ACL', () => {
+  it('re-exports the @kit/types helpers (no local fork)', () => {
+    expect(typeof canViewByAudience).toBe('function')
+    expect(typeof filterForAudience).toBe('function')
+    expect(typeof sharedCanSetVisibility).toBe('function')
+    expect(canViewTask).toBe(canViewByAudience)
+    expect(filterTasksForAudience).toBe(filterForAudience)
+    expect(canSetVisibility).toBe(sharedCanSetVisibility)
+  })
+})
 
 describe('canViewTask', () => {
   it('staff sees internal and shared', () => {

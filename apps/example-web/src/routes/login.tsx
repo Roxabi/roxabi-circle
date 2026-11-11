@@ -17,7 +17,7 @@ import { toast } from 'sonner'
 import { LoginMagicForm } from '../components/login-magic-form'
 import { loginErrorMessage, profileErrorMessage } from '../lib/account-errors'
 import { apiFetch } from '../lib/api'
-import { type MeResponse, meQueryKey, postAuthTarget, useMe } from '../lib/auth'
+import { dropPrincipalCache, fetchMe, meQueryKey, postAuthTarget, useMe } from '../lib/auth'
 import { type HealthResponse, healthQueryKey, isPublicSignupEnabled } from '../lib/health'
 import { useLocale } from '../lib/locale'
 import { loginSchema } from '../lib/schemas'
@@ -58,7 +58,7 @@ export function LoginPage() {
     validators: {
       onSubmit: ({ value }) => {
         const parsed = loginSchema.safeParse(value)
-        if (parsed.success) return undefined
+        if (parsed.success) return
         const flat = parsed.error.flatten().fieldErrors
         return {
           form: m.errValidation,
@@ -84,12 +84,12 @@ export function LoginPage() {
         toast.error(m.error, { description: msg })
         return
       }
-      // Sign-in succeeded — do not map /api/me failures as "invalid email or password".
+      // New principal — drop the previous user's cached queries before reading me.
+      dropPrincipalCache(qc)
       try {
-        await qc.invalidateQueries({ queryKey: meQueryKey })
         const meAfter = await qc.fetchQuery({
           queryKey: meQueryKey,
-          queryFn: () => apiFetch<MeResponse>('/api/me'),
+          queryFn: fetchMe,
         })
         toast.success(m.login, { description: value.email })
         const target = postAuthTarget(meAfter, search.next)

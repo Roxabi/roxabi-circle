@@ -22,7 +22,7 @@ export async function createItem(
 ) {
   const code = input.code.trim()
   const label = input.label.trim()
-  if (!code || !label) {
+  if (!(code && label)) {
     const fieldErrors: FieldErrors = {}
     if (!code) fieldErrors.code = ['code is required']
     if (!label) fieldErrors.label = ['label is required']

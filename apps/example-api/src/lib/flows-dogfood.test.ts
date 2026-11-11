@@ -1,50 +1,73 @@
-import { createRunSnapshot, loadPlanFromYaml } from '@kit/flows'
+import {
+  type CapabilityGrant,
+  createRunSnapshot,
+  createToolRegistry,
+  loadPlanFromYaml,
+  mintCapabilityGrant,
+  registryToolNames,
+} from '@kit/flows'
 import { describe, expect, it } from 'vitest'
 import {
   canDogfoodCreateRun,
   DEMO_ECHO_PLAN_YAML,
-  dogfoodFixedGrant,
-  dogfoodPlanToSnapshot,
   dogfoodToolRegistry,
   FLOWS_MODULE_ID,
   isFlowsAdmin,
 } from './flows-dogfood'
+
+/**
+ * Sealing requires a kit-minted grant, so the fixture mints from the dogfood registry with the
+ * policy facts the case needs — production does the same from org module policy.
+ */
+function mintFixtureGrant(orgId: string, registry = dogfoodToolRegistry): CapabilityGrant {
+  const minted = mintCapabilityGrant({
+    orgId,
+    registry,
+    facts: { moduleEffective: true, canRead: true, canWrite: true, allowedModels: ['kit-infer'] },
+  })
+  if (!minted.ok) throw new Error(`fixture grant must mint: ${minted.message}`)
+  return minted.grant
+}
 
 describe('flows dogfood call site', () => {
   it('exports flows module id', () => {
     expect(FLOWS_MODULE_ID).toBe('flows')
   })
 
-  it('checks and freezes runnerView for demo plan with fixed grant', () => {
-    const result = dogfoodPlanToSnapshot(DEMO_ECHO_PLAN_YAML, 'org_demo', 'user_demo')
+  it("dogfood registry is echo-only (grantClass 'mintable')", () => {
+    expect(registryToolNames(dogfoodToolRegistry)).toEqual(['echo'])
+    expect(dogfoodToolRegistry.tools.get('echo')?.grantClass).toBe('mintable')
+  })
+
+  it('checks and freezes runnerView for demo plan with test grant fixture', () => {
+    const plan = loadPlanFromYaml(DEMO_ECHO_PLAN_YAML)
+    const result = createRunSnapshot({
+      plan,
+      grant: mintFixtureGrant('org_demo'),
+      registry: dogfoodToolRegistry,
+      actorId: 'user_demo',
+    })
     expect(result.ok).toBe(true)
     if (result.ok) {
       expect(result.runnerView.planId).toBe('demo-echo')
       expect(result.runnerView.executionTools).toEqual(['echo'])
       expect(result.runnerView.orgId).toBe('org_demo')
       expect(result.runnerView.allowsInfer).toBe(true)
-      expect(result.grantAudit.registryVersion).toBe('example-api-dogfood-v0')
+      expect(result.grantAudit.registryVersion).toBe('example-api-dogfood-v1')
       expect(result.runnerView.registryContentDigest).toMatch(/^[0-9a-f]{8}$/)
       expect('grantAudit' in result.runnerView).toBe(false)
     }
   })
 
-  it('fixed grant is not free-form (tools always echo)', () => {
-    const g = dogfoodFixedGrant('org_x')
-    expect(g.allowedTools).toEqual(['echo'])
-    expect(g.allowsInfer).toBe(true)
-  })
-
-  it('returns TOOL_NOT_GRANTED for empty tools via createRunSnapshot (not dogfood export)', () => {
+  it('returns TOOL_NOT_GRANTED when policy mints nothing for the demo plan', () => {
+    // Same label, nothing mintable: the minted grant is empty, so the demo plan cannot seal.
+    const emptyPolicyRegistry = createToolRegistry(dogfoodToolRegistry.version, [
+      { name: 'echo', description: 'Echo args (dogfood)', grantClass: 'never' },
+    ])
     const plan = loadPlanFromYaml(DEMO_ECHO_PLAN_YAML)
     const result = createRunSnapshot({
       plan,
-      grant: {
-        orgId: 'org_demo',
-        allowedTools: [],
-        registryVersion: dogfoodToolRegistry.version,
-        allowsInfer: true,
-      },
+      grant: mintFixtureGrant('org_demo', emptyPolicyRegistry),
       registry: dogfoodToolRegistry,
       actorId: 'user_demo',
     })
@@ -57,7 +80,7 @@ describe('flows dogfood call site', () => {
   it('admin gate matches V0', () => {
     expect(isFlowsAdmin({ orgRole: 'admin' })).toBe(true)
     expect(isFlowsAdmin({ orgRole: 'member' })).toBe(false)
-    expect(isFlowsAdmin({ orgRole: 'member', platformRole: 'super_admin' })).toBe(true)
+    expect(isFlowsAdmin({ orgRole: 'operator' })).toBe(false)
   })
 
   it('create-run requires session', () => {

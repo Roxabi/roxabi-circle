@@ -24,11 +24,20 @@ jobs:
         with:
           script: |
             const body = context.payload.pull_request.body || '';
-            const pattern = /(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+#(\d+)/gi;
+            // Convention: `Closes owner/repo#N` (a bare `#N` is ambiguous across the kit and its
+            // mirror, and is rejected in commits). A bare `#N` still closes in this repository.
+            // A qualified ref to another repository is not ours to close.
+            const pattern = /(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?):?\s+(?:([\w.-]+\/[\w.-]+))?#(\d+)/gi;
+            const here = `${context.repo.owner}/${context.repo.repo}`.toLowerCase();
             const issues = new Set();
             let match;
             while ((match = pattern.exec(body)) !== null) {
-              issues.add(parseInt(match[1], 10));
+              const repo = match[1];
+              if (repo && repo.toLowerCase() !== here) {
+                core.info(`Skipping ${repo}#${match[2]}: not ${here}`);
+                continue;
+              }
+              issues.add(parseInt(match[2], 10));
             }
             if (issues.size === 0) {
               core.info('No closing keywords found in PR body');

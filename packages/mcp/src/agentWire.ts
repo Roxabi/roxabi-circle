@@ -22,6 +22,7 @@ export const MCP_BEARER_PREFIX = 'Bearer ' as const
 export const WHOAMI_STATUS = [
   'ok',
   'missing_key',
+  'missing_identity',
   'unauthorized',
   'unreachable',
   'invalid_response',

@@ -6,12 +6,20 @@ import {
   filterCommentsForAudience,
 } from '@kit/comments'
 import { AppError, parseOrThrow } from '@kit/core'
+import { canViewTask } from '@kit/tasks'
 import type { DrizzleD1Database } from 'drizzle-orm/d1'
 import type { schema } from '../db/schema'
 import * as commentsRepo from '../repos/comments'
 import * as tasksRepo from '../repos/tasks'
 
 type Db = DrizzleD1Database<typeof schema>
+
+async function requireViewableTask(db: Db, orgId: string, taskId: string, audience: Audience) {
+  const task = await tasksRepo.getTask(db, orgId, taskId)
+  if (!(task && canViewTask({ visibility: task.visibility as 'internal' | 'shared' }, audience))) {
+    throw AppError.notFound('Task not found')
+  }
+}
 
 export async function listCommentsForTarget(
   db: Db,
@@ -21,12 +29,7 @@ export async function listCommentsForTarget(
   audience: Audience,
 ) {
   if (targetType === 'task') {
-    const task = await tasksRepo.getTask(db, orgId, targetId)
-    if (!task) throw AppError.notFound('Task not found')
-    // Hide internal task entirely for external (no comment leak)
-    if (task.visibility === 'internal' && audience === 'external') {
-      throw AppError.notFound('Task not found')
-    }
+    await requireViewableTask(db, orgId, targetId, audience)
   }
   const rows = await commentsRepo.listByTarget(db, orgId, targetType, targetId)
   return filterCommentsForAudience(
@@ -55,11 +58,7 @@ export async function createCommentForOrg(
     throw AppError.forbidden('Cannot set this visibility')
   }
   if (input.targetType === 'task') {
-    const task = await tasksRepo.getTask(db, orgId, input.targetId)
-    if (!task) throw AppError.notFound('Task not found')
-    if (task.visibility === 'internal' && audience === 'external') {
-      throw AppError.notFound('Task not found')
-    }
+    await requireViewableTask(db, orgId, input.targetId, audience)
   }
   const now = Date.now()
   const id = crypto.randomUUID()

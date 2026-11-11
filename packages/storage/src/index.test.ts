@@ -4,6 +4,9 @@ import {
   createPresignedUrl,
   joinObjectKey,
   type KitR2Bucket,
+  type PresignInput,
+  type PresignResult,
+  type PresignSigner,
   StorageClient,
   StorageError,
 } from './index'
@@ -20,6 +23,7 @@ function memoryBucket(): KitR2Bucket & { keys: () => string[] } {
       if (body === undefined) return null
       return {
         key,
+        body: new Blob([body]).stream(),
         async text() {
           return body
         },
@@ -59,6 +63,14 @@ describe('joinObjectKey', () => {
   it('rejects traversal in prefix', () => {
     expect(() => joinObjectKey('demo/../other', 'a')).toThrow(/traversal/)
     expect(() => joinObjectKey('../escape', 'a')).toThrow(/traversal/)
+  })
+
+  it('rejects empty and current-dir segments (no silent elision)', () => {
+    expect(() => joinObjectKey('demo', '.', 'file.txt')).toThrow(/empty or current-dir/)
+    expect(() => joinObjectKey('demo', '', 'file.txt')).toThrow(/empty or current-dir/)
+    expect(() => joinObjectKey('demo', 'a/./b')).toThrow(/empty or current-dir/)
+    expect(() => joinObjectKey('demo', 'a//b')).toThrow(/empty or current-dir/)
+    expect(() => joinObjectKey('.', 'file.txt')).toThrow(/empty or current-dir/)
   })
 })
 
@@ -105,6 +117,16 @@ describe('StorageClient', () => {
 
   it('rejects invalid base prefix', () => {
     expect(() => new StorageClient(memoryBucket(), 'a/../b')).toThrow(StorageError)
+    expect(() => new StorageClient(memoryBucket(), '.')).toThrow(StorageError)
+    expect(() => new StorageClient(memoryBucket(), '')).toThrow(StorageError)
+    expect(() => new StorageClient(memoryBucket(), 'demo/.')).toThrow(StorageError)
+  })
+
+  it('list rejects empty or current-dir subPrefix (does not widen)', async () => {
+    const client = new StorageClient(memoryBucket(), 'demo')
+    await expect(client.list({ subPrefix: '.' })).rejects.toThrow(/empty or current-dir/)
+    await expect(client.list({ subPrefix: 'n1/.' })).rejects.toThrow(/empty or current-dir/)
+    await expect(client.list({ subPrefix: '' })).rejects.toThrow(/empty or current-dir/)
   })
 
   it('presign builds key under prefix and calls signer', async () => {
@@ -144,22 +166,43 @@ describe('StorageClient', () => {
   })
 })
 
-describe('createPresignedUrl (advanced — path-safe only, no prefix)', () => {
+describe('createPresignedUrl (prefix required)', () => {
   it('rejects unsafe keys before sign', async () => {
     const signer = createMockPresignSigner()
     await expect(
       createPresignedUrl(signer, {
         key: 'demo/../secret',
+        prefix: 'demo',
         method: 'PUT',
         expiresIn: 300,
       }),
     ).rejects.toThrow(/traversal/)
   })
 
+  it('rejects key outside prefix', async () => {
+    const signer: PresignSigner = createMockPresignSigner()
+    const input: PresignInput = {
+      key: 'other/user/u1/file.bin',
+      prefix: 'demo',
+      method: 'PUT',
+      expiresIn: 300,
+    }
+    await expect(createPresignedUrl(signer, input)).rejects.toThrow(StorageError)
+    await expect(
+      createPresignedUrl(signer, {
+        key: 'other/user/u1/file.bin',
+        prefix: 'demo',
+        method: 'PUT',
+        expiresIn: 300,
+      }),
+    ).rejects.toMatchObject({ code: 'OUTSIDE_PREFIX' })
+  })
+
   it('returns mock PUT url with clamped expiry', async () => {
     const signer = createMockPresignSigner({ baseUrl: 'https://mock.test' })
-    const res = await createPresignedUrl(signer, {
+    const res: PresignResult = await createPresignedUrl(signer, {
       key: 'demo/user/u1/file.bin',
+      prefix: 'demo',
       method: 'PUT',
       expiresIn: 10,
       contentType: 'application/octet-stream',

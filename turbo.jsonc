@@ -10,17 +10,17 @@
     "typecheck": {
       "dependsOn": ["^typecheck"]
     },
+    // No `test:coverage` task: the root script is `scripts/kit/test-coverage.sh`
+    // (ordered bars, silent-exclusion detection, summary print), which drives
+    // `bunx vitest run --coverage` per package directly — turbo never runs it.
+    // No `lint` task either: Biome is a single root pass (`biome check .`) and no
+    // workspace declares a `lint` script.
     "test": {
       "dependsOn": ["^typecheck"]
-    },
-    "test:coverage": {
-      "dependsOn": ["^typecheck"],
-      "cache": false
     },
     "dev": {
       "cache": false,
       "persistent": true
-    },
-    "lint": {}
+    }
   }
 }

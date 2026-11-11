@@ -2,7 +2,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vitest/config'
-import { makeCoverage } from '../config/vitest-coverage.mjs'
+import { makeCoverage } from '../config/vitest-coverage.mts'
 
 const rootDir = path.dirname(fileURLToPath(import.meta.url))
 
@@ -14,7 +14,8 @@ export default defineConfig({
     },
   },
   test: {
-    environment: 'happy-dom',
+    maxWorkers: process.env.CI ? '100%' : undefined,
+    environment: 'node',
     include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
     setupFiles: ['./src/react/test-setup.ts'],
     coverage: makeCoverage('auth', {

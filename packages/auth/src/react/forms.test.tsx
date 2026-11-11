@@ -1,13 +1,11 @@
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+/** @vitest-environment happy-dom */
+
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { ChangePasswordForm } from './change-password-form'
 import { ForgotPasswordForm } from './forgot-password-form'
 import { ResetPasswordForm } from './reset-password-form'
-
-afterEach(() => {
-  cleanup()
-})
 
 const forgotCopy = {
   email: 'Email',

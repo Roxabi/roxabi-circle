@@ -1,3 +1,8 @@
+import {
+  canViewByAudience,
+  filterForAudience,
+  canSetVisibility as sharedCanSetVisibility,
+} from '@kit/types'
 import { describe, expect, it } from 'vitest'
 import { isAudience } from './audience'
 import {
@@ -70,6 +75,15 @@ describe('target helpers', () => {
 })
 
 describe('visibility', () => {
+  it('re-exports the @kit/types helpers (no local fork)', () => {
+    expect(typeof canViewByAudience).toBe('function')
+    expect(typeof filterForAudience).toBe('function')
+    expect(typeof sharedCanSetVisibility).toBe('function')
+    expect(canViewComment).toBe(canViewByAudience)
+    expect(filterCommentsForAudience).toBe(filterForAudience)
+    expect(canSetCommentVisibility).toBe(sharedCanSetVisibility)
+  })
+
   it('external hides internal', () => {
     expect(canViewComment({ visibility: 'internal' }, 'external')).toBe(false)
     expect(

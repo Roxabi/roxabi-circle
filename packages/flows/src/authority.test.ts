@@ -13,9 +13,9 @@ import { type PlanDocument, parsePlanDocument } from './schema'
  */
 
 const registry = createToolRegistry('reg-1', [
-  { name: 'echo', description: 'Echo args', effect: 'read' },
-  { name: 'write_demo', description: 'Write demo blob', effect: 'write' },
-  { name: 'fetch_url', description: 'External fetch', effect: 'external' },
+  { name: 'echo', description: 'Echo args', grantClass: 'mintable' },
+  { name: 'write_demo', description: 'Write demo blob', grantClass: 'never' },
+  { name: 'fetch_url', description: 'External fetch', grantClass: 'never' },
 ])
 
 const planWith = (tools: readonly string[]): PlanDocument =>
@@ -31,6 +31,7 @@ const grantOf = (allowedTools: readonly string[], allowsInfer = true): Capabilit
   allowedTools,
   registryVersion: 'reg-1',
   allowsInfer,
+  allowedModels: [],
 })
 
 describe('resolveEffectiveAuthority — grants bound the result', () => {

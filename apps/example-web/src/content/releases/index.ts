@@ -1,5 +1,5 @@
 /**
- * App-owned release notes (L1 changelog recipe — GH #107).
+ * App-owned release notes (L1 changelog recipe — go-silex/silex-boilerplate#107).
  * Product forks: keep your client notes under apps/<product>-web only (zero-edit).
  */
 
@@ -43,7 +43,5 @@ export const releases: Release[] = [
         'Separate kit dogfood vs product catalogues (zero-edit)',
       ],
     },
-    // After local record: copy *-02-changelog-share.gif → public/release-gifs/
-    // gifSrc: '/release-gifs/YYYY-MM-DD-02-changelog-share.gif',
   },
 ]

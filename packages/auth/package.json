@@ -2,6 +2,7 @@
   "name": "@kit/auth",
   "version": "0.0.1",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "exports": {
     ".": {
@@ -29,6 +30,7 @@
       "import": "./src/hono.ts",
       "default": "./src/hono.ts"
     },
+    "./repos/memory-d1": null,
     "./repos/*": {
       "types": "./src/repos/*.ts",
       "import": "./src/repos/*.ts",
@@ -43,19 +45,23 @@
   },
   "dependencies": {
     "@kit/core": "workspace:*",
-    "@kit/email": "workspace:*",
-    "drizzle-orm": "^0.45.2",
-    "zod": "^4.5.4"
+    "@kit/db": "workspace:*",
+    "zod": "^4.6.7"
   },
   "peerDependencies": {
+    "@kit/email": "workspace:*",
     "@kit/ui": "workspace:*",
     "@tanstack/react-form": "^1.12.0",
     "better-auth": ">=1.2.0",
+    "drizzle-orm": "^0.45.4",
     "hono": ">=4.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
   "peerDependenciesMeta": {
+    "@kit/email": {
+      "optional": true
+    },
     "@kit/ui": {
       "optional": true
     },
@@ -63,6 +69,9 @@
       "optional": true
     },
     "better-auth": {
+      "optional": true
+    },
+    "drizzle-orm": {
       "optional": true
     },
     "hono": {
@@ -76,19 +85,24 @@
     }
   },
   "devDependencies": {
+    "@kit/email": "workspace:*",
     "@kit/ui": "workspace:*",
     "@tanstack/react-form": "^1.33.5",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",
-    "@testing-library/user-event": "^14.6.6",
-    "@types/react": "^19.2.18",
-    "@types/react-dom": "^19.2.5",
-    "@vitejs/plugin-react": "^6.1.1",
-    "better-auth": "^1.7.2",
-    "hono": "^4.13.5",
-    "happy-dom": "^20.12.0",
-    "react": "^19.2.8",
-    "react-dom": "^19.2.8",
-    "vitest": "^4.1.11"
+    "@testing-library/user-event": "^14.6.8",
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.2.1",
+    "better-auth": "^1.7.18",
+    "better-sqlite3": "^13.0.2",
+    "drizzle-orm": "^0.45.4",
+    "hono": "^4.13.17",
+    "happy-dom": "^21.0.4",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "vite": "^8.3.6",
+    "vitest": "^5.1.0"
   }
 }

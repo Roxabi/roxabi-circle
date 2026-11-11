@@ -1,7 +1,5 @@
 import { releases as defaultReleases, type LocalizedText, type Release } from '../content/releases'
 
-export type LocaleCode = 'fr' | 'en'
-
 /** Newest first; invalid / missing dates sort last. */
 export function getReleases(source: readonly Release[] = defaultReleases): Release[] {
   return [...source].sort((a, b) => {
@@ -9,7 +7,7 @@ export function getReleases(source: readonly Release[] = defaultReleases): Relea
     const tb = Date.parse(b.date)
     const aOk = Number.isFinite(ta)
     const bOk = Number.isFinite(tb)
-    if (!aOk && !bOk) return a.id.localeCompare(b.id)
+    if (!(aOk || bOk)) return a.id.localeCompare(b.id)
     if (!aOk) return 1
     if (!bOk) return -1
     if (tb !== ta) return tb - ta

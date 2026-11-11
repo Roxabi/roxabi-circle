@@ -1,28 +1,28 @@
 import type { QueryClient } from '@tanstack/react-query'
-import { createRootRouteWithContext, createRoute, Outlet, redirect } from '@tanstack/react-router'
-import { AuthGate, PlatformGate } from './components/auth-gates'
+import {
+  createRootRouteWithContext,
+  createRoute,
+  notFound,
+  Outlet,
+  redirect,
+} from '@tanstack/react-router'
+import { AuthGate } from './components/auth-gates'
 import { EnvBanner } from './components/env-banner'
 import { RouteErrorComponent } from './components/route-error'
-import {
-  defaultHomePath,
-  ensureMe,
-  isPlatformActor,
-  isUnauthorized,
-  type MeResponse,
-} from './lib/auth'
+import { defaultHomePath, ensureMe, isUnauthorized, type MeResponse } from './lib/auth'
+import { isFlowRunId } from './lib/flows'
+import { parseInvitationId } from './lib/invitation-id'
 import { isPublicSignupAllowed, optionalNextSearch } from './lib/public-signup-gate'
-import { AdminHomePage } from './routes/admin/home'
-import { AdminModulesPage } from './routes/admin/modules'
-import { AdminOrgsPage } from './routes/admin/orgs'
-import { AdminUsersPage } from './routes/admin/users'
+import { AdminFlowRunPage } from './routes/admin/flow-run'
+import { createAdminRoute, FlowRunNotFound } from './routes/admin/register'
 import { ChangelogPage } from './routes/changelog'
 import { DashboardPage } from './routes/dashboard'
-import { DesignSystemPage } from './routes/design-system'
 import { ForgotPasswordPage } from './routes/forgot-password'
 import { InviteAcceptPage } from './routes/invite-accept'
 import { ItemsPage } from './routes/items'
 import { KeysPage } from './routes/keys'
 import { LoginPage } from './routes/login'
+import { createMcpOAuthResumeRoute } from './routes/mcp-oauth-resume'
 import { NotesPage } from './routes/notes'
 import { OrgMembersPage } from './routes/org-members'
 import { ResetPasswordPage } from './routes/reset-password'
@@ -89,12 +89,10 @@ const inviteAcceptRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/invite/accept',
   validateSearch: (search: Record<string, unknown>) => ({
-    invitationId: typeof search.invitationId === 'string' ? search.invitationId : undefined,
+    invitationId: parseInvitationId(search.invitationId) ?? undefined,
   }),
   component: InviteAcceptPage,
 })
-
-/** Authenticated layout without shell — used for `/` redirect only. */
 const authedLayoutRoute = createRoute({
   getParentRoute: () => rootRoute,
   id: 'authed',
@@ -172,6 +170,23 @@ const appTasksRoute = createRoute({
   component: TasksPage,
 })
 
+const appFlowRunRoute = createRoute({
+  getParentRoute: () => appLayoutRoute,
+  path: 'flows/runs/$runId',
+  params: {
+    parse: ({ runId }) => {
+      if (!isFlowRunId(runId)) throw notFound()
+      return { runId }
+    },
+    stringify: ({ runId }) => ({ runId }),
+  },
+  notFoundComponent: FlowRunNotFound,
+  component: function AppFlowRunRoute() {
+    const { runId } = appFlowRunRoute.useParams()
+    return <AdminFlowRunPage runId={runId} showAdminBack={false} />
+  },
+})
+
 const appKeysRoute = createRoute({
   getParentRoute: () => appLayoutRoute,
   path: 'keys',
@@ -194,61 +209,6 @@ const appOrgMembersRoute = createRoute({
   getParentRoute: () => appLayoutRoute,
   path: 'orgs/$orgId/members',
   component: OrgMembersPage,
-})
-
-// ── Back-office shell `/admin/*` ───────────────────────────────────
-const adminLayoutRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/admin',
-  beforeLoad: async ({ context }) => {
-    let me: MeResponse
-    try {
-      me = await ensureMe(context.queryClient)
-    } catch (e) {
-      if (isUnauthorized(e)) throw redirect({ to: '/login' })
-      throw e
-    }
-    if (!isPlatformActor(me)) {
-      throw redirect({ to: '/app' })
-    }
-  },
-  component: () => (
-    <AuthGate mode="admin">
-      <PlatformGate>
-        <Outlet />
-      </PlatformGate>
-    </AuthGate>
-  ),
-})
-
-const adminIndexRoute = createRoute({
-  getParentRoute: () => adminLayoutRoute,
-  path: '/',
-  component: AdminHomePage,
-})
-
-const adminOrgsRoute = createRoute({
-  getParentRoute: () => adminLayoutRoute,
-  path: 'orgs',
-  component: AdminOrgsPage,
-})
-
-const adminUsersRoute = createRoute({
-  getParentRoute: () => adminLayoutRoute,
-  path: 'users',
-  component: AdminUsersPage,
-})
-
-const adminModulesRoute = createRoute({
-  getParentRoute: () => adminLayoutRoute,
-  path: 'modules',
-  component: AdminModulesPage,
-})
-
-const adminDesignSystemRoute = createRoute({
-  getParentRoute: () => adminLayoutRoute,
-  path: 'design-system',
-  component: DesignSystemPage,
 })
 
 // ── Legacy redirects ───────────────────────────────────────────────
@@ -274,24 +234,20 @@ export const routeTree = rootRoute.addChildren([
   forgotPasswordRoute,
   resetPasswordRoute,
   inviteAcceptRoute,
+  createMcpOAuthResumeRoute(rootRoute),
   authedLayoutRoute.addChildren([indexRoute]),
   appLayoutRoute.addChildren([
     appIndexRoute,
     appNotesRoute,
     appItemsRoute,
     appTasksRoute,
+    appFlowRunRoute,
     appKeysRoute,
     appSettingsRoute,
     appChangelogRoute,
     appOrgMembersRoute,
   ]),
-  adminLayoutRoute.addChildren([
-    adminIndexRoute,
-    adminOrgsRoute,
-    adminUsersRoute,
-    adminModulesRoute,
-    adminDesignSystemRoute,
-  ]),
+  createAdminRoute(rootRoute),
   legacyNotes,
   legacyKeys,
   legacySettings,

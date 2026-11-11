@@ -11,4 +11,5 @@ export {
   takeListPage,
 } from './list-page'
 export { createLogger, type LogFields, type Logger, type LogLevel } from './logger'
+export { isLoopbackHost } from './loopback-host'
 export { parseOrThrow, zodFieldErrors } from './parse'

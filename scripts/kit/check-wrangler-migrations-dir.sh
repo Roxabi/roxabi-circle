@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 # Fail if any wrangler config points D1 migrations_dir at packages/*/migrations.
 #
-# Applied SSoT is apps/<api>/migrations (ADR-0008). packages/*/migrations are sketches.
+# Journal is apps/<api>/migrations (ADR-0008). packages/*/migrations are not the apply path.
 # Parse TOML/JSONC with bun (not same-line grep). Unparseable files fail closed.
-# Missing packages/ fails (kit CI must see the sketch tree).
+# Missing packages/ fails (kit CI must see the migrations README tree).
 # ROOT override: WRANGLER_MIG_ROOT (fixture trees in the self-test).
 set -euo pipefail
 
-ROOT="${WRANGLER_MIG_ROOT:-$(cd "$(dirname "$0")/../.." && pwd -P)}"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd -P)"
+ROOT="${WRANGLER_MIG_ROOT:-$(cd "${SCRIPT_DIR}/../.." && pwd -P)}"
 
 if [[ ! -d "${ROOT}" ]]; then
   echo "check-wrangler-migrations-dir: missing root ${ROOT}" >&2
@@ -25,80 +26,14 @@ if ! command -v bun >/dev/null 2>&1; then
   exit 1
 fi
 
-mapfile -t FILES < <(
-  find "${ROOT}" \
-    \( -name wrangler.toml -o -name wrangler.json -o -name wrangler.jsonc \
-       -o -name 'wrangler.*.toml' -o -name 'wrangler.*.json' -o -name 'wrangler.*.jsonc' \) \
-    -not -path '*/node_modules/*' \
-    -not -path '*/.git/*' \
-    -not -path '*/coverage/*' \
-    -not -path '*/.turbo/*' \
-    | sort
-)
+# Config discovery is shared with migrations-contract: scripts/kit/lib/wrangler-d1.ts --configs.
+CONFIGS="$(bun "${SCRIPT_DIR}/lib/wrangler-d1.ts" --configs "${ROOT}")" || exit 1
+mapfile -t FILES < <(printf '%s' "$CONFIGS" | sed '/^$/d')
 
 # Print each migrations_dir string on its own line. Exit non-zero if unparseable.
+# One parser for every D1 gate: scripts/kit/lib/wrangler-d1.ts (also used by migrations-contract).
 extract_dirs() {
-  local file="$1"
-  local kind
-  case "${file}" in
-    *.toml) kind=toml ;;
-    *.json | *.jsonc) kind=jsonc ;;
-    *)
-      echo "error: ${file}: unsupported wrangler suffix" >&2
-      return 1
-      ;;
-  esac
-  WRANGLER_MIG_FILE="${file}" WRANGLER_MIG_KIND="${kind}" bun -e '
-const fs = require("fs");
-const p = process.env.WRANGLER_MIG_FILE;
-const kind = process.env.WRANGLER_MIG_KIND;
-let text;
-try {
-  text = fs.readFileSync(p, "utf8");
-} catch (e) {
-  console.error("check-wrangler-migrations-dir: cannot read " + p + ": " + e);
-  process.exit(1);
-}
-let data;
-try {
-  data = kind === "toml" ? Bun.TOML.parse(text) : Bun.JSONC.parse(text);
-} catch (e) {
-  const msg = e && e.message ? e.message : String(e);
-  console.error("check-wrangler-migrations-dir: unparseable " + p + ": " + msg.split("\n")[0]);
-  process.exit(1);
-}
-function emitBinding(binding) {
-  if (binding == null || typeof binding !== "object" || Array.isArray(binding)) return;
-  const val = Object.prototype.hasOwnProperty.call(binding, "migrations_dir")
-    ? binding.migrations_dir
-    : undefined;
-  if (val == null || (typeof val === "string" && val.trim() === "")) {
-    process.stdout.write("migrations\n");
-    return;
-  }
-  if (typeof val !== "string") {
-    console.error("check-wrangler-migrations-dir: non-string migrations_dir in " + p);
-    process.exit(1);
-  }
-  process.stdout.write(val.trim() + "\n");
-}
-function walkD1(data) {
-  if (data == null || typeof data !== "object" || Array.isArray(data)) return;
-  if (Array.isArray(data.d1_databases)) {
-    for (const b of data.d1_databases) emitBinding(b);
-  }
-  const env = data.env;
-  if (env != null && typeof env === "object" && !Array.isArray(env)) {
-    for (const ev of Object.values(env)) {
-      if (ev == null || typeof ev !== "object" || Array.isArray(ev)) continue;
-      if (Array.isArray(ev.d1_databases)) {
-        for (const b of ev.d1_databases) emitBinding(b);
-      }
-    }
-  }
-}
-walkD1(data);
-'
+  bun "${SCRIPT_DIR}/lib/wrangler-d1.ts" "$1"
 }
 
 FAIL=0
@@ -140,7 +75,7 @@ for file in "${FILES[@]+"${FILES[@]}"}"; do
     case "${resolved}" in
       "${PACKAGES}"|"${PACKAGES}"/*)
         echo "error: ${file}: migrations_dir=${raw} resolves to ${resolved}" >&2
-        echo "  packages/*/migrations are sketches — applied SSoT is apps/<api>/migrations (ADR-0008)" >&2
+        echo "  packages/*/migrations are not the apply path — journal is apps/<api>/migrations (ADR-0008)" >&2
         FAIL=1
         ;;
     esac

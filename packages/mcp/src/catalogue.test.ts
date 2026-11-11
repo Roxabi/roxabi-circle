@@ -5,11 +5,73 @@ import {
   createToolCatalogue,
   INPUT_BUDGET,
   PublicToolError,
+  toolRefusal,
   WHOAMI_STATUS,
 } from './index'
 
 describe('createToolCatalogue', () => {
   const emptyIn = z.object({})
+
+  function registerResult(execute: () => Promise<unknown>, output?: z.ZodTypeAny) {
+    const catalogue = createToolCatalogue([
+      { name: 'test_result', description: 'test', input: emptyIn, output, execute },
+    ])
+    let handler: (args: unknown) => Promise<unknown> = async () => {
+      throw new Error('tool was not registered')
+    }
+    catalogue.registerAll({
+      addTool(tool) {
+        handler = tool.execute
+      },
+    })
+    return () => handler({})
+  }
+
+  it('emits explicit refusals before the success output schema and normalizes both channels', async () => {
+    const payload = { code: 'NOT_READY', nested: { missing: undefined, date: new Date(0) } }
+    const run = registerResult(
+      async () => toolRefusal(payload),
+      z.object({ success: z.literal(true) }),
+    )
+    const result = (await run()) as {
+      content: { type: string; text: string }[]
+      structuredContent: unknown
+      isError: boolean
+    }
+    expect(result.isError).toBe(true)
+    expect(result.content).toEqual([
+      { type: 'text', text: '{"code":"NOT_READY","nested":{"date":{}}}' },
+    ])
+    expect(result.structuredContent).toEqual({ code: 'NOT_READY', nested: { date: {} } })
+    expect(JSON.parse(result.content[0].text)).toEqual(result.structuredContent)
+  })
+
+  it('keeps ordinary false and refusal-lookalike payloads as successes', async () => {
+    const values = [
+      { ok: false },
+      { payload: { code: 'NOT_READY' } },
+      { content: [{ type: 'text', text: 'ordinary' }], isError: true },
+    ]
+    for (const value of values) {
+      const result = await registerResult(async () => value)()
+      expect(typeof result).toBe('string')
+      expect(JSON.parse(result as string)).toEqual(value)
+    }
+  })
+
+  it('redacts malformed refusal roots and serialization failures', async () => {
+    const cyclic: Record<string, unknown> = {}
+    cyclic.self = cyclic
+    const values: unknown[] = [null, undefined, [], 'not-an-object', { n: 1n }, cyclic]
+    for (const value of values) {
+      const run = registerResult(async () => toolRefusal(value as never))
+      await expect(run()).rejects.toBeInstanceOf(PublicToolError)
+      await expect(run()).rejects.toMatchObject({
+        code: 'INTERNAL_ERROR',
+        message: 'Internal tool error.',
+      })
+    }
+  })
 
   it('assertExact fails when runtime names drift (planted extra)', () => {
     const catalogue = createToolCatalogue([
@@ -214,5 +276,6 @@ describe('wire SSOT', () => {
     expect(WHOAMI_STATUS).toContain('ok')
     expect(WHOAMI_STATUS).toContain('invalid_response')
     expect(WHOAMI_STATUS).toContain('missing_key')
+    expect(WHOAMI_STATUS).toContain('missing_identity')
   })
 })

@@ -20,8 +20,10 @@ export const KNOWN_COMMENT_TARGET_TYPES = [
 export type KnownCommentTargetType = (typeof KNOWN_COMMENT_TARGET_TYPES)[number]
 
 /** Same visibility model as tasks — external never sees internal comments. */
-export const COMMENT_VISIBILITIES = ['internal', 'shared'] as const
-export type CommentVisibility = (typeof COMMENT_VISIBILITIES)[number]
+export {
+  KIT_VISIBILITIES as COMMENT_VISIBILITIES,
+  type KitVisibility as CommentVisibility,
+} from '@kit/types'
 
 export const MAX_COMMENT_BODY_LEN = 20_000
 export const MAX_TARGET_TYPE_LEN = 64

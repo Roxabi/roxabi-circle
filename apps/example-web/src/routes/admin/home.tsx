@@ -46,9 +46,12 @@ export function AdminHomePage() {
             </CardDescription>
             <CardTitle className="text-base font-medium">{m.navPlatform}</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="flex flex-col gap-2">
             <Link to="/admin/modules" className="text-sm font-medium text-primary hover:underline">
               {m.navModules} →
+            </Link>
+            <Link to="/admin/flows" className="text-sm font-medium text-primary hover:underline">
+              {m.navFlows} →
             </Link>
           </CardContent>
         </Card>

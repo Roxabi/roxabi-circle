@@ -3,6 +3,7 @@ export const DEMO_ECHO_PLAN_YAML = `# Generic dogfood plan — zero product doma
 flows: v0
 plan:
   id: demo-echo
+  model: kit-infer
   description: Echo text then single-shot infer summary (kit dogfood)
   max_tokens: 2000
 permits:

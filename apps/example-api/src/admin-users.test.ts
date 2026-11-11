@@ -1,14 +1,15 @@
-import { baMember, baUser, baVerification } from '@kit/auth/schema'
+import { baMember, baUser } from '@kit/auth/schema'
 import { encodeListCursor, MAX_REPRESENTABLE_EPOCH_MS, MIN_REPRESENTABLE_EPOCH_MS } from '@kit/core'
-import { createDb } from '@kit/db'
-import { eq, like } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { describe, expect, it } from 'vitest'
-import { createApp } from './app'
-import { schema, userPlatformRoles } from './db/schema'
-
-import { seedDemoDatabase } from './seed/seed-db'
+import { userPlatformRoles } from './db/schema'
 import { TENANCY_PASSWORD } from './seed/tenancy-data'
-import { createMemoryEnv } from './test/memory-env'
+import { createSeededDemoApi, loginCookie, sessionHeaders } from './test/api-fixture'
+import {
+  captureMail,
+  expectTokenAbsentFromVerification,
+  resetTokenFromLink,
+} from './test/mail-capture'
 
 const ORIGIN = 'http://localhost:5173'
 
@@ -21,62 +22,19 @@ const BA_ENV = {
   EMAIL_TRANSPORT: 'log',
 }
 
-function sessionMutation(cookie: string): Record<string, string> {
-  return {
-    cookie,
-    'content-type': 'application/json',
-    Origin: ORIGIN,
-  }
-}
-
 async function seedEnv() {
-  const app = createApp()
-  const env = createMemoryEnv(BA_ENV)
-  const db = createDb(env.DB as unknown as D1Database, schema)
-  await seedDemoDatabase(db, { notes: false, environment: 'test' })
-  return { app, env, db }
+  return createSeededDemoApi({ env: BA_ENV, seed: { notes: false, environment: 'test' } })
 }
 
-async function signIn(
-  app: ReturnType<typeof createApp>,
-  env: ReturnType<typeof createMemoryEnv>,
-  email: string,
-  password = TENANCY_PASSWORD,
-) {
-  const res = await app.request(
-    '/api/auth/sign-in/email',
-    {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', Origin: ORIGIN },
-      body: JSON.stringify({ email, password }),
-    },
-    env,
-  )
-  expect(res.status, `sign-in ${email}`).toBeLessThan(400)
-  const cookie = res.headers.get('set-cookie')?.split(';')[0]
-  expect(cookie).toBeTruthy()
-  return cookie!
-}
-
-async function latestWelcomeToken(db: ReturnType<typeof createDb>): Promise<string | null> {
-  const rows = await db
-    .select()
-    .from(baVerification)
-    .where(like(baVerification.identifier, 'reset-password:%'))
-  const row = rows[rows.length - 1]
-  if (!row?.identifier) return null
-  return row.identifier.replace(/^reset-password:/, '')
-}
-
-describe('admin users (B-users #58)', () => {
+describe('admin users (B-users go-silex/silex-boilerplate#58)', () => {
   it('SC1: super_admin creates user + memberships; no password in body', async () => {
     const { app, env, db } = await seedEnv()
-    const cookie = await signIn(app, env, 'super@kit.local')
+    const cookie = await loginCookie(app, env, 'super@kit.local', TENANCY_PASSWORD, ORIGIN)
     const res = await app.request(
       '/api/admin/users',
       {
         method: 'POST',
-        headers: sessionMutation(cookie),
+        headers: sessionHeaders(cookie, undefined, ORIGIN),
         body: JSON.stringify({
           email: 'client-new@kit.local',
           name: 'New Client',
@@ -99,18 +57,16 @@ describe('admin users (B-users #58)', () => {
 
     const mem = await db.select().from(baMember).where(eq(baMember.userId, body.user.id))
     expect(mem.some((m) => m.organizationId === 'org_team')).toBe(true)
-    const token = await latestWelcomeToken(db)
-    expect(token).toBeTruthy()
   })
 
   it('SC2: staff cannot assign platformRole super_admin → 403', async () => {
     const { app, env } = await seedEnv()
-    const cookie = await signIn(app, env, 'staff@kit.local')
+    const cookie = await loginCookie(app, env, 'staff@kit.local', TENANCY_PASSWORD, ORIGIN)
     const res = await app.request(
       '/api/admin/users',
       {
         method: 'POST',
-        headers: sessionMutation(cookie),
+        headers: sessionHeaders(cookie, undefined, ORIGIN),
         body: JSON.stringify({
           email: 'evil@kit.local',
           platformRole: 'super_admin',
@@ -123,13 +79,13 @@ describe('admin users (B-users #58)', () => {
 
   it('SC3: staff cannot attach membership to foreign org → 404', async () => {
     const { app, env } = await seedEnv()
-    const cookie = await signIn(app, env, 'staff@kit.local')
+    const cookie = await loginCookie(app, env, 'staff@kit.local', TENANCY_PASSWORD, ORIGIN)
     // staff is on org_acme + org_beta, not org_team
     const res = await app.request(
       '/api/admin/users',
       {
         method: 'POST',
-        headers: sessionMutation(cookie),
+        headers: sessionHeaders(cookie, undefined, ORIGIN),
         body: JSON.stringify({
           email: 'foreign-attach@kit.local',
           memberships: [{ orgId: 'org_team', role: 'member' }],
@@ -150,6 +106,7 @@ describe('admin users (B-users #58)', () => {
         email: 'rollback@kit.local',
         memberships: [{ orgId: 'org_solo', role: 'member' }],
         webBaseUrl: ORIGIN,
+        allowedOrigins: [ORIGIN],
         emailPort: {
           send: async () => {
             throw new Error('smtp down')
@@ -165,19 +122,20 @@ describe('admin users (B-users #58)', () => {
 
   it('SC5/SC6: welcome token sets password once; second use fails; login works', async () => {
     const { app, env, db } = await seedEnv()
-    const cookie = await signIn(app, env, 'super@kit.local')
+    const mail = captureMail()
+    const cookie = await loginCookie(app, env, 'super@kit.local', TENANCY_PASSWORD, ORIGIN)
     const create = await app.request(
       '/api/admin/users',
       {
         method: 'POST',
-        headers: sessionMutation(cookie),
+        headers: sessionHeaders(cookie, undefined, ORIGIN),
         body: JSON.stringify({ email: 'firstlogin@kit.local', name: 'First' }),
       },
       env,
     )
     expect(create.status).toBe(201)
-    const token = await latestWelcomeToken(db)
-    expect(token).toBeTruthy()
+    const token = resetTokenFromLink(mail.link('firstlogin@kit.local', 'Set your password'))
+    await expectTokenAbsentFromVerification(db, token)
 
     const newPassword = 'first-login-password-ok'
     const reset = await app.request(
@@ -216,12 +174,12 @@ describe('admin users (B-users #58)', () => {
 
   it('SC7: existing email → 409', async () => {
     const { app, env } = await seedEnv()
-    const cookie = await signIn(app, env, 'super@kit.local')
+    const cookie = await loginCookie(app, env, 'super@kit.local', TENANCY_PASSWORD, ORIGIN)
     const res = await app.request(
       '/api/admin/users',
       {
         method: 'POST',
-        headers: sessionMutation(cookie),
+        headers: sessionHeaders(cookie, undefined, ORIGIN),
         body: JSON.stringify({ email: 'solo@kit.local' }),
       },
       env,
@@ -232,12 +190,12 @@ describe('admin users (B-users #58)', () => {
   it('SC9: sk_ cannot create admin users → 403', async () => {
     const { app, env } = await seedEnv()
     // mint key as super via session then use sk_
-    const cookie = await signIn(app, env, 'super@kit.local')
+    const cookie = await loginCookie(app, env, 'super@kit.local', TENANCY_PASSWORD, ORIGIN)
     const keyRes = await app.request(
       '/api/keys',
       {
         method: 'POST',
-        headers: sessionMutation(cookie),
+        headers: sessionHeaders(cookie, undefined, ORIGIN),
         body: JSON.stringify({ name: 'admin-test-key' }),
       },
       env,
@@ -282,12 +240,12 @@ describe('admin users (B-users #58)', () => {
 
   it('CP-IDOR: client-only session create → 403', async () => {
     const { app, env } = await seedEnv()
-    const cookie = await signIn(app, env, 'solo@kit.local')
+    const cookie = await loginCookie(app, env, 'solo@kit.local', TENANCY_PASSWORD, ORIGIN)
     const res = await app.request(
       '/api/admin/users',
       {
         method: 'POST',
-        headers: sessionMutation(cookie),
+        headers: sessionHeaders(cookie, undefined, ORIGIN),
         body: JSON.stringify({ email: 'nope@kit.local' }),
       },
       env,
@@ -311,12 +269,12 @@ describe('admin users (B-users #58)', () => {
 
   it('super_admin can assign staff platformRole', async () => {
     const { app, env, db } = await seedEnv()
-    const cookie = await signIn(app, env, 'super@kit.local')
+    const cookie = await loginCookie(app, env, 'super@kit.local', TENANCY_PASSWORD, ORIGIN)
     const res = await app.request(
       '/api/admin/users',
       {
         method: 'POST',
-        headers: sessionMutation(cookie),
+        headers: sessionHeaders(cookie, undefined, ORIGIN),
         body: JSON.stringify({
           email: 'new-staff@kit.local',
           platformRole: 'staff',
@@ -340,12 +298,12 @@ describe('admin users (B-users #58)', () => {
 
   it('staff can create client on membership org', async () => {
     const { app, env } = await seedEnv()
-    const cookie = await signIn(app, env, 'staff@kit.local')
+    const cookie = await loginCookie(app, env, 'staff@kit.local', TENANCY_PASSWORD, ORIGIN)
     const res = await app.request(
       '/api/admin/users',
       {
         method: 'POST',
-        headers: sessionMutation(cookie),
+        headers: sessionHeaders(cookie, undefined, ORIGIN),
         body: JSON.stringify({
           email: 'staff-created@kit.local',
           memberships: [{ orgId: 'org_acme', role: 'member' }],
@@ -358,10 +316,10 @@ describe('admin users (B-users #58)', () => {
 
   it('GET /api/admin/users returns the cursor page envelope and ignores legacy offset', async () => {
     const { app, env } = await seedEnv()
-    const cookie = await signIn(app, env, 'super@kit.local')
+    const cookie = await loginCookie(app, env, 'super@kit.local', TENANCY_PASSWORD, ORIGIN)
     const res = await app.request(
       '/api/admin/users?limit=2&offset=999',
-      { headers: sessionMutation(cookie) },
+      { headers: sessionHeaders(cookie, undefined, ORIGIN) },
       env,
     )
     expect(res.status).toBe(200)
@@ -378,7 +336,7 @@ describe('admin users (B-users #58)', () => {
 
     const next = await app.request(
       `/api/admin/users?limit=2&cursor=${encodeURIComponent(body.nextCursor!)}`,
-      { headers: sessionMutation(cookie) },
+      { headers: sessionHeaders(cookie, undefined, ORIGIN) },
       env,
     )
     expect(next.status).toBe(200)
@@ -394,7 +352,7 @@ describe('admin users (B-users #58)', () => {
 
   it('GET /api/admin/users rejects out-of-range and fractional cursor createdAt values', async () => {
     const { app, env } = await seedEnv()
-    const cookie = await signIn(app, env, 'super@kit.local')
+    const cookie = await loginCookie(app, env, 'super@kit.local', TENANCY_PASSWORD, ORIGIN)
     const invalidCursors = [
       encodeListCursor({ createdAt: 1e300, id: 'abc' }),
       encodeListCursor({ createdAt: -1e300, id: 'abc' }),
@@ -406,7 +364,7 @@ describe('admin users (B-users #58)', () => {
     for (const cursor of invalidCursors) {
       const res = await app.request(
         `/api/admin/users?cursor=${encodeURIComponent(cursor)}`,
-        { headers: sessionMutation(cookie) },
+        { headers: sessionHeaders(cookie, undefined, ORIGIN) },
         env,
       )
       expect(res.status).toBe(400)
@@ -418,7 +376,7 @@ describe('admin users (B-users #58)', () => {
 
   it('GET /api/admin/users accepts representable boundary cursor createdAt values', async () => {
     const { app, env } = await seedEnv()
-    const cookie = await signIn(app, env, 'super@kit.local')
+    const cookie = await loginCookie(app, env, 'super@kit.local', TENANCY_PASSWORD, ORIGIN)
 
     const minCursor = encodeListCursor({
       createdAt: MIN_REPRESENTABLE_EPOCH_MS,
@@ -426,7 +384,7 @@ describe('admin users (B-users #58)', () => {
     })
     const minRes = await app.request(
       `/api/admin/users?cursor=${encodeURIComponent(minCursor)}`,
-      { headers: sessionMutation(cookie) },
+      { headers: sessionHeaders(cookie, undefined, ORIGIN) },
       env,
     )
     expect(minRes.status).toBe(200)
@@ -440,7 +398,7 @@ describe('admin users (B-users #58)', () => {
     })
     const maxRes = await app.request(
       `/api/admin/users?cursor=${encodeURIComponent(maxCursor)}`,
-      { headers: sessionMutation(cookie) },
+      { headers: sessionHeaders(cookie, undefined, ORIGIN) },
       env,
     )
     expect(maxRes.status).toBe(200)
@@ -450,8 +408,12 @@ describe('admin users (B-users #58)', () => {
 
   it('GET /api/admin/users — staff only sees users sharing an org (IDOR privacy)', async () => {
     const { app, env } = await seedEnv()
-    const cookie = await signIn(app, env, 'staff@kit.local')
-    const res = await app.request('/api/admin/users', { headers: sessionMutation(cookie) }, env)
+    const cookie = await loginCookie(app, env, 'staff@kit.local', TENANCY_PASSWORD, ORIGIN)
+    const res = await app.request(
+      '/api/admin/users',
+      { headers: sessionHeaders(cookie, undefined, ORIGIN) },
+      env,
+    )
     expect(res.status).toBe(200)
     const body = (await res.json()) as {
       items: { email: string }[]
@@ -472,11 +434,11 @@ describe('admin users (B-users #58)', () => {
     // Make an out-of-scope user the global newest so a naive limit-then-filter would return them
     const farFuture = new Date('2099-06-01T00:00:00.000Z')
     await db.update(baUser).set({ createdAt: farFuture }).where(eq(baUser.id, 'user_solo'))
-    const cookie = await signIn(app, env, 'staff@kit.local')
+    const cookie = await loginCookie(app, env, 'staff@kit.local', TENANCY_PASSWORD, ORIGIN)
     const first = await app.request(
       '/api/admin/users?limit=1',
       {
-        headers: sessionMutation(cookie),
+        headers: sessionHeaders(cookie, undefined, ORIGIN),
       },
       env,
     )
@@ -490,7 +452,7 @@ describe('admin users (B-users #58)', () => {
 
     const second = await app.request(
       `/api/admin/users?limit=1&cursor=${encodeURIComponent(firstBody.nextCursor!)}`,
-      { headers: sessionMutation(cookie) },
+      { headers: sessionHeaders(cookie, undefined, ORIGIN) },
       env,
     )
     expect(second.status).toBe(200)
@@ -509,13 +471,13 @@ describe('admin users (B-users #58)', () => {
 
   it('GET /api/admin/users — staff with no shared org gets an empty cursor page', async () => {
     const { app, env, db } = await seedEnv()
-    const cookie = await signIn(app, env, 'staff@kit.local')
+    const cookie = await loginCookie(app, env, 'staff@kit.local', TENANCY_PASSWORD, ORIGIN)
     await db.delete(baMember).where(eq(baMember.userId, 'user_staff'))
 
     const res = await app.request(
       '/api/admin/users?limit=10',
       {
-        headers: sessionMutation(cookie),
+        headers: sessionHeaders(cookie, undefined, ORIGIN),
       },
       env,
     )
@@ -532,13 +494,13 @@ describe('admin users (B-users #58)', () => {
 
   it('POST /api/admin/users — staff create with shared-org existing email → 409', async () => {
     const { app, env } = await seedEnv()
-    const cookie = await signIn(app, env, 'staff@kit.local')
+    const cookie = await loginCookie(app, env, 'staff@kit.local', TENANCY_PASSWORD, ORIGIN)
     // team-owner shares org_acme with staff — existence is visible; conflict not 404 oracle
     const res = await app.request(
       '/api/admin/users',
       {
         method: 'POST',
-        headers: sessionMutation(cookie),
+        headers: sessionHeaders(cookie, undefined, ORIGIN),
         body: JSON.stringify({
           email: 'team-owner@kit.local',
           memberships: [{ orgId: 'org_acme', role: 'member' }],
@@ -551,8 +513,12 @@ describe('admin users (B-users #58)', () => {
 
   it('GET /api/admin/users — super_admin still sees solo client', async () => {
     const { app, env } = await seedEnv()
-    const cookie = await signIn(app, env, 'super@kit.local')
-    const res = await app.request('/api/admin/users', { headers: sessionMutation(cookie) }, env)
+    const cookie = await loginCookie(app, env, 'super@kit.local', TENANCY_PASSWORD, ORIGIN)
+    const res = await app.request(
+      '/api/admin/users',
+      { headers: sessionHeaders(cookie, undefined, ORIGIN) },
+      env,
+    )
     expect(res.status).toBe(200)
     const body = (await res.json()) as { items: { email: string }[] }
     expect(body.items.some((u) => u.email === 'solo@kit.local')).toBe(true)
@@ -560,12 +526,12 @@ describe('admin users (B-users #58)', () => {
 
   it('POST /api/admin/users — staff cannot probe out-of-scope existing email (no 409)', async () => {
     const { app, env } = await seedEnv()
-    const cookie = await signIn(app, env, 'staff@kit.local')
+    const cookie = await loginCookie(app, env, 'staff@kit.local', TENANCY_PASSWORD, ORIGIN)
     const res = await app.request(
       '/api/admin/users',
       {
         method: 'POST',
-        headers: sessionMutation(cookie),
+        headers: sessionHeaders(cookie, undefined, ORIGIN),
         body: JSON.stringify({
           email: 'solo@kit.local',
           memberships: [{ orgId: 'org_acme', role: 'member' }],

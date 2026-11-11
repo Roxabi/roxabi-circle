@@ -7,17 +7,17 @@ import {
   CardHeader,
   CardTitle,
   Input,
-  Label,
   Skeleton,
 } from '@kit/ui'
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useInfiniteQuery, useMutation } from '@tanstack/react-query'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { PageHeader } from '../../components/app-shell'
 import { apiErrorToMessage, apiFetch } from '../../lib/api'
-import { hasPlatformRole, useMe } from '../../lib/auth'
 import { useLocale } from '../../lib/locale'
-import { createAdminUserSchema } from '../../lib/schemas'
+import { ImpersonationPermissionsCard } from './impersonation-permissions-card'
+import { ImpersonationStart } from './impersonation-start'
+import { AdminUsersCreateCard } from './users-create-card'
 
 type AdminUser = {
   id: string
@@ -27,27 +27,11 @@ type AdminUser = {
   createdAt: string
 }
 
-type OrgRow = {
-  id: string
-  name: string
-  slug: string
-}
-
 const ADMIN_USERS_PAGE_SIZE = 50
 
 export function AdminUsersPage() {
   const { m } = useLocale()
-  const qc = useQueryClient()
-  const me = useMe()
-  /** Only super_admin may assign platform roles (server ceiling); hide options for staff. */
-  const canAssignPlatformRole = hasPlatformRole(me.data, 'super_admin')
   const [q, setQ] = useState('')
-  const [email, setEmail] = useState('')
-  const [name, setName] = useState('')
-  const [platformRole, setPlatformRole] = useState<'' | 'staff' | 'super_admin'>('')
-  const [orgId, setOrgId] = useState('')
-  const [orgRole, setOrgRole] = useState('member')
-  const [sendEmail, setSendEmail] = useState(true)
   const normalizedQ = q.trim()
 
   const users = useInfiniteQuery({
@@ -67,38 +51,6 @@ export function AdminUsersPage() {
   })
   const userRows = users.data?.pages.flatMap((page) => page.items) ?? []
 
-  const orgs = useQuery({
-    queryKey: ['orgs'],
-    queryFn: () => apiFetch<{ orgs: OrgRow[] }>('/api/orgs'),
-  })
-
-  const create = useMutation({
-    mutationFn: () =>
-      apiFetch('/api/admin/users', {
-        method: 'POST',
-        body: JSON.stringify({
-          email: email.trim(),
-          name: name.trim() || undefined,
-          // Never send platformRole from staff UI (server would 403 anyway)
-          platformRole: canAssignPlatformRole ? platformRole || null : null,
-          memberships:
-            orgId.trim().length > 0 ? [{ orgId: orgId.trim(), role: orgRole }] : undefined,
-          sendEmail,
-        }),
-      }),
-    onSuccess: async () => {
-      toast.success(m.adminUserCreated)
-      setEmail('')
-      setName('')
-      setPlatformRole('')
-      setOrgId('')
-      await qc.invalidateQueries({ queryKey: ['admin-users'] })
-    },
-    onError: (e) => {
-      toast.error(m.error, { description: apiErrorToMessage(e, m) })
-    },
-  })
-
   const resend = useMutation({
     mutationFn: (userId: string) =>
       apiFetch(`/api/admin/users/${encodeURIComponent(userId)}/resend-welcome`, {
@@ -112,118 +64,8 @@ export function AdminUsersPage() {
   return (
     <div className="space-y-6">
       <PageHeader title={m.navUsers} description={m.adminUsersDesc} />
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">{m.adminUserCreateTitle}</CardTitle>
-          <CardDescription>{m.adminUserCreateDesc}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form
-            className="grid gap-3 sm:grid-cols-2"
-            onSubmit={(e) => {
-              e.preventDefault()
-              const parsed = createAdminUserSchema.safeParse({
-                email,
-                name: name.trim() || undefined,
-              })
-              if (!parsed.success) {
-                toast.error(m.error, {
-                  description: parsed.error.flatten().fieldErrors.email?.[0]
-                    ? m.errEmailInvalid
-                    : m.errValidation,
-                })
-                return
-              }
-              create.mutate()
-            }}
-          >
-            <div className="space-y-1.5">
-              <Label htmlFor="admin-user-email">{m.email}</Label>
-              <Input
-                id="admin-user-email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                autoComplete="off"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="admin-user-name">{m.adminUserName}</Label>
-              <Input
-                id="admin-user-name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                autoComplete="off"
-              />
-            </div>
-            {canAssignPlatformRole ? (
-              <div className="space-y-1.5">
-                <Label htmlFor="admin-user-plane">{m.adminUserPlane}</Label>
-                <select
-                  id="admin-user-plane"
-                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
-                  value={platformRole}
-                  onChange={(e) => setPlatformRole(e.target.value as '' | 'staff' | 'super_admin')}
-                  aria-label={m.adminUserPlane}
-                >
-                  <option value="">{m.adminUserPlaneClient}</option>
-                  <option value="staff">staff</option>
-                  <option value="super_admin">super_admin</option>
-                </select>
-              </div>
-            ) : null}
-            <div className="space-y-1.5">
-              <Label htmlFor="admin-user-org">{m.adminUserOrg}</Label>
-              <select
-                id="admin-user-org"
-                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
-                value={orgId}
-                onChange={(e) => setOrgId(e.target.value)}
-                aria-label={m.adminUserOrg}
-              >
-                <option value="">{m.adminUserOrgNone}</option>
-                {(orgs.data?.orgs ?? []).map((o) => (
-                  <option key={o.id} value={o.id}>
-                    {o.name} ({o.slug})
-                  </option>
-                ))}
-              </select>
-            </div>
-            {orgId ? (
-              <div className="space-y-1.5">
-                <Label htmlFor="admin-user-role">{m.inviteRole}</Label>
-                <select
-                  id="admin-user-role"
-                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
-                  value={orgRole}
-                  onChange={(e) => setOrgRole(e.target.value)}
-                >
-                  <option value="member">member</option>
-                  <option value="admin">admin</option>
-                  <option value="reader">reader</option>
-                </select>
-              </div>
-            ) : null}
-            <div className="flex items-center gap-2 sm:col-span-2">
-              <input
-                id="admin-user-send"
-                type="checkbox"
-                checked={sendEmail}
-                onChange={(e) => setSendEmail(e.target.checked)}
-                className="size-4 rounded border"
-              />
-              <Label htmlFor="admin-user-send">{m.adminUserSendEmail}</Label>
-            </div>
-            <div className="sm:col-span-2">
-              <Button type="submit" disabled={create.isPending || !email.trim()}>
-                {m.adminUserSubmit}
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
+      <AdminUsersCreateCard />
+      <ImpersonationPermissionsCard />
 
       <Card>
         <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
@@ -268,6 +110,7 @@ export function AdminUsersPage() {
                           client
                         </Badge>
                       )}
+                      {!u.platformRole ? <ImpersonationStart userId={u.id} /> : null}
                       <Button
                         type="button"
                         size="sm"

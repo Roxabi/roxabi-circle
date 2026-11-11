@@ -1,6 +1,36 @@
 import { AppError } from '@kit/core'
 import type { MiddlewareHandler } from 'hono'
-import { type OrgRoleKey, type PlatformRole, roleAtLeast, roleHasCapability } from './org-roles'
+import {
+  type OrgCapability,
+  type OrgContextRecord,
+  type OrgRoleKey,
+  type PlatformRole,
+  roleAtLeast,
+  roleHasCapability,
+} from './org-roles'
+
+export type { OrgContextRecord } from './org-roles'
+export { type OriginGuardEnv, originGuard } from './origin-guard'
+export {
+  applySecurityHeaders,
+  type SecurityHeadersEnv,
+  securityHeaders,
+} from './security-headers'
+
+/**
+ * Module denial wording, shared so every layer answers identically.
+ *
+ * `requireModule` answers first on HTTP, but a service-side backstop (e.g. a
+ * grant mint) decides the same two conditions and MUST reply identically:
+ * a module that is not effective for the org is `notFound` with
+ * `notAvailable`; a role without the grant is `forbidden` with
+ * `insufficientGrant`. The backstop must not invent a third answer — two
+ * literals would let a caller tell the layers apart.
+ */
+export const MODULE_DENIAL = {
+  notAvailable: 'Module not available',
+  insufficientGrant: 'Insufficient module grant',
+} as const
 
 export type OrgContextOpts = {
   /** Super_admin may read without membership (audit logged). */
@@ -26,8 +56,7 @@ export type OrgMiddlewareEnv = {
 }
 
 export type OrgContextPorts = {
-  findOrgById(db: unknown, orgId: string): Promise<{ status: string } | null>
-  findMembership(db: unknown, orgId: string, subject: string): Promise<{ role: OrgRoleKey } | null>
+  findOrgContext(db: unknown, orgId: string, subject: string): Promise<OrgContextRecord | null>
   getPlatformRole(db: unknown, subject: string): Promise<PlatformRole | null>
   resolveModuleAccess(
     db: unknown,
@@ -49,94 +78,116 @@ function dbOf(c: { get: (k: 'db') => unknown | undefined }): unknown {
 }
 
 function isSafeMethod(method: string): boolean {
-  return method === 'GET' || method === 'HEAD' || method === 'OPTIONS'
+  switch (method) {
+    case 'GET':
+    case 'HEAD':
+    case 'OPTIONS':
+      return true
+    default:
+      return false
+  }
+}
+
+function assertOrgAccess(
+  membershipRole: string | null,
+  platformRole: PlatformRole | null,
+  safe: boolean,
+  opts: OrgContextOpts,
+): void {
+  if (membershipRole !== null) return
+  if (platformRole !== 'super_admin') throw AppError.notFound('Organization not found')
+  if (safe && opts.allowSuperAdmin) return
+  if (!safe && opts.allowSuperAdminWrite) return
+  if (!safe && opts.allowSuperAdmin) {
+    throw AppError.forbidden('Super admin write requires break-glass flag')
+  }
+  throw AppError.notFound('Organization not found')
 }
 
 export function createOrgMiddleware(ports: OrgContextPorts) {
+  function resolveRequestOrgId(c: {
+    req: {
+      param: (name: string) => string | undefined
+      header: (name: string) => string | undefined
+    }
+  }): string {
+    const pathOrg = c.req.param('orgId')?.trim()
+    const headerOrg = c.req.header('x-org-id')?.trim()
+    const orgId = pathOrg || headerOrg
+    if (!orgId) {
+      throw AppError.validation('organization id required (path or X-Org-Id)')
+    }
+    if (pathOrg && headerOrg && pathOrg !== headerOrg) {
+      throw AppError.forbidden('organization id mismatch')
+    }
+    return orgId
+  }
+
+  function assertApiKeyMatchesOrg(
+    c: { get: (key: 'authMethod' | 'keyOrganizationId') => string | undefined },
+    orgId: string,
+  ): void {
+    if (c.get('authMethod') !== 'api_key') return
+    const keyOrg = c.get('keyOrganizationId')
+    if (!keyOrg) {
+      throw AppError.forbidden('API key must be organization-bound for tenant routes')
+    }
+    if (keyOrg !== orgId) {
+      throw AppError.forbidden('API key is bound to a different organization')
+    }
+  }
+
+  function logSuperAdminBypass(
+    c: { get: (key: 'requestId') => string | undefined },
+    action: 'read' | 'write',
+    actor: string,
+    orgId: string,
+  ): void {
+    console.info(
+      JSON.stringify({
+        level: 'info',
+        msg: 'super_admin_org_bypass',
+        action,
+        actor,
+        orgId,
+        requestId: c.get('requestId'),
+      }),
+    )
+  }
+
   function requireOrgContext(opts: OrgContextOpts = {}): MiddlewareHandler<OrgMiddlewareEnv> {
     return async (c, next) => {
       const subject = c.get('subject')
       if (!subject) throw AppError.unauthorized()
 
-      const pathOrg = c.req.param('orgId')?.trim()
-      const headerOrg = c.req.header('x-org-id')?.trim()
-      const orgId = pathOrg || headerOrg
-      if (!orgId) {
-        throw AppError.validation('organization id required (path or X-Org-Id)')
-      }
-      if (pathOrg && headerOrg && pathOrg !== headerOrg) {
-        throw AppError.forbidden('organization id mismatch')
-      }
-
-      if (c.get('authMethod') === 'api_key') {
-        const keyOrg = c.get('keyOrganizationId')
-        if (!keyOrg) {
-          throw AppError.forbidden('API key must be organization-bound for tenant routes')
-        }
-        if (keyOrg !== orgId) {
-          throw AppError.forbidden('API key is bound to a different organization')
-        }
-      }
+      const orgId = resolveRequestOrgId(c)
+      assertApiKeyMatchesOrg(c, orgId)
 
       const db = dbOf(c)
-      const org = await ports.findOrgById(db, orgId)
+      const org = await ports.findOrgContext(db, orgId, subject)
       if (!org) throw AppError.notFound('Organization not found')
+
+      const { membershipRole, platformRole } = org
+      const safe = isSafeMethod(c.req.method)
+      assertOrgAccess(membershipRole, platformRole, safe, opts)
       if (org.status !== 'active') {
         throw AppError.forbidden('Organization is not active')
       }
 
-      const platformRole = await ports.getPlatformRole(db, subject)
       c.set('platformRole', platformRole)
-
-      const membership = await ports.findMembership(db, orgId, subject)
-      if (membership) {
+      if (membershipRole !== null) {
         c.set('orgId', orgId)
-        c.set('orgRole', membership.role)
+        c.set('orgRole', membershipRole)
         c.set('orgBypass', false)
         await next()
         return
       }
 
-      const method = c.req.method
-      if (platformRole === 'super_admin') {
-        if (isSafeMethod(method) && opts.allowSuperAdmin) {
-          c.set('orgId', orgId)
-          c.set('orgBypass', true)
-          console.info(
-            JSON.stringify({
-              level: 'info',
-              msg: 'super_admin_org_bypass',
-              action: 'read',
-              actor: subject,
-              orgId,
-              requestId: c.get('requestId'),
-            }),
-          )
-          await next()
-          return
-        }
-        if (!isSafeMethod(method) && opts.allowSuperAdminWrite) {
-          c.set('orgId', orgId)
-          c.set('orgBypass', true)
-          console.info(
-            JSON.stringify({
-              level: 'info',
-              msg: 'super_admin_org_bypass',
-              action: 'write',
-              actor: subject,
-              orgId,
-              requestId: c.get('requestId'),
-            }),
-          )
-          await next()
-          return
-        }
-        if (!isSafeMethod(method) && opts.allowSuperAdmin && !opts.allowSuperAdminWrite) {
-          throw AppError.forbidden('Super admin write requires break-glass flag')
-        }
-      }
-
-      throw AppError.notFound('Organization not found')
+      c.set('orgRole', undefined)
+      c.set('orgId', orgId)
+      c.set('orgBypass', true)
+      logSuperAdminBypass(c, safe ? 'read' : 'write', subject, orgId)
+      await next()
     }
   }
 
@@ -147,16 +198,14 @@ export function createOrgMiddleware(ports: OrgContextPorts) {
         return
       }
       const role = c.get('orgRole')
-      if (!role || !roleAtLeast(role, min)) {
+      if (!(role && roleAtLeast(role, min))) {
         throw AppError.forbidden('Insufficient organization role')
       }
       await next()
     }
   }
 
-  function requireOrgCapability(
-    capability: 'read' | 'write' | 'manage_members' | 'manage_modules' | 'delete_org',
-  ): MiddlewareHandler<OrgMiddlewareEnv> {
+  function requireOrgCapability(capability: OrgCapability): MiddlewareHandler<OrgMiddlewareEnv> {
     return async (c, next) => {
       if (c.get('orgBypass')) {
         if (capability === 'delete_org') {
@@ -166,7 +215,7 @@ export function createOrgMiddleware(ports: OrgContextPorts) {
         return
       }
       const role = c.get('orgRole')
-      if (!role || !roleHasCapability(role, capability)) {
+      if (!(role && roleHasCapability(role, capability))) {
         throw AppError.forbidden('Insufficient organization capability')
       }
       await next()
@@ -182,7 +231,7 @@ export function createOrgMiddleware(ports: OrgContextPorts) {
       const db = dbOf(c)
       const role = await ports.getPlatformRole(db, subject)
       c.set('platformRole', role)
-      if (!role || !allowed.includes(role)) {
+      if (!(role && allowed.includes(role))) {
         throw AppError.forbidden('Platform role required')
       }
       await next()
@@ -206,8 +255,8 @@ export function createOrgMiddleware(ports: OrgContextPorts) {
       })
       if (!allowed) {
         const platformOk = await ports.isModuleEffective(db, orgId, moduleId)
-        if (!platformOk) throw AppError.notFound('Module not available')
-        throw AppError.forbidden('Insufficient module grant')
+        if (!platformOk) throw AppError.notFound(MODULE_DENIAL.notAvailable)
+        throw AppError.forbidden(MODULE_DENIAL.insufficientGrant)
       }
       await next()
     }

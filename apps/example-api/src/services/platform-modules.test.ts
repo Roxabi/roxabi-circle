@@ -4,14 +4,55 @@ import { describe, expect, it } from 'vitest'
 import { schema } from '../db/schema'
 import { isModuleConfigured } from '../lib/integration-config'
 import { isKitModuleId, KIT_MODULE_IDS } from '../lib/kit-modules'
+import { listRolesForOrg } from '../repos/org-roles'
+import { listPlatformModules } from '../repos/platform-modules'
 import { createMemoryEnv } from '../test/memory-env'
+import { listRolesWithGrants, resolveModuleAccess } from './org-roles'
 import * as platformModulesService from './platform-modules'
 
 describe('platform-modules service (coverage / ADR dual-level)', () => {
   async function db() {
     const env = createMemoryEnv({ ENVIRONMENT: 'test' })
+    for (const id of ['org_x', 'org_locked', 'org_flows_seed']) {
+      await env.DB.prepare(
+        'INSERT INTO organization (id, name, slug, created_at) VALUES (?, ?, ?, ?)',
+      )
+        .bind(id, id, id, 1)
+        .run()
+    }
     return createDb(env.DB as unknown as D1Database, schema)
   }
+
+  it('reads module and role state without initializing missing rows', async () => {
+    const d = await db()
+    await platformModulesService.listPlatformPublic(d, { readOnly: true })
+    await platformModulesService.getOrgModulesEffective(d, 'org_x', { readOnly: true })
+    await listRolesWithGrants(d, 'org_x', { readOnly: true })
+    expect(await listPlatformModules(d)).toEqual([])
+    expect(await listRolesForOrg(d, 'org_x')).toEqual([])
+
+    await platformModulesService.ensurePlatformModules(d)
+    await platformModulesService.setPlatformAvailable(d, 'demo', true)
+    await platformModulesService.setOrgModuleEnabled(d, 'org_x', 'demo', true)
+    expect(
+      await resolveModuleAccess(d, {
+        organizationId: 'org_x',
+        roleKey: 'owner',
+        moduleId: 'demo',
+        op: 'read',
+        readOnly: true,
+      }),
+    ).toBe(false)
+    expect(await listRolesForOrg(d, 'org_x')).toEqual([])
+    expect(
+      await resolveModuleAccess(d, {
+        organizationId: 'org_x',
+        roleKey: 'owner',
+        moduleId: 'demo',
+        op: 'read',
+      }),
+    ).toBe(true)
+  })
 
   it('ensure + list platform public state', async () => {
     const d = await db()

@@ -8,7 +8,6 @@ import {
   corsAllowlist,
   environmentName,
   getBetterAuthSecret,
-  getSessionSecret,
   isDevLikeEnvironment,
   sessionCookieNameFromEnv,
   useSecureCookie,
@@ -100,7 +99,6 @@ describe('better-auth env helpers', () => {
 
   it('dev fallbacks for unset secrets', () => {
     const env = { ENVIRONMENT: 'development' }
-    expect(getSessionSecret(env).length).toBeGreaterThanOrEqual(32)
     expect(getBetterAuthSecret(env).length).toBeGreaterThanOrEqual(32)
   })
 
@@ -114,13 +112,6 @@ describe('better-auth env helpers', () => {
         BETTER_AUTH_SECRET: 'dev-better-auth-secret-change-me-32c!!',
       }),
     ).toThrow(AppError)
-    expect(() =>
-      getSessionSecret({
-        ENVIRONMENT: 'production',
-        SESSION_SECRET: 'change-me-session-secret-min-32-chars!!',
-      }),
-    ).toThrow(AppError)
-    expect(() => getSessionSecret({ ENVIRONMENT: 'production' })).toThrow(AppError)
   })
 
   it('assertBetterAuthConfigured requires URL outside dev', () => {

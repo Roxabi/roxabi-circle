@@ -201,7 +201,7 @@ seed_workspace "${EX}"
 echo "import { api } from '@kit/example-api'" >"${EX}/packages/core/src/bad.ts"
 # without exemption → 1
 assert_case "6a before exemption → 1" 1 "${EX}" "R1"
-echo "packages/core/src/bad.ts  # temporary plant — #69" >"${EX}/config/kit/import-boundary-exemptions.txt"
+echo "packages/core/src/bad.ts  # temporary plant — go-silex/silex-boilerplate#69" >"${EX}/config/kit/import-boundary-exemptions.txt"
 assert_case "6b after exemption → 0" 0 "${EX}"
 
 # --- product register: kit path refused ---
@@ -209,7 +209,7 @@ PKIT="${TMP}/pkit"
 seed_workspace "${PKIT}"
 mkdir -p "${PKIT}/config/product"
 echo "import { api } from '@kit/example-api'" >"${PKIT}/packages/core/src/bad.ts"
-echo "packages/core/src/bad.ts  # product cannot exempt kit — #0" \
+echo "packages/core/src/bad.ts  # product cannot exempt kit" \
   >"${PKIT}/config/product/import-boundary-exemptions.txt"
 assert_case "7 product kit-path → 2" 2 "${PKIT}" "not a product-app path"
 
@@ -217,7 +217,7 @@ assert_case "7 product kit-path → 2" 2 "${PKIT}" "not a product-app path"
 PWILD="${TMP}/pwild"
 seed_workspace "${PWILD}"
 mkdir -p "${PWILD}/config/product"
-echo "apps/acme-web/**  # no — #0" \
+echo "apps/acme-web/**  # no" \
   >"${PWILD}/config/product/import-boundary-exemptions.txt"
 assert_case "8 product wildcard → 2" 2 "${PWILD}" "wildcard"
 
@@ -228,7 +228,7 @@ mkdir -p "${PAPPLY}/apps/acme-api/src" "${PAPPLY}/config/product"
 echo '{ "name": "@acme/api", "private": true }' >"${PAPPLY}/apps/acme-api/package.json"
 echo "import { x } from '@kit/auth/react'" >"${PAPPLY}/apps/acme-api/src/bad.ts"
 assert_case "9a product-api R5 before exemption → 1" 1 "${PAPPLY}" "R5"
-echo "apps/acme-api/src/bad.ts  # temporary dual-boot — #0" \
+echo "apps/acme-api/src/bad.ts  # temporary dual-boot" \
   >"${PAPPLY}/config/product/import-boundary-exemptions.txt"
 assert_case "9b product-api R5 after product exemption → 0" 0 "${PAPPLY}"
 

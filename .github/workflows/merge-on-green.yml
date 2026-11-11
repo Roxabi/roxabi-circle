@@ -1,71 +1,119 @@
-# Merge-on-green — Free private org cannot use native
-# `gh pr merge --auto` + branch protection (Team/Pro only).
-#
-# Pattern: operator `kit-ci` App (bouly-site / forge) — **no PAT**.
-# Align product consumers (narrow triggers — avoid Actions minute spam).
-#
-# Triggers (volontairement étroits) :
-#   - label `reviewed` sur une PR vers main (kit HEAD) ou staging|main (product consumers)
-#   - fin de CI / Secret scan (ré-évalue les PR reviewed ouvertes)
-#   - workflow_dispatch (secours)
-# Pas de : synchronize, reopened, closed, check_suite (trop bruyants).
-# Close linked issues → workflow dédié close-linked-issues.yml
-#
-# Merges when ALL hold:
-#   1. label `reviewed` (human sign-off)
-#   2. every check run on head SHA is completed + green
-#   3. PR mergeable, not draft
-#
-# Merge method: merge commit (¬squash).
-#
-# SPLIT-TOKEN:
-#   - Gate: GITHUB_TOKEN (checks:read)
-#   - Merge: GitHub App **kit-ci** → ephemeral token
-#       vars.CI_APP_ID
-#       secrets.CI_APP_PRIVATE_KEY
-#     Setup: docs/kit/ci-app-setup.md
-#
-# Gating workflows: Secret scan + CI (job name `ci`; alias `validate-full` for in-flight PRs)
-# + `semctx-working-empty` (PR tree of `.semctx/working/` = `.gitkeep` only).
-# Semctx (verify diff) is in the triggers but NOT in the required checks: it cannot
-# unblock a merge by itself; it only avoids a PR getting stuck if it finishes after
-# CI/Secret scan (evaluation skips on `pending`).
+# Merge-on-green — Free private org cannot use native branch protection.
+# This is process, not enforcement: see docs/kit/testing.md § Merge residual.
+# Gate reads use GITHUB_TOKEN; writes use the current-repository CI App installation.
 name: Merge on Green
 
 on:
   pull_request:
-    types: [labeled]
+    types: [synchronize, reopened]
+    branches: [main, staging]
+  pull_request_target:
+    types: [labeled, synchronize, reopened]
     branches: [main, staging]
   workflow_run:
-    workflows: [Secret scan, CI, Semctx]
+    workflows: [Secret scan, CI, Product CI]
     types: [completed]
+  issue_comment:
+    types: [created]
   workflow_dispatch:
     inputs:
       pr:
-        description: PR number to evaluate (optional; blank = all reviewed open PRs)
+        description: PR number to evaluate first (optional; every evaluation scans eligible PRs)
         required: false
 
 permissions:
   contents: read
   pull-requests: read
-  issues: write
   checks: read
+  actions: read
   statuses: read
-
-concurrency:
-  group: merge-on-green-${{ github.event.pull_request.number || github.event.workflow_run.head_sha || github.run_id }}
-  cancel-in-progress: false
+  issues: read
 
 jobs:
-  merge-on-green:
-    name: merge-on-green
+  # pull_request runs this file while checkout is the consumer default ref, which may not
+  # contain the adapter. That event never authorizes; return before require. Privileged
+  # events classify with the existing strict policyFromEnv only.
+  preflight:
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    outputs:
+      eligible: ${{ steps.validate.outputs.eligible }}
+      trusted_sha: ${{ steps.checkout.outputs.commit }}
+      enabled: ${{ steps.validate.outputs.enabled }}
+      policy_ready: ${{ steps.validate.outputs.policy_ready }}
+    env:
+      CI_APP_ID: ${{ vars.CI_APP_ID }}
+      HEAD_AUTH_REPOSITORY_ID: ${{ vars.HEAD_AUTH_REPOSITORY_ID }}
+      HEAD_AUTH_OPERATOR_IDS: ${{ vars.HEAD_AUTH_OPERATOR_IDS }}
+      HEAD_AUTH_APP_ID: ${{ vars.HEAD_AUTH_APP_ID }}
+      HEAD_AUTH_BOT_USER_ID: ${{ vars.HEAD_AUTH_BOT_USER_ID }}
     steps:
-      # Gate auto-merge on **non-secret var only**.
-      # Do NOT put secrets in `if:` — GitHub treats them unreliably there.
-      # Flag: vars.CI_APP_ID set → try mint + merge.
-      # Setup: docs/kit/ci-app-setup.md
+      - name: Checkout trusted authorization adapter
+        id: checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+          sparse-checkout: |
+            /scripts/kit/lib/head-authorization.cjs
+            /scripts/kit/lib/head-authorization-core.cjs
+          sparse-checkout-cone-mode: false
+      - name: Validate comment wakeup against GitHub
+        id: validate
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            if (context.eventName === 'pull_request') return;
+            if (context.eventName === 'issue_comment' && !context.payload.issue.pull_request) return;
+            const absent = (value) => value == null || value === '';
+            const enabled = Boolean(process.env.CI_APP_ID);
+            const policyPresent = [
+              'HEAD_AUTH_REPOSITORY_ID',
+              'HEAD_AUTH_OPERATOR_IDS',
+              'HEAD_AUTH_APP_ID',
+              'HEAD_AUTH_BOT_USER_ID',
+            ].some((key) => !absent(process.env[key]));
+            let policy;
+            if (enabled || policyPresent) {
+              const { policyFromEnv } = require('./scripts/kit/lib/head-authorization.cjs');
+              policy = policyFromEnv(process.env);
+            }
+            core.setOutput('enabled', enabled ? 'true' : 'false');
+            core.setOutput('policy_ready', policy ? 'true' : 'false');
+            if (context.eventName !== 'issue_comment') { core.setOutput('eligible', 'true'); return; }
+            if (!policy) return;
+            const { classifyIssuer, PREFIX } = require('./scripts/kit/lib/head-authorization-core.cjs');
+            const { data: comment } = await github.rest.issues.getComment({ ...context.repo, comment_id: context.payload.comment.id });
+            const { data: pr } = await github.rest.pulls.get({ ...context.repo, pull_number: context.payload.issue.number });
+            if (comment.issue_url !== context.payload.issue.url || pr.number !== context.payload.issue.number ||
+                !comment.body?.startsWith(PREFIX) || !classifyIssuer(comment, policy)) return;
+            core.setOutput('eligible', 'true');
+  merge-on-green:
+    name: merge-on-green
+    needs: preflight
+    concurrency:
+      group: merge-on-green-repository
+      cancel-in-progress: false
+    if: >-
+      needs.preflight.outputs.eligible == 'true' &&
+      ((github.event_name == 'workflow_run' ||
+        (github.event_name == 'workflow_dispatch' &&
+         github.ref == format('refs/heads/{0}', github.event.repository.default_branch))) ||
+       (github.event_name == 'pull_request_target' && github.event.action == 'labeled' &&
+        (github.event.label.name == 'reviewed' || github.event.label.name == 'deps-automerge') &&
+        github.event.pull_request.head.repo.full_name == github.repository &&
+        github.actor != 'dependabot[bot]') ||
+       (github.event_name == 'issue_comment' && github.event.issue.pull_request))
+    runs-on: ubuntu-latest
+    # Full retained-event scans and GitHub mergeability reads need recovery time; this is not a capacity claim.
+    timeout-minutes: 15
+    env:
+      HEAD_AUTH_REPOSITORY_ID: ${{ vars.HEAD_AUTH_REPOSITORY_ID }}
+      HEAD_AUTH_OPERATOR_IDS: ${{ vars.HEAD_AUTH_OPERATOR_IDS }}
+      HEAD_AUTH_APP_ID: ${{ vars.HEAD_AUTH_APP_ID }}
+      HEAD_AUTH_BOT_USER_ID: ${{ vars.HEAD_AUTH_BOT_USER_ID }}
+    steps:
       - name: Resolve kit-ci availability
         id: cfg
         env:
@@ -76,124 +124,58 @@ jobs:
             echo "kit-ci: App ID present → auto-merge enabled"
           else
             echo "enabled=false" >> "$GITHUB_OUTPUT"
-            echo "::notice title=kit-ci not configured::Auto-merge OFF (evaluate-only). Human merge + quality CI still work. Install App + set org var CI_APP_ID and secret CI_APP_PRIVATE_KEY — docs/kit/ci-app-setup.md"
-            echo "::warning title=Manual merge required::Label reviewed will NOT auto-merge until kit-ci is set up."
+            echo "::notice title=kit-ci not configured::Auto-merge OFF. Evaluation requires a complete head-authorization policy and does not run when that policy is absent. Operator-authorized merge after normal current-head review admission and quality CI still works. Install App + set repo-level CI_APP_ID and CI_APP_PRIVATE_KEY (required on Free private; org values do not reach private repos on Free) — docs/kit/ci-app-setup.md"
+            echo "::warning title=Manual merge required::Normal current-head review admission remains required; label reviewed will NOT auto-merge until kit-ci is set up."
           fi
 
-      - name: Mint app token (kit-ci)
-        id: app
-        if: steps.cfg.outputs.enabled == 'true'
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+      # Dispatch is reserved for trusted operators on the default ref. An older workflow
+      # revision can omit this guard; the preflight checkout fixes the trusted code revision.
+      - name: Checkout merge gate module
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          app-id: ${{ vars.CI_APP_ID }}
-          private-key: ${{ secrets.CI_APP_PRIVATE_KEY }}
+          ref: ${{ needs.preflight.outputs.trusted_sha }}
+          persist-credentials: false
+          sparse-checkout: |
+            /scripts/kit/lib/merge-gate.cjs
+            /scripts/kit/lib/product-declaration.cjs
+            /scripts/kit/lib/latest-run.cjs
+            /scripts/kit/lib/head-authorization.cjs
+            /scripts/kit/lib/head-authorization-core.cjs
+          sparse-checkout-cone-mode: false
 
       - name: Evaluate green PRs
         id: evaluate
+        if: needs.preflight.outputs.policy_ready == 'true'
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const SELF_JOB = 'merge-on-green';
-            const REQUIRED_LABEL = 'reviewed';
-            const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-            const toMerge = [];
-
-            const candidates = new Set();
-            const dispatchPr = context.payload.inputs && context.payload.inputs.pr;
-            if (dispatchPr) {
-              candidates.add(parseInt(dispatchPr, 10));
-            } else if (context.payload.pull_request) {
-              candidates.add(context.payload.pull_request.number);
-            } else if (context.payload.workflow_run) {
-              for (const pr of context.payload.workflow_run.pull_requests || []) {
-                candidates.add(pr.number);
-              }
-            }
-            if (candidates.size === 0) {
-              const { data: open } = await github.rest.pulls.list({
-                owner: context.repo.owner, repo: context.repo.repo, state: 'open', per_page: 100,
-              });
-              for (const pr of open) {
-                if (pr.labels.some((l) => l.name === REQUIRED_LABEL)) candidates.add(pr.number);
-              }
-            }
-
-            for (const number of candidates) {
-              const tag = `PR #${number}`;
-              let pr;
-              for (let i = 0; i < 6; i++) {
-                ({ data: pr } = await github.rest.pulls.get({
-                  owner: context.repo.owner, repo: context.repo.repo, pull_number: number,
-                }));
-                if (pr.mergeable !== null || pr.state !== 'open') break;
-                await sleep(3000);
-              }
-              if (pr.state !== 'open') { core.info(`${tag}: not open (${pr.state}) — skip.`); continue; }
-              if (pr.draft)           { core.info(`${tag}: draft — skip.`); continue; }
-              if (pr.merged)          { core.info(`${tag}: already merged — skip.`); continue; }
-
-              if (!pr.labels.some((l) => l.name === REQUIRED_LABEL)) {
-                core.info(`${tag}: no '${REQUIRED_LABEL}' label — skip.`); continue;
-              }
-              if (pr.mergeable === false) { core.info(`${tag}: conflict — skip.`); continue; }
-              if (pr.mergeable === null)  { core.info(`${tag}: mergeability computing — skip.`); continue; }
-
-              const sha = pr.head.sha;
-              const runs = await github.paginate(github.rest.checks.listForRef, {
-                owner: context.repo.owner, repo: context.repo.repo, ref: sha, per_page: 100,
-              });
-              // Fail-closed: require at least one completed non-self check.
-              const others = runs.filter((r) => r.name !== SELF_JOB);
-              if (others.length === 0) {
-                core.info(`${tag}: no check runs on head — skip (fail-closed).`);
-                continue;
-              }
-              // Require secret-scan AND quality CI job name `ci` (alias validate-full for in-flight PRs)
-              // AND semctx-working-empty (PR attestation: .semctx/working/ = .gitkeep only).
-              const hasSecret = others.some((r) =>
-                /TruffleHog|Secret scan/i.test(r.name || ''),
-              );
-              const hasCi = others.some((r) =>
-                /^(ci|validate-full|lint-typecheck-test)$/i.test(r.name || ''),
-              );
-              const hasWorking = others.some((r) =>
-                /^(semctx-working-empty)$/i.test(r.name || ''),
-              );
-              if (!hasSecret || !hasCi || !hasWorking) {
-                core.info(
-                  `${tag}: missing required checks (secret=${hasSecret}, ci=${hasCi}, working=${hasWorking}) — skip.`,
-                );
-                continue;
-              }
-              const pending = others.filter((r) => r.status !== 'completed');
-              const failed = others.filter(
-                (r) => r.status === 'completed' && !['success', 'neutral', 'skipped'].includes(r.conclusion),
-              );
-              if (pending.length) {
-                core.info(`${tag}: pending ${pending.map((r) => r.name).join(', ')} — skip.`);
-                continue;
-              }
-              if (failed.length) {
-                core.info(`${tag}: failed ${failed.map((r) => `${r.name}=${r.conclusion}`).join(', ')} — skip.`);
-                continue;
-              }
-
-              const { data: combined } = await github.rest.repos.getCombinedStatusForRef({
-                owner: context.repo.owner, repo: context.repo.repo, ref: sha,
-              });
-              if (combined.total_count > 0 && combined.state !== 'success') {
-                core.info(`${tag}: combined status = ${combined.state} — skip.`); continue;
-              }
-
-              core.info(`${tag}: reviewed + checks green → queue merge.`);
-              toMerge.push(number);
-            }
-
+            const { evaluate } = require('./scripts/kit/lib/merge-gate.cjs');
+            const { policyFromEnv } = require('./scripts/kit/lib/head-authorization.cjs');
+            const { toMerge, unreadable } = await evaluate({
+              github, repo: context.repo, payload: context.payload, core, policy: policyFromEnv(process.env),
+            });
             core.setOutput('to_merge', JSON.stringify(toMerge));
-            if (toMerge.length === 0) core.info('No PRs ready to merge.');
+            core.setOutput('unreadable', JSON.stringify(unreadable));
+
+      # Minting after preselection is hygiene, not the authorization boundary. It intentionally runs
+      # on every enabled evaluation so docs/kit/ci-app-setup.md can confirm the App by dispatch.
+      # The App client only merges; all fresh verdict reads retain the read-only token.
+      - name: Mint app token (kit-ci)
+        id: app
+        if: ${{ !cancelled() && steps.cfg.outputs.enabled == 'true' }}
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          # client-id accepts the numeric App ID; this is the documented kit-ci setup path.
+          client-id: ${{ vars.CI_APP_ID }}
+          private-key: ${{ secrets.CI_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: write
+          permission-workflows: write
 
       - name: Merge green PRs
+        id: merge
         if: >-
           steps.cfg.outputs.enabled == 'true' &&
           steps.app.outcome == 'success' &&
@@ -202,28 +184,43 @@ jobs:
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           TO_MERGE: ${{ steps.evaluate.outputs.to_merge }}
+          MERGE_TOKEN: ${{ steps.app.outputs.token }}
         with:
-          github-token: ${{ steps.app.outputs.token }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const toMerge = JSON.parse(process.env.TO_MERGE || '[]');
-            for (const number of toMerge) {
-              const tag = `PR #${number}`;
-              try {
-                await github.rest.pulls.merge({
-                  owner: context.repo.owner, repo: context.repo.repo, pull_number: number,
-                  merge_method: 'merge',
-                });
-                core.notice(`${tag}: merged (merge commit) — reviewed + checks green (kit-ci).`);
-              } catch (e) {
-                core.warning(`${tag}: merge failed: ${e.message}`);
-              }
+            const { land } = require('./scripts/kit/lib/merge-gate.cjs');
+            const { policyFromEnv } = require('./scripts/kit/lib/head-authorization.cjs');
+            const { stale, unreadable } = await land({
+              github, merger: getOctokit(process.env.MERGE_TOKEN), repo: context.repo, core, policy: policyFromEnv(process.env),
+              queue: JSON.parse(process.env.TO_MERGE || '[]'),
+            });
+            core.setOutput('unreadable', JSON.stringify(unreadable));
+            if (stale.length) {
+              core.setFailed(
+                `Merge refused: evaluated revision is no longer the head — ${stale.join(', ')}. Other candidates may have merged.`,
+              );
             }
+
+      - name: Fail on unreadable merge gate
+        if: >-
+          !cancelled() &&
+          ((steps.evaluate.outputs.unreadable != '' && steps.evaluate.outputs.unreadable != '[]') ||
+           (steps.merge.outputs.unreadable != '' && steps.merge.outputs.unreadable != '[]'))
+        env:
+          EVALUATE_UNREADABLE: ${{ steps.evaluate.outputs.unreadable }}
+          MERGE_UNREADABLE: ${{ steps.merge.outputs.unreadable }}
+        run: |
+          echo "::error title=Merge gate unreadable::held, GitHub could not answer for: evaluate=${EVALUATE_UNREADABLE:-[]} merge=${MERGE_UNREADABLE:-[]} (Evaluate / Merge green PRs logs)"
+          exit 1
 
       - name: Summary
         if: always()
         env:
           ENABLED: ${{ steps.cfg.outputs.enabled }}
           TO_MERGE: ${{ steps.evaluate.outputs.to_merge }}
+          EVALUATE_OUTCOME: ${{ steps.evaluate.outcome }}
+          EVALUATE_UNREADABLE: ${{ steps.evaluate.outputs.unreadable }}
+          MERGE_UNREADABLE: ${{ steps.merge.outputs.unreadable }}
         run: |
           {
             echo "## Merge on Green"
@@ -231,8 +228,76 @@ jobs:
             if [ "$ENABLED" = "true" ]; then
               echo "- **kit-ci:** configured (auto-merge ON)"
             else
-              echo "- **kit-ci:** **not configured** (auto-merge OFF — manual merge)"
+              echo "- **kit-ci:** **not configured** (auto-merge OFF — operator-authorized merge after normal admission)"
               echo "- Setup: \`docs/kit/ci-app-setup.md\`"
             fi
-            echo "- Candidates: \`${TO_MERGE:-[]}\`"
+            if [ "$EVALUATE_OUTCOME" = "success" ]; then
+              echo "- Candidates: \`${TO_MERGE:-[]}\`"
+            else
+              echo "- Evaluation: ${EVALUATE_OUTCOME:-not run}"
+            fi
+            echo "- Held, unreadable: evaluate=\`${EVALUATE_UNREADABLE:-[]}\` merge=\`${MERGE_UNREADABLE:-[]}\`"
           } >> "$GITHUB_STEP_SUMMARY"
+
+  # Dependabot's capture job performs its own withdrawal before evaluation.
+  # This is best effort; binding also denies a changed head when an event is missed.
+  revoke-reviewed-on-push:
+    name: revoke-reviewed-on-push
+    needs: preflight
+    if: >-
+      github.event_name == 'pull_request_target' &&
+      github.event.pull_request.user.id != 49699333 &&
+      (github.event.action == 'synchronize' || github.event.action == 'reopened')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      HEAD_AUTH_REPOSITORY_ID: ${{ vars.HEAD_AUTH_REPOSITORY_ID }}
+      HEAD_AUTH_OPERATOR_IDS: ${{ vars.HEAD_AUTH_OPERATOR_IDS }}
+      HEAD_AUTH_APP_ID: ${{ vars.HEAD_AUTH_APP_ID }}
+      HEAD_AUTH_BOT_USER_ID: ${{ vars.HEAD_AUTH_BOT_USER_ID }}
+    steps:
+      - name: Report skipped revocation
+        if: needs.preflight.outputs.enabled != 'true'
+        run: |
+          echo "::notice title=kit-ci not configured::Authorization withdrawal skipped; no token mint."
+      - name: Checkout trusted authorization adapter
+        if: needs.preflight.outputs.enabled == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+          sparse-checkout: |
+            /scripts/kit/lib/head-authorization.cjs
+            /scripts/kit/lib/head-authorization-core.cjs
+          sparse-checkout-cone-mode: false
+      - name: Mint repository-scoped app token
+        id: app
+        if: needs.preflight.outputs.enabled == 'true'
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.CI_APP_ID }}
+          private-key: ${{ secrets.CI_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-pull-requests: write
+      - name: Withdraw authorization and remove reviewed hint
+        if: needs.preflight.outputs.enabled == 'true'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          WRITE_TOKEN: ${{ steps.app.outputs.token }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { policyFromEnv, withdrawAuthorization } = require('./scripts/kit/lib/head-authorization.cjs');
+            const writer = getOctokit(process.env.WRITE_TOKEN);
+            const prNumber = context.payload.pull_request.number;
+            await withdrawAuthorization({
+              github, writer, repo: context.repo, prNumber, policy: policyFromEnv(process.env),
+              operationId: `merge-revoke:${context.runId}`,
+              reason: `pull_request_${context.payload.action}`,
+            });
+            try {
+              await writer.rest.issues.removeLabel({ ...context.repo, issue_number: prNumber, name: 'reviewed' });
+            } catch (error) {
+              if (error.status !== 404) throw error;
+            }

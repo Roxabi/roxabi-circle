@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Put back the pre-leftover index (#148). No biome here — caller decides.
+# Put back the pre-leftover index (Roxabi/roxabi-boilerplate-cf#148). No biome here — caller decides.
 set -euo pipefail
 gd="$(git rev-parse --git-dir)"
 tree_file="${gd}/lefthook-index-tree"
