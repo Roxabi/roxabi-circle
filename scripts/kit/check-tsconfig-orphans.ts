@@ -15,7 +15,8 @@
  * COVERAGE invariant:
  *   tracked {ts,tsx,mts,cts} MINUS <ws>/src/** for every {apps,packages}/<ws>
  *   that has a package.json
- *   is a subset of `tsc -p tsconfig.json --listFilesOnly`
+ *   is a subset of the files opened by the root project or a runnable,
+ *   cited workspace project (`tsc --listFilesOnly`).
  *
  * The manifest is what makes that subtraction legitimate: a directory under
  * apps|packages without one is not a workspace, nothing runs a project for it,
@@ -42,8 +43,8 @@
  *   tsc's status and do not count.
  *
  * Does NOT prove the covering project uses the right compilerOptions, does
- * NOT look inside workspace projects (a workspace `exclude` can still orphan
- * its own sources), does NOT audit projects nested below a workspace root,
+ * NOT check coverage of workspace src/ files (a workspace `exclude` can still
+ * orphan its own sources), does NOT audit projects nested below a workspace root,
  * and does not audit `.mjs`/`.js`/`.cjs` files. The root program checks three
  * named CJS files, but this orphan invariant remains TypeScript-only.
  * Semantic type checking belongs to `typecheck` / `typecheck:tooling`.
@@ -163,16 +164,17 @@ function candidates(): string[] {
 }
 
 /**
- * Files the root project actually opens, as ROOT-relative posix paths.
+ * Files a project actually opens, as ROOT-relative posix paths.
  * List compiler inputs without repeating the separate semantic typecheck.
+ * An unloadable workspace project cannot contribute coverage.
  */
-function projectFiles(): Set<string> {
+function projectFiles(project: string): Set<string> {
   const tsc = join(KIT_ROOT, 'node_modules', '.bin', 'tsc')
   if (!existsSync(tsc)) {
     fail(`missing ${relative(KIT_ROOT, tsc)}`, 'Fix: bun install')
   }
   const run = Bun.spawnSync(
-    [tsc, '-p', join(ROOT, ROOT_PROJECT_REL), '--noEmit', '--listFilesOnly', '--pretty', 'false'],
+    [tsc, '-p', join(ROOT, project), '--noEmit', '--listFilesOnly', '--pretty', 'false'],
     { cwd: ROOT, stdout: 'pipe', stderr: 'pipe' },
   )
   const stdout = run.stdout.toString()
@@ -184,13 +186,35 @@ function projectFiles(): Set<string> {
     const rel = relative(ROOT, path).split(sep).join('/')
     if (rel.length > 0 && !rel.startsWith('..')) covered.add(rel)
   }
-  if (covered.size === 0) {
+  if (project !== ROOT_PROJECT_REL && run.exitCode !== 0) return new Set()
+  if (project === ROOT_PROJECT_REL && covered.size === 0) {
     fail(
-      `tsc listed no file for ${ROOT_PROJECT_REL} (exit ${run.exitCode})`,
-      `${stdout.trim() || run.stderr.toString().trim()}\nFix: repair ${ROOT_PROJECT_REL} so the project loads`,
+      `tsc listed no file for ${project} (exit ${run.exitCode})`,
+      `${stdout.trim() || run.stderr.toString().trim()}\nFix: repair ${project} so the project loads`,
     )
   }
   return covered
+}
+
+/** An effective noCheck, including one inherited through extends, is not typechecking. */
+function checksTypes(project: string): boolean {
+  const tsc = join(KIT_ROOT, 'node_modules', '.bin', 'tsc')
+  const run = Bun.spawnSync([tsc, '-p', join(ROOT, project), '--showConfig'], {
+    cwd: ROOT,
+    stdout: 'pipe',
+    stderr: 'pipe',
+  })
+  if (run.exitCode !== 0) return false
+  try {
+    const config: unknown = JSON.parse(run.stdout.toString())
+    if (config === null || typeof config !== 'object' || Array.isArray(config)) return false
+    const options = (config as Record<string, unknown>).compilerOptions
+    if (options === undefined) return true
+    if (options === null || typeof options !== 'object' || Array.isArray(options)) return false
+    return (options as Record<string, unknown>).noCheck !== true
+  } catch {
+    return false
+  }
 }
 
 /**
@@ -339,6 +363,26 @@ function citedProjects(script: string, wsDir: string): Set<string> {
   return cited
 }
 
+/**
+ * Coverage requires a narrower proof than the legacy citation audit. Accept
+ * only direct tsc commands joined by && and a small checking-only flag set.
+ * Anything requiring shell interpretation contributes no workspace coverage.
+ */
+function coverageProjects(script: unknown, wsDir: string): Set<string> {
+  const projects = new Set<string>()
+  if (typeof script !== 'string' || /[\r\n]/.test(script)) return projects
+  const commands = script.split('&&')
+  for (const command of commands) {
+    const match =
+      /^[ \t]*tsc(?:[ \t]+--noEmit)?(?:[ \t]+(?:-p|--project)[ \t]+([A-Za-z0-9_./-]+))?[ \t]*(?![\s\S])/.exec(
+        command,
+      )
+    if (!match) return new Set()
+    citeProject(projects, wsDir, match[1] ?? ROOT_PROJECT_REL)
+  }
+  return projects
+}
+
 /** argv of one command, honouring the quotes a package script may use. */
 function tokenize(segment: string): string[] {
   const tokens: string[] = []
@@ -384,8 +428,14 @@ function auditWorkspaceProjects(
   swallowed: boolean,
   runs: Set<string>,
   tsconfigs: string[],
-): { audited: number; runnableHere: number; problems: { report: string; fix: string }[] } {
+): {
+  audited: number
+  runnableHere: number
+  projects: string[]
+  problems: { report: string; fix: string }[]
+} {
   const problems: { report: string; fix: string }[] = []
+  const projects: string[] = []
   let audited = 0
   let runnableHere = 0
   for (const rel of tsconfigs.filter((path) => path.startsWith(`${wsDir}/`))) {
@@ -395,7 +445,10 @@ function auditWorkspaceProjects(
     audited++
     // SWALLOWED already reported for the workspace; don't pile UNCITED.
     if (swallowed) continue
-    if (runs.has(rel)) continue
+    if (runs.has(rel)) {
+      projects.push(rel)
+      continue
+    }
     problems.push({
       report: `UNCITED ${rel} — ${
         typeof script === 'string'
@@ -405,10 +458,37 @@ function auditWorkspaceProjects(
       fix: `make "typecheck" in ${manifest} run \`tsc --noEmit -p ${basename(rel)}\`, or delete ${rel}`,
     })
   }
-  return { audited, runnableHere, problems }
+  return { audited, runnableHere, projects, problems }
 }
 
-function auditCitations(): { audited: number; problems: { report: string; fix: string }[] } {
+function auditMissingProjects(
+  wsDir: string,
+  manifest: string,
+  runs: Set<string>,
+  runnableHere: number,
+  trackedTs: string[],
+  problems: { report: string; fix: string }[],
+): void {
+  if (runnableHere === 0 && trackedTs.some((path) => path.startsWith(`${wsDir}/src/`))) {
+    problems.push({
+      report: `NO PROJECT ${wsDir} — src/ is subtracted from coverage but no project owns it`,
+      fix: `add ${wsDir}/tsconfig.json covering src/ and a "typecheck" script that runs \`tsc --noEmit\``,
+    })
+  }
+  for (const rel of runs) {
+    if (existsSync(resolve(ROOT, rel))) continue
+    problems.push({
+      report: `PHANTOM ${rel} — the "typecheck" script of ${wsDir} cites a missing project`,
+      fix: `create ${rel}, or drop it from "typecheck" in ${manifest}`,
+    })
+  }
+}
+
+function auditCitations(): {
+  audited: number
+  projects: Map<string, string>
+  problems: { report: string; fix: string }[]
+} {
   const manifests = gitFiles(WORKSPACE_MANIFEST_PATHSPECS, true).filter((path) =>
     WORKSPACE_MANIFEST.test(path),
   )
@@ -417,6 +497,7 @@ function auditCitations(): { audited: number; problems: { report: string; fix: s
   )
   const problems: { report: string; fix: string }[] = []
   let audited = 0
+  const projects = new Map<string, string>()
   const trackedTs = gitFiles(TS_PATHSPECS, false)
 
   for (const manifest of manifests) {
@@ -435,24 +516,15 @@ function auditCitations(): { audited: number; problems: { report: string; fix: s
 
     const local = auditWorkspaceProjects(wsDir, manifest, script, swallowed, runs, tsconfigs)
     audited += local.audited
+    const eligible = coverageProjects(script, wsDir)
+    for (const project of local.projects) {
+      if (eligible.has(project)) projects.set(project, wsDir)
+    }
     problems.push(...local.problems)
 
-    if (local.runnableHere === 0 && trackedTs.some((path) => path.startsWith(`${wsDir}/src/`))) {
-      problems.push({
-        report: `NO PROJECT ${wsDir} — src/ is subtracted from coverage but no project owns it`,
-        fix: `add ${wsDir}/tsconfig.json covering src/ and a "typecheck" script that runs \`tsc --noEmit\``,
-      })
-    }
-
-    for (const rel of runs) {
-      if (existsSync(resolve(ROOT, rel))) continue
-      problems.push({
-        report: `PHANTOM ${rel} — the "typecheck" script of ${wsDir} cites a missing project`,
-        fix: `create ${rel}, or drop it from "typecheck" in ${manifest}`,
-      })
-    }
+    auditMissingProjects(wsDir, manifest, runs, local.runnableHere, trackedTs, problems)
   }
-  return { audited, problems }
+  return { audited, projects, problems }
 }
 
 function main(): void {
@@ -461,7 +533,13 @@ function main(): void {
 
   const tracked = candidates()
   const citations = auditCitations()
-  const covered = projectFiles()
+  const covered = projectFiles(ROOT_PROJECT_REL)
+  for (const [project, wsDir] of citations.projects) {
+    if (!checksTypes(project)) continue
+    for (const file of projectFiles(project)) {
+      if (file.startsWith(`${wsDir}/`)) covered.add(file)
+    }
+  }
   const orphans = tracked.filter((path) => !covered.has(path))
 
   for (const problem of citations.problems) {
@@ -476,9 +554,7 @@ function main(): void {
     console.error(
       `\ntsconfig-orphans: ${orphans.length} orphan file(s) of ${tracked.length} outside workspace src`,
     )
-    console.error(
-      `Fix: add the path to "include" in ${ROOT_PROJECT_REL}, or move it under a workspace that owns it`,
-    )
+    console.error(`Fix: include the path in the root project or a cited workspace project`)
   }
   if (citations.problems.length > 0) {
     console.error(
