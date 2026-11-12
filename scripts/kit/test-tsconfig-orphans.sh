@@ -161,6 +161,104 @@ write_tsconfig "${ORPHAN}" '"scripts/kit/**/*.ts", "tools/**/*.ts"'
 git -C "${ORPHAN}" add -A
 assert_case "after extending include → 0" 0 "${ORPHAN}" "0 orphan(s)"
 
+# Workspace tests outside src belong to a cited project, including imports.
+WSTEST="${TMP}/workspace-test"
+seed_tree "${WSTEST}"
+mkdir -p "${WSTEST}/packages/core/test"
+echo "import './helper'" >"${WSTEST}/packages/core/test/owned.test.ts"
+echo 'export const helper = 1' >"${WSTEST}/packages/core/test/helper.ts"
+write_project "${WSTEST}/packages/core/tsconfig.json" '"src", "test/*.test.ts"'
+git -C "${WSTEST}" add -A
+assert_case "cited workspace project opens test and transitive helper → 0" 0 "${WSTEST}" "0 orphan(s)"
+
+seed_workspace "${WSTEST}" "packages/core" "tsc --noEmit"
+write_project "${WSTEST}/packages/core/tsconfig.json" '"src", "test/*.test.ts"'
+git -C "${WSTEST}" add -A
+assert_case "implicit workspace project owns test → 0" 0 "${WSTEST}" "0 orphan(s)"
+
+seed_workspace "${WSTEST}" "packages/core" "tsc --noEmit -p tsconfig.json"
+
+write_project "${WSTEST}/packages/core/tsconfig.json" '"src"'
+git -C "${WSTEST}" add -A
+assert_case "test excluded from workspace project → 1" 1 "${WSTEST}" \
+  "ORPHAN packages/core/test/owned.test.ts"
+
+write_project "${WSTEST}/packages/core/tsconfig.test.json" '"test/*.test.ts"'
+git -C "${WSTEST}" add -A
+assert_case "unused test project cannot own test → 1" 1 "${WSTEST}" \
+  "ORPHAN packages/core/test/owned.test.ts"
+
+seed_workspace "${WSTEST}" "packages/core" "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.test.json || true"
+git -C "${WSTEST}" add -A
+assert_case "swallowed test project cannot own test → 1" 1 "${WSTEST}" \
+  "ORPHAN packages/core/test/owned.test.ts"
+
+# Textual citations are not sufficient proof that a checking command runs.
+UNSAFE="${TMP}/unsafe-coverage"
+seed_tree "${UNSAFE}"
+mkdir -p "${UNSAFE}/packages/core/test"
+echo 'export const test = 1' >"${UNSAFE}/packages/core/test/owned.test.ts"
+for script in \
+  'echo ok # tsc --noEmit -p tsconfig.json' \
+  'tsc --noEmit -p tsconfig.json; true' \
+  'true || tsc --noEmit -p tsconfig.json' \
+  'tsc --noEmit -p tsconfig.json --noCheck' \
+  'tsc --noEmit -p tsconfig.json --showConfig' \
+  'tsc --noEmit -p tsconfig.json & true' \
+  'echo $(tsc --noEmit -p tsconfig.json)'; do
+  seed_workspace "${UNSAFE}" "packages/core" "${script}"
+  write_project "${UNSAFE}/packages/core/tsconfig.json" '"src", "test"'
+  git -C "${UNSAFE}" add -A
+  assert_case "unsupported checking command: ${script} → orphan" 1 "${UNSAFE}" \
+    "ORPHAN packages/core/test/owned.test.ts"
+done
+
+# noCheck inherited through extends is as unsafe as the command-line flag.
+seed_workspace "${UNSAFE}" "packages/core" "tsc --noEmit -p tsconfig.json"
+cat >"${UNSAFE}/packages/core/tsconfig.base.json" <<'EOF'
+{ "compilerOptions": { "noCheck": true } }
+EOF
+cat >"${UNSAFE}/packages/core/tsconfig.json" <<'EOF'
+{ "extends": "./tsconfig.base.json", "include": ["src", "test"] }
+EOF
+git -C "${UNSAFE}" add -A
+assert_case "inherited noCheck cannot own test → 1" 1 "${UNSAFE}" \
+  "ORPHAN packages/core/test/owned.test.ts"
+
+# Imports outside the workspace still need root-program ownership.
+OUTSIDE="${TMP}/outside-workspace"
+seed_tree "${OUTSIDE}"
+mkdir -p "${OUTSIDE}/packages/core/test" "${OUTSIDE}/tools"
+echo "import '../../../tools/helper'" >"${OUTSIDE}/packages/core/test/owned.test.ts"
+echo 'export const helper = 1' >"${OUTSIDE}/tools/helper.ts"
+write_project "${OUTSIDE}/packages/core/tsconfig.json" '"src", "test"'
+git -C "${OUTSIDE}" add -A
+assert_case "workspace import cannot own external tooling → 1" 1 "${OUTSIDE}" \
+  "ORPHAN tools/helper.ts"
+
+# A syntactically valid but invalid compiler configuration cannot own tests.
+BADTEST="${TMP}/bad-test"
+seed_tree "${BADTEST}"
+mkdir -p "${BADTEST}/packages/core/test"
+echo 'export const test = 1' >"${BADTEST}/packages/core/test/bad.test.ts"
+cat >"${BADTEST}/packages/core/tsconfig.json" <<'EOF'
+{ "compilerOptions": { "target": "not-a-target" }, "include": ["src", "test"] }
+EOF
+git -C "${BADTEST}" add -A
+assert_case "invalid workspace configuration cannot own test → 1" 1 "${BADTEST}" \
+  "ORPHAN packages/core/test/bad.test.ts"
+
+# A base with no explicit inputs cannot claim files by tsc's default sweep.
+BASETEST="${TMP}/base-test"
+seed_tree "${BASETEST}"
+mkdir -p "${BASETEST}/packages/core/test"
+echo 'export const test = 1' >"${BASETEST}/packages/core/test/stray.test.ts"
+write_base "${BASETEST}/packages/core/tsconfig.base.json"
+seed_workspace "${BASETEST}" "packages/core" "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.base.json"
+git -C "${BASETEST}" add -A
+assert_case "cited base cannot own test by default sweep → 1" 1 "${BASETEST}" \
+  "ORPHAN packages/core/test/stray.test.ts"
+
 # --- .tsx / .mts / .cts are in scope too ---
 EXTS="${TMP}/exts"
 seed_tree "${EXTS}"
