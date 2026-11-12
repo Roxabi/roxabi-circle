@@ -14,7 +14,7 @@
     "discord:guild-setup": "bun scripts/discord-guild-setup.mjs"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20250620.0",
+    "@cloudflare/workers-types": "^5.20261109.1",
     "@vitest/coverage-v8": "3.2.7",
     "typescript": "^7.0.2",
     "vitest": "^3.2.4",
