@@ -213,6 +213,21 @@ for script in \
     "ORPHAN packages/core/test/owned.test.ts"
 done
 
+# A newline after -p changes the shell command, despite looking like whitespace
+# to the legacy citation parser. The nested decoy avoids a PHANTOM diagnostic.
+NEWLINE="${TMP}/newline-coverage"
+seed_tree "${NEWLINE}"
+mkdir -p "${NEWLINE}/packages/core/test" "${NEWLINE}/packages/core/true"
+echo 'export const test = 1' >"${NEWLINE}/packages/core/test/owned.test.ts"
+write_project "${NEWLINE}/packages/core/tsconfig.test.json" '"test"'
+write_project "${NEWLINE}/packages/core/true/tsconfig.json" '"../src"'
+cat >"${NEWLINE}/packages/core/package.json" <<'EOF'
+{"name":"@kit/core","private":true,"scripts":{"typecheck":"tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.test.json && tsc --noEmit -p\ntrue"}}
+EOF
+git -C "${NEWLINE}" add -A
+assert_case "newline command cannot own test → 1" 1 "${NEWLINE}" \
+  "ORPHAN packages/core/test/owned.test.ts"
+
 # noCheck inherited through extends is as unsafe as the command-line flag.
 seed_workspace "${UNSAFE}" "packages/core" "tsc --noEmit -p tsconfig.json"
 cat >"${UNSAFE}/packages/core/tsconfig.base.json" <<'EOF'

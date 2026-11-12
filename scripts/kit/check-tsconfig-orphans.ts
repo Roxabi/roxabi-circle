@@ -370,12 +370,13 @@ function citedProjects(script: string, wsDir: string): Set<string> {
  */
 function coverageProjects(script: unknown, wsDir: string): Set<string> {
   const projects = new Set<string>()
-  if (typeof script !== 'string') return projects
+  if (typeof script !== 'string' || /[\r\n]/.test(script)) return projects
   const commands = script.split('&&')
   for (const command of commands) {
-    const match = /^\s*tsc(?:\s+--noEmit)?(?:\s+(?:-p|--project)\s+([A-Za-z0-9_./-]+))?\s*$/.exec(
-      command,
-    )
+    const match =
+      /^[ \t]*tsc(?:[ \t]+--noEmit)?(?:[ \t]+(?:-p|--project)[ \t]+([A-Za-z0-9_./-]+))?[ \t]*(?![\s\S])/.exec(
+        command,
+      )
     if (!match) return new Set()
     citeProject(projects, wsDir, match[1] ?? ROOT_PROJECT_REL)
   }
