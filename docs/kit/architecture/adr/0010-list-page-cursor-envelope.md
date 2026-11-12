@@ -61,6 +61,10 @@ Authorization and tenant scope apply independently on every request; cursor cont
 - UI code may use infinite queries or another app-owned presentation without changing the API contract.
 - Consumers needing snapshot-stable traversal, bound filters, or totals must define and price those stronger semantics explicitly.
 
+## Implementation state
+
+`@kit/types` exports `ListPage` and list query types; `@kit/core` provides cursor and page helpers. Endpoint-specific authorization, validation and SQL predicates remain the responsibility of each composing app; the shared helpers do not prove every endpoint has migrated.
+
 ## Non-goals
 
 - Encrypted or authenticated cursors

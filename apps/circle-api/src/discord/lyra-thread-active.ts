@@ -5,7 +5,7 @@
 
 import type { GatewayMessage } from './github-watch'
 
-export const LYRA_THREAD_ACTIVE_PREFIX = 'lyra_thread_v1:'
+const LYRA_THREAD_ACTIVE_PREFIX = 'lyra_thread_v1:'
 
 export type ThreadActiveStorage = {
   get<T = unknown>(key: string): Promise<T | undefined>

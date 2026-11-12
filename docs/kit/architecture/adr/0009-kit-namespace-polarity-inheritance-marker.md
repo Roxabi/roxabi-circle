@@ -3,6 +3,7 @@ title: 'ADR-0009 — Kit namespace polarity (`*/kit`) + inheritance marker SSoT'
 status: accepted
 normative: true
 date: 2026-08-21
+amended: 2026-11-11
 axial: false
 related:
   - docs/kit/architecture/adr/0001-primary-axis-packages-compose-apps.md
@@ -16,19 +17,13 @@ related:
 
 Extends [ADR-0001](./0001-primary-axis-packages-compose-apps.md): apps compose `@kit/*`; product consumers merge an immediate upstream without dual-editing kit surfaces.
 
-Closes the structural gap behind [#103](https://github.com/Roxabi/roxabi-boilerplate-cf/issues/103) (stale `upstream/main` ≠ dual-edit).
+Closes the structural gap behind [Roxabi/roxabi-boilerplate-cf#103](https://github.com/Roxabi/roxabi-boilerplate-cf/issues/103) (stale `upstream/main` ≠ dual-edit).
 
 ## Context
 
-### Consumer chain (operator)
+### Consumer chain
 
-```text
-roxabi-boilerplate-cf          ← kit HEAD
-        ↓ inherit
-silex-boilerplate              ← kit mirror (immediate parent for go-silex products)
-        ↓ inherit
-product (e.g. LGU)             ← upstream = mirror · fetch-only
-```
+A product may inherit the kit directly or through an operator-maintained mirror. Its immediate parent is the source whose merged commit it records.
 
 Zero-edit must answer: *did this product patch kit paths since its last inherit?*  
 It must **not** answer: *is the local `upstream/main` tracking ref fetched?*
@@ -38,7 +33,7 @@ It must **not** answer: *is the local `upstream/main` tracking ref fetched?*
 | Prior rule | Failure |
 |------------|---------|
 | Blanket-protect `config/`, `scripts/kit/`, … | Product machine state shoved into `docs/product/` carve-outs |
-| Default base = `upstream/main` | Stale tracking ref → false FORBIDDEN dual-edit (#103) |
+| Default base = `upstream/main` | Stale tracking ref → false FORBIDDEN dual-edit (Roxabi/roxabi-boilerplate-cf#103) |
 | CI base = `docs/product/kit-baseline` via `ZERO_EDIT_BASE_REF` | Local ≠ CI; operators skip lefthook |
 
 Allowlist islands (`docs/product/`, `scripts/product/`) worked but forced exceptions under kit-owned trees and duplicated “what is the base?” across file + env + remote.
@@ -48,26 +43,28 @@ Allowlist islands (`docs/product/`, `scripts/product/`) worked but forced except
 | Option | Verdict |
 |--------|---------|
 | **A** Kit-as-root + product islands only (`config/product/` carve-out) | Viable; rejected for long-term clarity |
-| **B** Inverted `config/kit` · `scripts/kit/kit` · `docs/kit/kit` | **Accepted** — path encodes ownership |
-| Thin #103 fix (fallback to kit-baseline only) | Rejected as throwaway during B |
+| **B** `config/kit` · `scripts/kit` · `docs/kit` | **Accepted** — path encodes ownership |
+| Thin Roxabi/roxabi-boilerplate-cf#103 fix (fallback to kit-baseline only) | Rejected as throwaway during B |
 
 ## Decision
 
-### D1 — Symmetric namespaces under `config/` · `scripts/kit/` · `docs/kit/`
+### D1 — Symmetric namespaces under `config/` · `scripts/` · `docs/`
 
 ```text
 {config,scripts,docs}/kit/**      → kit-owned (protected)
 {config,scripts,docs}/product/**  → product-owned
-anything else under those three trees → inventory FAIL (unclassified)
+anything else under those three trees → inventory FAIL, except exact tool-mandated paths below
 ```
 
-After migration there is **no** “rest of `config/` is product by default”. Ownership is only via the two explicit namespaces. That removes carve-out allowlists and makes D6 non-vacuous: a kit runbook under `docs/product/` is a **process** mistake caught by review / dogfood, while a file under `docs/kit/orphan.md` fails the machine gate.
+There is no “rest of `config/` is product by default”. Ownership is via the two explicit namespaces or the exact tool-mandated carve-out. A kit runbook under `docs/product/` is a process mistake caught by review; an unclassified path fails the machine gate.
 
 Scope note: “`*/kit`” in this ADR means those three roots only — not a monorepo-wide rename of every kit path.
 
+**Amendment (2026-09-25, Roxabi/roxabi-boilerplate-cf#259) — tool-mandated paths.** An external tool can read a kit file at a path the two namespaces cannot host: the omp-build skills read `docs/agents/issue-tracker.md` and nothing else. Such a path is classified only when it is listed **exactly** in `config/kit/zero-edit-zones.json` `tool_mandated_paths`, and every entry must also be in `protected_files` (kit-owned, dual-edit protected; the checker refuses an unprotected entry). `protected_files` alone classifies nothing under the three trees, and a sibling or same-basename path is never covered. Adding an entry means naming the tool that fixes the path, in this ADR. Entries today: `docs/agents/issue-tracker.md` (omp-build `/feature`, `dev-review`, `fix`, `issue-triage`). This is the single carve-out to "anything else → inventory FAIL".
+
 ### D2 — Surfaces that stay prefix- or list-protected
 
-Unchanged ownership, not folded into `scripts/kit/kit` in this ADR:
+Other ownership surfaces:
 
 | Surface | Rule |
 |---------|------|
@@ -77,24 +74,15 @@ Unchanged ownership, not folded into `scripts/kit/kit` in this ADR:
 | `tooling/` | kit (taxonomy merge = later ADR) |
 | `tools/` | folded by [ADR-0011](./0011-tools-fold-scripts-config-polarity.md) — do not add files; executable → `scripts/kit/`, data → `config/kit/` |
 
-### D3 — Root / GitHub debt (namespace-first, not yet prefix-pure)
+**Amendment (2026-10-01, [Roxabi/roxabi-boilerplate-cf#318](https://github.com/Roxabi/roxabi-boilerplate-cf/issues/318)) — the kit-app list is `protected_prefixes`.** The `apps/` rows above are rationale, not a list. Kit apps are exactly the `apps/<name>/` entries of `config/kit/zero-edit-zones.json` `protected_prefixes`, and zero-edit refuses any other `apps/` entry shape there. `check-zero-edit-zones`, `check-migrations-contract`, `extract-dry-run`, `check-banned-strings` and `kit-schema-sync` read that list (the shell gates through `scripts/kit/lib/kit-apps.sh`). To them, an `apps/` directory the list does not name is a product app, `apps/example-acme-api` included, and adding or retiring a kit app is one edit of the list. Not yet migrated: the product exemption registers (`check_file_length.sh`, `check_folder_size.sh`, `check-import-boundaries.ts`) still recognise a product-app path by name ([Roxabi/roxabi-boilerplate-cf#327](https://github.com/Roxabi/roxabi-boilerplate-cf/issues/327)).
 
-**Resolved by [ADR-0013](./0013-root-github-workflow-ownership.md).** The root `protected_files` list and the workflow classification rule now live there.
+### D3 — Root / GitHub ownership
 
-GitHub and monorepo tooling keep some kit files outside `{config,scripts,docs}/kit`. They remain on an explicit **`protected_files`** list until a follow-up decides façades, renames (`kit-*.yml` / `product-*.yml`), or true product ownership.
+Root kit files remain on the explicit `protected_files` list in `config/kit/zero-edit-zones.json`; the list may shrink only after a move or explicit ownership decision. GitHub loads a flat workflow directory: `product-` identifies product workflows and every other tracked workflow must be listed as protected. Unclassified workflows fail inventory. Root tool auto-discovery is retained; façades are rejected.
 
-Minimum set to retain (extend if inventory finds more shared root files):
+`bun.lock` is product workspace co-owned and is not protected. `.dev/stack.yml` is product-owned. `scripts/kit/check-stack-contract.ts` checks shape in kit mode and, in product mode, compares against the inherited baseline: it rejects new `review.roster` `never`, reduced `max_agents`, `landing.required_checks`, a `landing.mode` outside `merge-on-green | native`, changes or removal of pinned `commands.*`, any `bun.*version` key, non-canonical review/landing shapes, and unchanged product identity fields (`name`, `backend.path`, `release.component`, and `frontend.path` unless the whole `frontend` value is the canonical null scalar `frontend: null`). Additive keys stay free. The check does not attest baseline provenance. The kit no longer ships semctx surfaces.
 
-```text
-package.json · bun.lock · lefthook.yml · turbo.jsonc · biome.json · tsconfig.json
-AGENTS.md · CLAUDE.md · README.md · commitlint.config.*
-docker-compose.yml · .license-policy.json
-.claude/stack.yml · .claude/settings.json · .semctx/config.json
-.github/dependabot.yml
-.github/workflows/<kit workflows>   # not product-*.yml
-```
-
-`bun.lock` is **co-owned in practice** (product deps rewrite it). While listed as protected, dual-edit of the lockfile after adding a product dependency requires either an exception entry or a follow-up [#110](https://github.com/Roxabi/roxabi-boilerplate-cf/issues/110) reconciliation rule. Do not silently drop it from the list.
+**Amendment (2026-11-11, [Roxabi/roxabi-boilerplate-cf#591](https://github.com/Roxabi/roxabi-boilerplate-cf/issues/591)) — API-only `frontend: null`.** An API-only product replaces the whole `frontend` block with the canonical null scalar `frontend: null` and keeps that scalar on upgrade. No frontend App is required. The guard compares values, not filesystem existence. `~`, an implicit empty value, `Null`, a quoted string, a missing `frontend`, and a partial map still fail `frontend.path`.
 
 ADR stance: **document the list; do not shrink it by deleting rules without a move or ownership decision.**
 
@@ -119,43 +107,47 @@ Minimal schema:
 
 | Consumer | `upstreamCommit` means |
 |----------|------------------------|
-| go-silex product | tip of **silex-boilerplate** merged |
-| Roxabi product (direct) | tip of **roxabi-boilerplate-cf** merged |
-| silex mirror | **no** marker (kit mode) |
-| Roxabi kit HEAD | **no** marker (kit mode) |
+| Product | Tip of its immediate kit or mirror parent actually merged |
+| Kit or allowlisted mirror | **No** marker (kit mode) |
 
 Checker:
 
 1. Reads the marker directly (local == CI).
 2. Requires full SHA, object present locally, ancestor of `HEAD`.
-3. Diffs protected paths against that commit (+ dirty tree).
-4. **Never** uses `upstream/main` as base.
-5. **Never** auto-`git fetch`.
-6. Missing history → fail with actionable message (deepen checkout), not remote fallback.
+3. Requires complete history (a shallow clone fails closed) and a base that does **not** descend from the commit that introduced the marker file (*Marker lineage*, below).
+4. Diffs protected paths against that commit (+ dirty tree).
+5. **Never** uses `upstream/main` as base.
+6. **Never** auto-`git fetch`.
+7. Missing history → fail with actionable message (deepen checkout), not remote fallback.
 
-**Threat model (honest):** zero-edit is a **process / CI gate**, not a tamper-resistant boundary. A maintainer who sets `upstreamCommit` to `HEAD` (or any descendant that already contains their kit-path edit) empties the protected diff. Provenance attestation / parent-remote fetch is **out of scope** here (conflicts with no-auto-fetch). Mitigations: human review on marker bumps, dogfood, and (optional later) CI check that `upstreamCommit` equals the merge’s first-parent tip when the commit message/subject matches an inherit merge — not required for MVP.
+**Threat model (honest):** zero-edit is a **process / CI gate** that guards against *accidental* modification of kit files in a product (including by AI agents), not a tamper-resistant boundary — a green run *attests* the consumer contract, it does not prove provenance. The marker is self-declared: a maintainer who sets `upstreamCommit` to a commit that already contains their kit-path edit empties the protected diff. Provenance attestation / parent-remote fetch stays **out of scope** (conflicts with no-auto-fetch). Mitigations: the lineage and expiry rules below, independent-agent review on marker bumps, GitHub write ACLs, dogfood.
 
-#### Transition (until [#107](https://github.com/Roxabi/roxabi-boilerplate-cf/issues/107))
+**Marker lineage (amendment, 2026-10-03, audit RED-01).** The base must be an inherited kit/mirror tip, never a commit the product authored. Any base that hides a kit-path edit has to contain that edit, so it has to be a product commit, and every product commit descends from the commit that first added `config/product/inheritance.json`. The checker therefore refuses a base whose ancestry contains a commit that *added* the marker (`git log --full-history -m --no-renames --diff-filter=A -1 <base> -- config/product/inheritance.json`; `--full-history -m` so a merge cannot prune a side branch). This closes both realistic launders: pinning the marker to a product commit that edited a kit file, and the 2-commit delete-and-re-add (C1 drops the marker and edits a kit file, C2 re-adds the marker pinned to C1 — C1 descends from the marker's first introduction). Accepted unchanged: day-0 pin, re-inherit to a newer parent tip after a merge (the parent tip never added a product marker), and mirror children (the mirror carries `packages/feedback` and `docs/product/*` but never the marker). `stack-contract:check` applies the same rule to the base of its stack comparison. The ancestry is only readable in full history, so a shallow clone fails closed; the documented CI checkout is already `fetch-depth: 0`.
 
-| Priority | Base source |
-|----------|-------------|
-| 1 | `config/product/inheritance.json` if present and valid |
-| 2 | Legacy `docs/product/kit-baseline` SHA if present and valid |
-| 3 | else fail (product) — **never** `upstream/main` |
+Candidates evaluated and not adopted:
 
-If both marker and legacy exist and disagree → **fail**.  
-`ZERO_EDIT_BASE_REF`, if set, must equal the resolved base or **fail** (no silent override). Then remove env + legacy file in #107.
+| Candidate | Why not |
+|---|---|
+| No deletion of the marker in history (`--diff-filter=D`) | Subsumed: a delete-and-re-add only hides an edit if the new base contains it, and that base descends from the first introduction. Adds a rule that could reject a legitimate history without closing anything more |
+| Base tree free of product-owned namespaces (`config/product/**`, apps outside the kit set) | A legitimate mirror can contain product-owned paths; tree content cannot separate a mirror from a product |
+| Base tree must not contain the marker file (previous `stack-contract` check) | Kept as a special case of the lineage rule, but alone it is bypassed by the delete-and-re-add |
+
+**Residual (accepted, not closed):** a base that predates the marker's introduction (the day-0 pin is self-declared and independently agent-reviewed, not proven), a product-authored branch forked before that introduction and merged in, history rewrite / force-push, and forged author dates. These need provenance attestation (non-goal) or GitHub ACLs.
+
+**Exception expiry (amendment, 2026-10-03, audit RED-02).** `exceptions[].expires` was bounded only by its format, so `2999-12-31` was a permanent dual-edit. `config/kit/zero-edit-zones.json` `exception_expiry` `{ max_days: 90, effective_from: "2026-10-03" }` caps an expiry **granted or extended on/after `effective_from`** at `max_days` after the grant day. The grant day is read from git, deterministically: the author date of the first-parent commit of the exceptions file that last extended that entry's `expires` (a new entry counts as extended; a shortening keeps the old grant day), or today for an uncommitted edit. Exceptions granted before `effective_from` are grandfathered until their own `expires`. Rejected: a flat `expires ≤ today + 90` — it cannot tell a new exception from an existing one, so it would fail exceptions that were valid when granted (a 91-day expiry, expiries in 2027) on the first run, while the owner decision is to cap only new or modified exceptions. The cap guards against accidental open-ended exceptions; a rewritten author date defeats it (same non-goal as above).
+
+The product checker requires `config/product/inheritance.json` and rejects `ZERO_EDIT_BASE_REF`; the legacy baseline is not a fallback. It never uses `upstream/main`.
 
 ### D5 — Mode detection (fail-closed)
 
 | Condition | Mode |
 |-----------|------|
-| New or legacy marker present + origin not kit-allowlisted | `product` |
-| No marker + origin allowlisted (Roxabi kit HEAD **or** declared mirror) | `kit` |
+| Marker present + origin not kit-allowlisted | `product` |
+| No marker + origin allowlisted (kit **or** declared mirror) | `kit` |
 | Marker present on kit-allowlisted origin | **error** |
 | No marker + unknown / product-shaped origin | **error** (never silent kit) |
 
-**Allowlist SSoT:** machine list in `config/kit/zero-edit-zones.json` (post-move) with at least the Roxabi kit repo id. Additional mirrors (e.g. `go-silex/silex-boilerplate`) are **operator-extended entries** in that file when the mirror is first published — not inferred from remote topology docs outside the kit. Extractibility: a Roxabi-direct product (no mirror row) still classifies once `inheritance.json` is present; go-silex products need the mirror row after inherit.
+**Allowlist SSoT:** machine list in `config/kit/zero-edit-zones.json` with at least the kit repo id. Additional mirrors are **operator-extended entries** in that file when first published, not inferred from topology. A direct product classifies once `inheritance.json` is present; a product inheriting a mirror needs that mirror's allowlist entry after inherit.
 
 CI prefers `github.repository`; local normalizes `origin` URL.
 
@@ -163,7 +155,7 @@ CI prefers `github.repository`; local normalizes `origin` URL.
 
 ### D6 — Inventory gate (classification, not intent)
 
-Under `config/` · `scripts/kit/` · `docs/kit/`, every tracked path must be under `kit/` or `product/` (or a documented exception path listed in zones). Unclassified → fail.
+Under `config/` · `scripts/` · `docs/`, every tracked path must be under `kit/` or `product/`, except exact tool-mandated paths listed in zones. Unclassified → fail.
 
 This gate proves **structural classification**, not “no kit content was ever misplaced under `product/`”. Misplacing kit prose under `docs/product/` remains a review / dogfood concern.
 
@@ -182,52 +174,29 @@ Same spirit for `.github/workflows/*`: unclassified workflow → fail (not silen
 
 ### D8 — Mirror fidelity (explicit non-claim)
 
-Kit mode on an allowlisted **mirror** does not prove bit-for-bit parity with Roxabi HEAD. Mirror drift is an **operator sync** concern ([#108](https://github.com/Roxabi/roxabi-boilerplate-cf/issues/108)), not priced by product zero-edit. Products correctly pin the mirror tip they actually merged.
+Kit mode on an allowlisted **mirror** does not prove bit-for-bit parity with kit HEAD. Mirror drift is an **operator sync** concern ([Roxabi/roxabi-boilerplate-cf#108](https://github.com/Roxabi/roxabi-boilerplate-cf/issues/108)), not priced by product zero-edit. Products correctly pin the mirror tip they actually merged.
 
 ## Consequences
 
 - Products may own machine config under `config/product/` without dual-edit exceptions for “being under `config/`”.
 - Merge-upstream DX stays path-stable for `packages/` and example apps; only `config|scripts|docs` reshape once.
 - Local lefthook and CI share one base resolution path → restores “local `validate:full` is the real gate”.
-- One-time migration cost: Roxabi → Silex → products; script path updates; marker rewrite; transitional legacy baseline.
-- Root `protected_files` (incl. lockfile tension) remains until [#110](https://github.com/Roxabi/roxabi-boilerplate-cf/issues/110) — **assumed debt**.
+- Consumers migrating from the legacy baseline must move to the inheritance marker.
+- Root kit surfaces remain on `protected_files`; `bun.lock` is product workspace co-owned.
 
 ## Non-goals
 
 - Auto-`git fetch` inside the checker
 - Cryptographic / remote attestation of `upstreamCommit` provenance
-- Requiring products to track Roxabi HEAD when their parent is the mirror
+- Requiring products to track kit HEAD when their parent is a mirror
 - Enforcing mirror≡HEAD inside product zero-edit
-- Moving `tooling/` / `tools/` under `scripts/kit/kit` in this ADR
-- Resolving root / workflow / lockfile layout in this ADR (#110)
+- Moving `tooling/` under `scripts/kit`
+- Changing root or workflow ownership without an explicit decision
 - Product-domain features
 
-## Migration outline
-
-1. Land this ADR + epic children.
-2. Mechanical move in Roxabi + checker rewrite + inventory gate + allowlist field (same change set as new protection model) — [#106](https://github.com/Roxabi/roxabi-boilerplate-cf/issues/106). Keep legacy `kit-baseline` readable.
-3. Silex mirror inherit (no product marker); ensure mirror row on allowlist — [#108](https://github.com/Roxabi/roxabi-boilerplate-cf/issues/108).
-4. Products: inherit tip → write `inheritance.json` (silex tip) → prove [#103](https://github.com/Roxabi/roxabi-boilerplate-cf/issues/103) — [#109](https://github.com/Roxabi/roxabi-boilerplate-cf/issues/109).
-5. Remove `ZERO_EDIT_BASE_REF` and `docs/product/kit-baseline` after consumers migrated — [#107](https://github.com/Roxabi/roxabi-boilerplate-cf/issues/107).
-6. Later: root / workflow / lockfile debt — [#110](https://github.com/Roxabi/roxabi-boilerplate-cf/issues/110).
-
-## Acceptance (epic-level)
-
-- [ ] ADR accepted; epic tracks children
-- [ ] Kit artefacts under `config|scripts|docs` live under `*/kit/`; product under `*/product/`; unclassified paths fail inventory
-- [ ] `config/product/inheritance.json` is the preferred product dual-edit base; legacy baseline only until #107
-- [ ] Roxabi + declared mirrors allowlisted kit mode; no product marker on mirrors
-- [ ] Unknown origin without marker fails closed
-- [ ] Local and CI use the same checker path; no `upstream/main` base; no auto-fetch
-- [ ] `#103` regression: stale `upstream/main` cannot produce false dual-edit
-- [ ] Transitional env/file removed after rollout (#107)
-- [ ] Root kit surfaces remain on `protected_files` until #110
-- [ ] Dogfood: kit diverge refused · product file OK · exception expiry · missing commit refused · chain Roxabi→Silex→product correct
-- [ ] ADR states process-gate threat model (marker rebaseline) explicitly
 
 ## Refs
 
-- Epic: [#105](https://github.com/Roxabi/roxabi-boilerplate-cf/issues/105)
-- Children: [#106](https://github.com/Roxabi/roxabi-boilerplate-cf/issues/106) move · [#103](https://github.com/Roxabi/roxabi-boilerplate-cf/issues/103) regress · [#108](https://github.com/Roxabi/roxabi-boilerplate-cf/issues/108) silex · [#109](https://github.com/Roxabi/roxabi-boilerplate-cf/issues/109) product · [#107](https://github.com/Roxabi/roxabi-boilerplate-cf/issues/107) kill transitional · [#110](https://github.com/Roxabi/roxabi-boilerplate-cf/issues/110) root debt
+- Epic: [Roxabi/roxabi-boilerplate-cf#105](https://github.com/Roxabi/roxabi-boilerplate-cf/issues/105)
+- Children: [Roxabi/roxabi-boilerplate-cf#106](https://github.com/Roxabi/roxabi-boilerplate-cf/issues/106) move · [Roxabi/roxabi-boilerplate-cf#103](https://github.com/Roxabi/roxabi-boilerplate-cf/issues/103) regress · [Roxabi/roxabi-boilerplate-cf#108](https://github.com/Roxabi/roxabi-boilerplate-cf/issues/108) mirror · [Roxabi/roxabi-boilerplate-cf#109](https://github.com/Roxabi/roxabi-boilerplate-cf/issues/109) product · [Roxabi/roxabi-boilerplate-cf#107](https://github.com/Roxabi/roxabi-boilerplate-cf/issues/107) kill transitional · [Roxabi/roxabi-boilerplate-cf#110](https://github.com/Roxabi/roxabi-boilerplate-cf/issues/110) root debt
 - Contract (pre-move path): [`docs/kit/product-consumer-contract.md`](../../product-consumer-contract.md)
-- Operator lineage (not in kit): `~/projects/ssot/chemin-a-kit-lineage.ssot.md`

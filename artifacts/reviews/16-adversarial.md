@@ -4,7 +4,7 @@ issue: 16
 status: review-complete
 normative: false
 date: 2026-08-06
-subject: "docs/architecture/adr/0005-flows-platform-agentic-workflows.md + issue #16 + conversation locks"
+subject: "docs/architecture/adr/0005-flows-platform-agentic-workflows.md + issue Roxabi/roxabi-boilerplate-cf#16 + conversation locks"
 verdict_lean: survives-with-major
 ---
 
@@ -66,4 +66,4 @@ Do **not** claim Nika-class governance until grant∩plan + snapshot + runtime m
 
 ## Follow-up issues
 
-#27 docs · #28 pure core · #29 D1 · #30 Workflows · #31 API · #32 HITL · #33 UI · #34 authoring · #35 agent meter · #36 net/r2  
+Roxabi/roxabi-boilerplate-cf#27 docs · Roxabi/roxabi-boilerplate-cf#28 pure core · Roxabi/roxabi-boilerplate-cf#29 D1 · Roxabi/roxabi-boilerplate-cf#30 Workflows · Roxabi/roxabi-boilerplate-cf#31 API · Roxabi/roxabi-boilerplate-cf#32 HITL · Roxabi/roxabi-boilerplate-cf#33 UI · Roxabi/roxabi-boilerplate-cf#34 authoring · Roxabi/roxabi-boilerplate-cf#35 agent meter · Roxabi/roxabi-boilerplate-cf#36 net/r2  

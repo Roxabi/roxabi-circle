@@ -26,11 +26,9 @@ export {
   apiKeyPrefix,
   generateApiKey,
   hashApiKey,
-  hashPassword,
   parseBearer,
   timingSafeEqualHex,
   verifyApiKey,
-  verifyPassword,
 } from './keys'
 export {
   accessAllows,
@@ -63,6 +61,7 @@ export {
   roleAtLeast,
   roleHasCapability,
 } from './org-roles'
+export { isBaOrganizationRoute } from './org-route-deny'
 export {
   AUTH_CHANGE_PASSWORD_PATH,
   AUTH_REQUEST_PASSWORD_RESET_PATH,
@@ -90,7 +89,8 @@ export {
   parseCookie,
   parseSessionCookie,
   SESSION_COOKIE,
+  type SessionCookieOpts,
   type SessionPayload,
-  sessionCookieHeader,
+  sessionCookieWireName,
 } from './session'
 export type { ResolveSessionInput, SessionPort } from './session-port'

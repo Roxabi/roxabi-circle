@@ -28,6 +28,9 @@ export const whoamiResultSchema = z.object({
   verified: z.boolean(),
   subject: z.string().nullable(),
   status: z.enum(whoamiStatusTuple),
+  /** Hosted MCP identity (absent on stdio sk_ path). */
+  userId: z.string().nullable().optional(),
+  email: z.string().nullable().optional(),
 })
 
 export type WhoamiResultParsed = z.infer<typeof whoamiResultSchema>

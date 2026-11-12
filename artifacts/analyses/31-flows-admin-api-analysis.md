@@ -7,13 +7,13 @@ status: approved
 
 ## Source
 
-GitHub [#31](https://github.com/Roxabi/roxabi-boilerplate-cf/issues/31) (child of #16). Approved frame `artifacts/frames/31-flows-admin-api-frame.md`. Interview phases pre-filled from φ (no extra elicitation). Expert pass 2026-08-19 (doc-writer · product-lead · architect) folded into this draft.
+GitHub [Roxabi/roxabi-boilerplate-cf#31](https://github.com/Roxabi/roxabi-boilerplate-cf/issues/31) (child of Roxabi/roxabi-boilerplate-cf#16). Approved frame `artifacts/frames/31-flows-admin-api-frame.md`. Interview phases pre-filled from φ (no extra elicitation). Expert pass 2026-08-19 (doc-writer · product-lead · architect) folded into this draft.
 
 > example-api routes: list/get plans & runs, create plan from YAML, create-run (snapshot), enable/disable. V0 **org admin only**. Multi-tenant `org_id` + membership.
 
 ## Problem
 
-Durable execution exists (`driveFlowRun` + `FLOW_RUN` binding) and D1 tables exist (`flow_plans` / `flow_runs` with composite plan↔org FK). Nothing exposes that lifecycle over HTTP: `app.ts` has no flows routes; `persist.ts` can load/claim/write receipts but **cannot insert** a queued run; tests seed rows and call `driveFlowRun` directly. `canCreateFlowRun` already fail-closes `api_key` / omitted `authMethod`, but no route calls it. There is no enable/disable that blocks **new** runs only. Without this slice, D3 cannot start; the next HTTP author will treat handler-200 / Workflow `complete` as success (the silent-ok class #30 closed).
+Durable execution exists (`driveFlowRun` + `FLOW_RUN` binding) and D1 tables exist (`flow_plans` / `flow_runs` with composite plan↔org FK). Nothing exposes that lifecycle over HTTP: `app.ts` has no flows routes; `persist.ts` can load/claim/write receipts but **cannot insert** a queued run; tests seed rows and call `driveFlowRun` directly. `canCreateFlowRun` already fail-closes `api_key` / omitted `authMethod`, but no route calls it. There is no enable/disable that blocks **new** runs only. Without this slice, D3 cannot start; the next HTTP author will treat handler-200 / Workflow `complete` as success (the silent-ok class Roxabi/roxabi-boilerplate-cf#30 closed).
 
 ## Outcome
 
@@ -32,7 +32,7 @@ One F-full cycle: example-api HTTP only. No new package. No UI.
 example-api owns `routes → services → repos`. Compose kit helpers (`check`, `createRunSnapshot`, `parseRunnerView`, `readRunRollup`, `canCreateFlowRun`). Persist `runnerView` only. Insert `queued` then `FLOW_RUN.create({ id: runId, params: { runId, orgId } })`. GET reads D1 rollup. PATCH enable blocks **new** runs only.
 
 **Trade-offs:**
-- Pro: ADR-0001 axis; reuses org middleware, module grants, `#30` sequencer; second product copies the pattern without forking the runner.
+- Pro: ADR-0001 axis; reuses org middleware, module grants, `Roxabi/roxabi-boilerplate-cf#30` sequencer; second product copies the pattern without forking the runner.
 - Con: first HTTP writer of flows — auth review is mandatory; test harness must stub `FLOW_RUN.create` (binding already typed).
 
 **Rough scope:** L
@@ -70,7 +70,7 @@ Wrap `dogfoodPlanToSnapshot` in one POST that returns snapshot JSON. No D1 write
 | Org-scoped IDOR | yes | maybe | no |
 | No second sequencer | yes | risk | n/a |
 
-Shape 2 killed by **ADR-0001 / D6** (no second call site; HTTP/bindings stay in the app). Shape 3 killed by **D3 unmet + silent-ok class #30 + no IDOR**.
+Shape 2 killed by **ADR-0001 / D6** (no second call site; HTTP/bindings stay in the app). Shape 3 killed by **D3 unmet + silent-ok class Roxabi/roxabi-boilerplate-cf#30 + no IDOR**.
 
 Anti-goals (moved out of Outcome): never walk `sealedPlan.tasks` in Hono; never read `instance.status()`; never accept client `allowedTools`; never treat HTTP 200 / Workflow `complete` as app `succeeded`.
 

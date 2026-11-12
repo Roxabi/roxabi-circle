@@ -10,9 +10,9 @@ tier: F-lite
 
 ## Context
 
-**Promoted from:** [frame #20 lucide-react 1.x](../frames/20-lucide-react-1x-frame.md) (F-lite — analyze skipped)
-**GitHub issue:** #20
-**Related:** Dependabot PR #5 (`dependabot/npm_and_yarn/lucide-react-1.27.0` → 1.28.0, MERGEABLE); npm latest **1.29.0**; blocks #21 (wave 3)
+**Promoted from:** [frame Roxabi/roxabi-boilerplate-cf#20 lucide-react 1.x](../frames/20-lucide-react-1x-frame.md) (F-lite — analyze skipped)
+**GitHub issue:** Roxabi/roxabi-boilerplate-cf#20
+**Related:** Dependabot PR Roxabi/roxabi-boilerplate-cf#5 (`dependabot/npm_and_yarn/lucide-react-1.27.0` → 1.28.0, MERGEABLE); npm latest **1.29.0**; blocks Roxabi/roxabi-boilerplate-cf#21 (wave 3)
 
 ## Intent
 
@@ -36,7 +36,7 @@ Keep the kit on a supported lucide-react major. We are stuck on **0.515.x** whil
 5. Post-bump: re-inventory; every pre-bump import is either still valid or mapped in the PR table.
 6. Gates after clean install: UI typecheck, example-web typecheck, example-web production build.
 7. Single lock resolution: one lucide-react 1.x version for the monorepo (no dual major / leftover 0.515).
-8. Dedicated PR against base (`main`) closes #20. Dependabot **#5 is closed/superseded before merge** of the dedicated PR (block parallel merge-on-green race).
+8. Dedicated PR against base (`main`) closes Roxabi/roxabi-boilerplate-cf#20. Dependabot **Roxabi/roxabi-boilerplate-cf#5 is closed/superseded before merge** of the dedicated PR (block parallel merge-on-green race).
 
 ## Data Model & Consumers
 
@@ -68,7 +68,7 @@ No application data model. Dependency graph only:
 |----|---------|---------|------|
 | D1 | `packages/ui/package.json` lucide range | edit + `bun install` | lockfile |
 | D2 | `apps/example-web/package.json` lucide range | edit + `bun install` | lockfile |
-| D3 | Dependabot PR #5 | close/supersede after land | GH |
+| D3 | Dependabot PR Roxabi/roxabi-boilerplate-cf#5 | close/supersede after land | GH |
 
 ### Icon import axis
 
@@ -88,7 +88,7 @@ No application data model. Dependency graph only:
 ### Wiring
 
 ```
-D1+D2 → lockfile 1.x → I1+I2 rename pass → V1+V2+V3 green → dedicated PR → D3 close #5
+D1+D2 → lockfile 1.x → I1+I2 rename pass → V1+V2+V3 green → dedicated PR → D3 close Roxabi/roxabi-boilerplate-cf#5
 ```
 
 ## Slices
@@ -97,7 +97,7 @@ D1+D2 → lockfile 1.x → I1+I2 rename pass → V1+V2+V3 green → dedicated PR
 |---|------|-------------|---------------|
 | 1 | Inventory + bump + lock | D1, D2 | Pre-bump import inventory captured; both package.json share same `^1.N.M`; lockfile single 1.x; clean install |
 | 2 | Rename pass + green | I1, I2, V1, V2, V3 | Post-inventory ⊆ pre ∪ rename table; typecheck UI + example-web green after clean install; example-web build green |
-| 3 | Ship PR | D3 | Dedicated PR open for #20; #5 closed/superseded **before** merge |
+| 3 | Ship PR | D3 | Dedicated PR open for Roxabi/roxabi-boilerplate-cf#20; Roxabi/roxabi-boilerplate-cf#5 closed/superseded **before** merge |
 
 Slices 1–2 may land in one commit if the rename set is empty (bump alone typechecks).
 
@@ -110,8 +110,8 @@ Slices 1–2 may land in one commit if the rename set is empty (bump alone typec
 - [ ] After clean install: `bun run --filter @kit/ui typecheck` exits 0
 - [ ] After clean install: `bun run --filter @kit/example-web typecheck` exits 0 (or package script equivalent)
 - [ ] After clean install: `example-web` production build exits 0 with no unresolved `lucide-react` exports
-- [ ] Dedicated PR targets base branch and references #20
-- [ ] Dependabot PR #5 closed or superseded **before** the dedicated PR merges (no parallel merge race)
+- [ ] Dedicated PR targets base branch and references Roxabi/roxabi-boilerplate-cf#20
+- [ ] Dependabot PR Roxabi/roxabi-boilerplate-cf#5 closed or superseded **before** the dedicated PR merges (no parallel merge race)
 
 ## Open Questions
 
@@ -124,13 +124,13 @@ none
 | No renames needed after bump | Ship bump-only; still run full V1–V3 |
 | Icon removed in 1.x with no 1:1 rename | Explicit substitution table in PR (old → new export); reject unbounded glyph swaps |
 | Dual versions in monorepo | Force **identical** range in both package.json; assert single lock resolution |
-| Dependabot #5 conflicts / stale | Implement on `feat/20-lucide-react-1x`; close #5 before dedicated merge; do not merge #5 |
+| Dependabot Roxabi/roxabi-boilerplate-cf#5 conflicts / stale | Implement on `feat/20-lucide-react-1x`; close Roxabi/roxabi-boilerplate-cf#5 before dedicated merge; do not merge Roxabi/roxabi-boilerplate-cf#5 |
 | Stale node_modules after bump | Always clean install before V1–V3; CI uses lockfile |
 | Product apps pin lucide independently | Out of scope; PR body notes consumers should align major when they pull kit |
 
 ## Non-goals
 
 - Other UI deps (recharts, etc.)
-- Wave 3 (#21)
+- Wave 3 (Roxabi/roxabi-boilerplate-cf#21)
 - Visual redesign / icon set expansion
 - Changing shadcn Base UI engine

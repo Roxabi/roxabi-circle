@@ -29,7 +29,7 @@ function bytesToBase64Url(bytes: Uint8Array): string {
   for (const b of bytes) {
     binary += String.fromCharCode(b)
   }
-  return btoa(binary).replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/, '')
+  return btoa(binary).replaceAll('+', '-').replaceAll('/', '_').replace(/[=]+$/, '')
 }
 
 function base64UrlToBytes(cursor: string): Uint8Array {
@@ -75,24 +75,18 @@ export function decodeListCursor(cursor: string): Record<string, string | number
     throw AppError.validation(INVALID_CURSOR_MESSAGE)
   }
 
-  const out: Record<string, string | number> = {}
-  for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
-    if (typeof v === 'string') {
-      out[k] = v
-      continue
-    }
-    if (typeof v === 'number' && Number.isFinite(v)) {
-      out[k] = v
-      continue
-    }
+  const keys = Object.keys(parsed)
+  if (keys.length === 0) {
+    throw AppError.validation(INVALID_CURSOR_MESSAGE)
+  }
+  for (const key of keys) {
+    const value = (parsed as Record<string, unknown>)[key]
+    if (typeof value === 'string') continue
+    if (typeof value === 'number' && Number.isFinite(value)) continue
     throw AppError.validation(INVALID_CURSOR_MESSAGE)
   }
 
-  if (Object.keys(out).length === 0) {
-    throw AppError.validation(INVALID_CURSOR_MESSAGE)
-  }
-
-  return out
+  return parsed as Record<string, string | number>
 }
 
 /**

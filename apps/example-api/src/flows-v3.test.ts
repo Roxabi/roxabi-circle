@@ -5,17 +5,17 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { flowRuns } from './db/schema'
 import * as flowsRepo from './repos/flows'
 import { mintApiKey } from './services/auth'
+import { type ApiApp, type ApiEnv, bearerHeaders, sessionHeaders } from './test/api-fixture'
 import {
   BOTH_ORGS,
-  bearerHeaders,
   enableFlowsForOrgs,
   expectError,
   login,
   ORG_ACME,
   STAFF_EMAIL,
   seedFlowsApp,
-  sessionHeaders,
 } from './test/flows-fixture'
+import { workflowInstanceStub } from './test/memory-env'
 
 afterEach(() => {
   vi.restoreAllMocks()
@@ -36,7 +36,7 @@ async function staffWithPlan() {
   const { app, env, db } = await seedFlowsApp()
   await enableFlowsForOrgs(db, BOTH_ORGS)
   const cookie = await login(app, env, STAFF_EMAIL)
-  const headers = sessionHeaders(cookie)
+  const headers = sessionHeaders(cookie, ORG_ACME)
   const created = await app.request(
     '/api/flows/plans',
     { method: 'POST', headers, body: JSON.stringify({ yaml: INVOKE_ONLY_PLAN_YAML }) },
@@ -48,7 +48,9 @@ async function staffWithPlan() {
 }
 
 function spyCreate(env: Awaited<ReturnType<typeof staffWithPlan>>['env']) {
-  const create = vi.fn(async (opts?: { id?: string }) => ({ id: opts?.id ?? 'wf_test' }))
+  const create = vi.fn(async (opts?: { id?: string }) =>
+    workflowInstanceStub(opts?.id ?? 'wf_test'),
+  )
   env.FLOW_RUN.create = create
   return create
 }
@@ -168,7 +170,7 @@ describe('V3 create-run + rollup', () => {
 
   it('POST run when FLOW_RUN.create throws and CAS marks 0 is 500 not 502 and GET stays queued', async () => {
     const { app, env, headers, planId } = await staffWithPlan()
-    const create = vi.fn(async () => {
+    const create = vi.fn(async (_opts?: CreateArg): Promise<WorkflowInstance> => {
       throw new Error('workflow down')
     })
     env.FLOW_RUN.create = create
@@ -186,7 +188,7 @@ describe('V3 create-run + rollup', () => {
 
   it('POST run when FLOW_RUN.create throws is 502 INTERNAL_ERROR and GET is failed never queued', async () => {
     const { app, env, headers, planId } = await staffWithPlan()
-    const create = vi.fn(async () => {
+    const create = vi.fn(async (_opts?: CreateArg): Promise<WorkflowInstance> => {
       throw new Error('workflow down')
     })
     env.FLOW_RUN.create = create
@@ -209,9 +211,9 @@ describe('V3 create-run + rollup', () => {
   it('GET failed run with skip/fail receipts matches D1 rollup and omits CF complete', async () => {
     const { app, env, db, headers, planId } = await staffWithPlan()
     const runId = 'run_failed_rollup'
-    env.FLOW_RUN.create = vi.fn(async () => ({ id: runId, status: 'complete' }))
-    const get = vi.fn(async () => ({ status: 'complete' }))
-    ;(env.FLOW_RUN as { get?: typeof get }).get = get
+    env.FLOW_RUN.create = vi.fn(async () => workflowInstanceStub(runId, 'complete'))
+    const get = vi.fn(async () => workflowInstanceStub(runId, 'complete'))
+    env.FLOW_RUN.get = get
     const now = Date.now()
     await db
       .insert(flowRuns)
@@ -257,5 +259,178 @@ describe('V3 create-run + rollup', () => {
     const res = await postRun(app, env, bearerHeaders(minted.key), planId, '{}')
     await expectError(res, 403, 'FORBIDDEN')
     expect(create).not.toHaveBeenCalled()
+  })
+})
+
+const INFER_PLAN_YAML = `flows: v0
+plan:
+  id: infer-only
+  model: kit-infer
+  max_tokens: 100
+permits:
+  tools:
+    - echo
+tasks:
+  summarize:
+    infer:
+      prompt: "hi"
+      max_tokens: 40
+`
+
+describe('create-run model allowlist (Roxabi/roxabi-boilerplate-cf#227)', () => {
+  async function publishedPlanId(app: ApiApp, env: ApiEnv, headers: Record<string, string>) {
+    env.FLOW_ALLOWED_MODELS = 'kit-infer'
+    const created = await app.request(
+      '/api/flows/plans',
+      { method: 'POST', headers, body: JSON.stringify({ yaml: INFER_PLAN_YAML }) },
+      env,
+    )
+    expect(created.status).toBe(201)
+    const body: unknown = await created.json()
+    if (!body || typeof body !== 'object' || !('plan' in body)) throw new Error('no plan')
+    const plan = body.plan
+    if (!plan || typeof plan !== 'object' || !('id' in plan) || typeof plan.id !== 'string') {
+      throw new Error('no plan id')
+    }
+    return plan.id
+  }
+
+  function issueCodes(body: unknown): string[] {
+    if (!body || typeof body !== 'object' || !('error' in body)) return []
+    const error = body.error
+    if (!error || typeof error !== 'object' || !('details' in error)) return []
+    const details = error.details
+    if (!details || typeof details !== 'object' || !('issues' in details)) return []
+    const issues = details.issues
+    if (!Array.isArray(issues)) return []
+    return issues.flatMap((issue) => {
+      if (!issue || typeof issue !== 'object' || !('code' in issue)) return []
+      return typeof issue.code === 'string' ? [issue.code] : []
+    })
+  }
+
+  it('POST run of an infer plan with an empty FLOW_ALLOWED_MODELS is 400 EMPTY_MODELS', async () => {
+    const { app, env, db } = await seedFlowsApp()
+    await enableFlowsForOrgs(db, BOTH_ORGS)
+    const headers = sessionHeaders(await login(app, env, STAFF_EMAIL), ORG_ACME)
+    const planId = await publishedPlanId(app, env, headers)
+    env.FLOW_ALLOWED_MODELS = ''
+    const res = await postRun(app, env, headers, planId, '{}')
+    expect(res.status).toBe(400)
+    const body: unknown = await res.json()
+    expect(issueCodes(body)).toContain('EMPTY_MODELS')
+  })
+
+  it('POST run body allowedModels is a strict-body 400, not a model check', async () => {
+    const { app, env, db } = await seedFlowsApp()
+    await enableFlowsForOrgs(db, BOTH_ORGS)
+    const headers = sessionHeaders(await login(app, env, STAFF_EMAIL), ORG_ACME)
+    const planId = await publishedPlanId(app, env, headers)
+    env.FLOW_ALLOWED_MODELS = 'kit-infer'
+    const res = await postRun(
+      app,
+      env,
+      headers,
+      planId,
+      JSON.stringify({ allowedModels: ['kit-infer'] }),
+    )
+    expect(res.status).toBe(400)
+    const body: unknown = await res.json()
+    if (!body || typeof body !== 'object' || !('error' in body)) throw new Error('no error body')
+    const error = body.error
+    if (!error || typeof error !== 'object' || !('code' in error) || !('message' in error)) {
+      throw new Error('no error code')
+    }
+    expect(error.code).toBe('VALIDATION_ERROR')
+    expect(error.message).toBe('Invalid request body')
+    expect(issueCodes(body)).not.toContain('EMPTY_MODELS')
+    expect(issueCodes(body)).not.toContain('MODEL_NOT_GRANTED')
+  })
+
+  it('POST run of an infer plan with FLOW_ALLOWED_MODELS unset is 400 EMPTY_MODELS', async () => {
+    const { app, env, db } = await seedFlowsApp()
+    await enableFlowsForOrgs(db, BOTH_ORGS)
+    const headers = sessionHeaders(await login(app, env, STAFF_EMAIL), ORG_ACME)
+    const planId = await publishedPlanId(app, env, headers)
+    delete env.FLOW_ALLOWED_MODELS
+    const res = await postRun(app, env, headers, planId, '{}')
+    expect(res.status).toBe(400)
+    const body: unknown = await res.json()
+    expect(issueCodes(body)).toContain('EMPTY_MODELS')
+  })
+
+  it('POST run of an infer plan whose model is listed is 202', async () => {
+    const { app, env, db } = await seedFlowsApp()
+    await enableFlowsForOrgs(db, BOTH_ORGS)
+    const headers = sessionHeaders(await login(app, env, STAFF_EMAIL), ORG_ACME)
+    const planId = await publishedPlanId(app, env, headers)
+    env.FLOW_ALLOWED_MODELS = 'kit-infer'
+    const res = await postRun(app, env, headers, planId, '{}')
+    expect(res.status).toBe(202)
+    const body: unknown = await res.json()
+    expect(issueCodes(body)).not.toContain('EMPTY_MODELS')
+    expect(issueCodes(body)).not.toContain('MODEL_NOT_GRANTED')
+  })
+
+  it('POST check of an invoke-only plan survives a malformed allowlist', async () => {
+    const { app, env, db } = await seedFlowsApp()
+    await enableFlowsForOrgs(db, BOTH_ORGS)
+    env.FLOW_ALLOWED_MODELS = Array.from({ length: 33 }, (_, i) => `m${i}`).join(',')
+    const res = await app.request(
+      '/api/flows/plans/check',
+      {
+        method: 'POST',
+        headers: sessionHeaders(await login(app, env, STAFF_EMAIL), ORG_ACME),
+        body: JSON.stringify({ yaml: INVOKE_ONLY_PLAN_YAML }),
+      },
+      env,
+    )
+    expect(res.status).toBe(200)
+  })
+
+  it('POST check of an infer plan with a malformed allowlist is 500 without the env name', async () => {
+    const { app, env, db } = await seedFlowsApp()
+    await enableFlowsForOrgs(db, BOTH_ORGS)
+    env.FLOW_ALLOWED_MODELS = Array.from({ length: 33 }, (_, i) => `m${i}`).join(',')
+    const res = await app.request(
+      '/api/flows/plans/check',
+      {
+        method: 'POST',
+        headers: sessionHeaders(await login(app, env, STAFF_EMAIL), ORG_ACME),
+        body: JSON.stringify({ yaml: INFER_PLAN_YAML }),
+      },
+      env,
+    )
+    expect(res.status).toBe(500)
+    expect(await res.text()).not.toContain('FLOW_ALLOWED_MODELS')
+  })
+
+  it('POST run fails MODEL_NOT_GRANTED when env lists a different id than the plan', async () => {
+    const { app, env, db } = await seedFlowsApp()
+    await enableFlowsForOrgs(db, BOTH_ORGS)
+    const headers = sessionHeaders(await login(app, env, STAFF_EMAIL), ORG_ACME)
+    const planId = await publishedPlanId(app, env, headers)
+    env.FLOW_ALLOWED_MODELS = 'other-model'
+    const res = await postRun(app, env, headers, planId, '{}')
+    expect(res.status).toBe(400)
+    const body: unknown = await res.json()
+    expect(issueCodes(body)).toContain('MODEL_NOT_GRANTED')
+    expect(issueCodes(body)).not.toContain('EMPTY_MODELS')
+  })
+
+  it('POST check body allowedModels is 400 strict', async () => {
+    const { app, env, db } = await seedFlowsApp()
+    await enableFlowsForOrgs(db, BOTH_ORGS)
+    const cookie = await login(app, env, STAFF_EMAIL)
+    const res = await app.request(
+      '/api/flows/plans/check',
+      {
+        method: 'POST',
+        headers: sessionHeaders(cookie, ORG_ACME),
+        body: JSON.stringify({ yaml: INFER_PLAN_YAML, allowedModels: ['kit-infer'] }),
+      },
+      env,
+    )
+    await expectError(res, 400, 'VALIDATION_ERROR')
   })
 })

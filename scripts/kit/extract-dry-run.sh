@@ -10,6 +10,10 @@
 set -euo pipefail
 
 ROOT="${EXTRACT_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}"
+# The kit's empty Bun config for gate steps, resolved from this script's tree before the cd.
+GATE_BUNFIG="$(cd "$(dirname "$0")/../.." && pwd)/config/kit/bunfig.gates.toml"
+# shellcheck source=lib/kit-apps.sh
+source "$(dirname "$0")/lib/kit-apps.sh"
 cd "$ROOT"
 
 export ROOT
@@ -60,6 +64,12 @@ required=(
   packages/ui/package.json
   packages/email/package.json
   packages/mcp/package.json
+  packages/flows/package.json
+  packages/tasks/package.json
+  packages/comments/package.json
+  packages/notifications/package.json
+  packages/api-client/package.json
+  packages/i18n/package.json
   apps/example-api/package.json
   apps/example-web/package.json
   apps/mcp-example/package.json
@@ -75,49 +85,92 @@ for f in "${required[@]}"; do
   fi
 done
 
-KIT_APP_ALLOW=(
-  example-api
-  example-web
+# ADR-0011 D3: tools/ is folded. Empty dir is tolerated; any entry fails.
+# `find` not `ls` — command substitution of ls -A drops a newline-only name.
+if [[ -e tools ]]; then
+  if [[ ! -d tools ]]; then
+    echo "extract-dry-run: tools must not exist as a non-directory (ADR-0011)" >&2
+    exit 1
+  fi
+  set +e
+  leftover="$(find tools -mindepth 1 -print -quit 2>/dev/null)"
+  find_ec=$?
+  set -e
+  if [[ "$find_ec" -ne 0 ]]; then
+    echo "extract-dry-run: tools/ scan failed (ADR-0011)" >&2
+    exit 1
+  fi
+  if [[ -n "$leftover" ]]; then
+    echo "extract-dry-run: tools/ must stay empty (ADR-0011); found ${leftover}" >&2
+    exit 1
+  fi
+fi
+
+# Kit apps = the apps/<name>/ protected_prefixes of zero-edit-zones.json, the list every gate reads (Roxabi/roxabi-boilerplate-cf#318).
+# extract-dry-run.sh, check-banned-strings.sh and kit-schema-sync.sh share kit_app_names (lib/kit-apps.sh).
+kit_apps="$(kit_app_names config/kit/zero-edit-zones.json)" || {
+  echo "extract-dry-run: cannot read the kit apps from config/kit/zero-edit-zones.json" >&2
+  exit 1
+}
+mapfile -t KIT_APP_ALLOW <<<"$kit_apps"
+# Reserved extract name — not a kit example until the app exists, not a product app.
+KIT_APP_DENY=(
   example-web-branded
-  mcp-example
 )
+
+list_app_dirs() {
+  if [[ ! -d apps ]]; then
+    return 0
+  fi
+  find apps -mindepth 1 -maxdepth 1 -type d -print
+}
+
+is_denied_app() {
+  local name="$1" denied
+  for denied in "${KIT_APP_DENY[@]}"; do
+    if [[ "$name" == "$denied" ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+is_allowed_app() {
+  local name="$1" ok
+  for ok in "${KIT_APP_ALLOW[@]}"; do
+    if [[ "$name" == "$ok" ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
 
 if [[ "$MODE" == "kit" ]]; then
   echo "== extract-dry-run: product-app allowlist (kit mode) =="
-  for app_dir in apps/*/; do
-    [[ -d "$app_dir" ]] || continue
+  while IFS= read -r app_dir; do
+    [[ -n "$app_dir" ]] || continue
     app_name="$(basename "$app_dir")"
-    allowed=0
-    for ok in "${KIT_APP_ALLOW[@]}"; do
-      if [[ "$app_name" == "$ok" ]]; then
-        allowed=1
-        break
-      fi
-    done
-    if [[ "$allowed" -eq 0 ]]; then
+    if is_denied_app "$app_name" || ! is_allowed_app "$app_name"; then
       echo "UNEXPECTED app (not in kit allowlist): apps/$app_name" >&2
       exit 1
     fi
-  done
+  done < <(list_app_dirs | sort)
   echo "NOTE: kit tree — no product apps under apps/"
 elif [[ "$MODE" == "product" ]]; then
   echo "== extract-dry-run: product apps (product mode) =="
   product_found=0
-  for app_dir in apps/*/; do
-    [[ -d "$app_dir" ]] || continue
+  while IFS= read -r app_dir; do
+    [[ -n "$app_dir" ]] || continue
     app_name="$(basename "$app_dir")"
-    allowed=0
-    for ok in "${KIT_APP_ALLOW[@]}"; do
-      if [[ "$app_name" == "$ok" ]]; then
-        allowed=1
-        break
-      fi
-    done
-    if [[ "$allowed" -eq 0 ]]; then
+    if is_denied_app "$app_name"; then
+      echo "UNEXPECTED app (reserved kit name, not yet extracted): apps/$app_name" >&2
+      exit 1
+    fi
+    if ! is_allowed_app "$app_name"; then
       product_found=1
       echo "NOTE: product app present (expected on product tree): apps/$app_name"
     fi
-  done
+  done < <(list_app_dirs | sort)
   if [[ "$product_found" -eq 0 ]]; then
     echo "NOTE: product tree with kit examples only (no product apps yet)"
   fi
@@ -126,8 +179,8 @@ else
   exit 1
 fi
 
-echo "== extract-dry-run: banlist (packages + example apps only) =="
-# check-banned-strings.sh already targets packages + apps/example-* only
+echo "== extract-dry-run: banlist (packages + kit apps only) =="
+# check-banned-strings.sh targets packages + the kit apps of zero-edit-zones.json (lib/kit-apps.sh)
 bash scripts/kit/check-banned-strings.sh
 
 echo "== extract-dry-run: every package imported by an example =="
@@ -151,6 +204,22 @@ search_q '@kit/email' apps/example-api || {
   echo "example-api must import @kit/email" >&2
   exit 1
 }
+search_q '@kit/flows' apps/example-api || {
+  echo "example-api must import @kit/flows" >&2
+  exit 1
+}
+search_q '@kit/tasks' apps/example-api || {
+  echo "example-api must import @kit/tasks" >&2
+  exit 1
+}
+search_q '@kit/comments' apps/example-api || {
+  echo "example-api must import @kit/comments" >&2
+  exit 1
+}
+search_q '@kit/notifications' apps/example-api || {
+  echo "example-api must import @kit/notifications" >&2
+  exit 1
+}
 search_q '@kit/mcp' apps/mcp-example || {
   echo "mcp-example must import @kit/mcp" >&2
   exit 1
@@ -171,11 +240,16 @@ search_q '@kit/api-client' apps/example-web || {
   echo "example-web must import @kit/api-client" >&2
   exit 1
 }
+search_q '@kit/auth' apps/example-web || {
+  echo "example-web must import @kit/auth" >&2
+  exit 1
+}
 
 
 echo "== extract-dry-run: no orphan workspace packages (optional hard-fail) =="
-# Packages under packages/* must be referenced outside their own dir (except config tooling).
-# EXTRACT_ORPHAN_FAIL=1 enables hard-fail (default on).
+# Packages under packages/* must be referenced from apps/. A directory without a
+# manifest is not a workspace (e.g. packages/config tooling assets) and is skipped.
+# Sibling-only hits do not count. EXTRACT_ORPHAN_FAIL=1 enables hard-fail (default on).
 ORPHAN_FAIL="${EXTRACT_ORPHAN_FAIL:-1}"
 orphan=0
 # Use a small Node helper so we avoid set -o pipefail + rg exit-1 traps.
@@ -184,8 +258,6 @@ orphan_report="$(
 import { readdirSync, readFileSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
 
-const skip = new Set(['config'])
-const roots = ['apps', 'packages']
 function walk(dir, acc = []) {
   if (!existsSync(dir)) return acc
   for (const ent of readdirSync(dir, { withFileTypes: true })) {
@@ -197,17 +269,15 @@ function walk(dir, acc = []) {
   return acc
 }
 
-const files = roots.flatMap((r) => walk(r))
+const files = walk('apps')
 const orphans = []
 for (const pkgDir of readdirSync('packages', { withFileTypes: true })) {
-  if (!pkgDir.isDirectory() || skip.has(pkgDir.name)) continue
+  if (!pkgDir.isDirectory()) continue
   const pkgJsonPath = join('packages', pkgDir.name, 'package.json')
   if (!existsSync(pkgJsonPath)) continue
   const name = JSON.parse(readFileSync(pkgJsonPath, 'utf8')).name
   if (!name) continue
-  const selfPrefix = join('packages', pkgDir.name) + '/'
   const hit = files.some((f) => {
-    if (f.startsWith(selfPrefix)) return false
     try {
       return readFileSync(f, 'utf8').includes(name)
     } catch {
@@ -217,7 +287,7 @@ for (const pkgDir of readdirSync('packages', { withFileTypes: true })) {
   if (!hit) orphans.push(`${name} (packages/${pkgDir.name})`)
 }
 if (orphans.length) {
-  for (const o of orphans) console.log(`ORPHAN package (no importers outside itself): ${o}`)
+  for (const o of orphans) console.log(`ORPHAN package (no apps/ importer): ${o}`)
   process.exit(2)
 }
 process.exit(0)
@@ -257,10 +327,12 @@ if [[ ! -f docs/kit/architecture/adr/0002-session-hmac-interim-vs-better-auth.md
 fi
 
 
+# --no-env-file + the kit's empty --config: both read EXTRACT_ROOT, which a tree's .env or
+# bunfig.toml (preload / define) must not set.
 echo "== extract-dry-run: residency (kit tables + org policy) =="
-bun scripts/kit/extract-residency.ts
+bun --no-env-file --config="$GATE_BUNFIG" scripts/kit/extract-residency.ts
 
 echo "== extract-dry-run: temp compose proof (typecheck + org 200/404) =="
-bun scripts/kit/extract-compose-proof.ts
+bun --no-env-file --config="$GATE_BUNFIG" scripts/kit/extract-compose-proof.ts
 
 echo "extract-dry-run: OK (mode=${MODE})"

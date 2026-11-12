@@ -15,7 +15,7 @@ related:
 
 Closes the taxonomy hole left by [ADR-0009](./0009-kit-namespace-polarity-inheritance-marker.md) D2: `tools/` stayed a kit-owned dump that mixed **executables** and **policy data**. Products had no legal place for dedicated helpers except `scripts/product/`, and kit exemption registers sat next to checkers instead of under `config/kit/`.
 
-Implements [#120](https://github.com/Roxabi/roxabi-boilerplate-cf/issues/120). Product file-length surface remains [#118](https://github.com/Roxabi/roxabi-boilerplate-cf/issues/118) (`config/product/file_exemptions.txt`).
+Implements [Roxabi/roxabi-boilerplate-cf#120](https://github.com/Roxabi/roxabi-boilerplate-cf/issues/120). Product file-length surface remains [Roxabi/roxabi-boilerplate-cf#118](https://github.com/Roxabi/roxabi-boilerplate-cf/issues/118) (`config/product/file_exemptions.txt`).
 
 ## Context
 
@@ -28,7 +28,7 @@ That left two rules in the same repo:
 | code → `scripts/{kit,product}/` | checkers + worktree helpers |
 | data → `config/{kit,product}/` | `*_exemptions.txt`, `qg.conf` |
 
-#118 had to invent `config/product/file_exemptions.txt` because putting a product register under `tools/` would require `tools/product/` and punch a hole in the `tools/` zero-edit prefix.
+Roxabi/roxabi-boilerplate-cf#118 had to invent `config/product/file_exemptions.txt` because putting a product register under `tools/` would require `tools/product/` and punch a hole in the `tools/` zero-edit prefix.
 
 ## Options Considered
 
@@ -45,7 +45,7 @@ That left two rules in the same repo:
 ### Option C — Leave `tools/` as the quality-gate island
 
 - **Pros:** zero work
-- **Cons:** #118 already proved the split is load-bearing; folder-size and import-boundary would keep dual-editing `tools/*.txt`
+- **Cons:** Roxabi/roxabi-boilerplate-cf#118 already proved the split is load-bearing; folder-size and import-boundary would keep dual-editing `tools/*.txt`
 
 ## Decision
 
@@ -73,23 +73,23 @@ Live kit register paths after cutover:
 
 Product registers (optional, absent = accept):
 
-- `config/product/file_exemptions.txt` (#118)
+- `config/product/file_exemptions.txt` (Roxabi/roxabi-boilerplate-cf#118)
 - `config/product/folder_exemptions.txt`
 - `config/product/import-boundary-exemptions.txt`
 
-Same fail-closed class as #118: `apps/<product>-{api,web,mcp}/` only, explicit caps, no kit-path, no wildcard, kit-dup refused.
+Same fail-closed class as Roxabi/roxabi-boilerplate-cf#118: `apps/<product>-{api,web,mcp}/` only, explicit caps, no kit-path, no wildcard, kit-dup refused.
 
 ### D3 — `tools/` after cutover
 
-`tools/` is not a polarity root. After the move it is empty, or contains one-release wrappers that print the new path and exit 2. Wrappers are deleted in the following kit release. Zero-edit may drop the `tools/` prefix once empty.
+`tools/` is not a polarity root. No permanent wrappers are part of the target; `extract-dry-run` fails closed when `tools/` exists and is non-empty (an empty directory is tolerated).
 
 ### D4 — `tooling/` stays
 
-`tooling/release-gifs/` is not this ADR. Still kit-owned prefix (ADR-0009 D2 remainder).
+The remaining `tooling/` tree is outside this ADR. Its kit-owned contents retain their ownership pending separate decisions.
 
 ### D5 — Invoke sites
 
-lefthook, `package.json`, `.claude/stack.yml`, and CP harnesses call `scripts/kit/…` and read `config/kit/…`. They do not honor a product-exported `QG_FILE_*` / `QG_FOLDER_*` as a live pin (same honesty as #118: `env -u` is best-effort; pin = zero-edit invoke sites + CI clean env).
+lefthook, `package.json`, `.dev/stack.yml`, and CP harnesses call `scripts/kit/…` and read `config/kit/…`. They do not honor a product-exported `QG_FILE_*` / `QG_FOLDER_*` as a live pin (same honesty as Roxabi/roxabi-boilerplate-cf#118: `env -u` is best-effort; pin = zero-edit invoke sites + CI clean env).
 
 ## Consequences
 
@@ -97,14 +97,14 @@ lefthook, `package.json`, `.claude/stack.yml`, and CP harnesses call `scripts/ki
 
 - One ownership rule for agents and humans
 - Product scripts have a real home (`scripts/product/`)
-- Exemption dual-edit of `tools/*.txt` ends (with #118 + the two sibling product registers)
+- Exemption dual-edit of `tools/*.txt` ends (with Roxabi/roxabi-boilerplate-cf#118 + the two sibling product registers)
 
 ### Negative
 
 - Path churn across leftover, CI, tests, consumer contract
-- Products that still patch `tools/file_exemptions.txt` must cut over (docs, one commit, same as #118)
+- Products that still patch `tools/file_exemptions.txt` must cut over (docs, one commit, same as Roxabi/roxabi-boilerplate-cf#118)
 
 ### Neutral
 
 - Checkers keep the same 300-line / 40-file defaults
-- `tooling/` wait is explicit, not forgotten
+- Remaining `tooling/` ownership is explicitly deferred, not forgotten

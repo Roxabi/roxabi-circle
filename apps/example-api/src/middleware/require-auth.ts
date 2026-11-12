@@ -17,7 +17,7 @@ function dbFromContext(c: { get: (k: 'db') => KitDb | undefined }): KitDb {
 /**
  * Dual-path auth: Bearer sk_ or Better Auth session cookie → subject + authMethod.
  */
-export const requireAuth: MiddlewareHandler<AppEnv> = createRequireAuth((c) => {
+const authenticate: MiddlewareHandler<AppEnv> = createRequireAuth((c) => {
   const db = dbFromContext(c as { get: (k: 'db') => KitDb | undefined })
   const cookieName = sessionCookieNameFromEnv(c.env)
   const auth = c.get('betterAuth')
@@ -25,7 +25,6 @@ export const requireAuth: MiddlewareHandler<AppEnv> = createRequireAuth((c) => {
     throw AppError.internal('betterAuth not bound — withBetterAuth middleware required')
   }
   return {
-    cookieName,
     sessions: createBetterAuthSessionPort({
       cookieName,
       getAuth: () => auth,
@@ -33,6 +32,14 @@ export const requireAuth: MiddlewareHandler<AppEnv> = createRequireAuth((c) => {
     findApiKeyByPrefix: async (prefix) => findKeyRecord(db, prefix),
   }
 }) as MiddlewareHandler<AppEnv>
+
+export const requireAuth: MiddlewareHandler<AppEnv> = async (c, next) => {
+  if (c.get('impersonationRow')) {
+    await next()
+    return
+  }
+  await authenticate(c, next)
+}
 
 /**
  * Org-bound keys only: re-check membership + active org on every use (ADR-0003 D11).
@@ -50,13 +57,9 @@ export const requireAuth: MiddlewareHandler<AppEnv> = createRequireAuth((c) => {
  * Authority for this rule is **ADR-0003 D11**, not a marker here.
  *
  * Marker asymmetry below is deliberate and measured, not an oversight. This function is
- * module-private, and semctx derives `tested_by` only from a named import inside a test-role file
- * — so no test can ever link to it without exporting it purely to satisfy a tool. Any marker that
- * arms a `block`-tier rule would therefore be permanently unsatisfiable here, and would pressure
- * whoever edits this file next into exporting a private function or stripping a marker while a
- * gate is red. So the two that arm rules are omitted: the invariant marker, and the security tag
- * (both fire on any node kind). The capability marker arms nothing — no rule reads it — so it
- * stays and keeps its navigational value.
+ * module-private: do not export it only to satisfy a documentation or analysis tool. Markers
+ * that arm block-tier rules on private helpers are omitted for that reason (invariant and
+ * security). The capability marker arms nothing — no rule reads it — so it stays for navigation.
  *
  * Names of the omitted markers are written without their leading sigil on purpose: `parseMarkers`
  * runs over the JSDoc attached to a TypeScript symbol, so naming them literally here would declare

@@ -1,4 +1,3 @@
-import { MAX_LINK_TRAVERSAL, type TaskLinkKind } from './constants'
 import type { TaskLink } from './schema'
 
 export type LinkIssueCode = 'REFLEXIVE' | 'DUPLICATE_EDGE' | 'MULTIPLE_PARENTS' | 'CYCLE'
@@ -23,16 +22,14 @@ export function checkNewLink(existing: readonly LinkEdge[], next: LinkEdge): Lin
   }
 
   const sameOrg = existing.filter((e) => e.orgId === next.orgId)
-  for (const e of existing) {
-    if (e.orgId !== next.orgId) continue
+  for (const e of sameOrg) {
     if (e.fromTaskId === next.fromTaskId && e.toTaskId === next.toTaskId && e.kind === next.kind) {
       issues.push({ code: 'DUPLICATE_EDGE', message: 'identical link already exists' })
     }
   }
 
   if (next.kind === 'parent') {
-    const otherParents = sameOrg.filter((e) => e.kind === 'parent' && e.toTaskId === next.toTaskId)
-    if (otherParents.length > 0) {
+    if (sameOrg.some((e) => e.kind === 'parent' && e.toTaskId === next.toTaskId)) {
       issues.push({
         code: 'MULTIPLE_PARENTS',
         message: 'child task already has a parent link',
@@ -45,7 +42,6 @@ export function checkNewLink(existing: readonly LinkEdge[], next: LinkEdge): Lin
     sameOrg.filter((e) => e.kind === next.kind),
     next.fromTaskId,
     next.toTaskId,
-    next.kind,
   )
   if (wouldCycle) {
     issues.push({
@@ -58,36 +54,26 @@ export function checkNewLink(existing: readonly LinkEdge[], next: LinkEdge): Lin
 }
 
 /**
- * DFS: after adding edge from→to, is there a path to→…→from?
+ * Adding from→to closes a cycle when `from` is already reachable from `to`.
+ * Each node is expanded once, so a finite graph always finishes.
  */
-function createsCycle(
-  edgesOfKind: readonly LinkEdge[],
-  from: string,
-  to: string,
-  _kind: TaskLinkKind,
-): boolean {
-  const adj = new Map<string, string[]>()
-  for (const e of edgesOfKind) {
-    const list = adj.get(e.fromTaskId) ?? []
-    list.push(e.toTaskId)
-    adj.set(e.fromTaskId, list)
+function createsCycle(edgesOfKind: readonly LinkEdge[], from: string, to: string): boolean {
+  const outgoing = new Map<string, string[]>()
+  for (const edge of edgesOfKind) {
+    const nexts = outgoing.get(edge.fromTaskId)
+    if (nexts === undefined) outgoing.set(edge.fromTaskId, [edge.toTaskId])
+    else nexts.push(edge.toTaskId)
   }
-  const list = adj.get(from) ?? []
-  list.push(to)
-  adj.set(from, list)
-
-  const stack = [to]
-  const seen = new Set<string>()
-  let steps = 0
-  while (stack.length > 0 && steps < MAX_LINK_TRAVERSAL) {
-    steps += 1
-    const node = stack.pop()
-    if (node === undefined) break
-    if (node === from) return true
-    if (seen.has(node)) continue
-    seen.add(node)
-    for (const next of adj.get(node) ?? []) {
-      stack.push(next)
+  const pending = [to]
+  const seen = new Set<string>([to])
+  for (let node = pending.pop(); node !== undefined; node = pending.pop()) {
+    const nexts = outgoing.get(node)
+    if (nexts === undefined) continue
+    for (const next of nexts) {
+      if (next === from) return true
+      if (seen.has(next)) continue
+      seen.add(next)
+      pending.push(next)
     }
   }
   return false

@@ -1,12 +1,44 @@
+import { meResponseSchema } from '@kit/api-client/me'
+import { baAccount } from '@kit/auth/schema'
 import { createDb } from '@kit/db'
 import { describe, expect, it } from 'vitest'
 import { demoUsers, schema } from '../db/schema'
 import { isModuleEffective } from '../services/platform-modules'
+import { createApiTestContext, loginCookie, TEST_ORIGIN } from '../test/api-fixture'
 import { createMemoryEnv } from '../test/memory-env'
 import { SEED_NOTES, SEED_USERS } from './demo-data'
 import { ensureDemoUsers, seedDemoDatabase } from './seed-db'
+import { TENANCY_PASSWORD } from './tenancy-data'
 
 describe('seedDemoDatabase', () => {
+  it('uses independent salted credentials across identities and fresh databases', async () => {
+    const contexts = [createApiTestContext(), createApiTestContext()]
+    const hashes: string[] = []
+    for (const { app, env, db } of contexts) {
+      await seedDemoDatabase(db, { notes: false, environment: 'test' })
+      const accounts = await db.select().from(baAccount).all()
+      for (const id of ['user_super', 'user_staff', 'user_demo']) {
+        const hash = accounts.find((account) => account.userId === id)?.password
+        expect(hash).toBeTruthy()
+        hashes.push(hash!)
+      }
+      for (const [email, subject] of [
+        ['staff@kit.local', 'user_staff'],
+        ['demo@kit.local', 'user_demo'],
+      ]) {
+        const cookie = await loginCookie(app, env, email!, TENANCY_PASSWORD)
+        const response = await app.request(
+          '/api/me',
+          { headers: { cookie, Origin: TEST_ORIGIN } },
+          env,
+        )
+        expect(response.status).toBe(200)
+        expect(meResponseSchema.parse(await response.json()).subject).toBe(subject)
+      }
+    }
+    expect(new Set(hashes).size).toBe(hashes.length)
+  })
+
   it('inserts users and notes once (idempotent)', async () => {
     const env = createMemoryEnv()
     const db = createDb(env.DB, schema)

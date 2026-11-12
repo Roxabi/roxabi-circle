@@ -105,7 +105,7 @@ Even with a clean structural axis, **semantic** platform capability is still “
         ↓  (missing package: org HTTP ports)
 example-api middleware org-context + module + rate-limit + audit
         ↓  (copy risk)
-product-api #2 …
+product-api 2 …
 ```
 
 Incubating kernels already show the N×M pattern **inside** `packages/*` (tasks/comments, flows/mcp). Fixing sibling twins now is cheaper than after two product composes. Platform JTBD (second compose without forking the runner **or** the org middleware) is not met by pure packages alone — composition helpers must promote with evidence, not as empty shells.

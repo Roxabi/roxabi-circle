@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { parseCreateTaskInput, parseTask, parseTaskLink, parseTaskStage } from './schema'
+import {
+  parseCreateTaskInput,
+  parseTask,
+  parseTaskLink,
+  parseTaskStage,
+  parseUpdateTaskInput,
+} from './schema'
 
 describe('parseTask / create', () => {
   const base = {
@@ -48,6 +54,23 @@ describe('parseTask / create', () => {
     })
     expect(r.success).toBe(true)
     if (r.success) expect(r.data.visibility).toBe('shared')
+  })
+})
+
+describe('parseUpdateTaskInput', () => {
+  it('accepts title-only patch', () => {
+    const r = parseUpdateTaskInput({ title: 'Renamed' })
+    expect(r.success).toBe(true)
+  })
+
+  it('requires scope pair on update', () => {
+    const r = parseUpdateTaskInput({ scopeKind: 'project' })
+    expect(r.success).toBe(false)
+  })
+
+  it('accepts scope pair on update', () => {
+    const r = parseUpdateTaskInput({ scopeKind: 'project', scopeId: 'p1' })
+    expect(r.success).toBe(true)
   })
 })
 

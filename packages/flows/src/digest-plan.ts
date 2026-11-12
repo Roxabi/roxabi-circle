@@ -1,4 +1,4 @@
-import { fnv1a32Hex, stableStringify } from './digest'
+import { fnv1a32Hex, stableDigestInput } from './digest'
 import type { PlanDocument } from './schema'
 
 /**
@@ -6,5 +6,5 @@ import type { PlanDocument } from './schema'
  * **Not** a cryptographic integrity control — sealedPlan body is authoritative.
  */
 export function digestPlan(plan: PlanDocument): string {
-  return fnv1a32Hex(stableStringify(plan))
+  return fnv1a32Hex(stableDigestInput(plan))
 }

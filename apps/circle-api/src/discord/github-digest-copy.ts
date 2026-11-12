@@ -50,7 +50,7 @@ export function formatDigestMessage(repos: DigestRepo[], dateLabel: string): str
   return body
 }
 
-export function formatPente(
+function formatPente(
   r: Pick<DigestRepo, 'deltaWeekly' | 'deltaDaily' | 'relWeek' | 'relDay'>,
 ): string {
   if (r.deltaWeekly && r.relWeek >= 0.08) {

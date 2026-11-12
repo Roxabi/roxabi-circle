@@ -3,13 +3,20 @@ title: 'ADR-0003 — Multi-tenant organization, platform RBAC, dual-level module
 status: accepted
 normative: true
 date: 2026-07-17
-amended: 2026-07-30
+amended: 2026-11-06
 axial: false
 consensus: (archived operator notes)
 supersedes_notes: >
   2026-07-30: A0 = HMAC session retired (see ADR-0002 amend).
   Phase B custom roles unparked as planned ship (after A4/invites UX);
   no longer « path only / park forever ».
+  2026-09-18: D4 + phasing corrected — Phase B custom roles and per-module
+  grants shipped 2026-07-31 (go-silex/silex-boilerplate#22) and are the live authority read by
+  mintGrantForOrg; nothing renamed.
+  2026-10-06: D10 widened from the invite/accept verbs to every Better Auth
+  organization route, denied by path prefix; D8 SPA row no longer relies on the
+  Better Auth active organization, whose set-active route that deny covers —
+  Roxabi/roxabi-boilerplate-cf#394.
 ---
 
 # ADR-0003 — Multi-tenant organization, platform RBAC, dual-level modules
@@ -72,7 +79,7 @@ operator analysis archive.
 | System org role on membership | **`member.role` = role_key string** |
 | Platform role (`super_admin` \| `staff`) | **Kit table `user_platform_roles`** |
 | Module catalogue + per-org enablement | **Kit tables** (not BA access-control statements) |
-| Phase B custom roles + per-module grants | **Kit tables** (future) |
+| Phase B custom roles + per-module grants | **Kit tables** (shipped — see D4) |
 
 **Better Auth organization plugin** is still Better Auth — optional module that adds tenant tables/APIs. It is **not** a second auth product.
 
@@ -93,11 +100,11 @@ owner > admin > member > reader
 | `member` | Standard write |
 | `reader` | Read-only |
 
-Default capability matrix is **code seed** in Phase A (not DB). Server rejects any other role string.
+System-role seed capability matrices provide defaults; current authorization resolves per-organization role-module grants. Server rejects role strings outside the configured system and custom roles.
 
-### D4 — Phase B custom roles (planned ship — unparked 2026-07-30)
+### D4 — Phase B custom roles (shipped 2026-07-31; status corrected 2026-09-18)
 
-Without rewriting the tenant spine, Phase B adds fine-grained grants:
+Without rewriting the tenant spine, Phase B adds fine-grained grants — **live**, and the source of authority `mintGrantForOrg` reads before a flows run is minted:
 
 ```text
 organization_roles (per org, is_system flag)
@@ -106,10 +113,23 @@ organization_role_module_grants (role_id, module_id, access: write | read | disa
 
 - Custom roles are **per-organization first** (no live shared platform templates with `organization_id NULL`).
 - Templates later = copy-on-create blueprints, not live shared grant rows.
-- System roles `owner|admin|member|reader` remain `is_system=true` with seed capability matrix as defaults.
+- System roles `owner|admin|member|reader` remain `is_system=true` with seed capability matrix as defaults — **except** the `flows` module, where the V0 seed deviates on purpose: `owner|admin` get `write`, `member|reader` get `disabled` (`ensureSystemRoles`, Roxabi/roxabi-boilerplate-cf#29 review). Any other module follows `systemRoleGrantSeed`.
 - Custom role keys map via `member.role` / membership role field per BA + kit convention; **fine grants resolve kit-side** (not BA static AC alone).
 - **Empty `@kit/rbac` package forbidden** — helpers live in `@kit/auth` (pure) and/or app services until ≥2 call sites (A8).
-- **Ship order:** after BA-only (ADR-0002 A0) + A4 shells/invites (UX to exercise grants). Implementation epic: GitHub (RBAC Phase B).
+- **Shipped**, not planned. Evidence:
+
+| Artefact | Path |
+|---|---|
+| Tables | [`migrations/0009_organization_roles_grants.sql`](../../../../apps/example-api/migrations/0009_organization_roles_grants.sql) (go-silex/silex-boilerplate#22) |
+| Schema | [`tenancy-schema.ts`](../../../../packages/auth/src/tenancy-schema.ts) — `organizationRoles`, `organizationRoleModuleGrants` |
+| Role × module resolution | [`services/org-roles.ts`](../../../../apps/example-api/src/services/org-roles.ts) — `resolveModuleAccess`, `listRolesWithGrants`; read-mostly, it lazily seeds missing system roles/grants |
+| System-role seed | [`module-grants.ts`](../../../../packages/auth/src/module-grants.ts) — `systemRoleGrantSeed` |
+| Routes | [`orgs-roles.schemas.ts`](../../../../apps/example-api/src/routes/orgs-roles.schemas.ts) — `listRoles`, `createRole`, `patchRoleGrant`, `deleteRole` |
+| Request guard | [`middleware/org-context.ts`](../../../../apps/example-api/src/middleware/org-context.ts) → `resolveModuleAccess` |
+| Authority consumer | [`services/flows-grant.ts`](../../../../apps/example-api/src/services/flows-grant.ts) — `mintGrantForOrg` |
+| Tests | [`org-roles-phase-b.test.ts`](../../../../apps/example-api/src/org-roles-phase-b.test.ts) |
+
+Ship order held: after BA-only (ADR-0002 A0) + A4 shells/invites.
 
 ### D5 — Platform roles
 
@@ -179,7 +199,7 @@ can(user, org, module, op) =
   AND membership active (or route-level super_admin flag)
   AND platform_modules.available
   AND organization_modules.enabled
-  AND role_grant(role_key, module, op)   -- Phase A: code map
+  AND role_grant(role_key, module, op)   -- per-org role-module grants
   AND (op ≠ write OR grant allows write)
 ```
 
@@ -189,12 +209,12 @@ Migrate existing `kit_modules` → `platform_modules` (`enabled` → `available`
 
 | Layer | Rule |
 |---|---|
-| SPA UX | BA active organization allowed as default (UX only) |
+| SPA UX | The SPA keeps its selected org client-side and sends it as the path or header below. Better Auth's active organization is unused: its `set-active` route is denied with every other organization route (D10) |
 | Authorization | **Explicit org id** preferred (path `/orgs/:orgId/...`); else validated header (`X-Org-Id`) |
 | Resolution order | path || header (no BA active-org fallback) |
 | Mismatch | **403** (never silent wrong-tenant write; fail-closed) |
 | Every data query | `WHERE organization_id = ?` fail-closed |
-| **Amendment (INV-05 / #140)** | Implementation is path || header, mismatch 403, no BA active-org fallback. Fail-closed. #142 dogfood-table amendment kept. |
+| **Kennel exemption (M-10)** | Dogfood `demo_items` / `demo_notes` / demo uploads are **subject-owned**. They MUST NOT take an `organization_id` column or `requireOrgContext` — org-gating writes while listing by subject was the D11 hole. Tenant tables (orgs, tasks, flows, comments) stay on D8. The `demo` module id stays in the catalogue/seed; it is **not** items authorization. |
 ### D9 — Super_admin support semantics
 
 | Operation | Default |
@@ -209,6 +229,7 @@ Support may diagnose with read; write is rare and explicit.
 ### D10 — Invitations (kit product APIs — B3 S2)
 
 - **Shipped (2026-07-31):** kit-owned invite APIs write BA `invitation` rows; BA-native org invite/accept paths stay **DENY**.
+- **Widened (2026-10-06, Roxabi/roxabi-boilerplate-cf#394):** every Better Auth organization route is denied, not only invite and accept. A product mount answers the kit 404 on `/api/auth/organization` and every path under it, case and repeated slashes ignored, before the throttle or the handler runs, per the [Better Auth mount contract](../../product-consumer-contract.md#better-auth-mount). Those routes skip the kit's role ceiling, org-status check and audit; the kit organization APIs replace them. A prefix also covers routes a Better Auth upgrade adds.
 - Threat model closed:
   - role allowlist `admin|member|reader` (never `owner`)
   - inviter ceiling (`owner` → admin|member|reader; `admin` → member|reader)
@@ -224,6 +245,7 @@ Support may diagnose with read; write is rare and explicit.
 - Dual credential **session \| Bearer `sk_`** remains (ADR-0002).
 - Multi-tenant keys are **org-bound**: store `organization_id` (+ optional scopes); re-check membership + org active on every use.
 - **Subject-global multi-org keys are forbidden.**
+- **Kennel exemption (M-10):** tenant routes stay org-bound (a key minted for org A cannot call `/api/orgs/{B}/...`). Kennel rows have no `organization_id`; the key authenticates the **subject**, so it sees that subject's personal items/notes/uploads. That is not a multi-org key.
 - Mint: **session only** (not from another key without explicit policy).
 
 ### D12 — Guards (compose, fail-closed)
@@ -260,16 +282,30 @@ Modules: e.g. `feedback` available on platform; enabled on acme; disabled on bet
 
 IDOR / cross-role tests are a **quality gate** for tenant routes (see consensus matrix / `docs/kit/testing.md` CP-IDOR extensions).
 
+### D15 — Session-bound Impersonation
+
+Impersonation is a separate, default-deny delegation, not the support bypass in D9. A `super_admin` configures independent `read` and `write` permissions for each internal Platform Role. Both the real operator and represented User must be members of the same active Organization, including when the operator is a `super_admin`. Represented Users cannot hold a Platform Role; self-delegation and chains are refused.
+
+The verified Better Auth session remains the operator's session. A server-owned row pins its session id, real actor, represented User, Organization and mode; it issues no target session or credential. There is no additional duration limit or reauthentication step. Better Auth validity and live membership, Platform Role, delegation permission and target Module grants remain authoritative on every request.
+
+The Example App admits explicit Organization-scoped business operations only. Target guards still apply, with no operator privilege union or Organization bypass. Delegated reads do not initialize business rows. Account/security changes, invitations, API keys, MCP/OAuth, durable flow operations and personal subject-owned routes are refused, including effectful GET endpoints.
+
+Clients send the exact public delegation id in `X-Impersonation-Id`, or `none` outside Impersonation. This is a context fence, never a credential: stale or missing context cannot silently execute as another principal, including through Bearer fallback after session loss. `/api/me` is a recovery read and stop uses the real session. Revoked delegation authority leaves a recovery-only identity with `active: false`, no target profile or memberships, and no business access until explicit return.
+
+Start and permission changes commit with their audit event atomically. Each admitted business request first persists an attributed **attempt**, not a claim of a successful committed mutation; failed trace persistence prevents dispatch. Stop conditionally deletes the expected delegation independently of its best-effort audit. Previously admitted work can finish under its captured identity; stopping does not promise rollback.
+
+All tabs sharing the session use one represented User, a persistent actor/target banner and explicit return, with principal-cache invalidation. V1 has no consent request, consent configuration or status, target notification, delegation expiry, or step-up. Storage and repositories are exported by `@kit/auth`; App-owned routing and operation policy compose them. The additive `impersonation` core schema id is applied through the normal consumer schema-sync contract.
+
 ## Phasing
 
-| Phase | Scope | Status (2026-07-30) |
+| Phase | Scope | Status (2026-09-18) |
 |---|---|---|
-| **A0** | Session BA-only — **HMAC retired** (ADR-0002 amend) | **Shipped** (epic B2 / GH #14) |
-| **A1** | BA `organization` plugin + four roles + org `kind`/`status` | **Shipped** (#11) |
-| **A2** | `user_platform_roles` + `platform_modules` + `organization_modules` + migrate `kit_modules` | **Shipped** (#11) |
-| **A3** | Guards + multi-persona seed + IDOR matrix CI; org-bound API keys | **Shipped** (#11) |
-| **A4** | Demo shells `/admin` + `/app` (S1) + kit invites UX (S2) | **S1+S2 shipped** (GH #15); S3 reset still open |
-| **B** | Custom org roles + per-module write/read/disabled matrix | **Unparked — planned ship** after A0+A4 |
+| **A0** | Session BA-only — **HMAC retired** (ADR-0002 amend) | **Shipped** (epic B2 / go-silex/silex-boilerplate#14) |
+| **A1** | BA `organization` plugin + four roles + org `kind`/`status` | **Shipped** (go-silex/silex-boilerplate#11) |
+| **A2** | `user_platform_roles` + `platform_modules` + `organization_modules` + migrate `kit_modules` | **Shipped** (go-silex/silex-boilerplate#11) |
+| **A3** | Guards + multi-persona seed + IDOR matrix CI; org-bound API keys | **Shipped** (go-silex/silex-boilerplate#11) |
+| **A4** | Demo shells `/admin` + `/app` (S1) + kit invites UX (S2) | **S1+S2 shipped** (go-silex/silex-boilerplate#15); S3 reset still open |
+| **B** | Custom org roles + per-module write/read/disabled matrix | **Shipped** (go-silex/silex-boilerplate#22, 2026-07-31) — see D4 evidence |
 
 ## Consequences
 
@@ -298,5 +334,16 @@ IDOR / cross-role tests are a **quality gate** for tenant routes (see consensus 
 - `platform_role` settable via invite, signup body, or org-admin APIs.
 - Staff listing/acting on all orgs without membership.
 - Super_admin write-all default inside `requireOrgContext`.
+- Subject-global API keys across multiple orgs.
+- Authorizing mutations from BA active-org cookie alone (no path/header re-check).
+- Module enablement only in BA static AC statements (no D1 available/enabled).
+- Empty `@kit/rbac` package “for later”.
+- Copying share-frame `private_acl` / GitHub org recheck as kit multi-tenant spine.
 
-[Showing lines 1-300 of 314. Use :301 to continue]
+## Related
+
+- [ADR-0001](./0001-primary-axis-packages-compose-apps.md) — packages compose apps  
+- [ADR-0002](./0002-session-hmac-interim-vs-better-auth.md) — BA-only session + `sk_` dual-path  
+- Consensus: operator archive  
+
+- Phase A modules: `platform_modules` / `organization_modules` (legacy `kit_modules` migrated in go-silex/silex-boilerplate#11)

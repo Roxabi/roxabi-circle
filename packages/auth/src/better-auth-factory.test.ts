@@ -19,12 +19,24 @@ type BaAuth = ReturnType<typeof createBetterAuth> & {
       cookies?: { session_token?: unknown }
     }
     plugins?: { id: string; options?: Record<string, unknown> }[]
+    rateLimit?: { enabled?: boolean }
   }
+}
+
+function stubD1() {
+  const stmt = {
+    bind: (..._values: unknown[]) => stmt,
+    first: async () => null,
+    run: async () => ({}),
+    all: async () => ({}),
+    raw: async <T = unknown>(): Promise<T[][]> => [],
+  }
+  return { prepare: (_query: string) => stmt }
 }
 
 function factory(overrides: Partial<Parameters<typeof createBetterAuth>[0]> = {}): BaAuth {
   return createBetterAuth({
-    database: {},
+    database: stubD1(),
     secret: SECRET,
     baseURL: 'http://localhost:8787',
     trustedOrigins: ['http://localhost:5173'],
@@ -56,6 +68,12 @@ describe('createBetterAuth', () => {
     expect(magic?.options?.expiresIn).toBe(MAGIC_LINK_EXPIRES_IN_SEC)
     expect(magic?.options?.disableSignUp).toBe(true)
     expect(send).not.toHaveBeenCalled()
+  })
+
+  it('omits magic-link and reset send when emailPort is absent', () => {
+    const auth = factory({ emailPort: undefined })
+    expect(auth.options.plugins?.map((p: { id: string }) => p.id)).toEqual(['organization'])
+    expect(auth.options.emailAndPassword?.sendResetPassword).toBeUndefined()
   })
 
   it('allowPublicSignup true enables password + magic-link sign-up', () => {
@@ -97,7 +115,7 @@ describe('createBetterAuth', () => {
     ).toThrow(/loopback/)
     expect(() =>
       createBetterAuth({
-        database: {},
+        database: stubD1(),
         secret: SECRET,
         baseURL: 'https://api.example.com',
         trustedOrigins: ['http://127.0.0.1:5173'],
@@ -139,5 +157,46 @@ describe('createBetterAuth', () => {
       url: 'http://localhost:8787/api/auth/magic-link/verify?token=x',
     })
     expect(send).toHaveBeenCalledTimes(2)
+  })
+  it('does not allowlist a request-derived baseURL host', async () => {
+    const send = vi.fn(async () => ({ ok: true, transport: 'log' }))
+    const auth = factory({
+      baseURL: 'https://evil.test',
+      trustedOrigins: ['https://app.example.com'],
+      allowLoopbackOrigins: false,
+      requestDerivedBaseURL: true,
+      emailPort: { send },
+    })
+    const magic = auth.options.plugins?.find((p: { id: string }) => p.id === 'magic-link') as {
+      options?: { sendMagicLink?: (i: { email: string; url: string }) => Promise<void> }
+    }
+    await expect(
+      magic?.options?.sendMagicLink?.({
+        email: 'a@b.c',
+        url: 'https://evil.test/api/auth/magic-link/verify?token=SECRET',
+      }),
+    ).rejects.toThrow(/EMAIL_TOKEN_HREF_INVALID/)
+    await magic?.options?.sendMagicLink?.({
+      email: 'a@b.c',
+      url: 'https://app.example.com/api/auth/magic-link/verify?token=ok',
+    })
+    expect(send).toHaveBeenCalledTimes(1)
+  })
+
+  it('pins Better Auth limiter off: the kit D1 throttle is the only one', () => {
+    // Unset, Better Auth enables a per-isolate memory limiter when NODE_ENV is 'production'.
+    expect(factory().options.rateLimit?.enabled).toBe(false)
+  })
+
+  it('refuses a baseURL path other than / or the kit mount, which the throttle would not match', async () => {
+    for (const baseURL of ['http://localhost:8787/auth', 'http://localhost:8787/api/auth/v2']) {
+      expect(() => factory({ baseURL }), baseURL).toThrow('BETTER_AUTH_URL path')
+    }
+    for (const baseURL of ['http://localhost:8787/', 'http://localhost:8787/api/auth/']) {
+      const res = await factory({ baseURL }).handler(
+        new Request('http://localhost:8787/api/auth/ok'),
+      )
+      expect(res.status, baseURL).toBe(200)
+    }
   })
 })

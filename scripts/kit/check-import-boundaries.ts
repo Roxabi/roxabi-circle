@@ -20,7 +20,6 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { dirname, join, normalize, relative, resolve, sep } from 'node:path'
 
 // Harness override for self-test temp trees (scripts run outside Turbo task graph).
-// biome-ignore lint/suspicious/noUndeclaredEnvVars: not a turbo-cached task env
 const ROOT = resolve(process.env.IMPORT_BOUNDARY_ROOT ?? join(import.meta.dirname, '../..'))
 
 const SOURCE_EXT = new Set(['.ts', '.tsx', '.js', '.mjs', '.cts', '.mts'])
@@ -96,30 +95,24 @@ function zoneForAppDir(dirName: string): Zone {
   if (dirName === 'example-api') return 'example-api'
   return 'other-app'
 }
+function pushWorkspaceDirs(
+  entries: WorkspaceEntry[],
+  parent: string,
+  zoneOf: (dirName: string) => Zone,
+): void {
+  if (!existsSync(parent)) return
+  for (const dir of readdirSync(parent)) {
+    const absDir = join(parent, dir)
+    if (!statSync(absDir).isDirectory()) continue
+    const name = loadPackageName(join(absDir, 'package.json'))
+    if (name) entries.push({ name, absDir, zone: zoneOf(dir) })
+  }
+}
 
 function loadWorkspaceMap(root: string): WorkspaceEntry[] {
   const entries: WorkspaceEntry[] = []
-
-  const packagesRoot = join(root, 'packages')
-  if (existsSync(packagesRoot)) {
-    for (const dir of readdirSync(packagesRoot)) {
-      const absDir = join(packagesRoot, dir)
-      if (!statSync(absDir).isDirectory()) continue
-      const name = loadPackageName(join(absDir, 'package.json'))
-      if (name) entries.push({ name, absDir, zone: 'package' })
-    }
-  }
-
-  const appsRoot = join(root, 'apps')
-  if (existsSync(appsRoot)) {
-    for (const dir of readdirSync(appsRoot)) {
-      const absDir = join(appsRoot, dir)
-      if (!statSync(absDir).isDirectory()) continue
-      const name = loadPackageName(join(absDir, 'package.json'))
-      if (name) entries.push({ name, absDir, zone: zoneForAppDir(dir) })
-    }
-  }
-
+  pushWorkspaceDirs(entries, join(root, 'packages'), () => 'package')
+  pushWorkspaceDirs(entries, join(root, 'apps'), zoneForAppDir)
   // Longest name first for subpath prefix match.
   entries.sort((a, b) => b.name.length - a.name.length)
   return entries
@@ -138,60 +131,69 @@ function zoneOfPath(absPath: string, root: string): Zone {
  * Strip line and block comments so regex extractors do not treat prose as imports.
  * Does not fully parse strings (template literals with nested quotes remain best-effort).
  */
-function stripComments(source: string): string {
-  let out = ''
-  let i = 0
-  while (i < source.length) {
-    const c = source[i]
-    const n = source[i + 1]
-    // line comment
-    if (c === '/' && n === '/') {
-      out += ' '
-      i += 2
-      while (i < source.length && source[i] !== '\n') {
-        out += ' '
-        i++
-      }
-      continue
-    }
-    // block comment
-    if (c === '/' && n === '*') {
-      out += '  '
-      i += 2
-      while (i < source.length && !(source[i] === '*' && source[i + 1] === '/')) {
-        out += source[i] === '\n' ? '\n' : ' '
-        i++
-      }
-      if (i < source.length) {
-        out += '  '
-        i += 2
-      }
-      continue
-    }
-    // single-quoted string
-    if (c === "'" || c === '"') {
-      const q = c
-      out += c
-      i++
-      while (i < source.length) {
-        out += source[i]
-        if (source[i] === '\\' && i + 1 < source.length) {
-          out += source[i + 1]
-          i += 2
-          continue
-        }
-        if (source[i] === q) {
-          i++
-          break
-        }
-        i++
-      }
-      continue
-    }
-    out += c
-    i++
+type CommentScan = { source: string; out: string; i: number }
+
+function skipLineComment(s: CommentScan): void {
+  s.out += ' '
+  s.i += 2
+  while (s.i < s.source.length && s.source[s.i] !== '\n') {
+    s.out += ' '
+    s.i++
   }
-  return out
+}
+
+function skipBlockComment(s: CommentScan): void {
+  s.out += '  '
+  s.i += 2
+  while (s.i < s.source.length && !(s.source[s.i] === '*' && s.source[s.i + 1] === '/')) {
+    s.out += s.source[s.i] === '\n' ? '\n' : ' '
+    s.i++
+  }
+  if (s.i < s.source.length) {
+    s.out += '  '
+    s.i += 2
+  }
+}
+
+function copyQuotedLiteral(s: CommentScan, quote: "'" | '"'): void {
+  s.out += quote
+  s.i++
+  while (s.i < s.source.length) {
+    s.out += s.source[s.i]
+    if (s.source[s.i] === '\\' && s.i + 1 < s.source.length) {
+      s.out += s.source[s.i + 1]
+      s.i += 2
+      continue
+    }
+    if (s.source[s.i] === quote) {
+      s.i++
+      break
+    }
+    s.i++
+  }
+}
+
+function stripComments(source: string): string {
+  const s: CommentScan = { source, out: '', i: 0 }
+  while (s.i < source.length) {
+    const c = source[s.i]
+    const n = source[s.i + 1]
+    if (c === '/' && n === '/') {
+      skipLineComment(s)
+      continue
+    }
+    if (c === '/' && n === '*') {
+      skipBlockComment(s)
+      continue
+    }
+    if (c === "'" || c === '"') {
+      copyQuotedLiteral(s, c)
+      continue
+    }
+    s.out += c
+    s.i++
+  }
+  return s.out
 }
 
 /** Drop Vite-style query/hash so `@kit/example-api?raw` still maps to workspace. */
@@ -305,6 +307,42 @@ function productAppOk(p: string): boolean {
   if (`${name}-${suffix}` === 'mcp-example') return false
   return true
 }
+function productExemptionError(
+  rel: string,
+  lineNo: number,
+  norm: string,
+  opts: { kitPaths: Set<string> },
+  paths: Set<string>,
+): string | null {
+  if (/[*?[]/.test(norm)) return `${rel}:${lineNo}: ${norm} — wildcard product exemption`
+  if (!productPathCanonical(norm)) return `${rel}:${lineNo}: ${norm} — non-canonical`
+  if (!productAppOk(norm)) return `${rel}:${lineNo}: ${norm} — not a product-app path`
+  if (opts.kitPaths.has(norm)) return `${rel}:${lineNo}: ${norm} — duplicate vs kit`
+  if (paths.has(norm)) return `${rel}:${lineNo}: ${norm} — duplicate`
+  return null
+}
+
+function parseExemptionLine(
+  rel: string,
+  lineNo: number,
+  trimmed: string,
+  opts: { product: boolean; kitPaths: Set<string> },
+  paths: Set<string>,
+): string | null {
+  const hash = trimmed.indexOf('#')
+  if (hash < 0) return `${rel}:${lineNo}: missing reason after #`
+  const filePart = trimmed.slice(0, hash).trim()
+  const reason = trimmed.slice(hash + 1).trim()
+  if (!filePart) return `${rel}:${lineNo}: empty path before #`
+  if (!reason) return `${rel}:${lineNo}: empty reason after #`
+  const norm = filePart.split(sep).join('/')
+  if (opts.product) {
+    const err = productExemptionError(rel, lineNo, norm, opts, paths)
+    if (err) return err
+  }
+  paths.add(norm)
+  return null
+}
 
 function parseExemptionFile(
   root: string,
@@ -319,50 +357,10 @@ function parseExemptionFile(
   const errors: string[] = []
   const lines = readFileSync(path, 'utf8').split('\n')
   for (let i = 0; i < lines.length; i++) {
-    const raw = lines[i]
-    const lineNo = i + 1
-    const trimmed = raw.trim()
+    const trimmed = lines[i].trim()
     if (trimmed === '' || trimmed.startsWith('#')) continue
-
-    const hash = trimmed.indexOf('#')
-    if (hash < 0) {
-      errors.push(`${rel}:${lineNo}: missing reason after #`)
-      continue
-    }
-    const filePart = trimmed.slice(0, hash).trim()
-    const reason = trimmed.slice(hash + 1).trim()
-    if (!filePart) {
-      errors.push(`${rel}:${lineNo}: empty path before #`)
-      continue
-    }
-    if (!reason) {
-      errors.push(`${rel}:${lineNo}: empty reason after #`)
-      continue
-    }
-    const norm = filePart.split(sep).join('/')
-    if (opts.product) {
-      if (/[*?[]/.test(norm)) {
-        errors.push(`${rel}:${lineNo}: ${norm} — wildcard product exemption`)
-        continue
-      }
-      if (!productPathCanonical(norm)) {
-        errors.push(`${rel}:${lineNo}: ${norm} — non-canonical`)
-        continue
-      }
-      if (!productAppOk(norm)) {
-        errors.push(`${rel}:${lineNo}: ${norm} — not a product-app path`)
-        continue
-      }
-      if (opts.kitPaths.has(norm)) {
-        errors.push(`${rel}:${lineNo}: ${norm} — duplicate vs kit`)
-        continue
-      }
-      if (paths.has(norm)) {
-        errors.push(`${rel}:${lineNo}: ${norm} — duplicate`)
-        continue
-      }
-    }
-    paths.add(norm)
+    const err = parseExemptionLine(rel, i + 1, trimmed, opts, paths)
+    if (err) errors.push(err)
   }
   if (errors.length > 0) return { ok: false, errors }
   return { ok: true, paths }
@@ -411,6 +409,24 @@ function targetUnderExampleApi(
   }
   return false
 }
+function authReactViolation(
+  hit: ImportHit,
+  importerZone: Zone,
+  specBare: string,
+): Violation | null {
+  // hit.file is already posix-relative from scanRoot. Allowlist SPA web so
+  // unnamed Workers / mcp-example stay fail-closed (not a *-api denylist).
+  const isProductSpa = /^apps\/[^/]+-web\//.test(hit.file)
+  if (importerZone !== 'example-api' && importerZone !== 'other-app') return null
+  if (isProductSpa) return null
+  if (specBare !== '@kit/auth/react' && !specBare.startsWith('@kit/auth/react/')) return null
+  return { ...hit, rule: 'R5' }
+}
+
+function resolvedAbsTarget(resolved: ResolveResult): string | null {
+  if (resolved.kind === 'workspace' || resolved.kind === 'relative') return resolved.absPath
+  return null
+}
 
 function classify(
   hit: ImportHit,
@@ -423,38 +439,17 @@ function classify(
   if (importerZone === 'example-web' && WORKER_BAR_IMPORTS.has(specBare)) {
     return { ...hit, rule: 'R4' }
   }
-  // hit.file is already posix-relative from scanRoot. Allowlist SPA web so
-  // unnamed Workers / mcp-example stay fail-closed (not a *-api denylist).
-  const isProductSpa = /^apps\/[^/]+-web\//.test(hit.file)
-  if (
-    (importerZone === 'example-api' || importerZone === 'other-app') &&
-    !isProductSpa &&
-    (specBare === '@kit/auth/react' || specBare.startsWith('@kit/auth/react/'))
-  ) {
-    return { ...hit, rule: 'R5' }
-  }
-
-  if (resolved.kind === 'bare' || resolved.kind === 'unresolved') {
-    return null
-  }
-
-  const absTarget =
-    resolved.kind === 'workspace'
-      ? resolved.absPath
-      : resolved.kind === 'relative'
-        ? resolved.absPath
-        : null
+  const auth = authReactViolation(hit, importerZone, specBare)
+  if (auth) return auth
+  if (resolved.kind === 'bare' || resolved.kind === 'unresolved') return null
+  const absTarget = resolvedAbsTarget(resolved)
   if (!absTarget) return null
-
   if (importerZone === 'package' && targetUnderApps(absTarget, root, workspace)) {
-    const rule = resolved.kind === 'relative' ? 'R2' : 'R1'
-    return { ...hit, rule }
+    return { ...hit, rule: resolved.kind === 'relative' ? 'R2' : 'R1' }
   }
-
   if (importerZone === 'example-web' && targetUnderExampleApi(absTarget, root, workspace)) {
     return { ...hit, rule: 'R3' }
   }
-
   return null
 }
 

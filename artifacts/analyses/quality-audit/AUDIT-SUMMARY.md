@@ -210,7 +210,7 @@ Calibrated to playbook scale (Lyra reference: 6 P0 / 19 P1 → **72/100**). A ra
 
 ### Next quarter
 1. **U-09** promote org middleware ports before **second product compose** (platform D2).
-2. **Flows runner** (#29–#31): D1 lifecycle + grant mint; align sketch SQL (M-03); MCP grant∩ parity only after runner evidence.
+2. **Flows runner** (Roxabi/roxabi-boilerplate-cf#29–Roxabi/roxabi-boilerplate-cf#31): D1 lifecycle + grant mint; align sketch SQL (M-03); MCP grant∩ parity only after runner evidence.
 3. **Schema** `api_keys.organization_id` NOT NULL; ADR-0006 key format when secret-scan pain warrants.
 4. **SPA CSP** recipe; storage free-helper deprecation (M-02); optional `@kit/rate-limit` only at 2nd call site.
 5. Soft gates → fail mode; CP inventory refresh (T4); optional non-gating weekly e2e.

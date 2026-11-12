@@ -5,11 +5,8 @@
  */
 export {
   allowPublicSignup,
-  assertBetterAuthConfigured,
-  assertTrustedOrigins,
   corsAllowlist,
   environmentName,
-  getBetterAuthSecret,
   isDevLikeEnvironment,
   sessionCookieNameFromEnv,
   useSecureCookie,

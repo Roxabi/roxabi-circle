@@ -1,12 +1,14 @@
 /**
  * ADR-0003 Phase B — custom roles + grants + IDOR matrix (CP-IDOR ≥ 8).
- * GH #22
+ * go-silex/silex-boilerplate#22
  */
 import { createDb } from '@kit/db'
 import { describe, expect, it } from 'vitest'
 import { createApp } from './app'
 import { schema } from './db/schema'
 import { seedTenancyDemo } from './seed/seed-tenancy'
+import { loginCookie } from './test/api-fixture'
+import { hashFixtureCredential } from './test/fixture-credential'
 import { createMemoryEnv } from './test/memory-env'
 
 const BA_ENV = {
@@ -18,30 +20,11 @@ const BA_ENV = {
 
 const ORIGIN = 'http://localhost:5173'
 
-async function signIn(
-  app: ReturnType<typeof createApp>,
-  env: ReturnType<typeof createMemoryEnv>,
-  email: string,
-  password = 'demo-password-change-me',
-) {
-  const res = await app.request(
-    '/api/auth/sign-in/email',
-    {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', Origin: ORIGIN },
-      body: JSON.stringify({ email, password }),
-    },
-    env,
-  )
-  expect(res.status, `sign-in ${email}`).toBeLessThan(400)
-  return res.headers.get('set-cookie') ?? ''
-}
-
 async function seedEnv() {
   const app = createApp()
   const env = createMemoryEnv(BA_ENV)
   const db = createDb(env.DB as unknown as D1Database, schema)
-  await seedTenancyDemo(db, { environment: 'test', force: true })
+  await seedTenancyDemo(db, { environment: 'test', force: true }, hashFixtureCredential)
   return { app, env, db }
 }
 
@@ -55,7 +38,13 @@ describe('org roles Phase B — IDOR + grants', () => {
 
   it('2 owner lists seeded system roles', async () => {
     const { app, env } = await seedEnv()
-    const cookie = await signIn(app, env, 'team-owner@kit.local')
+    const cookie = await loginCookie(
+      app,
+      env,
+      'team-owner@kit.local',
+      'demo-password-change-me',
+      ORIGIN,
+    )
     const res = await app.request(
       '/api/orgs/org_team/roles',
       { headers: { cookie, Origin: ORIGIN } },
@@ -73,7 +62,7 @@ describe('org roles Phase B — IDOR + grants', () => {
 
   it('3 cross-org IDOR: acme staff cannot list team roles', async () => {
     const { app, env } = await seedEnv()
-    const cookie = await signIn(app, env, 'staff@kit.local')
+    const cookie = await loginCookie(app, env, 'staff@kit.local', 'demo-password-change-me', ORIGIN)
     const res = await app.request(
       '/api/orgs/org_team/roles',
       { headers: { cookie, Origin: ORIGIN } },
@@ -84,7 +73,13 @@ describe('org roles Phase B — IDOR + grants', () => {
 
   it('4 reader cannot create custom role (403)', async () => {
     const { app, env } = await seedEnv()
-    const cookie = await signIn(app, env, 'team-reader@kit.local')
+    const cookie = await loginCookie(
+      app,
+      env,
+      'team-reader@kit.local',
+      'demo-password-change-me',
+      ORIGIN,
+    )
     const res = await app.request(
       '/api/orgs/org_team/roles',
       {
@@ -99,7 +94,13 @@ describe('org roles Phase B — IDOR + grants', () => {
 
   it('5 owner creates custom role with read grant', async () => {
     const { app, env } = await seedEnv()
-    const cookie = await signIn(app, env, 'team-owner@kit.local')
+    const cookie = await loginCookie(
+      app,
+      env,
+      'team-owner@kit.local',
+      'demo-password-change-me',
+      ORIGIN,
+    )
     const res = await app.request(
       '/api/orgs/org_team/roles',
       {
@@ -121,7 +122,13 @@ describe('org roles Phase B — IDOR + grants', () => {
 
   it('6 system role grants are immutable', async () => {
     const { app, env } = await seedEnv()
-    const cookie = await signIn(app, env, 'team-owner@kit.local')
+    const cookie = await loginCookie(
+      app,
+      env,
+      'team-owner@kit.local',
+      'demo-password-change-me',
+      ORIGIN,
+    )
     const list = await app.request(
       '/api/orgs/org_team/roles',
       { headers: { cookie, Origin: ORIGIN } },
@@ -143,7 +150,13 @@ describe('org roles Phase B — IDOR + grants', () => {
 
   it('7 cannot patch grants on other org role id', async () => {
     const { app, env } = await seedEnv()
-    const ownerTeam = await signIn(app, env, 'team-owner@kit.local')
+    const ownerTeam = await loginCookie(
+      app,
+      env,
+      'team-owner@kit.local',
+      'demo-password-change-me',
+      ORIGIN,
+    )
     const create = await app.request(
       '/api/orgs/org_team/roles',
       {
@@ -164,7 +177,7 @@ describe('org roles Phase B — IDOR + grants', () => {
     expect(create.status).toBe(201)
     const roleId = ((await create.json()) as { role: { id: string } }).role.id
 
-    const solo = await signIn(app, env, 'solo@kit.local')
+    const solo = await loginCookie(app, env, 'solo@kit.local', 'demo-password-change-me', ORIGIN)
     const res = await app.request(
       `/api/orgs/org_solo/roles/${roleId}/grants/demo`,
       {
@@ -179,7 +192,13 @@ describe('org roles Phase B — IDOR + grants', () => {
 
   it('8 cannot delete system role', async () => {
     const { app, env } = await seedEnv()
-    const cookie = await signIn(app, env, 'team-owner@kit.local')
+    const cookie = await loginCookie(
+      app,
+      env,
+      'team-owner@kit.local',
+      'demo-password-change-me',
+      ORIGIN,
+    )
     const list = await app.request(
       '/api/orgs/org_team/roles',
       { headers: { cookie, Origin: ORIGIN } },
@@ -201,7 +220,7 @@ describe('org roles Phase B — IDOR + grants', () => {
 
   it('9 super_admin write on roles routes is denied without membership', async () => {
     const { app, env } = await seedEnv()
-    const cookie = await signIn(app, env, 'super@kit.local')
+    const cookie = await loginCookie(app, env, 'super@kit.local', 'demo-password-change-me', ORIGIN)
     const res = await app.request(
       '/api/orgs/org_team/roles',
       {
@@ -217,7 +236,13 @@ describe('org roles Phase B — IDOR + grants', () => {
 
   it('10 create role rejects system key reuse', async () => {
     const { app, env } = await seedEnv()
-    const cookie = await signIn(app, env, 'team-owner@kit.local')
+    const cookie = await loginCookie(
+      app,
+      env,
+      'team-owner@kit.local',
+      'demo-password-change-me',
+      ORIGIN,
+    )
     const res = await app.request(
       '/api/orgs/org_team/roles',
       {
@@ -232,7 +257,13 @@ describe('org roles Phase B — IDOR + grants', () => {
 
   it('11 delete custom role still assigned → 409', async () => {
     const { app, env, db } = await seedEnv()
-    const cookie = await signIn(app, env, 'team-owner@kit.local')
+    const cookie = await loginCookie(
+      app,
+      env,
+      'team-owner@kit.local',
+      'demo-password-change-me',
+      ORIGIN,
+    )
     const create = await app.request(
       '/api/orgs/org_team/roles',
       {
@@ -300,7 +331,13 @@ describe('org roles Phase B — IDOR + grants', () => {
 
   it('13 custom role with write cannot be used to assign system admin', async () => {
     const { app, env, db } = await seedEnv()
-    const cookie = await signIn(app, env, 'team-owner@kit.local')
+    const cookie = await loginCookie(
+      app,
+      env,
+      'team-owner@kit.local',
+      'demo-password-change-me',
+      ORIGIN,
+    )
     const create = await app.request(
       '/api/orgs/org_team/roles',
       {
@@ -324,7 +361,13 @@ describe('org roles Phase B — IDOR + grants', () => {
 
   it('14 grant ceiling: cannot create role stronger than demoted actor', async () => {
     const { app, env, db } = await seedEnv()
-    const cookie = await signIn(app, env, 'team-owner@kit.local')
+    const cookie = await loginCookie(
+      app,
+      env,
+      'team-owner@kit.local',
+      'demo-password-change-me',
+      ORIGIN,
+    )
     // Demote owner system grant to read so ceiling can fire
     const { ensureSystemRoles } = await import('./services/org-roles')
     const orgRolesRepo = await import('./repos/org-roles')
@@ -332,6 +375,7 @@ describe('org roles Phase B — IDOR + grants', () => {
     const ownerRole = await orgRolesRepo.findRoleByKey(db, 'org_team', 'owner')
     expect(ownerRole).toBeTruthy()
     await orgRolesRepo.upsertGrant(db, {
+      organizationId: 'org_team',
       roleId: ownerRole!.id,
       moduleId: 'demo',
       access: 'read',

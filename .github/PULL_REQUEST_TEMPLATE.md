@@ -4,7 +4,7 @@
 
 ## Related Issue
 
-Closes #<!-- number if any -->
+Closes <owner>/<repo>#<!-- number if any, always qualified: a bare #N is ambiguous -->
 
 ## Type of Change
 
@@ -24,9 +24,15 @@ Closes #<!-- number if any -->
 
 -
 
+## Public text
+
+This description, its commits, and any screenshot are public once the repository is public. Before opening or editing, apply [Public-safe publication](../CONTRIBUTING.md#public-safe-publication) to the exact description file. A vulnerability report goes to [`SECURITY.md`](../SECURITY.md) (`mailto:team@unkillablecompanies.com`), not into this pull request. The box is a reminder, not a publication gate.
+
+- [ ] Description and screenshots omit secret values, raw logs, client data, and vulnerability details
+
 ## Security checklist (required)
 
-See `AGENTS.md` § *Sécurité & bon usage de l’IA*.
+See [`docs/kit/processes/dev-process.md`](../docs/kit/processes/dev-process.md) § *Sécurité & bon usage de l’IA*.
 
 ### Secrets & config
 
@@ -39,7 +45,7 @@ See `AGENTS.md` § *Sécurité & bon usage de l’IA*.
 - [ ] Guards first on mutating / sensitive routes (`requireSession` / `requireApiKey`)
 - [ ] Session cookies: HttpOnly · Secure (prod) · SameSite considered
 - [ ] API keys remain **per-user** (no shared team key)
-- [ ] `private_key` failures do not leak existence (404)
+- [ ] `sk_` failures do not leak existence (401)
 - [ ] Org membership rules respected (upload = org members only)
 
 ### Storage / serve (if touched)
@@ -64,7 +70,7 @@ See `AGENTS.md` § *Sécurité & bon usage de l’IA*.
 
 See [`docs/kit/testing.md`](../docs/kit/testing.md) (local-first gates, CP-\* paths, ownership).
 
-- [ ] PR title follows [Conventional Commits](https://www.conventionalcommits.org/)
+- [ ] PR title follows [Conventional Commits](https://www.conventionalcommits.org/) — no issue number in the title or scope (qualified refs go in the body)
 - [ ] Self-review done on the full diff
 - [ ] Tests added/updated for behaviour change — map to **CP-\*** / suite names when auth, IDOR, storage, errors, FE credentials
 - [ ] **`bun run validate:full` green locally** before push (primary gate; CI is guardrail only)
@@ -85,14 +91,17 @@ See [`docs/kit/testing.md`](../docs/kit/testing.md) (local-first gates, CP-\* pa
 - [ ] CP-UI-CONTRACT
 - [ ] None of the above
 
-## Human review required?
+## Independent targeted review required?
 
-Tick if this PR **must** wait for a human (not AI-only review):
+Tick every scope that requires targeted proof and review by an agent independent of implementation. Operator authorization is distinct from technical review. The list follows [`AGENTS.md`](../AGENTS.md) § Hard agent rules.
 
 - [ ] Auth / cookies / API keys
-- [ ] R2 / zip / serve paths
-- [ ] MCP tools (write/delete/replace)
+- [ ] ACL / Organization isolation
+- [ ] R2 / archive (zip) / serve paths
+- [ ] MCP tools
 - [ ] D1 migrations
+- [ ] Durable execution ownership / hand-built durability: owner changes, a Product ADR pairing, or code that persists, retries, resumes or re-dispatches work ([ADR-0018](../docs/kit/architecture/adr/0018-durable-execution-ownership.md) D1/D2)
+- [ ] Deploy
 - [ ] None of the above
 
 ## Test plan

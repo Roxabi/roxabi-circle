@@ -1,7 +1,10 @@
+import type { ImpersonationInfo } from '@kit/api-client/me'
+import { setImpersonationPermissions } from '@kit/auth/repos/impersonation'
 import { createDb } from '@kit/db'
 import { describe, expect, it } from 'vitest'
 import { schema } from '../db/schema'
 import { seedDemoDatabase } from '../seed/seed-db'
+import { hashFixtureCredential } from '../test/fixture-credential'
 import { createMemoryEnv } from '../test/memory-env'
 import { getMeProfile } from './me'
 
@@ -9,7 +12,7 @@ describe('getMeProfile (D11 api_key org filter)', () => {
   async function seededDb() {
     const env = createMemoryEnv({ ENVIRONMENT: 'test' })
     const db = createDb(env.DB as unknown as D1Database, schema)
-    await seedDemoDatabase(db, { notes: false, environment: 'test' })
+    await seedDemoDatabase(db, { notes: false, environment: 'test' }, hashFixtureCredential)
     return db
   }
 
@@ -49,5 +52,69 @@ describe('getMeProfile (D11 api_key org filter)', () => {
     })
     const ids = profile.orgs.map((o) => o.id).sort()
     expect(ids).toEqual(['org_acme', 'org_beta'])
+  })
+})
+
+describe('getMeProfile impersonation', () => {
+  const info: ImpersonationInfo = {
+    id: 'imp_1',
+    mode: 'read',
+    organizationId: 'org_acme',
+    actor: { id: 'user_staff', name: 'Staff Agent' },
+    subject: { id: 'user_team_owner', name: 'Target', email: 'target@example.com' },
+    startedAt: 123,
+    active: true,
+  }
+
+  async function seededDb() {
+    const env = createMemoryEnv({ ENVIRONMENT: 'test' })
+    const db = createDb(env.DB as unknown as D1Database, schema)
+    await seedDemoDatabase(db, { notes: false, environment: 'test' }, hashFixtureCredential)
+    return db
+  }
+
+  it('returns the pinned target profile and real actor permissions', async () => {
+    const db = await seededDb()
+    await setImpersonationPermissions(
+      db,
+      { role: 'staff', read: true, write: false },
+      { actorUserId: 'user_super' },
+    )
+    const profile = await getMeProfile(db, info.subject.id, {
+      authMethod: 'session',
+      actorUserId: info.actor.id,
+      impersonation: info,
+    })
+    expect(profile.platformRole).toBeNull()
+    expect(profile.orgs.map((org) => org.id)).toEqual(['org_acme'])
+    expect(profile.impersonation).toEqual(info)
+    expect(profile.impersonationPermissions).toEqual({ read: true, write: false })
+  })
+
+  it('returns a recovery-only profile when delegation is inactive', async () => {
+    const db = await seededDb()
+    const profile = await getMeProfile(db, info.subject.id, {
+      authMethod: 'session',
+      actorUserId: info.actor.id,
+      impersonation: { ...info, active: false },
+    })
+    expect(profile.platformRole).toBeNull()
+    expect(profile.orgs).toEqual([])
+    expect(profile.name).toBeUndefined()
+    expect(profile.email).toBeUndefined()
+    expect(profile.impersonation?.subject).toEqual({ id: info.subject.id })
+    expect(profile.impersonation?.active).toBe(false)
+  })
+
+  it('does not expose session-only capabilities to an API key', async () => {
+    const db = await seededDb()
+    await setImpersonationPermissions(
+      db,
+      { role: 'staff', read: true, write: true },
+      { actorUserId: 'user_super' },
+    )
+    const profile = await getMeProfile(db, 'user_staff', { authMethod: 'api_key' })
+    expect(profile.impersonation).toBeNull()
+    expect(profile.impersonationPermissions).toEqual({ read: false, write: false })
   })
 })

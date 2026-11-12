@@ -1,5 +1,5 @@
 ---
-title: "Plan: close #130 review gaps (legacy sign-in + docs, no merge)"
+title: "Plan: close Roxabi/roxabi-boilerplate-cf#130 review gaps (legacy sign-in + docs, no merge)"
 issue: 126
 spec: none
 complexity: 4/10
@@ -9,7 +9,7 @@ generated: "2026-08-23T15:10:00Z"
 
 ## Summary
 
-Close the evidence gap on PR #130 without merging and without adding `reviewed`. Add a real BA 1.7 sign-in against a pre-1.7 credential row (issuer absent until 0014), document D1 partial-apply recovery + permanent DEFAULT + Worker/schema order, and post AuthMigrationReview findings as a PR comment. Tombstone for retired module id `better_auth_1_7` is a follow-up (kit-schema-sync contract), not this PR.
+Close the evidence gap on PR Roxabi/roxabi-boilerplate-cf#130 without merging and without adding `reviewed`. Add a real BA 1.7 sign-in against a pre-1.7 credential row (issuer absent until 0014), document D1 partial-apply recovery + permanent DEFAULT + Worker/schema order, and post AuthMigrationReview findings as a PR comment. Tombstone for retired module id `better_auth_1_7` is a follow-up (kit-schema-sync contract), not this PR.
 
 ## Architecture
 
@@ -31,7 +31,7 @@ Close the evidence gap on PR #130 without merging and without adding `reviewed`.
 | `docs/kit/product-consumer-contract.md` | One checklist line: `@kit/auth` 1.7 requires module `better_auth_1_7_additive` applied **before** Worker deploy. |
 | Commit + push on `fix/better-auth-1.7-additive` | After `validate:full` green **and** explicit operator permission. T6 must not claim T2 done until `gh pr diff 130` contains the test file. |
 
-**Out of this PR:** `retiredIds` / fail-closed sync for deleted `better_auth_1_7` — new kit issue after #128 lands. #130 must stay draft.
+**Out of this PR:** `retiredIds` / fail-closed sync for deleted `better_auth_1_7` — new kit issue after Roxabi/roxabi-boilerplate-cf#128 lands. Roxabi/roxabi-boilerplate-cf#130 must stay draft.
 
 ## Bootstrap Context
 
@@ -50,7 +50,7 @@ Close the evidence gap on PR #130 without merging and without adding `reviewed`.
 
 ## Wave Structure
 
-4 waves, max 1 parallel agent (serial on #130). Elapsed ~1 session vs same sequential.
+4 waves, max 1 parallel agent (serial on Roxabi/roxabi-boilerplate-cf#130). Elapsed ~1 session vs same sequential.
 
 | Wave | Trigger | Agents | Tasks |
 |------|---------|--------|-------|
@@ -83,7 +83,7 @@ Close the evidence gap on PR #130 without merging and without adding `reviewed`.
 ## Consistency Report
 
 - Criteria covered: 4/5 (legacy sign-in, recovery docs, DEFAULT permanence, deploy order)
-- Uncovered: superseded-module tombstone (follow-up issue, not #130)
+- Uncovered: superseded-module tombstone (follow-up issue, not Roxabi/roxabi-boilerplate-cf#130)
 - Tasks without spec backing: all (no σ; sourced from AuthMigrationReview + advisory)
 - Gold plating exemptions: tombstone / kit-schema-sync fail-closed deferred
 
@@ -137,7 +137,7 @@ Close the evidence gap on PR #130 without merging and without adding `reviewed`.
 
 ### Criteria SC-4: GitHub state matches evidence
 
-#### Task 5: Commit and push #130 branch after permission → devops-A
+#### Task 5: Commit and push Roxabi/roxabi-boilerplate-cf#130 branch after permission → devops-A
 - **File:** worktree `roxabi-boilerplate-cf-auth17-additive` only
 - **Snippet:** Ask operator for commit+push (AGENTS.md: no commit without permission). Gate: `bun run validate:full` green. Then commit T1–T4 files and `git push` to `fix/better-auth-1.7-additive`. Do not add `reviewed`. Do not merge.
 - **Verify:** `bun run validate:full` then `git status --short --branch` on the worktree (ready)
@@ -147,8 +147,8 @@ Close the evidence gap on PR #130 without merging and without adding `reviewed`.
 - **Traces:** SC-4
 - **Phase:** GREEN
 
-#### Task 6: Honest PR #130 body + review comment → devops-A
-- **File:** GitHub #130 only
+#### Task 6: Honest PR Roxabi/roxabi-boilerplate-cf#130 body + review comment → devops-A
+- **File:** GitHub Roxabi/roxabi-boilerplate-cf#130 only
 - **Snippet:** **First** `gh pr diff 130 --name-only` must list `apps/example-api/src/auth-legacy-migration.test.ts`. Only then may the body say T2 is done. Include recovery from T3, DEFAULT permanence, tombstone deferred. `gh pr comment` with AuthMigrationReview findings. Never `--add-label reviewed`. Keep draft.
 - **Verify:** `gh pr view 130 --json isDraft,labels` → draft, labels `[]`; `gh pr diff 130 --name-only` contains the new test (ready)
 - **Expected:** no `reviewed`; no merge; no claim without files on the PR
@@ -189,7 +189,7 @@ Close the evidence gap on PR #130 without merging and without adding `reviewed`.
 
 - Kit `retiredIds` / `supersededBy` on `kit-schema-modules.json` + fail-closed `kit-schema-sync` when a product manifest still lists `better_auth_1_7`.
 - Inventory consumers that synced during the 1e1e8f1 window (duplicate `issuer` column risk).
-- Human: review #128 → audit remote D1 → retarget #129 to main → then #130.
+- Human: review Roxabi/roxabi-boilerplate-cf#128 → audit remote D1 → retarget Roxabi/roxabi-boilerplate-cf#129 to main → then Roxabi/roxabi-boilerplate-cf#130.
 
 ## Task IDs
 
@@ -199,5 +199,5 @@ Close the evidence gap on PR #130 without merging and without adding `reviewed`.
 - T3: Document D1 recovery in 0014 SQL header — docs
 - T4: Add auth 1.7 deploy-order line to consumer contract — docs
 - T5: Ask permission then commit and push after validate:full — pr
-- T6: Update #130 body only after gh pr diff shows test file — pr
+- T6: Update Roxabi/roxabi-boilerplate-cf#130 body only after gh pr diff shows test file — pr
 

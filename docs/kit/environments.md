@@ -5,8 +5,7 @@
 | Related | Role |
 |---------|------|
 | This page | Protocol — planes, isolation, git × CF, anti-patterns |
-| [`deploy-cloudflare.md`](./deploy-cloudflare.md) | Kit **showcase** CD (Workers Builds / Pages, **`main` only** today) |
-| [`staging-examples.md`](./staging-examples.md) | example-* B4 status (env **not** provisioned — do not deploy `--env staging` on example-*) |
+| [`deploy-cloudflare.md`](./deploy-cloudflare.md) | Kit **showcase** CD (Workers Builds / Pages from the CI-gated **`deploy/main`**) |
 | [`email-cf-runbook.md`](./email-cf-runbook.md) | Email Sending (`cf` / allowlist) |
 | [`product-consumer-contract.md`](./product-consumer-contract.md) | Product wrangler lives only under `apps/<product>-*` |
 | [ADR-0002](./architecture/adr/0002-session-hmac-interim-vs-better-auth.md) | Browser session = Better Auth cookies |
@@ -19,9 +18,9 @@
 | Protocol (this page) | Normative |
 | Kit `apps/example-*/wrangler.toml` | Top-level = **local** · `[env.production]` = showcase · **no** `[env.staging]` |
 | Kit git | **`main` only.** There is no kit `staging` branch. Do not create one on the kit to “match the docs”. |
-| Kit CD (`scripts/kit/cf-builds/*`) | Refuses any branch ≠ `main` · **always** `--env production`. Copying it onto a product `staging` branch writes **production** D1 |
+| Kit CD (`scripts/kit/cf-builds/*`) | Refuses any branch ≠ `deploy/main` (CI-gated) · **always** `--env production`. Copying it onto a product `staging` branch writes **production** D1 |
 | Product `apps/<product>-*` | Owns `[env.staging]` / `[env.production]` (new files, zero-edit) |
-| Product git | Create `staging` on the **product** repo. Inherited kit workflows already listen on `staging\|main`. |
+| Product git | **Trunk.** PRs land on `main`. Optional staging CD is a fast-forward pin `staging` from `main`, not a second landing branch. |
 
 Provisioning kit example staging is **B4**. Products do not wait — they add `[env.staging]` in **product** wrangler and **product** CD.
 
@@ -103,10 +102,12 @@ feature PR
 
 | Model | PRs land on | Staging CD trigger | Production CD trigger |
 |-------|-------------|--------------------|------------------------|
-| **staging-train** | `staging`; `/promote` → `main` | git `staging` | git `main` |
-| **trunk + staging pin** | `main`; optional `staging` fast-forwarded from `main` | git `staging` (pin) | git `main` |
+| **staging-train** | `staging`; `/promote` → `main` | git `deploy/staging` | git `deploy/main` |
+| **trunk + staging pin** | `main`; optional `staging` fast-forwarded from `main` | git `deploy/staging` | git `deploy/main` |
 
-**Who uses which model:** kit HEAD = trunk/`main` only (no kit `staging`). Product consumers = **staging-train** by default: create `staging` after start, land PRs there, promote to `main`. Kit showcase CD stays `main` only until B4.
+**CD never builds `staging` or `main` directly** (Roxabi/roxabi-boilerplate-cf#256). The inherited **Deploy gate** (`.github/workflows/deploy-gate.yml` → `scripts/kit/promote-deploy.ts`) fast-forwards `deploy/<branch>` to the newest first-parent commit that descends from it, whose required push runs are all green and whose range has no red Secret scan. Required: kit CI + Secret scan, plus the product workflows declared in `config/product/deploy-gate.json` (mandatory for a product). It never promotes a newer untested push, never goes backwards and never forces. Once the **cutover** is done ([`deploy-cloudflare.md`](./deploy-cloudflare.md) § Cutover), a red commit on `staging` or `main` reaches neither D1 nor the Worker nor the SPA. Inheriting the workflow alone does not switch the dashboards. Break-glass: § Break-glass.
+
+**Who uses which model:** kit HEAD = trunk/`main` only (no kit `staging`). Product consumers default to **trunk + staging pin**: PRs land on `main`; `staging`, if present, is only a fast-forward pin from `main` feeding `deploy/staging`. Kit showcase CD stays `deploy/main` only until B4.
 
 ### Builds (product) — two projects, never one Worker’s “non-production”
 
@@ -114,16 +115,18 @@ Cloudflare’s default deploy command is `npx wrangler deploy` (**no** `--env`).
 
 | Worker project | Production branch | Deploy command | Non-production builds |
 |----------------|-------------------|----------------|------------------------|
-| `<api>-staging` | `staging` | `wrangler deploy --env staging` | **Off** |
-| `<api>` | `main` | `wrangler deploy --env production` | **Off** |
-| SPA staging (Pages or Worker) | `staging` | build with `VITE_API_URL` = staging `BETTER_AUTH_URL` | **Off** |
-| SPA production | `main` | build with `VITE_API_URL` = prod `BETTER_AUTH_URL` | **Off** |
+| `<api>-staging` | `deploy/staging` | `wrangler deploy --env staging` | **Off** |
+| `<api>` | `deploy/main` | `wrangler deploy --env production` | **Off** |
+| SPA staging (Pages or Worker) | `deploy/staging` | build with `VITE_API_URL` = staging `BETTER_AUTH_URL` | **Off** |
+| SPA production | `deploy/main` | build with `VITE_API_URL` = prod `BETTER_AUTH_URL` | **Off** |
+
+A product deploy script guards its branch the same way the kit's does: refuse anything but its `deploy/<branch>` before migrate or deploy.
 
 `scripts/kit/cf-builds/*` cannot deploy staging. Do not copy them onto a `staging` branch.
 
-GitHub CI = quality only. Builds trigger on **push** — keep red code off the CD branches (lefthook + merge-on-green).
+Builds trigger on **push** of their production branch; only the Deploy gate pushes `deploy/*`, and only green SHAs (lefthook + merge-on-green keep red code off `main`/`staging` as a process; the gate is the enforcement).
 
-Migrate then deploy = two CF APIs ([`deploy-cloudflare.md`](./deploy-cloudflare.md) §5b).
+Migrate then deploy = two CF APIs, so the running Worker meets the new schema first: a migration that removes schema only as the **contract** step of expand → deploy → contract, marked `-- kit:contract released=<full sha of the deployed release>` and enforced by `migrations-contract:check` ([`deploy-cloudflare.md`](./deploy-cloudflare.md) §5b).
 
 ---
 
@@ -202,7 +205,9 @@ Playbook: [`start-product.md`](./playbooks/start-product.md) · contract: [`prod
 
 Hosts, Worker names, and CF Builds commands: [`deploy-cloudflare.md`](./deploy-cloudflare.md) only.
 
-This protocol’s kit facts: **no** `[env.staging]` on example-* · CD **`main` + `--env production` only** · do not run `wrangler deploy --env staging` on example-api until B4.
+The kit examples have no `[env.staging]` or staging D1/R2. Kit CD deploys **`deploy/main` (CI-gated) + `--env production` only**. Do not run `wrangler deploy --env staging` on example-api or example-web, or modify their Wrangler files for a product. Product staging uses product-owned Wrangler files and CD (§6).
+
+Provisioning example staging (B4) requires named staging D1/R2, a second Worker project, and `ENVIRONMENT=staging`, never `development`. The Kit merge process requires secret scan and CI green and fresh native or manual admission with an exact-head receipt before merge-on-green; see [CI App setup](./ci-app-setup.md#reviewed-head-authorization). On GitHub Free private repositories, write access can bypass that process.
 
 ---
 

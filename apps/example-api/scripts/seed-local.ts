@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-import { Database } from 'bun:sqlite'
+import { Database, type SQLQueryBindings } from 'bun:sqlite'
 /**
  * Local D1 seed for example-api (Wrangler Miniflare state).
  *
@@ -9,12 +9,12 @@ import { Database } from 'bun:sqlite'
  *   bun run db:reset     # migrate + seed --reset
  *
  * Uses bun:sqlite against the local Miniflare D1 file so data is visible to
- * `wrangler dev`. PBKDF2 hashes via @kit/auth (Web Crypto).
+ * `wrangler dev`. Login hashes are Better Auth scrypt (`seedBaDemoUsers`).
  */
 import { mkdirSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { createDb } from '@kit/db'
+import { createDb, type KitD1Database, type KitD1Statement } from '@kit/db'
 import { schema } from '../src/db/schema'
 import { SEED_NOTES, SEED_USERS } from '../src/seed/demo-data'
 import { seedDemoDatabase } from '../src/seed/seed-db'
@@ -28,15 +28,38 @@ const args = new Set(process.argv.slice(2))
 const RESET = args.has('--reset')
 const JSON_OUT = args.has('--json')
 
-function makeStatement(sqlite: Database, sql: string) {
-  let binds: unknown[] = []
-  const stmt = {
+/**
+ * D1 accepts any `unknown` bind value; bun:sqlite only takes SQLite scalars.
+ * Fail loudly at the boundary instead of handing bun a value it cannot bind.
+ */
+function toBindings(values: unknown[]): SQLQueryBindings[] {
+  return values.map((value, i) => {
+    if (
+      value === null ||
+      typeof value === 'string' ||
+      typeof value === 'number' ||
+      typeof value === 'bigint' ||
+      typeof value === 'boolean' ||
+      value instanceof Uint8Array
+    ) {
+      return value
+    }
+    throw new TypeError(
+      `seed-local: bind param ${i} is not a SQLite value (${Object.prototype.toString.call(value)})`,
+    )
+  })
+}
+
+function makeStatement(sqlite: Database, sql: string): KitD1Statement {
+  let binds: SQLQueryBindings[] = []
+  const stmt: KitD1Statement = {
     bind(...a: unknown[]) {
-      binds = a
+      binds = toBindings(a)
       return stmt
     },
-    async first() {
-      return sqlite.prepare(sql).get(...binds) ?? null
+    // SQLite rows are untyped at runtime; the caller declares the row shape.
+    async first<T = unknown>() {
+      return (sqlite.prepare(sql).get(...binds) ?? null) as T | null
     },
     async run() {
       const info = sqlite.prepare(sql).run(...binds)
@@ -48,11 +71,11 @@ function makeStatement(sqlite: Database, sql: string) {
     async all() {
       return { results: sqlite.prepare(sql).all(...binds), success: true }
     },
-    async raw() {
-      const rows = sqlite.prepare(sql).all(...binds) as Record<string, unknown>[]
+    async raw<T = unknown>() {
+      const rows = sqlite.prepare(sql).all(...binds) as Record<string, T>[]
       if (rows.length === 0) return []
       const keys = Object.keys(rows[0]!)
-      return rows.map((row) => keys.map((k) => row[k]))
+      return rows.map((row) => keys.map((k) => row[k]!))
     },
   }
   return stmt
@@ -85,7 +108,7 @@ function openLocalD1() {
       sqlite.exec(readFileSync(join(MIGRATIONS_DIR, name), 'utf8'))
     }
   }
-  const d1 = {
+  const d1: KitD1Database = {
     prepare(sql: string) {
       return makeStatement(sqlite, sql)
     },

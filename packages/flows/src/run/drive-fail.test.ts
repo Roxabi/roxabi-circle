@@ -1,27 +1,33 @@
 import { describe, expect, it } from 'vitest'
-import { createRunSnapshot, createToolRegistry, loadPlanFromYaml } from '..'
+import { createRunSnapshot, createToolRegistry, loadPlanFromYaml, mintCapabilityGrant } from '..'
 import { DriveNonRetryableError, type DriveStep, driveFlowRun } from './drive'
 import { INVOKE_ONLY_PLAN_YAML } from './fixtures'
-import { claimRun } from './persist'
+import { claimRun, persistBundle } from './persist'
 import { createMemoryDb } from './test/memory-db'
 
 const DRIVE_ORG = 'org_a'
 const immediateStep: DriveStep = async (_name, fn) => fn()
 
 const driveRegistry = createToolRegistry('example-api-drive-v0', [
-  { name: 'echo', description: 'Echo args (kit dogfood)', effect: 'read' },
+  { name: 'echo', description: 'Echo args (kit dogfood)', grantClass: 'mintable' },
 ])
+
+// createRunSnapshot seals only a kit-minted grant, so the fixture mints instead of hand-writing it.
+function mintFixtureGrant(orgId: string) {
+  const minted = mintCapabilityGrant({
+    orgId,
+    registry: driveRegistry,
+    facts: { moduleEffective: true, canRead: true, canWrite: false, allowedModels: [] },
+  })
+  if (!minted.ok) throw new Error(`fixture grant must mint: ${minted.message}`)
+  return minted.grant
+}
 
 function sealInvokeOnly(orgId: string) {
   const plan = loadPlanFromYaml(INVOKE_ONLY_PLAN_YAML)
   const result = createRunSnapshot({
     plan,
-    grant: {
-      orgId,
-      allowedTools: ['echo'],
-      registryVersion: driveRegistry.version,
-      allowsInfer: false,
-    },
+    grant: mintFixtureGrant(orgId),
     registry: driveRegistry,
     actorId: 'actor_1',
   })
@@ -169,7 +175,13 @@ describe('driveFlowRun fail-closed', () => {
         },
         interpret: (_view, receipts) => {
           interpretCalls += 1
-          return { receipts, readyTaskIds: [], rollup: 'failed', stuck: 'DAG_STUCK' }
+          return {
+            receipts,
+            readyTaskIds: [],
+            waitingTaskIds: [],
+            rollup: 'failed',
+            stuck: 'DAG_STUCK',
+          }
         },
         payload: { runId, orgId: DRIVE_ORG },
         instanceId: INSTANCE_ID,
@@ -291,5 +303,29 @@ describe('driveFlowRun fail-closed', () => {
       tasks?: { echo_hello?: { errorCode?: string } }
     }
     expect(tasks.tasks?.echo_hello?.errorCode).toBe('UNKNOWN_TOOL')
+  })
+
+  it('throws persist lost when the terminal bundle write reports two changes', async () => {
+    const db = createMemoryDb()
+    const snap = sealInvokeOnly(DRIVE_ORG)
+    const runId = 'run_persist_two'
+    await insertQueuedRun(db, {
+      runId,
+      snapshotJson: JSON.stringify(snap.runnerView),
+      planDigest: snap.runnerView.planDigest,
+    })
+    await expect(
+      driveFlowRun({
+        step: immediateStep,
+        db,
+        invoke: async () => ({ output: 'echo' }),
+        persistBundle: async (database, input) => {
+          if (input.status === 'succeeded') return 2
+          return persistBundle(database, input)
+        },
+        payload: { runId, orgId: DRIVE_ORG },
+        instanceId: INSTANCE_ID,
+      }),
+    ).rejects.toMatchObject({ name: 'DriveNonRetryableError', message: 'persist lost' })
   })
 })

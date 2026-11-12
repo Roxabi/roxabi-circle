@@ -8,7 +8,7 @@
  *
  * - 2xx success: pass through (cookies intact)
  * - 429: pass through
- * - 5xx: pass through
+ * - 5xx: pass through (route scrubber keeps status, kit envelope)
  * - disabled (BA 400 EMAIL_PASSWORD_SIGN_UP_DISABLED): 403 FORBIDDEN kit
  * - other 4xx: 400 VALIDATION_ERROR kit (no Set-Cookie)
  */

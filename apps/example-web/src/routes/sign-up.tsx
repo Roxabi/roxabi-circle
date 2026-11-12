@@ -16,7 +16,15 @@ import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { profileErrorMessage, signupErrorMessage } from '../lib/account-errors'
 import { apiFetch } from '../lib/api'
-import { isUnauthorized, type MeResponse, meQueryKey, postAuthTarget, useMe } from '../lib/auth'
+import {
+  dropPrincipalCache,
+  fetchMe,
+  isUnauthorized,
+  type MeResponse,
+  meQueryKey,
+  postAuthTarget,
+  useMe,
+} from '../lib/auth'
 import { useLocale } from '../lib/locale'
 import { signupSchema } from '../lib/schemas'
 
@@ -48,7 +56,7 @@ export function SignupPage() {
     validators: {
       onSubmit: ({ value }) => {
         const parsed = signupSchema.safeParse(value)
-        if (parsed.success) return undefined
+        if (parsed.success) return
         const flat = parsed.error.flatten().fieldErrors
         return {
           form: m.errValidation,
@@ -77,13 +85,13 @@ export function SignupPage() {
         toast.error(m.error, { description: msg })
         return
       }
+      dropPrincipalCache(qc)
       try {
-        await qc.invalidateQueries({ queryKey: meQueryKey })
         let meAfter: MeResponse
         try {
           meAfter = await qc.fetchQuery({
             queryKey: meQueryKey,
-            queryFn: () => apiFetch<MeResponse>('/api/me'),
+            queryFn: fetchMe,
           })
         } catch (e) {
           if (!isUnauthorized(e)) throw e
@@ -91,10 +99,10 @@ export function SignupPage() {
             method: 'POST',
             body: JSON.stringify({ email, password }),
           })
-          await qc.invalidateQueries({ queryKey: meQueryKey })
+          dropPrincipalCache(qc)
           meAfter = await qc.fetchQuery({
             queryKey: meQueryKey,
-            queryFn: () => apiFetch<MeResponse>('/api/me'),
+            queryFn: fetchMe,
           })
         }
         toast.success(m.signUp, { description: email })

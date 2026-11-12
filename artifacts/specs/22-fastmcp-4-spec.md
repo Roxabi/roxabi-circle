@@ -10,17 +10,17 @@ tier: F-lite
 
 ## Context
 
-**Promoted from:** [frame #22 fastmcp 4](../frames/22-fastmcp-4-frame.md) (F-lite — analyze skipped)
-**GitHub issue:** #22
-**Related:** Dependabot PR #7 (`fastmcp` 3.35.0 → 4.12.2, open); waves #19–#21 closed; blocks #23 (Zod monorepo) unless a documented peer force appears
+**Promoted from:** [frame Roxabi/roxabi-boilerplate-cf#22 fastmcp 4](../frames/22-fastmcp-4-frame.md) (F-lite — analyze skipped)
+**GitHub issue:** Roxabi/roxabi-boilerplate-cf#22
+**Related:** Dependabot PR Roxabi/roxabi-boilerplate-cf#7 (`fastmcp` 3.35.0 → 4.12.2, open); waves Roxabi/roxabi-boilerplate-cf#19–Roxabi/roxabi-boilerplate-cf#21 closed; blocks Roxabi/roxabi-boilerplate-cf#23 (Zod monorepo) unless a documented peer force appears
 
 ## Intent
 
-Keep the kit MCP dogfood on a supported FastMCP major. `apps/mcp-example` still depends on **`fastmcp` ^3.1.0** (lock **3.35.0**) while upstream is **4.x** (npm latest **4.12.6**; Dependabot #7 targets **4.12.2**). A major can break constructor / `addTool` / stdio `start` contracts; merging Dependabot alone does not prove `smoke:mcp`. Wave 4 owns the bump + any adapter fix so catalogue registration and stdio smoke stay green before Zod wave 5a.
+Keep the kit MCP dogfood on a supported FastMCP major. `apps/mcp-example` still depends on **`fastmcp` ^3.1.0** (lock **3.35.0**) while upstream is **4.x** (npm latest **4.12.6**; Dependabot Roxabi/roxabi-boilerplate-cf#7 targets **4.12.2**). A major can break constructor / `addTool` / stdio `start` contracts; merging Dependabot alone does not prove `smoke:mcp`. Wave 4 owns the bump + any adapter fix so catalogue registration and stdio smoke stay green before Zod wave 5a.
 
 ## Goal
 
-`apps/mcp-example` resolves **FastMCP 4.x** (concrete range at implement, prefer ≥ Dependabot target); after clean install, `bun run smoke:mcp` and package tests for `@kit/mcp` + `@kit/mcp-example` exit 0; dedicated PR closes #22 and supersedes Dependabot #7.
+`apps/mcp-example` resolves **FastMCP 4.x** (concrete range at implement, prefer ≥ Dependabot target); after clean install, `bun run smoke:mcp` and package tests for `@kit/mcp` + `@kit/mcp-example` exit 0; dedicated PR closes Roxabi/roxabi-boilerplate-cf#22 and supersedes Dependabot Roxabi/roxabi-boilerplate-cf#7.
 
 ## Users
 
@@ -36,7 +36,7 @@ Keep the kit MCP dogfood on a supported FastMCP major. `apps/mcp-example` still 
    - `addTool` argument shape vs `ToolServer` duck-type
    - `server.start({ transportType: 'stdio' })` or equivalent 4.x API
    - Any stdio JSON-RPC handshake change that breaks `scripts/stdio-smoke.mjs`
-4. **Do not** widen scope to monorepo Zod 4 (#23). Note: FastMCP 3.35 already pulls `zod` ^4 transitively in the lockfile; kit packages still pin `zod` ^3.25 — **known residual dual-graph**. Peer-force escape (if typecheck/smoke hard-fail): only a **minimal pin/override under `apps/mcp-example`** + PR note. Changing monorepo / `packages/*` `zod` ranges = **hard fail → #23**, not this PR.
+4. **Do not** widen scope to monorepo Zod 4 (Roxabi/roxabi-boilerplate-cf#23). Note: FastMCP 3.35 already pulls `zod` ^4 transitively in the lockfile; kit packages still pin `zod` ^3.25 — **known residual dual-graph**. Peer-force escape (if typecheck/smoke hard-fail): only a **minimal pin/override under `apps/mcp-example`** + PR note. Changing monorepo / `packages/*` `zod` ranges = **hard fail → Roxabi/roxabi-boilerplate-cf#23**, not this PR.
 5. Keep example tools **only** `ping` + `whoami`; registration **only** via `catalogue.registerAll(server)` (no ad-hoc `addTool` outside catalogue). No product MCP paths.
 6. Gates after clean install (ship DoD — **all required**, not optional subset):
    - `bun run --filter @kit/mcp typecheck` and `bun run --filter @kit/mcp-example typecheck`
@@ -45,7 +45,7 @@ Keep the kit MCP dogfood on a supported FastMCP major. `apps/mcp-example` still 
    - `bun run smoke:mcp` (root alias → `mcp-example` `smoke:stdio`)
    - Before push: `bun run validate:full` (local primary gate; includes smoke:mcp)
 7. Machine assert after install (D2): lockfile has **no** `fastmcp@3.` resolution for the consumer path; `apps/mcp-example` range is `^4.…`. Concrete check at implement, e.g. `rg 'fastmcp@3\\.' bun.lock` empty for the workspace graph after install + package.json range is 4.x.
-8. Dedicated PR against base (`main`) closes #22. Title shape: `chore(deps): wave4 fastmcp4…`. **Do not merge Dependabot #7** as the ship unit. Close/supersede **#7 before merge** of the dedicated PR (no parallel merge-on-green race).
+8. Dedicated PR against base (`main`) closes Roxabi/roxabi-boilerplate-cf#22. Title shape: `chore(deps): wave4 fastmcp4…`. **Do not merge Dependabot Roxabi/roxabi-boilerplate-cf#7** as the ship unit. Close/supersede **Roxabi/roxabi-boilerplate-cf#7 before merge** of the dedicated PR (no parallel merge-on-green race).
 
 ## Data Model & Consumers
 
@@ -96,15 +96,15 @@ No application data model. Dependency + registration surface only:
 | S1 | `@kit/mcp` + `mcp-example` typecheck | monorepo filter | exit 0 |
 | S2 | `@kit/mcp` + `mcp-example` test | monorepo filter | exit 0 |
 | S3 | `bun run smoke:mcp` | root script | exit 0 |
-| S4 | Dependabot PR #7 | close/supersede before merge | GH |
-| S5 | Dedicated PR for #22 | open against base | GH |
+| S4 | Dependabot PR Roxabi/roxabi-boilerplate-cf#7 | close/supersede before merge | GH |
+| S5 | Dedicated PR for Roxabi/roxabi-boilerplate-cf#22 | open against base | GH |
 
 ### Wiring
 
 ```
 D1 → one bun install → D2 assert
   → A1/A2/A3 only if break
-  → S1+S2+S3 green → dedicated PR (S5) → S4 close #7 before merge
+  → S1+S2+S3 green → dedicated PR (S5) → S4 close Roxabi/roxabi-boilerplate-cf#7 before merge
 ```
 
 ## Slices
@@ -115,7 +115,7 @@ D1 → one bun install → D2 assert
 |---|------|-------------|---------------|
 | 1 | Manifest + lock | D1, D2 | `fastmcp` ^4.x in mcp-example; D2 single-major assert passes — **not mergeable alone** |
 | 2 | Adapter (if needed) + green gates | A1?, A2?, A3?, S1, S2, S3 | typecheck + package tests + smoke:mcp green after clean install — **required for ship** |
-| 3 | Ship process | S4, S5 | Dedicated PR for #22; **do not merge #7**; #7 closed/superseded **before** dedicated merge |
+| 3 | Ship process | S4, S5 | Dedicated PR for Roxabi/roxabi-boilerplate-cf#22; **do not merge Roxabi/roxabi-boilerplate-cf#7**; Roxabi/roxabi-boilerplate-cf#7 closed/superseded **before** dedicated merge |
 
 ## Success Criteria
 
@@ -129,9 +129,9 @@ D1 → one bun install → D2 assert
 - [ ] `bun run --filter @kit/mcp-example test` exits 0
 - [ ] `bun run smoke:mcp` exits 0 (required ship control — not optional)
 - [ ] `bun run validate:full` exits 0 before push (local primary gate)
-- [ ] Dedicated PR for #22 is opened against base with wave4 title shape
-- [ ] Dependabot #7 is **not** merged as ship unit; closed/superseded **before** dedicated PR merges
-- [ ] No monorepo / `packages/*` `zod` range change in this PR; peer force if any is **only** under `apps/mcp-example` + PR note (full Zod wave = #23)
+- [ ] Dedicated PR for Roxabi/roxabi-boilerplate-cf#22 is opened against base with wave4 title shape
+- [ ] Dependabot Roxabi/roxabi-boilerplate-cf#7 is **not** merged as ship unit; closed/superseded **before** dedicated PR merges
+- [ ] No monorepo / `packages/*` `zod` range change in this PR; peer force if any is **only** under `apps/mcp-example` + PR note (full Zod wave = Roxabi/roxabi-boilerplate-cf#23)
 - [ ] Known residual documented in PR if still true: kit Zod 3 vs FastMCP transitive Zod 4; smoke proves empty-input tools + registration, not full schema matrix
 
 ## Edge Cases
@@ -141,10 +141,10 @@ D1 → one bun install → D2 assert
 | FastMCP 4 changes `addTool` param schema field name | Update `registerAll` payload and/or ToolServer type; keep duck-type |
 | FastMCP 4 requires Zod 4 types at the boundary while kit is on Zod 3 | Prefer minimal adapter coercion; document peer force if unavoidable; do not full-migrate monorepo |
 | Smoke timeout / handshake change | Adjust `stdio-smoke.mjs` only; keep tools/list + ping + whoami coverage |
-| Dependabot #7 merges first | Rebase wave branch; still land adapter+proof PR if #7 was version-only; prefer close #7 early once wave PR supersedes |
+| Dependabot Roxabi/roxabi-boilerplate-cf#7 merges first | Rebase wave branch; still land adapter+proof PR if Roxabi/roxabi-boilerplate-cf#7 was version-only; prefer close Roxabi/roxabi-boilerplate-cf#7 early once wave PR supersedes |
 | `@kit/mcp` tests use fakes only | Still run them — regression on catalogue; real FastMCP contract is proven by **smoke:mcp**, not unit fakes alone |
 | Empty-input tools only (`z.object({})`) | Accept residual: smoke proves registration + tools/list + ping/whoami execute; non-empty schema product tools are product follow-up, not this wave |
-| Dual Zod 3 (kit) / 4 (fastmcp transitive) | Accept residual unless hard fail; monorepo fix = #23 |
+| Dual Zod 3 (kit) / 4 (fastmcp transitive) | Accept residual unless hard fail; monorepo fix = Roxabi/roxabi-boilerplate-cf#23 |
 
 ## χ
 

@@ -1,27 +1,14 @@
-import { createDb } from '@kit/db'
 import { describe, expect, it, vi } from 'vitest'
 import { createApp } from './app'
-import { schema } from './db/schema'
 import { DEMO_EMAIL, DEMO_PASSWORD } from './seed/demo-data'
-import { seedDemoDatabase } from './seed/seed-db'
+import { loginCookie, seedDemoEnv } from './test/api-fixture'
 import { createMemoryEnv } from './test/memory-env'
 
 const ORIGIN = 'http://localhost:5173'
 
 async function login(app: ReturnType<typeof createApp>, env: ReturnType<typeof createMemoryEnv>) {
-  const db = createDb(env.DB as unknown as D1Database, schema)
-  await seedDemoDatabase(db, { notes: false, environment: 'test' })
-  const res = await app.request(
-    '/api/auth/sign-in/email',
-    {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', Origin: ORIGIN },
-      body: JSON.stringify({ email: DEMO_EMAIL, password: DEMO_PASSWORD }),
-    },
-    env,
-  )
-  expect(res.status).toBeLessThan(400)
-  return res.headers.get('set-cookie')!.split(';')[0]!
+  await seedDemoEnv(env, { notes: false, environment: 'test' })
+  return loginCookie(app, env, DEMO_EMAIL, DEMO_PASSWORD, ORIGIN)
 }
 
 describe('jobs ping route', () => {

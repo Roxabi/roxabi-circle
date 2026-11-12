@@ -6,7 +6,7 @@
 const API = 'https://discord.com/api/v10'
 
 /** github.com and gist.github.com (http/https, optional www). */
-export const GITHUB_URL_RE = /https?:\/\/(?:www\.)?(?:gist\.)?github\.com\/[^\s<>()]+/gi
+const GITHUB_URL_RE = /https?:\/\/(?:www\.)?(?:gist\.)?github\.com\/[^\s<>()]+/gi
 
 export type GithubWatchVerdict =
   | { ok: true; url: string; caption: string }

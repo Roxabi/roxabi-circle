@@ -45,7 +45,7 @@ function loadDevVars() {
     for (const line of readFileSync(DEVVARS, 'utf8').split('\n')) {
       const m = line.match(/^([A-Z0-9_]+)=(.*)$/)
       if (!m) continue
-      if (!(m[1] in out) || !out[m[1]]) out[m[1]] = m[2]
+      if (!(m[1] in out && out[m[1]])) out[m[1]] = m[2]
     }
   }
   return out
@@ -99,12 +99,31 @@ async function discord(token, method, path, body) {
 const GUILD_TEXT = 0
 const GUILD_CATEGORY = 4
 
+function findExistingChannel(byName, channels, chName, chType) {
+  let existing = byName.get(chName)
+  if (existing && existing.type !== chType) {
+    existing = channels.find((c) => c.name === chName && c.type === chType)
+  }
+  return existing
+}
+
+function channelCreationPayload(ch, chType, parent, overwrites) {
+  return {
+    name: ch.name,
+    type: chType,
+    parent_id: parent.id,
+    topic: chType === GUILD_TEXT ? (ch.topic ?? '') : undefined,
+    permission_overwrites: overwrites.length ? overwrites : undefined,
+    reason: 'Roxabi Circle setup',
+  }
+}
+
 async function main() {
   const env = loadDevVars()
   const token = env.DISCORD_BOT_TOKEN
   const guildId = env.DISCORD_GUILD_ID
   const appId = env.DISCORD_APPLICATION_ID
-  if (!token || !guildId || !appId) {
+  if (!(token && guildId && appId)) {
     console.error('Missing DISCORD_BOT_TOKEN / GUILD_ID / APPLICATION_ID in .dev.vars or env')
     process.exit(1)
   }
@@ -130,36 +149,7 @@ async function main() {
   const guild = await discord(token, 'GET', `/guilds/${guildId}?with_counts=true`)
   console.log(`guild=${guild.name} members≈${guild.approximate_member_count}`)
 
-  const roles = await discord(token, 'GET', `/guilds/${guildId}/roles`)
-  let memberRole = roles.find((r) => r.name === 'member')
-  if (!memberRole) {
-    if (dryRun) {
-      console.log('[dry-run] would create role member')
-    } else {
-      memberRole = await discord(token, 'POST', `/guilds/${guildId}/roles`, {
-        name: 'member',
-        mentionable: false,
-        hoist: true,
-        color: 0x6c8cff,
-        permissions: '0',
-        reason: 'Roxabi Circle setup — accepted members',
-      })
-      console.log(`created role member id=${memberRole.id}`)
-    }
-  } else {
-    console.log(`role member exists id=${memberRole.id}`)
-  }
-
-  // Put bot role above member (by position)
-  const botMember = await discord(token, 'GET', `/guilds/${guildId}/members/${me.id}`)
-  const botRoleIds = new Set(botMember.roles ?? [])
-  const botRoles = roles.filter((r) => botRoleIds.has(r.id) && r.name !== '@everyone')
-  // Managed bot role is usually the one with tags.bot_id
-  const managedBotRole =
-    roles.find((r) => r.tags?.bot_id === me.id) ??
-    botRoles.sort((a, b) => b.position - a.position)[0]
-
-  if (memberRole && managedBotRole && !dryRun) {
+  async function reorderRoles(roles, memberRole, managedBotRole) {
     // Discord: higher position = higher in hierarchy UI
     // Assign positions: botRole > member > rest keep relative order roughly
     const everyone = roles.find((r) => r.name === '@everyone')
@@ -182,10 +172,48 @@ async function main() {
     }
   }
 
-  if (memberRole?.id) {
-    setDevVar('DISCORD_MEMBER_ROLE_ID', memberRole.id)
-    console.log(`updated .dev.vars DISCORD_MEMBER_ROLE_ID`)
+  async function setupRoles() {
+    const roles = await discord(token, 'GET', `/guilds/${guildId}/roles`)
+    let memberRole = roles.find((r) => r.name === 'member')
+    if (!memberRole) {
+      if (dryRun) {
+        console.log('[dry-run] would create role member')
+      } else {
+        memberRole = await discord(token, 'POST', `/guilds/${guildId}/roles`, {
+          name: 'member',
+          mentionable: false,
+          hoist: true,
+          color: 0x6c8cff,
+          permissions: '0',
+          reason: 'Roxabi Circle setup — accepted members',
+        })
+        console.log(`created role member id=${memberRole.id}`)
+      }
+    } else {
+      console.log(`role member exists id=${memberRole.id}`)
+    }
+
+    // Put bot role above member (by position)
+    const botMember = await discord(token, 'GET', `/guilds/${guildId}/members/${me.id}`)
+    const botRoleIds = new Set(botMember.roles ?? [])
+    const botRoles = roles.filter((r) => botRoleIds.has(r.id) && r.name !== '@everyone')
+    // Managed bot role is usually the one with tags.bot_id
+    const managedBotRole =
+      roles.find((r) => r.tags?.bot_id === me.id) ??
+      botRoles.sort((a, b) => b.position - a.position)[0]
+
+    if (memberRole && managedBotRole && !dryRun) {
+      await reorderRoles(roles, memberRole, managedBotRole)
+    }
+
+    if (memberRole?.id) {
+      setDevVar('DISCORD_MEMBER_ROLE_ID', memberRole.id)
+      console.log(`updated .dev.vars DISCORD_MEMBER_ROLE_ID`)
+    }
+    return { memberRole, managedBotRole }
   }
+
+  const { memberRole, managedBotRole } = await setupRoles()
 
   // ── Permission bits (bigint for high thread bits) ──────────────────────
   const bit = (n) => 1n << BigInt(n)
@@ -455,14 +483,29 @@ async function main() {
   /** @type {Map<string, any>} */
   const byName = new Map(channels.map((c) => [c.name, c]))
 
-  for (const cat of layout) {
+  async function patchCategory(cat, parent, catOws) {
+    try {
+      await discord(token, 'PATCH', `/channels/${parent.id}`, {
+        permission_overwrites: catOws,
+      })
+      console.log(`  applied category overwrites ${cat.name}`)
+    } catch (e) {
+      console.warn(
+        `  skip category patch ${cat.name}:`,
+        // @ts-expect-error
+        e.body ?? e.message,
+      )
+    }
+  }
+
+  async function processCategory(cat) {
     let parent = byName.get(cat.name)
     const catOws = categoryOverwrites(cat.catMode)
 
     if (!parent) {
       if (!createMissing) {
         console.log(`category MISSING ${cat.name} (pass --create-missing)`)
-        continue
+        return
       }
       if (dryRun) {
         console.log(`[dry-run] create category ${cat.name} mode=${cat.catMode}`)
@@ -480,74 +523,71 @@ async function main() {
     } else {
       console.log(`category exists ${cat.name}`)
       if (applyPerms && !dryRun && memberRole?.id) {
-        try {
-          await discord(token, 'PATCH', `/channels/${parent.id}`, {
-            permission_overwrites: catOws,
-          })
-          console.log(`  applied category overwrites ${cat.name}`)
-        } catch (e) {
-          console.warn(
-            `  skip category patch ${cat.name}:`,
-            // @ts-expect-error
-            e.body ?? e.message,
-          )
-        }
+        await patchCategory(cat, parent, catOws)
       }
     }
 
     for (const ch of cat.children ?? []) {
-      const chType = ch.type ?? GUILD_TEXT
-      let existing = byName.get(ch.name)
-      if (existing && existing.type !== chType) {
-        existing = channels.find((c) => c.name === ch.name && c.type === chType)
-      }
-
-      const mode = ch.mode ?? 'inherit'
-      const overwrites = channelOverwrites(mode, catOws)
-
-      if (!existing) {
-        if (!createMissing) {
-          console.log(`  channel MISSING #${ch.name} (pass --create-missing)`)
-          continue
-        }
-        if (dryRun) {
-          console.log(`[dry-run] create #${ch.name} under ${cat.name} mode=${mode}`)
-        } else if (parent?.id && parent.id !== 'dry') {
-          const created = await discord(token, 'POST', `/guilds/${guildId}/channels`, {
-            name: ch.name,
-            type: chType,
-            parent_id: parent.id,
-            topic: chType === GUILD_TEXT ? (ch.topic ?? '') : undefined,
-            permission_overwrites: overwrites.length ? overwrites : undefined,
-            reason: 'Roxabi Circle setup',
-          })
-          byName.set(ch.name, created)
-          console.log(`  created #${ch.name} mode=${mode}`)
-        }
-      } else {
-        const owCount = (existing.permission_overwrites || []).length
-        console.log(`  channel exists #${ch.name} mode=${mode} overwrites=${owCount}`)
-        if (applyPerms && !dryRun && memberRole?.id) {
-          try {
-            /** @type {Record<string, unknown>} */
-            const patch = {
-              parent_id: parent?.id && parent.id !== 'dry' ? parent.id : existing.parent_id,
-            }
-            if (chType === GUILD_TEXT && ch.topic) patch.topic = ch.topic
-            // Always set overwrites list (empty = inherit) when applying perms
-            patch.permission_overwrites = overwrites
-            await discord(token, 'PATCH', `/channels/${existing.id}`, patch)
-            console.log(`    applied perms mode=${mode} ow=${overwrites.length}`)
-          } catch (e) {
-            console.warn(
-              `    skip patch #${ch.name}:`,
-              // @ts-expect-error
-              e.body ?? e.message,
-            )
-          }
-        }
-      }
+      await processChannel(ch, cat, parent, catOws)
     }
+  }
+
+  async function processChannel(ch, cat, parent, catOws) {
+    const chType = ch.type ?? GUILD_TEXT
+    const existing = findExistingChannel(byName, channels, ch.name, chType)
+
+    const mode = ch.mode ?? 'inherit'
+    const overwrites = channelOverwrites(mode, catOws)
+
+    if (existing) {
+      await updateExistingChannel(ch, chType, parent, existing, mode, overwrites)
+      return
+    }
+    if (!createMissing) {
+      console.log(`  channel MISSING #${ch.name} (pass --create-missing)`)
+      return
+    }
+    if (dryRun) {
+      console.log(`[dry-run] create #${ch.name} under ${cat.name} mode=${mode}`)
+      return
+    }
+    if (parent?.id && parent.id !== 'dry') {
+      const created = await discord(
+        token,
+        'POST',
+        `/guilds/${guildId}/channels`,
+        channelCreationPayload(ch, chType, parent, overwrites),
+      )
+      byName.set(ch.name, created)
+      console.log(`  created #${ch.name} mode=${mode}`)
+    }
+  }
+
+  async function updateExistingChannel(ch, chType, parent, existing, mode, overwrites) {
+    const owCount = (existing.permission_overwrites || []).length
+    console.log(`  channel exists #${ch.name} mode=${mode} overwrites=${owCount}`)
+    if (!(applyPerms && !dryRun && memberRole?.id)) return
+    try {
+      /** @type {Record<string, unknown>} */
+      const patch = {
+        parent_id: parent?.id && parent.id !== 'dry' ? parent.id : existing.parent_id,
+      }
+      if (chType === GUILD_TEXT && ch.topic) patch.topic = ch.topic
+      // Always set overwrites list (empty = inherit) when applying perms
+      patch.permission_overwrites = overwrites
+      await discord(token, 'PATCH', `/channels/${existing.id}`, patch)
+      console.log(`    applied perms mode=${mode} ow=${overwrites.length}`)
+    } catch (e) {
+      console.warn(
+        `    skip patch #${ch.name}:`,
+        // @ts-expect-error
+        e.body ?? e.message,
+      )
+    }
+  }
+
+  for (const cat of layout) {
+    await processCategory(cat)
   }
 
   // Guild command /apply

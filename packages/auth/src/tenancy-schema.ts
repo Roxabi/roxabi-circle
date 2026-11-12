@@ -1,6 +1,6 @@
 /**
  * Kit tenancy / RBAC / security tables (ADR-0003, B-auth-harden).
- * Applied SQL SSoT: apps/example-api/migrations/*.
+ * SQL identity: catalog id + hash. Dogfood journal: `apps/example-api/migrations/*`.
  */
 import { integer, primaryKey, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
@@ -78,7 +78,7 @@ export const organizationRoleModuleGrants = sqliteTable(
 )
 
 /**
- * Durable fixed-window rate-limit counters (B-auth-harden #61).
+ * Durable fixed-window rate-limit counters (B-auth-harden go-silex/silex-boilerplate#61).
  * Shared across Workers isolates via D1 — not an in-memory Map.
  */
 export const rateLimitBuckets = sqliteTable(

@@ -1,8 +1,20 @@
+import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vitest/config'
-import { makeCoverage } from '../../packages/config/vitest-coverage.mjs'
+import { makeCoverage } from '../../packages/config/vitest-coverage.mts'
 
 export default defineConfig({
+  resolve: {
+    alias: {
+      'cloudflare:workers': fileURLToPath(
+        new URL('./src/test/cloudflare-workers-stub.ts', import.meta.url),
+      ),
+      'cloudflare:workflows': fileURLToPath(
+        new URL('./src/test/cloudflare-workflows-stub.ts', import.meta.url),
+      ),
+    },
+  },
   test: {
+    maxWorkers: process.env.CI ? '100%' : undefined,
     environment: 'node',
     include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
     // Backend kit bar — keep high; raise further when adding domains.

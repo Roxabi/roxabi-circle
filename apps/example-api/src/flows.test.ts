@@ -1,23 +1,22 @@
 import { INVOKE_ONLY_PLAN_YAML } from '@kit/flows/run'
 import { describe, expect, it } from 'vitest'
 import { mintApiKey } from './services/auth'
+import { bearerHeaders, sessionHeaders } from './test/api-fixture'
 import {
   BOTH_ORGS,
-  bearerHeaders,
   enableFlowsForOrgs,
   expectError,
   freshApp,
   insertTeamPlanAndRun,
   login,
   MEMBER_EMAIL,
-  mintOperatorWriteOnAcme,
   ORG_ACME,
   ORG_TEAM,
   ORIGIN,
+  provisionOperatorWriteOnAcmeOverHttp,
   STAFF_EMAIL,
   SUPER_EMAIL,
   seedFlowsApp,
-  sessionHeaders,
 } from './test/flows-fixture'
 
 describe('flows admin API (V1 gates + GET)', () => {
@@ -75,7 +74,11 @@ describe('flows admin API (V1 gates + GET)', () => {
   it('GET /api/flows/plans is 404 when flows module is off', async () => {
     const { app, env } = await seedFlowsApp()
     const cookie = await login(app, env, STAFF_EMAIL)
-    const res = await app.request('/api/flows/plans', { headers: sessionHeaders(cookie) }, env)
+    const res = await app.request(
+      '/api/flows/plans',
+      { headers: sessionHeaders(cookie, ORG_ACME) },
+      env,
+    )
     expect(res.status).toBe(404)
     const body = (await res.json()) as {
       error: { code: string; message: string }
@@ -89,7 +92,11 @@ describe('flows admin API (V1 gates + GET)', () => {
   it('GET /api/flows/runs is 404 when flows module is off', async () => {
     const { app, env } = await seedFlowsApp()
     const cookie = await login(app, env, STAFF_EMAIL)
-    const res = await app.request('/api/flows/runs', { headers: sessionHeaders(cookie) }, env)
+    const res = await app.request(
+      '/api/flows/runs',
+      { headers: sessionHeaders(cookie, ORG_ACME) },
+      env,
+    )
     expect(res.status).toBe(404)
     const body = (await res.json()) as { error: { code: string; message: string } }
     expect(body.error.code).toBe('NOT_FOUND')
@@ -100,7 +107,11 @@ describe('flows admin API (V1 gates + GET)', () => {
     const { app, env, db } = await seedFlowsApp()
     await enableFlowsForOrgs(db, BOTH_ORGS)
     const cookie = await login(app, env, STAFF_EMAIL)
-    const res = await app.request('/api/flows/plans', { headers: sessionHeaders(cookie) }, env)
+    const res = await app.request(
+      '/api/flows/plans',
+      { headers: sessionHeaders(cookie, ORG_ACME) },
+      env,
+    )
     expect(res.status).toBe(200)
     const body = (await res.json()) as { plans: unknown[]; requestId: string }
     expect(body.plans).toEqual([])
@@ -111,7 +122,11 @@ describe('flows admin API (V1 gates + GET)', () => {
     const { app, env, db } = await seedFlowsApp()
     await enableFlowsForOrgs(db, BOTH_ORGS)
     const cookie = await login(app, env, STAFF_EMAIL)
-    const res = await app.request('/api/flows/runs', { headers: sessionHeaders(cookie) }, env)
+    const res = await app.request(
+      '/api/flows/runs',
+      { headers: sessionHeaders(cookie, ORG_ACME) },
+      env,
+    )
     expect(res.status).toBe(200)
     const body = (await res.json()) as { runs: unknown[]; requestId: string }
     expect(body.runs).toEqual([])
@@ -179,7 +194,7 @@ describe('flows admin API (V1 gates + GET)', () => {
     const { app, env, db } = await seedFlowsApp()
     await enableFlowsForOrgs(db, BOTH_ORGS)
     const cookie = await login(app, env, STAFF_EMAIL)
-    const headers = sessionHeaders(cookie)
+    const headers = sessionHeaders(cookie, ORG_ACME)
     const plan = await app.request('/api/flows/plans/plan_unknown', { headers }, env)
     await expectError(plan, 404, 'NOT_FOUND')
     const run = await app.request('/api/flows/runs/run_unknown', { headers }, env)
@@ -195,7 +210,7 @@ describe('flows admin API (V1 gates + GET)', () => {
       { headers: sessionHeaders(cookie, ORG_ACME) },
       env,
     )
-    await expectError(res, 403, 'FORBIDDEN')
+    await expectError(res, 403, 'FORBIDDEN', 'Insufficient module grant')
   })
 })
 
@@ -208,7 +223,7 @@ describe('V2 publish + enable', () => {
       '/api/flows/plans',
       {
         method: 'POST',
-        headers: sessionHeaders(cookie),
+        headers: sessionHeaders(cookie, ORG_ACME),
         body: JSON.stringify({ yaml: INVOKE_ONLY_PLAN_YAML }),
       },
       env,
@@ -240,9 +255,8 @@ describe('V0 custom write non-admin (operator)', () => {
     const { app, env, db } = await seedFlowsApp()
     await enableFlowsForOrgs(db, BOTH_ORGS)
     const staffCookie = await login(app, env, STAFF_EMAIL)
-    const staffHeaders = sessionHeaders(staffCookie)
-    const mintedVia = await mintOperatorWriteOnAcme(app, env, db, staffCookie)
-    expect(mintedVia).toBe('http')
+    const staffHeaders = sessionHeaders(staffCookie, ORG_ACME)
+    await provisionOperatorWriteOnAcmeOverHttp(app, env, db, staffCookie)
 
     const published = await app.request(
       '/api/flows/plans',

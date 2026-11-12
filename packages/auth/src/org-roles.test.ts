@@ -28,6 +28,13 @@ describe('org-roles', () => {
     expect(roleHasCapability('owner', 'delete_org')).toBe(true)
   })
 
+  it('restricts notification management to admins and owners', () => {
+    expect(roleHasCapability('owner', 'manage_notifications')).toBe(true)
+    expect(roleHasCapability('admin', 'manage_notifications')).toBe(true)
+    expect(roleHasCapability('member', 'manage_notifications')).toBe(false)
+    expect(roleHasCapability('reader', 'manage_notifications')).toBe(false)
+  })
+
   it('canInviteRole enforces ceiling', () => {
     expect(canInviteRole('owner', 'admin')).toBe(true)
     expect(canInviteRole('owner', 'member')).toBe(true)

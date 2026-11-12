@@ -32,7 +32,7 @@ verdicts *adversariaux* : leur rôle est de produire du signal, pas une note fin
 
 | Lentille | Verdict adversarial | Survit à l'operator ? |
 |---|---|---|
-| **Produit** | **NON** — framework personnel en costume de plateforme | **Oui** (concédé #1 par l'operator) |
+| **Produit** | **NON** — framework personnel en costume de plateforme | **Oui** (action 1 concédée par l'operator) |
 | **Architecte** | **CONDITIONNEL** — squelette sain, 2 paris chers à défaire | **Partiellement** (voir §6) |
 | **Sécurité** | **ACCEPTABLE POUR LE STADE** — plan vivant durci ; gouvernance kernel = prose | **Oui** (3 fixes concédés, 2 contenus) |
 | **DX / Adoption** | **REPOUSSOIR** — clone-and-study, pas clone-and-go | **Partiellement** (reframe manifeste valide) |
@@ -77,10 +77,10 @@ compte-t-elle comme surface de maintenance ». Elle rote, donc partiellement oui
 ### 3.1 `@kit/flows` est le point de rupture — attaqué par les 5
 
 - **1 247 LOC**, le 2ᵉ plus gros package, **aucune route ni binding CF Workflows**.
-  `flows-dogfood.ts:3` le dit : *« no HTTP route / Workflows yet — #30–#31 »*.
+  `flows-dogfood.ts:3` le dit : *« no HTTP route / Workflows yet — Roxabi/roxabi-boilerplate-cf#30–Roxabi/roxabi-boilerplate-cf#31 »*.
 - Migration `0012_flows_plans_runs.sql` crée `flow_plans`/`flow_runs` — **lue par aucun
   repo/service/route**.
-- **La gouvernance est du commentaire** : la provenance du grant (invariant #3) est un
+- **La gouvernance est du commentaire** : la provenance du grant (invariant 3) est un
   commentaire dans `authority.ts`. Pas de meter runtime (ceilings statiques seulement —
   et `AGENTS.md` le pré-concède : *« static ceilings necessary ≠ sufficient »*). Pas
   d'endpoint HITL. Immutabilité snapshot = « convention » (`runner-view.ts:24`).
@@ -116,7 +116,7 @@ license-checker, syncpack).
 | Cluster | Posture | Arbitrage |
 |---|---|---|
 | **A. Flows** | Partiellement concède (brandera `ServerMintedGrant`, refuse DELETE) | **½** — faits défensifs vrais (vérifiés §5), fond survit : freeze + brand |
-| **B. Inversion produit** | Concède (#1) + reframe « vous relisez mon risk register » | **Attaque survit**, concédée. Le reframe est juste et ne change pas l'action |
+| **B. Inversion produit** | Concède (action 1) + reframe « vous relisez mon risk register » | **Attaque survit**, concédée. Le reframe est juste et ne change pas l'action |
 | **C. Fork vs versionner** | Reframe : versionner *déplace* le drift dans une matrice de versions | **Les deux ont tort** → §7 |
 | **D. Lock-in D1** | Reframe : D1 = la thèse ; seul l'« escape hatch » est du vent → écrire l'ADR | **Tient.** L'attaque a sur-qualifié la thèse de « fuite » |
 | **E. Pins bleeding-edge** | Concède churn ; « gates = policy, pas syncpack » | **⅔.** Le job est distinct, ok. La question de valeur (bleeding-edge pour un artefact censé être stable) reste sans réponse |
@@ -187,7 +187,7 @@ conséquences :
 2. **Le trou de provenance du grant reste ouvert.** `invariant-needs-test` exige un test
    quand un symbole sous invariant bouge ; il **ne rend pas** `checkPlan(grant: unknown)`
    impossible à appeler avec un objet client. Seul un **type nominal**
-   (`ServerMintedGrant`, action #6) ferme ça — la reco est inchangée.
+   (`ServerMintedGrant`, action 6) ferme ça — la reco est inchangée.
 
 > Point de méthode : `config.json` porte aussi `repositoryRoot` en **chemin absolu
 > machine-spécifique**, ce qui limite sa portabilité multi-machine. À normaliser si le
@@ -202,7 +202,7 @@ lui-même.
 
 | # | Action | Cluster | Note |
 |---|---|---|---|
-| 1 | **Ship un produit interne réel, extraire le kit *de lui*, geler flows** | B | Le #1 de l'operator. Exécuter `platform-proof.md` au lieu de le citer |
+| 1 | **Ship un produit interne réel, extraire le kit *de lui*, geler flows** | B | L'action 1 de l'operator. Exécuter `platform-proof.md` au lieu de le citer |
 | 2 | Détecteur `sk_` custom + scan **historique complet** TruffleHog | H3 | `--only-verified` est structurellement aveugle au format `sk_` maison |
 | 3 | Throttle **par compte** (email) en plus du per-IP ; `'local'` fail-closed en prod | H4 | Aujourd'hui : per-IP seul, pas de lockout compte |
 | 4 | Deny/révoque les clés `organization_id IS NULL` à l'auth | H5 résiduel | Finir ce que `0008` annonçait |
@@ -213,12 +213,12 @@ lui-même.
 | 9 | ADR « D1 load-bearing, portabilité = non-goal » **ou** supprimer la phrase escape-hatch | D | Truth-in-labeling, pas un `DbPort` prématuré |
 | 10 | `author ≠ labeler` sur `merge-on-green` | H1 | À l'embauche n°2 ; aujourd'hui le label *est* la signature solo |
 
-**Garde-fou explicite sur flows** : ne **pas** câbler #29–#31 par-dessus la gouvernance
-inerte actuelle avant d'avoir transformé les invariants #2 (snapshot-only) et #3
+**Garde-fou explicite sur flows** : ne **pas** câbler Roxabi/roxabi-boilerplate-cf#29–Roxabi/roxabi-boilerplate-cf#31 par-dessus la gouvernance
+inerte actuelle avant d'avoir transformé les invariants 2 (snapshot-only) et 3
 (provenance) en types/gates. Sinon la violation sera à une ligne d'écart, et rien ne
 deviendra rouge.
 
-### 6.1 Correction mesurée — l'action #5 reposait sur une inférence, pas une mesure
+### 6.1 Correction mesurée — l'action 5 reposait sur une inférence, pas une mesure
 
 La lentille DX a chiffré le coût du pre-push en citant le **budget** CI de 25 min
 (`.github/workflows/ci.yml:33`), puis en a déduit que les devs aliaseraient `LEFTHOOK=0`.
@@ -230,7 +230,7 @@ total pre-push : 25.07s
 ```
 
 **16,5 s**, pas des minutes. Le budget CI est un *timeout*, pas un temps d'exécution — la
-lentille DX a confondu les deux. L'action #5 perd donc l'essentiel de sa justification.
+lentille DX a confondu les deux. L'action 5 perd donc l'essentiel de sa justification.
 
 **Contre-nuance, pour ne pas surcorriger** : ce push ne touchait que `artifacts/` et
 `packages/flows/*.test.ts`, avec cache turbo et `bun install` chauds — le graphe
@@ -242,7 +242,7 @@ un plancher observé, pas un plafond.**
 d'abord** le pire cas réel (cache froid, changement dans `ui` ou `example-web`) ; ne
 splitter que si ce pire cas dépasse le seuil de patience. Ce qui reste vrai de la
 lentille DX en G, sans dépendre du chrono : le **cap 300 lignes appliqué aux apps
-produit** avec un registre d'exemptions en zone zero-edit protégée (action #7).
+produit** avec un registre d'exemptions en zone zero-edit protégée (action 7).
 
 ---
 
@@ -293,6 +293,6 @@ produit ne soit livré**, et le propre doc de preuve l'admet.
   quasi-intouchés par cette revue.
 - Le fond « le cœur SaaS est-il *bon*, pas seulement solide ? » n'est pas tranché : la
   lentille produit le juge commodity, la lentille sécurité en fait la seule partie
-  fiable. **Les deux ont raison** — et ça plaide pour l'action #1 : la base est
+  fiable. **Les deux ont raison** — et ça plaide pour l'action 1 : la base est
   suffisamment saine pour porter un vrai produit ; ce qui manque n'est pas plus de
   kernel, c'est un consommateur réel.

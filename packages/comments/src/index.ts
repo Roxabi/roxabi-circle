@@ -4,7 +4,7 @@
  * Attach to tasks via targetType="task", or product entities (project, contract, …).
  */
 
-export type { Audience } from './audience'
+export type { Audience, AudiencePort } from './audience'
 export { AUDIENCES, isAudience } from './audience'
 
 export {

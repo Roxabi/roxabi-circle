@@ -1,6 +1,7 @@
 /**
  * Worker BA factory — import `@kit/auth/factory`, not `@kit/auth`.
- * Root barrel stays free of `better-auth` / `drizzle-orm/d1` (SPA + MCP).
+ * Root barrel stays free of `better-auth` / `drizzle-orm/d1` / `@kit/email` (SPA + MCP).
+ * `drizzle-orm` and `@kit/email` are optional peers: declare them on the Worker that imports this entry.
  * SPA password forms: `@kit/auth/react` (never from this Worker entry).
  */
 export {
@@ -11,6 +12,7 @@ export {
   sendResetPasswordMail,
 } from './auth-email'
 export {
+  type BetterAuthDatabase,
   type CreateBetterAuthOpts,
   createBetterAuth,
   type KitBetterAuth,
@@ -19,3 +21,4 @@ export {
   createFirstSessionAfterHook,
   type FirstSessionHandler,
 } from './first-session-hook'
+export { hashVerificationIdentifier, resetPasswordIdentifier } from './verification-identifier'

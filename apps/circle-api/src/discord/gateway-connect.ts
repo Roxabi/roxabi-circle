@@ -7,9 +7,9 @@ import { resolveGatewayUrl } from './gateway-socket'
 
 const ENCODING = 'json'
 const API_VERSION = 10
-export const CONNECT_DEADLINE_MS = 25_000
+const CONNECT_DEADLINE_MS = 25_000
 
-export function socketBusy(ws: WebSocket | null): boolean {
+function socketBusy(ws: WebSocket | null): boolean {
   if (!ws) return false
   return ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING
 }
@@ -30,10 +30,8 @@ export type EnsureDeps = {
   onClose: (code: number, reason: string) => void
 }
 
-export async function runEnsureConnected(deps: EnsureDeps): Promise<void> {
-  await deps.loadSession()
+function resetStaleConnection(deps: EnsureDeps): void {
   const conn = deps.getConnecting()
-
   if (conn.connecting && Date.now() - conn.since >= CONNECT_DEADLINE_MS) {
     console.warn('gateway connect deadline — reaping hung connect')
     const ws = deps.getWs()
@@ -47,20 +45,57 @@ export async function runEnsureConnected(deps: EnsureDeps): Promise<void> {
     }
     deps.setConnecting(false)
   }
+}
+
+function closeSocket(deps: EnsureDeps, ws: WebSocket, reason: string): void {
+  try {
+    ws.close(1000, reason)
+  } catch {
+    /* ignore */
+  }
+  deps.setWs(null)
+}
+
+function finishForcedReconnect(deps: EnsureDeps): void {
+  const ws = deps.getWs()
+  if (ws) closeSocket(deps, ws, 'force_reconnect')
+  deps.setConnecting(false)
+}
+
+function replaceNonOpenSocket(deps: EnsureDeps): void {
+  const cur = deps.getWs()
+  if (cur && cur.readyState !== WebSocket.OPEN) {
+    closeSocket(deps, cur, 'replace')
+  }
+}
+
+function openSocket(deps: EnsureDeps, gatewayUrl: string): void {
+  const ws = new WebSocket(`${gatewayUrl}?v=${API_VERSION}&encoding=${ENCODING}`)
+  deps.setWs(ws)
+  ws.addEventListener('message', (event) => {
+    deps.onMessage(String(event.data))
+  })
+  ws.addEventListener('close', (event) => {
+    deps.onClose(event.code, event.reason)
+  })
+  ws.addEventListener('error', () => {
+    console.error('gateway socket error')
+  })
+  const settle = () => {
+    deps.setConnecting(false)
+  }
+  ws.addEventListener('open', settle)
+  ws.addEventListener('close', settle)
+}
+
+export async function runEnsureConnected(deps: EnsureDeps): Promise<void> {
+  await deps.loadSession()
+  resetStaleConnection(deps)
 
   if (deps.force) {
     deps.setSession(clearCircuit(deps.getSession()))
     await deps.saveSession()
-    const ws = deps.getWs()
-    if (ws) {
-      try {
-        ws.close(1000, 'force_reconnect')
-      } catch {
-        /* ignore */
-      }
-      deps.setWs(null)
-    }
-    deps.setConnecting(false)
+    finishForcedReconnect(deps)
   }
 
   if (deps.getConnecting().connecting) return
@@ -71,32 +106,26 @@ export async function runEnsureConnected(deps: EnsureDeps): Promise<void> {
     socketBusy: deps.getConnecting().connecting || socketBusy(deps.getWs()),
     force: deps.force,
   })
-  if (gate.action === 'skip') return
-  if (gate.action === 'hard_stop') {
-    console.error('gateway hard_stop — fix token/intents then POST ensure?force=1', gate.reason)
-    return
-  }
-  if (gate.action === 'wait') {
-    const existing = await deps.storage.getAlarm()
-    if (existing == null || existing > gate.until) {
-      await deps.storage.setAlarm(gate.until)
+  switch (gate.action) {
+    case 'skip':
+      return
+    case 'hard_stop':
+      console.error('gateway hard_stop — fix token/intents then POST ensure?force=1', gate.reason)
+      return
+    case 'wait': {
+      const existing = await deps.storage.getAlarm()
+      if (existing == null || existing > gate.until) {
+        await deps.storage.setAlarm(gate.until)
+      }
+      return
     }
-    return
   }
   if (!deps.envToken) {
     console.error('gateway: missing DISCORD_BOT_TOKEN')
     return
   }
 
-  const cur = deps.getWs()
-  if (cur && cur.readyState !== WebSocket.OPEN) {
-    try {
-      cur.close(1000, 'replace')
-    } catch {
-      /* ignore */
-    }
-    deps.setWs(null)
-  }
+  replaceNonOpenSocket(deps)
 
   deps.setConnecting(true, Date.now())
   try {
@@ -112,22 +141,7 @@ export async function runEnsureConnected(deps: EnsureDeps): Promise<void> {
       return
     }
 
-    const ws = new WebSocket(`${gatewayUrl}?v=${API_VERSION}&encoding=${ENCODING}`)
-    deps.setWs(ws)
-    ws.addEventListener('message', (event) => {
-      deps.onMessage(String(event.data))
-    })
-    ws.addEventListener('close', (event) => {
-      deps.onClose(event.code, event.reason)
-    })
-    ws.addEventListener('error', () => {
-      console.error('gateway socket error')
-    })
-    const settle = () => {
-      deps.setConnecting(false)
-    }
-    ws.addEventListener('open', settle)
-    ws.addEventListener('close', settle)
+    openSocket(deps, gatewayUrl)
     await deps.storage.setAlarm(Date.now() + CONNECT_DEADLINE_MS)
   } catch (e) {
     deps.setConnecting(false)

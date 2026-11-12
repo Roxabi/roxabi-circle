@@ -1,25 +1,19 @@
+import type { BetterAuthEnvSlice } from '@kit/auth'
+import { assertRateLimit } from '@kit/auth/repos/rate-limit'
 import { AppError } from '@kit/core'
 import { createDb } from '@kit/db'
 import { describe, expect, it } from 'vitest'
 import { createApp } from './app'
 import { schema } from './db/schema'
-import { assertRateLimit } from './lib/rate-limit'
 import { useSecureCookie } from './lib/session-env'
 import { DEMO_EMAIL, DEMO_EMAIL_B, DEMO_PASSWORD, DEMO_PASSWORD_B } from './services/auth'
+import { loginCookie, seedDemoEnv, sessionHeaders } from './test/api-fixture'
+import { hashFixtureCredential } from './test/fixture-credential'
 import { createMemoryEnv } from './test/memory-env'
 
 const ORIGIN = 'http://localhost:5173'
 /** Non-loopback SPA origin for staging/production env tests. */
 const SPA_ORIGIN = 'https://app.example.com'
-
-/** Cookie-authenticated mutation headers (Origin required by originGuard). */
-function sessionMutation(cookie: string): Record<string, string> {
-  return {
-    cookie,
-    'content-type': 'application/json',
-    Origin: ORIGIN,
-  }
-}
 
 async function loginAs(
   app: ReturnType<typeof createApp>,
@@ -27,23 +21,8 @@ async function loginAs(
   email: string,
   password: string,
 ) {
-  const db = createDb(env.DB as unknown as D1Database, schema)
-  const { seedDemoDatabase } = await import('./seed/seed-db')
-  await seedDemoDatabase(db, { notes: true, environment: 'test' })
-  const login = await app.request(
-    '/api/auth/sign-in/email',
-    {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', Origin: ORIGIN },
-      body: JSON.stringify({ email, password }),
-    },
-    env,
-  )
-  expect(login.status, `sign-in ${email} → ${login.status}`).toBeLessThan(400)
-  const setCookie = login.headers.get('set-cookie')
-  expect(setCookie, `cookie for ${email}`).toBeTruthy()
-  const cookie = setCookie!.split(';')[0]!
-  return cookie
+  await seedDemoEnv(env, { notes: true, environment: 'test' })
+  return loginCookie(app, env, email, password, ORIGIN)
 }
 
 describe('createApp shipped entry — health & errors', () => {
@@ -76,7 +55,6 @@ describe('createApp shipped entry — health & errors', () => {
     const app = createApp()
     const staging = createMemoryEnv({
       ENVIRONMENT: 'staging',
-      SESSION_SECRET: 'staging-session-secret-at-least-32ch!',
       CORS_ORIGINS: SPA_ORIGIN,
     })
     const stagingRes = await app.request('/health', {}, staging)
@@ -89,7 +67,6 @@ describe('createApp shipped entry — health & errors', () => {
 
     const prod = createMemoryEnv({
       ENVIRONMENT: 'production',
-      SESSION_SECRET: 'production-session-secret-at-least-32ch!',
       CORS_ORIGINS: SPA_ORIGIN,
     })
     const prodRes = await app.request('/health', {}, prod)
@@ -173,14 +150,12 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
       subject: string
       email?: string
       authMethod: string
-      role: string
       platformRole: string | null
       orgs: unknown[]
       requestId: string
     }
     expect(meBody.subject).toBe('user_demo')
     expect(meBody.authMethod).toBe('session')
-    expect(meBody.role).toBe('admin')
     // seed-db maps kit demo admin → platform super_admin for catalogue ops
     expect(meBody.platformRole).toBe('super_admin')
     expect(Array.isArray(meBody.orgs)).toBe(true)
@@ -329,7 +304,7 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
       '/api/orgs',
       {
         method: 'POST',
-        headers: sessionMutation(cookie),
+        headers: sessionHeaders(cookie, undefined, ORIGIN),
         body: JSON.stringify({
           name: 'Mint Org',
           slug: `mint-org-${crypto.randomUUID().slice(0, 8)}`,
@@ -344,7 +319,7 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
       '/api/keys',
       {
         method: 'POST',
-        headers: sessionMutation(cookie),
+        headers: sessionHeaders(cookie, undefined, ORIGIN),
         body: JSON.stringify({ organizationId: org.id }),
       },
       env,
@@ -398,7 +373,7 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
 
     const rev = await app.request(
       `/api/keys/${minted.id}`,
-      { method: 'DELETE', headers: sessionMutation(cookie) },
+      { method: 'DELETE', headers: sessionHeaders(cookie, undefined, ORIGIN) },
       env,
     )
     expect(rev.status).toBe(200)
@@ -436,7 +411,7 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     const { mintApiKey } = await import('./services/auth')
     const { seedTenancyDemo } = await import('./seed/seed-tenancy')
     const db = createDb(env.DB, schema)
-    await seedTenancyDemo(db, { environment: 'test', force: true })
+    await seedTenancyDemo(db, { environment: 'test', force: true }, hashFixtureCredential)
 
     // positive control: the same key, unexpired, authenticates
     const live = await mintApiKey(db, 'user_staff', { organizationId: 'org_acme', name: 'live' })
@@ -467,7 +442,7 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     const { mintApiKey } = await import('./services/auth')
     const { seedTenancyDemo } = await import('./seed/seed-tenancy')
     const db = createDb(env.DB, schema)
-    await seedTenancyDemo(db, { environment: 'test', force: true })
+    await seedTenancyDemo(db, { environment: 'test', force: true }, hashFixtureCredential)
 
     // No opt-in flag: omitting the organization is refused by the service itself, so a new
     // call site cannot recreate the subject-global key state D11 forbids.
@@ -484,7 +459,7 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     })
     const db = createDb(env.DB as unknown as D1Database, schema)
     const { seedDemoDatabase } = await import('./seed/seed-db')
-    await seedDemoDatabase(db, { notes: false, environment: 'test' })
+    await seedDemoDatabase(db, { notes: false, environment: 'test' }, hashFixtureCredential)
     const login = await app.request(
       '/api/auth/sign-in/email',
       {
@@ -495,7 +470,7 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
       env,
     )
     expect(login.status).toBeLessThan(400)
-    const cookie = login.headers.get('set-cookie')?.split(';')[0]
+    const cookie = (login.headers.get('set-cookie') ?? '').split(';')[0]
     expect(cookie).toMatch(/^__Secure-kit_session=/)
 
     const me = await app.request('/api/me', { headers: { cookie, Origin: SPA_ORIGIN } }, env)
@@ -535,7 +510,6 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     const app = createApp()
     const env = createMemoryEnv({
       ENVIRONMENT: 'production',
-      SESSION_SECRET: 'prod-session-secret-at-least-32-chars!!',
       CORS_ORIGINS: SPA_ORIGIN,
       BETTER_AUTH_SECRET: undefined,
     })
@@ -618,14 +592,9 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
       },
       env,
     )
-    // Some BA versions sign-in on sign-up; either 200 with cookie or need sign-in
-    if (signup.status >= 400) {
-      // soft skip if BA schema/runtime quirks in vitest
-      expect(signup.status).toBeLessThan(600)
-      return
-    }
+    expect(signup.status, await signup.clone().text()).toBeLessThan(400)
     let cookie = signup.headers.get('set-cookie') ?? ''
-    if (!cookie.includes('kit_session') && !cookie.toLowerCase().includes('session')) {
+    if (!(cookie.includes('kit_session') || cookie.toLowerCase().includes('session'))) {
       const signin = await app.request(
         '/api/auth/sign-in/email',
         {
@@ -685,7 +654,7 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     const app = createApp()
     const env = createMemoryEnv()
     const cookie = await loginAs(app, env, DEMO_EMAIL, DEMO_PASSWORD)
-    const auth = sessionMutation(cookie)
+    const auth = sessionHeaders(cookie, undefined, ORIGIN)
 
     const create = await app.request(
       '/api/notes',
@@ -752,7 +721,7 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
   })
 
   it('useSecureCookie is false only for development|test', () => {
-    const base = { DB: {} as never, BUCKET: {} as never }
+    const base: BetterAuthEnvSlice = {}
     expect(useSecureCookie({ ...base, ENVIRONMENT: 'development' })).toBe(false)
     expect(useSecureCookie({ ...base, ENVIRONMENT: 'test' })).toBe(false)
     expect(useSecureCookie({ ...base, ENVIRONMENT: 'production' })).toBe(true)
@@ -764,13 +733,12 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     const app = createApp()
     const env = createMemoryEnv({
       ENVIRONMENT: 'staging',
-      SESSION_SECRET: 'staging-session-secret-at-least-32ch!',
       CORS_ORIGINS: SPA_ORIGIN,
     })
     const { createDb } = await import('@kit/db')
     const { schema } = await import('./db/schema')
     const { seedDemoDatabase } = await import('./seed/seed-db')
-    await seedDemoDatabase(createDb(env.DB, schema), { notes: false })
+    await seedDemoDatabase(createDb(env.DB, schema), { notes: false }, hashFixtureCredential)
 
     const login = await app.request(
       '/api/auth/sign-in/email',
@@ -797,7 +765,7 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     const cookie = await loginAs(app, env, DEMO_EMAIL, DEMO_PASSWORD)
     const logout = await app.request(
       '/api/auth/sign-out',
-      { method: 'POST', headers: sessionMutation(cookie) },
+      { method: 'POST', headers: sessionHeaders(cookie, undefined, ORIGIN) },
       env,
     )
     expect(logout.status).toBeLessThan(500)
@@ -851,7 +819,7 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     const app = createApp()
     const env = createMemoryEnv()
     const db = createDb(env.DB as unknown as D1Database, schema)
-    // Pre-fill the same bucket key as authRoutes BA_SENSITIVE (avoids 20× BA auth in CI).
+    // Pre-fill the kit BA throttle's address bucket (avoids 20× BA auth in CI).
     const windowMs = 15 * 60 * 1000
     for (let i = 0; i < 20; i++) {
       await assertRateLimit(db, 'ba-auth:203.0.113.9', 20, windowMs)
@@ -891,7 +859,7 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     }
     const blocked = await app.request(
       '/api/keys',
-      { method: 'POST', headers: sessionMutation(cookie), body: '{}' },
+      { method: 'POST', headers: sessionHeaders(cookie, undefined, ORIGIN), body: '{}' },
       env,
     )
     expect(blocked.status).toBe(429)
@@ -915,7 +883,7 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     }
     const blocked = await app.request(
       '/api/demo/email',
-      { method: 'POST', headers: sessionMutation(cookie), body: '{}' },
+      { method: 'POST', headers: sessionHeaders(cookie, undefined, ORIGIN), body: '{}' },
       env,
     )
     expect(blocked.status).toBe(429)
@@ -930,7 +898,6 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     const app = createApp()
     const env = createMemoryEnv({
       ENVIRONMENT: 'production',
-      SESSION_SECRET: 'prod-session-secret-at-least-32-chars!!',
       BETTER_AUTH_SECRET: 'prod-better-auth-secret-at-least-32chars!',
       BETTER_AUTH_URL: 'https://api.example.com',
       CORS_ORIGINS: SPA_ORIGIN,
@@ -986,7 +953,7 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
       '/api/notes',
       {
         method: 'POST',
-        headers: sessionMutation(cookie),
+        headers: sessionHeaders(cookie, undefined, ORIGIN),
         body: JSON.stringify({ title: '' }),
       },
       env,
@@ -1000,7 +967,6 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     const app = createApp()
     const env = createMemoryEnv({
       ENVIRONMENT: 'production',
-      SESSION_SECRET: 'prod-session-secret-at-least-32-chars!!',
       BETTER_AUTH_SECRET: 'prod-better-auth-secret-at-least-32chars!',
       BETTER_AUTH_URL: 'https://api.example.com',
     })
@@ -1048,6 +1014,42 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
     })
   })
 
+  it('GET /api/modules rejects a client session without a platform role', async () => {
+    const app = createApp()
+    const env = createMemoryEnv()
+    const cookie = await loginAs(app, env, 'solo@kit.local', 'demo-password-change-me')
+    const res = await app.request('/api/modules', { headers: { cookie } }, env)
+    expect(res.status).toBe(403)
+    const body = (await res.json()) as { error: { code: string } }
+    expect(body.error.code).toBe('FORBIDDEN')
+  })
+
+  it('GET /api/modules rejects an org-bound API key', async () => {
+    const app = createApp()
+    const env = createMemoryEnv()
+    const cookie = await loginAs(app, env, 'staff@kit.local', 'demo-password-change-me')
+    const mint = await app.request(
+      '/api/keys',
+      {
+        method: 'POST',
+        headers: sessionHeaders(cookie, undefined, ORIGIN),
+        body: JSON.stringify({ organizationId: 'org_acme' }),
+      },
+      env,
+    )
+    expect(mint.status).toBe(200)
+    const { key } = (await mint.json()) as { key: string }
+
+    const denied = await app.request(
+      '/api/modules',
+      { headers: { authorization: `Bearer ${key}` } },
+      env,
+    )
+    expect(denied.status).toBe(403)
+    const body = (await denied.json()) as { error: { code: string } }
+    expect(body.error.code).toBe('FORBIDDEN')
+  })
+
   it('PATCH /api/modules/demo enables without remote integration', async () => {
     const app = createApp()
     const env = createMemoryEnv()
@@ -1056,7 +1058,7 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
       '/api/modules/demo',
       {
         method: 'PATCH',
-        headers: sessionMutation(cookie),
+        headers: sessionHeaders(cookie, undefined, ORIGIN),
         body: JSON.stringify({ enabled: true }),
       },
       env,
@@ -1072,7 +1074,7 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
       '/api/modules/demo',
       {
         method: 'PATCH',
-        headers: sessionMutation(cookieB),
+        headers: sessionHeaders(cookieB, undefined, ORIGIN),
         body: JSON.stringify({ enabled: false }),
       },
       env,
@@ -1090,7 +1092,7 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
       '/api/notes',
       {
         method: 'POST',
-        headers: sessionMutation(cookieA),
+        headers: sessionHeaders(cookieA, undefined, ORIGIN),
         body: JSON.stringify({ title: 'A private', body: 'secret-to-a' }),
       },
       env,
@@ -1112,7 +1114,7 @@ describe('createApp dual auth + D1 + R2 (happy path)', () => {
 
     const delB = await app.request(
       `/api/notes/${noteId}`,
-      { method: 'DELETE', headers: sessionMutation(cookieB) },
+      { method: 'DELETE', headers: sessionHeaders(cookieB, undefined, ORIGIN) },
       env,
     )
     expect(delB.status).toBe(404)

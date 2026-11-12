@@ -12,7 +12,7 @@ normative: false
 
 ## Summary
 
-Ship example-api `/api/flows` as one PR: session `.use`, org header, module grants, YAML `{ yaml }` `.strict()`, queued insert in `repos/flows.ts`, **await** `FLOW_RUN.create`, GET via camelCase `readRunRollup`. No second sequencer. Closes #31 only.
+Ship example-api `/api/flows` as one PR: session `.use`, org header, module grants, YAML `{ yaml }` `.strict()`, queued insert in `repos/flows.ts`, **await** `FLOW_RUN.create`, GET via camelCase `readRunRollup`. No second sequencer. Closes Roxabi/roxabi-boilerplate-cf#31 only.
 
 Planning slices **V1–V3** (single PR; sequential TDD). Override with `plan slice V2` if you want a thinner first cut.
 
@@ -31,7 +31,7 @@ Cookie → session `.use` → `X-Org-Id` → module → service → repo D1; POS
 - Seed does **not** enable `flows` (`PLATFORM_AVAILABLE_MODULES` = demo+tasks+comments) — tests must `setPlatformAvailable` + org-enable **two** orgs
 - Patterns: `tasks.ts` (prefix + `X-Org-Id`), `admin-users.ts` (`requireSession` — lift to `.use`), `items.test.ts` / `tasks.test.ts` (login + IDOR), `memory-env.ts` (`FLOW_RUN.create` stub)
 - File length: `apps/` max 300 — split routes/services/repos/tests if needed
-- Closer unanchored: never `close #16` / `fix #16` / same for 72
+- Closer unanchored: never `close Roxabi/roxabi-boilerplate-cf#16` / `fix Roxabi/roxabi-boilerplate-cf#16` / same for 72
 
 ## Agents
 
@@ -122,7 +122,7 @@ Cookie → session `.use` → `X-Org-Id` → module → service → repo D1; POS
 | readRunRollup camelCase; no `complete` | T4, T17 |
 | stolen-id 404; 400/401; module off 404 | T1, T5 |
 | stub create; invoke-only; two orgs | T2, T13, T17 |
-| 0 métier; close #31 only | T19 (PR checklist) |
+| 0 métier; close Roxabi/roxabi-boilerplate-cf#31 only | T19 (PR checklist) |
 
 ## Micro-Tasks
 
@@ -288,7 +288,7 @@ Cookie → session `.use` → `X-Org-Id` → module → service → repo D1; POS
 - **Subject:** authz | **Slice:** V3
 
 #### RED-GATE: RED complete V3 → tester-C (T19)
-- **Verify:** all example-api flows tests pass; `persist.ts` has no INSERT; PR body will `Fixes #31` only
+- **Verify:** all example-api flows tests pass; `persist.ts` has no INSERT; PR body will `Fixes Roxabi/roxabi-boilerplate-cf#31` only
 - **Phase:** RED-GATE
 - **Subject:** runs | **Slice:** V3
 

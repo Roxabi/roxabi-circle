@@ -8,6 +8,7 @@
 
 import { isValidMailboxAddress } from './domain'
 import { scrubEmailAddress, scrubHeaderLine } from './scrub'
+import { EmailPolicyError } from './types'
 
 export type CfEmailAddress = string | { email: string; name?: string }
 
@@ -43,8 +44,9 @@ export async function sendCf(
   const subject = scrubHeaderLine(input.subject).trimEnd()
   const safeFrom = scrubEmailAddress(input.from) as CfEmailAddress
   const fromEmail = typeof safeFrom === 'string' ? safeFrom : safeFrom.email
-  if (!isValidMailboxAddress(to) || !isValidMailboxAddress(fromEmail)) {
-    throw new Error(
+  if (!(isValidMailboxAddress(to) && isValidMailboxAddress(fromEmail))) {
+    throw new EmailPolicyError(
+      'EMAIL_ADDRESS_INVALID',
       'EMAIL_ADDRESS_INVALID: to/from must be a single printable-ASCII mailbox (exactly one @)',
     )
   }

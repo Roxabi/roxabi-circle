@@ -11,7 +11,7 @@ normative: false
 
 ## Summary
 
-Bump `lucide-react` from `^0.515.0` to a concrete `^1.N.M` (pin at implement: **1.29.0** or newer latest) in `@kit/ui` and `@kit/example-web`, refresh lockfile to a **single** 1.x resolution, fix any broken named imports via 1:1 renames (PR table if non-empty), prove green typecheck + example-web build after clean install, then ship a dedicated PR and close Dependabot #5 before merge.
+Bump `lucide-react` from `^0.515.0` to a concrete `^1.N.M` (pin at implement: **1.29.0** or newer latest) in `@kit/ui` and `@kit/example-web`, refresh lockfile to a **single** 1.x resolution, fix any broken named imports via 1:1 renames (PR table if non-empty), prove green typecheck + example-web build after clean install, then ship a dedicated PR and close Dependabot Roxabi/roxabi-boilerplate-cf#5 before merge.
 
 ## Architecture
 
@@ -19,7 +19,7 @@ Bump `lucide-react` from `^0.515.0` to a concrete `^1.N.M` (pin at implement: **
 
 **Diagram:** [lucide-react bump data flow](../visuals/20-lucide-react-1x-data-flow.html)
 
-Inventory → dual package.json pin → lockfile 1.x → import rename pass → clean-install V1–V3 gates → dedicated PR + close #5.
+Inventory → dual package.json pin → lockfile 1.x → import rename pass → clean-install V1–V3 gates → dedicated PR + close Roxabi/roxabi-boilerplate-cf#5.
 
 ### File x Function Map
 
@@ -54,7 +54,7 @@ Manifests (devops) + ~14 `packages/ui` import sites + ~11 `example-web` import s
 | T3 rename ui | ~14 files | judgmental | 5 | — |
 | T4 rename web | ~11 files | judgmental | 5 | — |
 | T5 gates | 3 cmds | bounded | 3 | — |
-| T6 #5 + PR prep | 2 | trivial | 2 | — |
+| T6 Roxabi/roxabi-boilerplate-cf#5 + PR prep | 2 | trivial | 2 | — |
 
 **Total estimated ops: ~21**
 
@@ -148,11 +148,11 @@ Manifests (devops) + ~14 `packages/ui` import sites + ~11 `example-web` import s
 
 ### Slice V3: Ship prep
 
-#### Task 6: Dependabot #5 close plan + PR body material → devops-A
+#### Task 6: Dependabot Roxabi/roxabi-boilerplate-cf#5 close plan + PR body material → devops-A
 - **File:** inventory note + commit message / PR body draft in note
-- **Snippet:** list rename table (or “none”); note “close #5 before merge”
+- **Snippet:** list rename table (or “none”); note “close Roxabi/roxabi-boilerplate-cf#5 before merge”
 - **Verify:** `gh pr view 5 --json state,number` (ready)
-- **Expected:** note documents #5 supersede; ready for `/pr` step (do not open PR inside implement if process separates — implement lands code commits only)
+- **Expected:** note documents Roxabi/roxabi-boilerplate-cf#5 supersede; ready for `/pr` step (do not open PR inside implement if process separates — implement lands code commits only)
 - **Time:** 5 min
 - **Difficulty:** 1
 - **Traces:** SC-8, SC-9

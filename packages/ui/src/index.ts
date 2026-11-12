@@ -1,9 +1,5 @@
-/** sidebar-07 block pieces (collapsible icon rail + user/team menus) */
-// AppSidebar (Acme sample composition) is intentionally unexported — use Nav* / TeamSwitcher.
-export { NavMain } from './components/nav-main'
-export { NavProjects } from './components/nav-projects'
+/** sidebar-07 primitives. Acme sample chrome is not kit API (M-07). */
 export { NavUser, type NavUserData } from './components/nav-user'
-export { TeamSwitcher } from './components/team-switcher'
 export * from './components/ui/alert'
 export * from './components/ui/alert-dialog'
 export * from './components/ui/avatar'
@@ -42,3 +38,4 @@ export * from './components/ui/toggle-group'
 export * from './components/ui/tooltip'
 export { useIsMobile } from './hooks/use-mobile'
 export { cn } from './lib/utils'
+export { type Theme, ThemeProvider, useTheme } from './theme'

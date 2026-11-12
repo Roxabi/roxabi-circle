@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   changePasswordSchema,
   createAdminUserSchema,
+  createOrgResponseSchema,
   createOrgSchema,
   createTaskSchema,
   forgotPasswordSchema,
@@ -150,6 +151,50 @@ describe('createOrgSchema', () => {
     expect(createOrgSchema.safeParse({ name: 'Acme' }).success).toBe(true)
     expect(createOrgSchema.safeParse({ name: 'Acme', slug: 'acme' }).success).toBe(true)
     expect(createOrgSchema.safeParse({ name: '  ' }).success).toBe(false)
+  })
+})
+
+describe('createOrgResponseSchema', () => {
+  it('requires org id/kind/status before a me-cache write', () => {
+    expect(
+      createOrgResponseSchema.safeParse({
+        org: {
+          id: 'org_1',
+          name: 'Acme',
+          slug: 'acme',
+          kind: 'client',
+          status: 'active',
+          role: 'owner',
+        },
+        requestId: 'req_1',
+      }).success,
+    ).toBe(true)
+    expect(
+      createOrgResponseSchema.safeParse({
+        org: {
+          id: '',
+          name: 'Acme',
+          slug: 'acme',
+          kind: 'client',
+          status: 'active',
+          role: 'owner',
+        },
+        requestId: 'req_1',
+      }).success,
+    ).toBe(false)
+    expect(
+      createOrgResponseSchema.safeParse({
+        org: {
+          id: 'org_1',
+          name: 'Acme',
+          slug: 'acme',
+          kind: 'client',
+          status: 'active',
+          role: '',
+        },
+        requestId: 'req_1',
+      }).success,
+    ).toBe(false)
   })
 })
 

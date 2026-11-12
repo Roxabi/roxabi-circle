@@ -36,7 +36,7 @@ export function threadNameFromDigest(content: string | null | undefined): string
 }
 
 /** Real digests are long/embed-based; skip our reject notices and tiny bot pings. */
-export function looksLikeDigestPost(msg: GatewayMessage): boolean {
+function looksLikeDigestPost(msg: GatewayMessage): boolean {
   if (msg.embeds && msg.embeds.length > 0) return true
   const raw = (msg.content ?? '').trim()
   if (!raw) return false

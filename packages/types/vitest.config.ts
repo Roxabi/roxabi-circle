@@ -1,5 +1,5 @@
 import { defineConfig } from 'vitest/config'
-import { makeCoverage } from '../config/vitest-coverage.mjs'
+import { makeCoverage } from '../config/vitest-coverage.mts'
 
 export default defineConfig({
   test: {

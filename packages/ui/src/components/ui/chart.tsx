@@ -161,7 +161,7 @@ function ChartTooltipContent({
     return <div className={cn('font-medium', labelClassName)}>{value}</div>
   }, [label, labelFormatter, payload, hideLabel, labelClassName, config, labelKey])
 
-  if (!active || !payload?.length) {
+  if (!(active && payload?.length)) {
     return null
   }
 
@@ -178,6 +178,7 @@ function ChartTooltipContent({
       <div className="grid gap-1.5">
         {payload
           .filter((item) => item.type !== 'none')
+          // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: shadcn — DEBT:cog-shadcn
           .map((item, index) => {
             const key = `${nameKey ?? item.name ?? item.dataKey ?? 'value'}`
             const itemConfig = getPayloadConfigFromPayload(config, item, key)
@@ -308,7 +309,7 @@ function ChartLegendContent({
 
 function getPayloadConfigFromPayload(config: ChartConfig, payload: unknown, key: string) {
   if (typeof payload !== 'object' || payload === null) {
-    return undefined
+    return
   }
 
   const payloadPayload =

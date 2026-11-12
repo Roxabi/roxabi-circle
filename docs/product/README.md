@@ -5,13 +5,17 @@ Gated Discord community (AI + OSS). Entry = GitHub OAuth + PR d’entrée (D11) 
 ## Lineage (direct)
 
 ```text
-Roxabi/roxabi-cf-template  (upstream, fetch-only)
+go-silex/unkillable-kit    (upstream, fetch-only; publication pending)
         │  merge upstream/main
         ▼
 Roxabi/roxabi-circle       (this product — origin)
 ```
 
 Kit packages live under `packages/@kit/*` and `apps/example-*` (zero-edit). Product code = `apps/circle-api` + `docs/product/*`.
+
+Existing Product functions are adapted to the inherited complexity floor of 15.
+
+Circle declares no separate Product push CI in `config/product/deploy-gate.json`. The inherited Kit CI and Secret scan remain required; `product-semctx.yml` is a PR-only check, not a deploy workflow. Kit CI typechecks the Circle API workspace and includes it in Root coverage through `config/product/coverage-order.txt`.
 
 ## Live
 

@@ -7,43 +7,26 @@ import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarHeader,
   SidebarInset,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
   SidebarProvider,
   SidebarRail,
   SidebarTrigger,
+  type Theme,
+  useTheme,
 } from '@kit/ui'
 import { useQueryClient } from '@tanstack/react-query'
-import { Link, useNavigate, useRouterState } from '@tanstack/react-router'
-import {
-  Boxes,
-  Building2,
-  FileText,
-  KeyRound,
-  LayoutDashboard,
-  ListTodo,
-  Moon,
-  Palette,
-  Settings,
-  Sparkles,
-  Sun,
-  SunMoon,
-  Users,
-} from 'lucide-react'
+import { useNavigate, useRouterState } from '@tanstack/react-router'
+import { Moon, Sun, SunMoon } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { toast } from 'sonner'
 import { canManageMembers, isPlatformActor, signOutAndClearSession, useMe } from '../lib/auth'
 import { localeLabels } from '../lib/i18n'
 import { useLocale } from '../lib/locale'
 import { useOrgContext } from '../lib/org-context'
-import { type Theme, useTheme } from '../lib/theme'
-import { OrgSwitcher } from './org-switcher'
+import { ImpersonationBanner } from './impersonation-banner'
+import { ShellBrand, ShellNav, ShellUserExtras } from './shell-nav'
+import { pageTitle } from './shell-title'
 
 export type ShellMode = 'admin' | 'app'
 
@@ -52,44 +35,6 @@ export type ShellMode = 'admin' | 'app'
  * Shell homes (`/admin`, `/app`) are prefixes of every nested route — exact match only,
  * otherwise "Accueil" stays lit on orgs/notes/etc.
  */
-function isNavActive(pathname: string, to: string): boolean {
-  if (pathname === to) return true
-  if (to === '/' || to === '/admin' || to === '/app') return false
-  return pathname.startsWith(`${to}/`)
-}
-
-function NavItem({ to, label, icon }: { to: string; label: string; icon: ReactNode }) {
-  const pathname = useRouterState({ select: (s) => s.location.pathname })
-  const active = isNavActive(pathname, to)
-  return (
-    <SidebarMenuItem>
-      <SidebarMenuButton isActive={active} tooltip={label} render={<Link to={to} />}>
-        {icon}
-        <span>{label}</span>
-      </SidebarMenuButton>
-    </SidebarMenuItem>
-  )
-}
-
-function pageTitle(pathname: string, m: ReturnType<typeof useLocale>['m']): string {
-  if (pathname.startsWith('/app/items')) return m.navItems
-  if (pathname.startsWith('/app/tasks')) return m.navTasks
-  if (pathname.startsWith('/app/notes') || pathname === '/notes') return m.navNotes
-  if (pathname.startsWith('/app/keys') || pathname === '/keys') return m.navKeys
-  if (pathname.includes('/members')) return m.navMembers
-  if (pathname.startsWith('/app/settings') || pathname.startsWith('/settings')) return m.navSettings
-  if (pathname.startsWith('/app/changelog')) return m.navChangelog
-  if (pathname.startsWith('/admin/design-system') || pathname.startsWith('/design-system')) {
-    return m.navDesignSystem
-  }
-  if (pathname.startsWith('/admin/orgs')) return m.navOrgs
-  if (pathname.startsWith('/admin/users')) return m.navUsers
-  if (pathname.startsWith('/admin/modules')) return m.navModules
-  if (pathname.startsWith('/admin')) return m.navAdminHome
-  if (pathname.startsWith('/app')) return m.navAppHome
-  return m.navDashboard
-}
-
 /** dashboard-01 inspired shell: brand header, grouped nav, user footer, site header. */
 function ShellChrome({ mode, children }: { mode: ShellMode; children: ReactNode }) {
   const { m, locale, setLocale, locales } = useLocale()
@@ -133,64 +78,17 @@ function ShellChrome({ mode, children }: { mode: ShellMode; children: ReactNode 
       {/* sidebar-07: collapses to icons */}
       <Sidebar collapsible="icon">
         <SidebarHeader>
-          {mode === 'app' ? (
-            <OrgSwitcher />
-          ) : (
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  size="lg"
-                  className="data-[slot=sidebar-menu-button]:p-1.5!"
-                  render={<Link to={homeTo} />}
-                >
-                  <div className="flex size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                    <span className="text-xs font-bold">GX</span>
-                  </div>
-                  <div className="grid flex-1 text-left text-sm leading-tight">
-                    <span className="truncate font-semibold">{m.appTitle}</span>
-                    <span className="truncate text-xs text-muted-foreground">{subtitle}</span>
-                  </div>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          )}
+          <ShellBrand mode={mode} homeTo={homeTo} subtitle={subtitle} appTitle={m.appTitle} />
         </SidebarHeader>
 
         <SidebarContent>
-          {mode === 'admin' ? (
-            <SidebarGroup>
-              <SidebarGroupLabel>{m.navAdmin}</SidebarGroupLabel>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  <NavItem to="/admin" label={m.navAdminHome} icon={<LayoutDashboard />} />
-                  <NavItem to="/admin/orgs" label={m.navOrgs} icon={<Building2 />} />
-                  <NavItem to="/admin/users" label={m.navUsers} icon={<Users />} />
-                  <NavItem to="/admin/modules" label={m.navModules} icon={<Boxes />} />
-                  <NavItem to="/admin/design-system" label={m.navDesignSystem} icon={<Palette />} />
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-          ) : (
-            <SidebarGroup>
-              <SidebarGroupLabel>{m.navApp}</SidebarGroupLabel>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  <NavItem to="/app" label={m.navAppHome} icon={<LayoutDashboard />} />
-                  <NavItem to="/app/notes" label={m.navNotes} icon={<FileText />} />
-                  <NavItem to="/app/items" label={m.navItems} icon={<Boxes />} />
-                  <NavItem to="/app/tasks" label={m.navTasks} icon={<ListTodo />} />
-                  <NavItem to="/app/keys" label={m.navKeys} icon={<KeyRound />} />
-                  {showMembers && activeOrgId ? (
-                    <NavItem
-                      to={`/app/orgs/${activeOrgId}/members`}
-                      label={m.navMembers}
-                      icon={<Users />}
-                    />
-                  ) : null}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-          )}
+          <ShellNav
+            mode={mode}
+            m={m}
+            showMembers={showMembers}
+            activeOrgId={activeOrgId}
+            delegated={Boolean(me.data?.impersonation)}
+          />
         </SidebarContent>
 
         <SidebarFooter>
@@ -203,35 +101,13 @@ function ShellChrome({ mode, children }: { mode: ShellMode; children: ReactNode 
             logoutLabel={m.logout}
             onLogout={() => void logout()}
           >
-            {mode === 'app' ? (
-              <>
-                <DropdownMenuItem onClick={() => void navigate({ to: '/app/changelog' })}>
-                  <Sparkles />
-                  {m.navChangelog}
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => void navigate({ to: '/app/settings' })}>
-                  <Settings />
-                  {m.settings}
-                </DropdownMenuItem>
-              </>
-            ) : (
-              <DropdownMenuItem onClick={() => void navigate({ to: '/admin/modules' })}>
-                <Settings />
-                {m.navModules}
-              </DropdownMenuItem>
-            )}
-            {platform && mode === 'admin' ? (
-              <DropdownMenuItem onClick={() => void navigate({ to: '/app' })}>
-                <LayoutDashboard />
-                {m.switchToApp}
-              </DropdownMenuItem>
-            ) : null}
-            {platform && mode === 'app' ? (
-              <DropdownMenuItem onClick={() => void navigate({ to: '/admin' })}>
-                <Building2 />
-                {m.switchToAdmin}
-              </DropdownMenuItem>
-            ) : null}
+            <ShellUserExtras
+              mode={mode}
+              platform={platform}
+              m={m}
+              navigate={navigate}
+              delegated={Boolean(me.data?.impersonation)}
+            />
             <DropdownMenuSeparator />
             <LocaleSwitcher
               variant="menu"
@@ -250,6 +126,7 @@ function ShellChrome({ mode, children }: { mode: ShellMode; children: ReactNode 
       </Sidebar>
 
       <SidebarInset>
+        {me.data?.impersonation ? <ImpersonationBanner /> : null}
         <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
           <div className="flex w-full items-center gap-2 px-4 lg:gap-3 lg:px-6">
             <SidebarTrigger className="-ml-1" />

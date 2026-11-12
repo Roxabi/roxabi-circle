@@ -19,6 +19,13 @@ import {
   scrubHeaderLine,
 } from './index'
 
+/** Typed binding double: `send.mock.calls[0][0]` must carry the scrubbed message. */
+type CfSendMessage = Parameters<SendEmailBinding['send']>[0]
+
+function cfSendMock() {
+  return vi.fn(async (_msg: CfSendMessage) => ({ messageId: 'mid_1' }))
+}
+
 describe('scrubHeaderLine', () => {
   it('collapses CR/LF/NEL/LS/PS to space and collapses runs', () => {
     expect(scrubHeaderLine('hi\r\nX-Injected: yes')).toBe('hi X-Injected: yes')
@@ -45,6 +52,8 @@ describe('buildInviteEmailText', () => {
       orgName: 'Acme',
       acceptUrl: 'http://localhost:5173/invite/accept?invitationId=inv_x',
       expiresAt: new Date('2030-01-01T00:00:00.000Z'),
+      allowedOrigins: [],
+      allowLoopbackHttp: true,
     })
     expect(m.subject).toContain('Acme')
     expect(m.html).toContain('Accept invitation')
@@ -57,11 +66,23 @@ describe('buildMagicLinkEmailText', () => {
       to: 'a@b.c',
       magicUrl: 'http://localhost:8787/api/auth/magic-link/verify?token=abc',
       expiresHint: 'about 5 minutes',
+      allowedOrigins: [],
+      allowLoopbackHttp: true,
     })
     expect(m.to).toBe('a@b.c')
     expect(m.subject).toMatch(/sign in/i)
     expect(m.text).toContain('magic-link/verify')
     expect(m.html).toContain('href=')
+  })
+
+  it('rejects javascript href', () => {
+    expect(() =>
+      buildMagicLinkEmailText({
+        to: 'a@b.c',
+        magicUrl: 'javascript:alert(1)',
+        allowedOrigins: [],
+      }),
+    ).toThrow(/EMAIL_TOKEN_HREF_INVALID/)
   })
 })
 
@@ -125,6 +146,9 @@ describe('assertEmailTransportAllowed / resolveEmailTransport', () => {
     expect(resolveEmailTransport(undefined, 'development')).toBe('log')
     expect(() => resolveEmailTransport(undefined, 'production')).toThrow(/required/i)
     expect(resolveEmailTransport('cf', 'production')).toBe('cf')
+    expect(() => resolveEmailTransport(undefined, undefined)).toThrow(/required/i)
+    expect(() => resolveEmailTransport(undefined, '')).toThrow(/required/i)
+    expect(() => assertEmailTransportAllowed('log', undefined)).toThrow(/forbidden/i)
   })
 })
 
@@ -233,7 +257,7 @@ describe('createEmailPort (product path — leaves not public)', () => {
   })
 
   it('cf port scrubs subject CR/LF and LS before binding.send', async () => {
-    const send = vi.fn(async () => ({ messageId: 'mid_1' }))
+    const send = cfSendMock()
     const port = createEmailPort({
       transport: 'cf',
       environment: 'production',
@@ -255,7 +279,7 @@ describe('createEmailPort (product path — leaves not public)', () => {
   })
 
   it('cf port fails closed on multi-token to after scrub (no last-@ spoof to binding)', async () => {
-    const send = vi.fn(async () => ({ messageId: 'mid_1' }))
+    const send = cfSendMock()
     const port = createEmailPort({
       transport: 'cf',
       environment: 'production',
@@ -273,7 +297,7 @@ describe('createEmailPort (product path — leaves not public)', () => {
   })
 
   it('cf port scrubs display name and keeps valid mailbox from/to', async () => {
-    const send = vi.fn(async () => ({ messageId: 'mid_1' }))
+    const send = cfSendMock()
     const port = createEmailPort({
       transport: 'cf',
       environment: 'production',
@@ -295,7 +319,7 @@ describe('createEmailPort (product path — leaves not public)', () => {
   })
 
   it('cf port calls binding with from.email shape', async () => {
-    const send = vi.fn(async () => ({ messageId: 'mid_1' }))
+    const send = cfSendMock()
     const binding: SendEmailBinding = { send }
     const port = createEmailPort({
       transport: 'cf',
@@ -321,7 +345,7 @@ describe('createEmailPort (product path — leaves not public)', () => {
   })
 
   it('staging cf enforces allowlist at send', async () => {
-    const send = vi.fn(async () => ({ messageId: 'mid_1' }))
+    const send = cfSendMock()
     const port = createEmailPort({
       transport: 'cf',
       environment: 'staging',
@@ -339,7 +363,7 @@ describe('createEmailPort (product path — leaves not public)', () => {
   })
 
   it('allowlist runs on scrubbed to (trailing LS still matches allowlist domain)', async () => {
-    const send = vi.fn(async () => ({ messageId: 'mid_1' }))
+    const send = cfSendMock()
     const port = createEmailPort({
       transport: 'cf',
       environment: 'staging',
@@ -360,7 +384,7 @@ describe('createEmailPort (product path — leaves not public)', () => {
   })
 
   it('allowlist fails closed on multi-@ / spoof tails (binding never called)', async () => {
-    const send = vi.fn(async () => ({ messageId: 'mid_1' }))
+    const send = cfSendMock()
     const port = createEmailPort({
       transport: 'cf',
       environment: 'staging',
@@ -382,6 +406,28 @@ describe('createEmailPort (product path — leaves not public)', () => {
       )
     }
     expect(send).not.toHaveBeenCalled()
+  })
+
+  it('resend errors are code-only (no provider body)', async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(new Response('PROVIDER_SECRET_BODY', { status: 502 }))
+    try {
+      const port = createEmailPort({
+        transport: 'resend',
+        environment: 'production',
+        from: 'noreply@example.com',
+        resendApiKey: 're_test_key',
+      })
+      await expect(
+        port.send({ to: 'user@example.com', subject: 'Hi', text: 'body' }),
+      ).rejects.toThrow(/Resend send failed: 502/)
+      await expect(
+        port.send({ to: 'user@example.com', subject: 'Hi', text: 'body' }),
+      ).rejects.not.toThrow(/PROVIDER_SECRET_BODY/)
+    } finally {
+      fetchSpy.mockRestore()
+    }
   })
 
   it('resend factory fails closed without API key', () => {
@@ -442,7 +488,7 @@ describe('createEmailPort (product path — leaves not public)', () => {
     expect(prefixStagingSubject('Reset password')).toBe(`${STAGING_SUBJECT_PREFIX} Reset password`)
     expect(prefixStagingSubject('[TEST STAGING] already')).toBe('[TEST STAGING] already')
 
-    const send = vi.fn(async () => ({ messageId: 'mid_1' }))
+    const send = cfSendMock()
     const port = createEmailPort({
       transport: 'cf',
       environment: 'staging',

@@ -7,7 +7,10 @@ export type JobHandleResult = {
   ok: boolean
   action: 'handled' | 'ignored'
   type: string
+  disposition: 'ack' | 'retry'
 }
+
+export type QueueMessage = { body: unknown; ack: () => void; retry: () => void }
 
 export function parseDemoJob(raw: unknown): DemoJob | null {
   if (!raw || typeof raw !== 'object') return null
@@ -26,17 +29,14 @@ export function parseDemoJob(raw: unknown): DemoJob | null {
 }
 
 /**
- * Handle one demo job. Unknown types are ignored (ack path) — never throw.
+ * Handle one demo job. Unknown / unparsable bodies are poison-dropped (`ack`) — never throw.
  */
-export function handleDemoJob(raw: unknown): JobHandleResult {
+export async function handleDemoJob(raw: unknown): Promise<JobHandleResult> {
   const job = parseDemoJob(raw)
   if (!job) {
-    const type =
-      raw && typeof raw === 'object' && 'type' in raw
-        ? String((raw as { type: unknown }).type)
-        : 'unknown'
+    const type = raw && typeof raw === 'object' && 'type' in raw ? String(raw.type) : 'unknown'
     console.log(JSON.stringify({ level: 'info', msg: 'demo_job_unknown', type }))
-    return { ok: true, action: 'ignored', type }
+    return { ok: true, action: 'ignored', type, disposition: 'ack' }
   }
   if (job.type === 'demo.ping') {
     console.log(
@@ -47,7 +47,7 @@ export function handleDemoJob(raw: unknown): JobHandleResult {
         subject: job.subject ?? null,
       }),
     )
-    return { ok: true, action: 'handled', type: job.type }
+    return { ok: true, action: 'handled', type: job.type, disposition: 'ack' }
   }
   console.log(
     JSON.stringify({
@@ -56,7 +56,37 @@ export function handleDemoJob(raw: unknown): JobHandleResult {
       message: job.message,
     }),
   )
-  return { ok: true, action: 'handled', type: job.type }
+  return { ok: true, action: 'handled', type: job.type, disposition: 'ack' }
+}
+
+/**
+ * Honors `JobHandleResult.disposition`. Unexpected throw retries.
+ * `retry` means this attempt could not go on: a handler never returns it, nor
+ * throws, to leave work it could do for a later attempt (ADR-0018 D2, continuation).
+ * Product copies must set consumer `max_retries` + a dead-letter queue —
+ * this demo consumer does not (live demo jobs always ack).
+ */
+export async function consumeQueueMessage(
+  msg: QueueMessage,
+  handle: (body: unknown) => Promise<JobHandleResult> = handleDemoJob,
+): Promise<void> {
+  try {
+    const result = await handle(msg.body)
+    if (result.disposition === 'retry') {
+      msg.retry()
+      return
+    }
+    msg.ack()
+  } catch (err) {
+    console.error(
+      JSON.stringify({
+        level: 'error',
+        msg: 'demo_queue_handler_error',
+        error: err instanceof Error ? err.message : String(err),
+      }),
+    )
+    msg.retry()
+  }
 }
 
 export function handleScheduledTick(info: { cron: string; scheduledTime: number }): void {

@@ -12,7 +12,7 @@ import {
 } from './github-watch'
 
 /** Any http(s) URL (scheme required). Trailing punctuation stripped later. */
-export const ANY_URL_RE = /https?:\/\/[^\s<>()]+/gi
+const ANY_URL_RE = /https?:\/\/[^\s<>()]+/gi
 
 export type NewsActuVerdict =
   | { ok: true; url: string; caption: string }

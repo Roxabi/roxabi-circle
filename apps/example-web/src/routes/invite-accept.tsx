@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { apiErrorToMessage, apiFetch } from '../lib/api'
 import { isUnauthorized, useMe } from '../lib/auth'
+import { parseInvitationId } from '../lib/invitation-id'
 import { useLocale } from '../lib/locale'
 
 function inviteLoginNext(invitationId: string): string {
@@ -16,12 +17,12 @@ export function InviteAcceptPage() {
   const navigate = useNavigate()
   const me = useMe()
   const search = useSearch({ from: '/invite/accept' })
-  const invitationId = search.invitationId?.trim() ?? ''
+  const invitationId = parseInvitationId(search.invitationId) ?? ''
   const [done, setDone] = useState(false)
 
   useEffect(() => {
     if (me.isLoading || !invitationId) return
-    if (isUnauthorized(me.error) || (!me.data && !me.isError)) {
+    if (isUnauthorized(me.error) || !(me.data || me.isError)) {
       void navigate({
         to: '/login',
         search: { next: inviteLoginNext(invitationId) },
@@ -32,7 +33,7 @@ export function InviteAcceptPage() {
   const accept = useMutation({
     mutationFn: () =>
       apiFetch<{ org: { name: string }; membership: { role: string } }>(
-        `/api/invitations/${invitationId}/accept`,
+        `/api/invitations/${encodeURIComponent(invitationId)}/accept`,
         { method: 'POST', body: '{}' },
       ),
     onSuccess: async (data) => {

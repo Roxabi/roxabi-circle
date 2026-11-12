@@ -7,7 +7,7 @@ import type { KitModuleId } from './kit-modules'
  * Modules that need no external credentials / integration config JSON.
  * Expanding this set is intentional — keep non-members fail-closed in isModuleConfigured.
  */
-export const NO_CONFIG_MODULES = new Set<KitModuleId>([
+const NO_CONFIG_MODULES = new Set<KitModuleId>([
   'demo',
   FLOWS_MODULE_ID,
   TASKS_MODULE_ID,
@@ -34,10 +34,4 @@ export function isModuleConfigured(
   _configJson: string | null | undefined,
 ): boolean {
   return NO_CONFIG_MODULES.has(id)
-}
-
-export function maskApiKey(key: string): string {
-  const k = key.trim()
-  if (k.length <= 8) return '••••••••'
-  return `${k.slice(0, 7)}…${k.slice(-4)}`
 }

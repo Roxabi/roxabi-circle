@@ -11,13 +11,13 @@ tier: F-lite
 ## Context
 
 - **Source:** `artifacts/frames/29-flows-d1-plans-runs-module-frame.md` (approved, F-lite)
-- **Issue:** [#29](https://github.com/Roxabi/roxabi-boilerplate-cf/issues/29)
-- **Parent:** #16 · **Blocked by:** #28 ✓ · **Blocks:** #31 · **Parallel:** #30
+- **Issue:** [Roxabi/roxabi-boilerplate-cf#29](https://github.com/Roxabi/roxabi-boilerplate-cf/issues/29)
+- **Parent:** Roxabi/roxabi-boilerplate-cf#16 · **Blocked by:** Roxabi/roxabi-boilerplate-cf#28 ✓ · **Blocks:** Roxabi/roxabi-boilerplate-cf#31 · **Parallel:** Roxabi/roxabi-boilerplate-cf#30
 - **Refs:** ADR-0005 D4/D5 · ADR-0003 · sketch `packages/flows/migrations/0001_flows_plans_runs.sql`
 
 ## Intent
 
-`@kit/flows` pure core is live, but D1 has no `flow_plans` / `flow_runs` tables and `KIT_MODULE_IDS` still only lists `demo`. Admin API (#31) and Workflows (#30) need durable, **org-scoped** storage and a catalogue id `flows` for platform/org enablement. Why now: #28 unblocked this slice; sequence marks #29 as NEXT.
+`@kit/flows` pure core is live, but D1 has no `flow_plans` / `flow_runs` tables and `KIT_MODULE_IDS` still only lists `demo`. Admin API (Roxabi/roxabi-boilerplate-cf#31) and Workflows (Roxabi/roxabi-boilerplate-cf#30) need durable, **org-scoped** storage and a catalogue id `flows` for platform/org enablement. Why now: Roxabi/roxabi-boilerplate-cf#28 unblocked this slice; sequence marks Roxabi/roxabi-boilerplate-cf#29 as NEXT.
 
 ## Goal
 
@@ -25,7 +25,7 @@ example-api ships a versioned D1 migration for `flow_plans` + `flow_runs` with r
 
 ## Users
 
-- **Primary:** kit maintainers wiring flows persistence and module control plane before #31.
+- **Primary:** kit maintainers wiring flows persistence and module control plane before Roxabi/roxabi-boilerplate-cf#31.
 - **Secondary:** operators running local D1 migrations / dogfood; future admin API consumers.
 
 ## Expected Behavior
@@ -44,7 +44,7 @@ example-api ships a versioned D1 migration for `flow_plans` + `flow_runs` with r
 
 **FK delete:** SQLite default RESTRICT on `flow_runs.plan_id` → `flow_plans(id)` — do not invent CASCADE.
 
-**Tenancy residual (honest):** `org_id NOT NULL` + indexes is schema half of IDOR; composite integrity (run.org_id must match plan.org_id) is **not** enforced by FK-on-id-only. Spec requires either (a) composite UNIQUE(id, org_id) + composite FK, **or** (b) explicit open residual documented for #31 service-layer CHECK — not “IDOR done” from NOT NULL alone. Prefer (a) if cheap under D1/SQLite; else (b) with AC wording that tenancy match is #31 write invariant.
+**Tenancy residual (honest):** `org_id NOT NULL` + indexes is schema half of IDOR; composite integrity (run.org_id must match plan.org_id) is **not** enforced by FK-on-id-only. Spec requires either (a) composite UNIQUE(id, org_id) + composite FK, **or** (b) explicit open residual documented for Roxabi/roxabi-boilerplate-cf#31 service-layer CHECK — not “IDOR done” from NOT NULL alone. Prefer (a) if cheap under D1/SQLite; else (b) with AC wording that tenancy match is Roxabi/roxabi-boilerplate-cf#31 write invariant.
 
 **`flow_plans`**
 
@@ -75,14 +75,14 @@ example-api ships a versioned D1 migration for `flow_plans` + `flow_runs` with r
 | actor_id | text NOT NULL | |
 | snapshot_json | text NOT NULL | frozen run snapshot |
 | plan_digest | text NOT NULL | |
-| workflow_instance_id | text | nullable until #30 |
+| workflow_instance_id | text | nullable until Roxabi/roxabi-boilerplate-cf#30 |
 | receipt_json | text | nullable |
 | error_code | text | nullable |
 | created_at / updated_at | NOT NULL | |
 
 Indexes: `flow_plans_org_idx`, `flow_runs_org_idx`, `flow_runs_plan_idx`.
 
-**IDOR invariant:** every query path later (#31) MUST filter `org_id`; schema forbids unscoped rows.
+**IDOR invariant:** every query path later (Roxabi/roxabi-boilerplate-cf#31) MUST filter `org_id`; schema forbids unscoped rows.
 
 ### Module catalogue
 
@@ -99,8 +99,8 @@ Use `FLOWS_MODULE_ID` from `@kit/flows` where example-api already imports the pa
 | ensurePlatformModules / listPlatformPublic | module id `flows` | **this issue** |
 | org role grant seed (`systemRoleGrantSeed(KIT_MODULE_IDS)`) | includes flows | **this issue** (automatic via KIT_MODULE_IDS) |
 | Drizzle schema + future repos | plan/run rows | **this issue** tables only |
-| Admin API CRUD | all columns | **#31** |
-| Workflows adapter | workflow_instance_id, snapshot | **#30** |
+| Admin API CRUD | all columns | **Roxabi/roxabi-boilerplate-cf#31** |
+| Workflows adapter | workflow_instance_id, snapshot | **Roxabi/roxabi-boilerplate-cf#30** |
 
 ## Breadboard
 
@@ -121,7 +121,7 @@ Use `FLOWS_MODULE_ID` from `@kit/flows` where example-api already imports the pa
 ```text
 KIT_MODULE_IDS ──► ensurePlatformModules ──► platform_modules row (available=0)
 SQL migration ──► D1 tables
-Drizzle schema ──► typed access (unused by routes until #31)
+Drizzle schema ──► typed access (unused by routes until Roxabi/roxabi-boilerplate-cf#31)
 ```
 
 ## Slices
@@ -140,7 +140,7 @@ V1→V2→V3 can ship in one PR; order is dependency for mental model, not separ
 - [ ] Timestamp columns `created_at` / `updated_at` are **integer** (ms), not text
 - [ ] Unique constraint on `(org_id, plan_key, version)` for plans; FK `flow_runs.plan_id` → `flow_plans.id` (RESTRICT)
 - [ ] Indexes on `flow_plans(org_id)`, `flow_runs(org_id)`, `flow_runs(plan_id)` exist
-- [ ] Tenancy residual explicit: either composite FK `(plan_id, org_id)` → `(id, org_id)` **or** documented open residual for #31 write CHECK (run.org_id = plan.org_id) — AC text names which was chosen
+- [ ] Tenancy residual explicit: either composite FK `(plan_id, org_id)` → `(id, org_id)` **or** documented open residual for Roxabi/roxabi-boilerplate-cf#31 write CHECK (run.org_id = plan.org_id) — AC text names which was chosen
 - [ ] Drizzle schema defines matching tables (column set ⊇ SQL required cols) and is exported in the app `schema` object
 - [ ] `KIT_MODULE_IDS` includes `flows` **via** `FLOWS_MODULE_ID` from `@kit/flows` (no dual literal)
 - [ ] `ensurePlatformModules` seeds a `platform_modules` row for `flows` when missing (**available=false** default)
@@ -158,13 +158,13 @@ V1→V2→V3 can ship in one PR; order is dependency for mental model, not separ
 | Existing DBs without tables | New migration only; no backfill needed (greenfield tables) |
 | `flows` already partially registered | ensure is idempotent (existing platform_modules pattern) |
 | Timestamp style integer vs text | Match example-api integer ms in applied migration; keep sketch file as reference or update comment |
-| Grant seed growth | Adding to KIT_MODULE_IDS expands system role seeds for **new** ensure paths; intentional for kit dogfood; document blast; do not special-case exclude without #31 policy |
+| Grant seed growth | Adding to KIT_MODULE_IDS expands system role seeds for **new** ensure paths; intentional for kit dogfood; document blast; do not special-case exclude without Roxabi/roxabi-boilerplate-cf#31 policy |
 | isModuleConfigured was demo-only | Named no-config set `{demo, flows}` — not a one-off boolean hack |
-| Cross-org plan↔run via FK-on-id | Prefer composite FK if supported; else residual owned by #31 service CHECK |
+| Cross-org plan↔run via FK-on-id | Prefer composite FK if supported; else residual owned by Roxabi/roxabi-boilerplate-cf#31 service CHECK |
 
 ## Out of Scope
 
-- HTTP admin API (#31)
-- CF Workflows binding / instance ids fill (#30)
-- UI `/admin/flows` (#33)
+- HTTP admin API (Roxabi/roxabi-boilerplate-cf#31)
+- CF Workflows binding / instance ids fill (Roxabi/roxabi-boilerplate-cf#30)
+- UI `/admin/flows` (Roxabi/roxabi-boilerplate-cf#33)
 - Changing pure core check/snapshot APIs

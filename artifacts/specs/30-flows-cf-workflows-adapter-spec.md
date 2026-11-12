@@ -10,14 +10,14 @@ tier: F-full
 
 ## Context
 
-**Promoted from:** [frame #30](../frames/30-flows-cf-workflows-adapter-frame.md) (F-full; analysis skipped — advisory 2026-08-13 after silex-engine lessons + adversarial kill of the “note before #30” gate). Expert pass 2026-08-13 folded into this draft (architect · product-lead · doc-writer · devops · axial · adversarial).
-**GitHub issue:** [#30](https://github.com/Roxabi/roxabi-boilerplate-cf/issues/30)
-**Parent:** epic 16 · **Blocked by:** #28 ✓ · #29 ✓ · **Blocks:** #31 (full) · #32 (partial) · #35
+**Promoted from:** [frame Roxabi/roxabi-boilerplate-cf#30](../frames/30-flows-cf-workflows-adapter-frame.md) (F-full; analysis skipped — advisory 2026-08-13 after silex-engine lessons + adversarial kill of the “note before Roxabi/roxabi-boilerplate-cf#30” gate). Expert pass 2026-08-13 folded into this draft (architect · product-lead · doc-writer · devops · axial · adversarial).
+**GitHub issue:** [Roxabi/roxabi-boilerplate-cf#30](https://github.com/Roxabi/roxabi-boilerplate-cf/issues/30)
+**Parent:** epic 16 · **Blocked by:** Roxabi/roxabi-boilerplate-cf#28 ✓ · Roxabi/roxabi-boilerplate-cf#29 ✓ · **Blocks:** Roxabi/roxabi-boilerplate-cf#31 (full) · Roxabi/roxabi-boilerplate-cf#32 (partial) · Roxabi/roxabi-boilerplate-cf#35
 **Refs:** ADR-0005 D2/D4 · ADR-0001 · `packages/flows` (`parseRunnerView`, `createRunSnapshot`, `check.ts` DAG, `budget.ts`) · `apps/example-api` migration `0012_flows_plans_runs.sql` · CF Workflows: event/step result **1 MiB**, Rules of Workflows (side effects inside `step.do`), default step retries 5×
 
 ## Intent
 
-Sealed snapshots and D1 run rows exist; nothing durable **executes** them. If #31 ships first, Hono will become a second sequencer and CF `complete` will be misread as application success — the silent-ok class already seen in silex-engine. Why now: #30 is the only critical-path open child; transfer lessons (receipts, one interpreter, close-ban) must be AC on this ticket, not a prior docs gate.
+Sealed snapshots and D1 run rows exist; nothing durable **executes** them. If Roxabi/roxabi-boilerplate-cf#31 ships first, Hono will become a second sequencer and CF `complete` will be misread as application success — the silent-ok class already seen in silex-engine. Why now: Roxabi/roxabi-boilerplate-cf#30 is the only critical-path open child; transfer lessons (receipts, one interpreter, close-ban) must be AC on this ticket, not a prior docs gate.
 
 ## Goal
 
@@ -26,11 +26,11 @@ A dogfood `RunnerView` stored in `flow_runs.snapshot_json` is executed only by `
 ## Users
 
 - **Primary:** kit maintainer running example-api tests / local wrangler — insert run (`status=queued`) + `FLOW_RUN.create`, inspect D1 receipts.
-- **Secondary:** #31 author — must read rollup via `readRunRollup(row)`, never from `instance.status()`.
+- **Secondary:** Roxabi/roxabi-boilerplate-cf#31 author — must read rollup via `readRunRollup(row)`, never from `instance.status()`.
 
 ## Expected Behavior
 
-1. Test (or later #31) inserts `flow_plans` + `flow_runs` with `status='queued'` and `snapshot_json = JSON.stringify(runnerView)` from `createRunSnapshot`. Grant audit is **not** in that blob. Use an **invoke-only** fixture for V1 — do **not** insert raw `DEMO_ECHO_PLAN_YAML` (it includes `summarize` infer).
+1. Test (or later Roxabi/roxabi-boilerplate-cf#31) inserts `flow_plans` + `flow_runs` with `status='queued'` and `snapshot_json = JSON.stringify(runnerView)` from `createRunSnapshot`. Grant audit is **not** in that blob. Use an **invoke-only** fixture for V1 — do **not** insert raw `DEMO_ECHO_PLAN_YAML` (it includes `summarize` infer).
 2. Caller invokes `env.FLOW_RUN.create({ id: runId, params: { runId, orgId } })` (`runId` length 1..100, Workflow instance-id charset). Params schema is `z.object({ runId, orgId }).strict()` — extra keys (including a snapshot) rejected. `run()` reads **`event.payload`** and **`event.instanceId`**. Snapshot is **not** in params.
 3. First durable step **claims** the row: `UPDATE flow_runs SET status='running', workflow_instance_id=?, updated_at=? WHERE id=? AND org_id=? AND status='queued'`. `changes=0` → `NonRetryableError` (no dispatch). Load always `id + org_id`. Missing row → fail-closed, no tool call, no existence leak.
 4. Every read of `snapshot_json` / `receipt_json` goes through `parseRunnerView` / `parseReceipts`. **Dispatch and interpret use only the parsed objects** — drop the raw strings. Tamper / schema fail → persist `{ receiptVersion: 1, tokensUsed: 0, tasks: {} }`, `status=failed`, `error_code=RUNNER_VIEW_INVALID` (snapshot) or `RECEIPTS_INVALID` (bundle), **zero** invoke/infer `step.do`. After parse ok, require `view.orgId === params.orgId === row.org_id` else same fail-closed (`ORG_MISMATCH`).
@@ -49,7 +49,7 @@ A dogfood `RunnerView` stored in `flow_runs.snapshot_json` is executed only by `
    Rules:
    - **skip** iff some `after` dep has outcome `fail` or `skip` (transitive cascade).
    - **ready** iff every `after` dep is `ok` **and** self has no receipt yet.
-   - **pending** otherwise (do not emit `waiting` in #30).
+   - **pending** otherwise (do not emit `waiting` in Roxabi/roxabi-boilerplate-cf#30).
    - Input `waiting` → `rollup=failed`, `readyTaskIds=[]`, `stuck=WAITING_NOT_SUPPORTED`.
    - Cyclic / unknown `after` → fail-closed (`CYCLE` / `UNKNOWN_TASK_EDGE`), not an infinite `running` loop.
    - `readyTaskIds=[]` and not all tasks terminal and no `fail` → `DAG_STUCK` / `failed`.
@@ -62,7 +62,7 @@ A dogfood `RunnerView` stored in `flow_runs.snapshot_json` is executed only by `
 9. Skip V0: only the cascade in §6. No other skip source. `waiting` is in the enum; **no producer**.
 10. **Persist is a `step.do`.** Every D1 write (claim, receipts, rollup) lives inside a named step. Each wave **rehydrates** the bundle from D1 before `interpretRun` (no in-memory-only accumulator across replays). Before `run()` returns, a parseable bundle is persisted and rollup is `succeeded` or `failed`. If persist cannot be completed, persist `failed` when possible and throw `NonRetryableError` so the CF instance is **`errored`**, not `complete`. `readRunRollup(row)` returns app status + parsed receipts and **never** reads `InstanceStatus`.
 11. Step return values are small (`{ outcome, errorCode?, tokens? }`). Tool/LLM text lives in D1 receipts under a **4 KiB** cap, not in Workflow step state.
-12. Landing PR: closing keyword (`Fixes` / `Closes` / `Resolves`) may reference **issue 30 only**. Do **not** put the substrings `close #16`, `closes #16`, `fix #16`, or the same for 72, in title or body — `.github/workflows/close-linked-issues.yml` matches `close #N` **without** a word boundary and would close the epic. Prefer “epic 16 and tracker 72 stay open.”
+12. Landing PR: closing keyword (`Fixes` / `Closes` / `Resolves`) may reference **issue 30 only**. Do **not** put the substrings `close Roxabi/roxabi-boilerplate-cf#16`, `closes Roxabi/roxabi-boilerplate-cf#16`, `fix Roxabi/roxabi-boilerplate-cf#16`, or the same for 72, in title or body — `.github/workflows/close-linked-issues.yml` matches `close #N` **without** a word boundary and would close the epic. Prefer “epic 16 and tracker 72 stay open.”
 
 ## Data Model & Consumers
 
@@ -70,11 +70,11 @@ A dogfood `RunnerView` stored in `flow_runs.snapshot_json` is executed only by `
 
 | Vocabulary | Where | Allowed values (V0) | Who writes |
 |------------|--------|---------------------|------------|
-| **App rollup** | `flow_runs.status` | `queued` \| `running` \| `succeeded` \| `failed` \| `cancelled` | **Insert / #31** writes `queued`. **Workflow** writes `running` (claim) and terminal `succeeded`/`failed`. `cancelled` unused until terminate (#31). |
+| **App rollup** | `flow_runs.status` | `queued` \| `running` \| `succeeded` \| `failed` \| `cancelled` | **Insert / Roxabi/roxabi-boilerplate-cf#31** writes `queued`. **Workflow** writes `running` (claim) and terminal `succeeded`/`failed`. `cancelled` unused until terminate (Roxabi/roxabi-boilerplate-cf#31). |
 | **CF instance** | `workflow_instance_id` + `instance.status()` | CF `InstanceStatus` (`queued`, `running`, `complete`, `errored`, `terminated`, `waiting`, …) | Cloudflare. **Never copied** into `flow_runs.status`. `complete` ≠ `succeeded`. |
 | **Task receipts** | `flow_runs.receipt_json` | per-task `ok` \| `skip` \| `fail` \| `waiting` | Workflow via `interpretRun` + dispatch |
 
-`waiting` on a **task** ≠ CF instance `waiting`. #30 types the former and does not produce it.
+`waiting` on a **task** ≠ CF instance `waiting`. Roxabi/roxabi-boilerplate-cf#30 types the former and does not produce it.
 
 Row `error_code` = **run-level** only (`RUNNER_VIEW_INVALID`, `RECEIPTS_INVALID`, `ORG_MISMATCH`, stuck codes). Task failures stay in `receipt_json`.
 
@@ -115,7 +115,7 @@ Load: `flow_runs` where `id = runId AND org_id = orgId`.
 | `parseReceipts` / `receiptBundleSchema` | Fail-closed rehydrate |
 | `FLOW_RUN_STATUSES` | rollup union |
 | `TASK_RECEIPT_OUTCOMES` | including `waiting` |
-| `readRunRollup(row)` | Parse status + receipts; **no** CF status. #31 uses this. |
+| `readRunRollup(row)` | Parse status + receipts; **no** CF status. Roxabi/roxabi-boilerplate-cf#31 uses this. |
 
 No `runPlanLocally`, no `step.do`, no `cloudflare:workers` inside the package.
 
@@ -130,7 +130,7 @@ No `runPlanLocally`, no `step.do`, no `cloudflare:workers` inside the package.
 | Infer port | **mock in tests / local V0** |
 | Test harness | insert `queued` + `driveFlowRun` with immediate `step` + memory D1. **No new public HTTP route.** `createMemoryEnv` stubs `FLOW_RUN` so existing Hono tests keep typechecking. |
 
-`driveFlowRun` is **not** a second DAG walker: it only dispatches `interpretRun.readyTaskIds`. Tests use the same function with an immediate `step` port (callback runs now). This is **not** a `#30` ship gate for `@cloudflare/vitest-pool-workers` (parked, spec 21). Honest residual: V0 does **not** prove `env.FLOW_RUN.create` under workerd.
+`driveFlowRun` is **not** a second DAG walker: it only dispatches `interpretRun.readyTaskIds`. Tests use the same function with an immediate `step` port (callback runs now). This is **not** a `Roxabi/roxabi-boilerplate-cf#30` ship gate for `@cloudflare/vitest-pool-workers` (parked, spec 21). Honest residual: V0 does **not** prove `env.FLOW_RUN.create` under workerd.
 
 ### Wrangler (required fields)
 
@@ -156,8 +156,8 @@ class_name = "FlowRunWorkflow"
 |----------|--------|--------|
 | `driveFlowRun` / `FlowRunWorkflow` | snapshot, receipts, status, instance id | **this issue** |
 | `interpretRun` / `parseReceipts` / `readRunRollup` tests | view + bundle | **this issue** |
-| Admin GET/list | via `readRunRollup` | **#31** |
-| HITL | `waiting` producer + `waitForEvent` | **#32** |
+| Admin GET/list | via `readRunRollup` | **Roxabi/roxabi-boilerplate-cf#31** |
+| HITL | `waiting` producer + `waitForEvent` | **Roxabi/roxabi-boilerplate-cf#32** |
 | Platform proof D3 | publish → run → HITL | tracker 72 (still Not met) |
 
 ## Steal / refuse (constraints, not a ticket)
@@ -188,7 +188,7 @@ class_name = "FlowRunWorkflow"
 | T1 | Unit tests `interpretRun` | vitest `@kit/flows` | see slice demos |
 | T2 | `driveFlowRun` + immediate step + memory D1 | Node vitest (existing `environment: 'node'`) | assert D1 receipts |
 | T3 | Dual-path **behavioral** | stub `interpretRun` → `readyTaskIds=[]` ⇒ invoke/infer **not** called; independent parallel still ready | app src except display |
-| T4 | Close-ban | PR title+body: closing keyword → issue 30 only; no `close #16` / `fix #16` / same for 72 | human + PR checklist |
+| T4 | Close-ban | PR title+body: closing keyword → issue 30 only; no `close Roxabi/roxabi-boilerplate-cf#16` / `fix Roxabi/roxabi-boilerplate-cf#16` / same for 72 | human + PR checklist |
 | N6 | `WORKER_BINDINGS` + `Env.FLOW_RUN` + memory-env stub | `env.schema.ts` / `env.ts` / `memory-env.ts` | inventory |
 
 ### Wiring
@@ -220,7 +220,7 @@ loop: N3 parse receipts from D1 → N2 interpretRun
         └── terminal succeeded|failed; if persist fails → failed + errored (not complete)
 
 Hono/services/jobs ─✗─► execute DAG
-display (#31) may list task ids without calling tools
+display (Roxabi/roxabi-boilerplate-cf#31) may list task ids without calling tools
 ```
 
 ## Slices
@@ -253,10 +253,10 @@ One PR is allowed if all three demo; order is dependency, not three merges. Casc
 - [ ] Non-stream `step.do` returns stay small; 1 MiB + persist-in-step + retries 0 + Free 10 ms CPU + WfP + Paid showcase documented next to the module
 - [ ] wrangler: `binding`, **`name` (per env)**, `class_name`; class exported from `src/index.ts`; `WORKER_BINDINGS` + `Env.FLOW_RUN`; memory-env stubs the binding
 - [ ] No new **public** HTTP route for create-run / list / approve
-- [ ] Vitest: `interpretRun` contract (`@kit/flows`) **and** `driveFlowRun` + memory D1 (Node). pool-workers is **not** a #30 gate
+- [ ] Vitest: `interpretRun` contract (`@kit/flows`) **and** `driveFlowRun` + memory D1 (Node). pool-workers is **not** a Roxabi/roxabi-boilerplate-cf#30 gate
 - [ ] Dual-path: stub `interpretRun` → empty `readyTaskIds` ⇒ invoke/infer ports **not** called (covers services/lib/jobs/workflow, not a `routes/**` grep)
 - [ ] Zero product métier strings; V1 fixture is invoke-only `echo` (not raw `DEMO_ECHO_PLAN_YAML`)
-- [ ] PR closing keyword references issue **30 only**; title/body omit `close #16` / `fix #16` / `close #72` / `fix #72` (closer regex is unanchored)
+- [ ] PR closing keyword references issue **30 only**; title/body omit `close Roxabi/roxabi-boilerplate-cf#16` / `fix Roxabi/roxabi-boilerplate-cf#16` / `close Roxabi/roxabi-boilerplate-cf#72` / `fix Roxabi/roxabi-boilerplate-cf#72` (closer regex is unanchored)
 
 ## Edge Cases
 
@@ -270,7 +270,7 @@ One PR is allowed if all three demo; order is dependency, not three merges. Casc
 | Infer task, mock port absent | Task `fail` `INFER_FAILED` |
 | Ceiling: declared remaining or actual overflow | That infer `fail` `TOKEN_CEILING`; dependents cascade `skip`; rollup `failed` |
 | Invoke throws | Catch in step → task `fail` `INVOKE_FAILED`; no CF retry |
-| Worker crash after some receipts | Row `running` + partial bundle; CF `errored`. Do not mark `succeeded`. #31 may reconcile. |
+| Worker crash after some receipts | Row `running` + partial bundle; CF `errored`. Do not mark `succeeded`. Roxabi/roxabi-boilerplate-cf#31 may reconcile. |
 | Second `create` same `id` | CF idempotent / claim CAS: `changes=0` → no second dispatch |
 | Step result would exceed 1 MiB | Truncated `output` in D1 only |
 | `waiting` in a hand-crafted bundle | Fail-closed; do not echo |
@@ -278,16 +278,16 @@ One PR is allowed if all three demo; order is dependency, not three merges. Casc
 | Ready empty but pending remain without fail | `DAG_STUCK` → failed |
 | WfP / dispatch namespace | Unsupported — note only (ADR-0005 D2) |
 | Showcase on Workers Free | 10 ms CPU / step — document; use **Paid** |
-| #31 lists `sealedPlan.tasks` for display | Allowed; must not call invoke/infer |
+| Roxabi/roxabi-boilerplate-cf#31 lists `sealedPlan.tasks` for display | Allowed; must not call invoke/infer |
 | Product copy of interpreter | Forbidden; import `@kit/flows` |
 | File length | Split entrypoint / drive / ports / persist (`apps/` max 300) |
 
 ## Out of Scope
 
-- HTTP admin API, 202 Accepted, grant mint, `sk_` create-run (#31)
-- HITL approve / `waitForEvent` / `waiting` producer (#32)
-- `/admin/flows` UI (#33)
-- Authoring UI (#34), agent verb + AI Gateway product meter (#35), net/r2 (#36)
+- HTTP admin API, 202 Accepted, grant mint, `sk_` create-run (Roxabi/roxabi-boilerplate-cf#31)
+- HITL approve / `waitForEvent` / `waiting` producer (Roxabi/roxabi-boilerplate-cf#32)
+- `/admin/flows` UI (Roxabi/roxabi-boilerplate-cf#33)
+- Authoring UI (Roxabi/roxabi-boilerplate-cf#34), agent verb + AI Gateway product meter (Roxabi/roxabi-boilerplate-cf#35), net/r2 (Roxabi/roxabi-boilerplate-cf#36)
 - Closing epic 16 or tracker 72; flipping platform-proof D3
 - silex-engine issue 2 as blocker
 - Promoting `WorkflowEntrypoint` into `packages/*`

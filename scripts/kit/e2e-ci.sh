@@ -80,7 +80,6 @@ fi
 # Complete kit-local file — never partial-overwrite (avoids wiping ENVIRONMENT/secrets).
 cat >"$DEV_VARS" <<EOF
 ENVIRONMENT=development
-SESSION_SECRET=dev-session-secret-change-me-32chars!!
 BETTER_AUTH_SECRET=dev-better-auth-secret-change-me-32c!!
 BETTER_AUTH_URL=${API_URL}
 CORS_ORIGINS=http://127.0.0.1:${WEB_PORT},http://localhost:${WEB_PORT}

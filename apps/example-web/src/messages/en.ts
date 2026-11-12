@@ -1,6 +1,9 @@
+import { flowsEn } from './flows-catalog'
 import type { Messages } from './fr'
+import { impersonationEn } from './impersonation-catalog'
 
 export const en: Messages = {
+  ...impersonationEn,
   appTitle: 'Kit Kit',
   appSubtitle: 'example-web · SaaS starter',
   login: 'Sign in',
@@ -293,4 +296,5 @@ export const en: Messages = {
   confirmDeleteRole: 'Delete this custom role? Members using it must be reassigned first.',
   membersEmpty: 'No members',
   inviteExpires: 'exp.',
+  ...flowsEn,
 }

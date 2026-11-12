@@ -4,6 +4,7 @@
  */
 import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
+import { isAPIError } from 'better-auth/api'
 import { magicLink } from 'better-auth/plugins'
 import { drizzle } from 'drizzle-orm/d1'
 import {
@@ -13,12 +14,19 @@ import {
   sendMagicLinkMail,
   sendResetPasswordMail,
 } from './auth-email'
+import { BA_BASE_PATH } from './better-auth-base-path'
 import { assertAuthSecret, assertTrustedOrigins } from './better-auth-env'
 import type { BetterAuthLike } from './better-auth-port'
-import { betterAuthDrizzleSchema } from './better-auth-schema'
+import {
+  type BetterAuthTables,
+  betterAuthDrizzleSchema,
+  withBetterAuthRelations,
+} from './better-auth-schema'
 import { sessionCookieName } from './cookie-name'
 import { createFirstSessionAfterHook, type FirstSessionHandler } from './first-session-hook'
+import { logBetterAuthEvent } from './logging/better-auth-logger'
 import { createKitOrganizationPlugin } from './org-plugin'
+import { hashVerificationIdentifier } from './verification-identifier'
 
 /**
  * Hono context surface for BA instance (handler + session API).
@@ -29,16 +37,41 @@ export type KitBetterAuth = BetterAuthLike & {
   handler: (request: Request) => Response | Promise<Response>
 }
 
+/**
+ * D1 duck matching `@kit/db` `KitD1Database` (chainable `bind`, optional `batch`/`exec`).
+ * Auth does not depend on `@kit/db` — keep this declaration in lockstep by hand.
+ */
+type BetterAuthStatement = {
+  bind(...values: unknown[]): BetterAuthStatement
+  first<T = unknown>(): Promise<T | null>
+  run(): Promise<unknown>
+  all(): Promise<unknown>
+  raw<T = unknown>(): Promise<T[][]>
+}
+
+export type BetterAuthDatabase = {
+  prepare(query: string): BetterAuthStatement
+  batch?(statements: unknown[]): Promise<unknown>
+  exec?(query: string): Promise<unknown>
+}
+
 export type CreateBetterAuthOpts = {
-  /** D1 binding (or test double). */
-  database: unknown
+  /** D1-shaped binding (or test double) — same members as `@kit/db` `KitD1Database`. */
+  database: BetterAuthDatabase
   secret: string
   baseURL: string
   trustedOrigins: string[]
   /** Loopback origins allowed only for explicit development|test adapters. Default false. */
   allowLoopbackOrigins?: boolean
-  emailPort: AuthEmailPort
-  schema?: typeof betterAuthDrizzleSchema
+  /**
+   * When true, `baseURL` may be the request Host (dev without BETTER_AUTH_URL).
+   * Token href allowlist is then `trustedOrigins` only — a poisoned Host cannot
+   * self-allowlist. Default false: pin `baseURL` origin into the allowlist.
+   */
+  requestDerivedBaseURL?: boolean
+  /** When set, registers magic-link + password-reset send. Omit for password-only peers. */
+  emailPort?: AuthEmailPort
+  schema?: BetterAuthTables
   cookieName?: string
   useSecureCookies?: boolean
   allowPublicSignup?: boolean
@@ -57,16 +90,44 @@ export function createBetterAuth(opts: CreateBetterAuthOpts): KitBetterAuth {
   const trustedOrigins = assertTrustedOrigins(opts.trustedOrigins, {
     allowLoopback: opts.allowLoopbackOrigins === true,
   })
-  const schema = opts.schema ?? betterAuthDrizzleSchema
+  const schema =
+    !opts.schema || opts.schema === betterAuthDrizzleSchema
+      ? betterAuthDrizzleSchema
+      : withBetterAuthRelations(opts.schema)
+  // drizzle-orm/d1 names the workers `D1Database` type; the public contract is the duck above.
   const db = drizzle(opts.database as never, { schema })
   const cookieName = sessionCookieName({ name: opts.cookieName })
   const secure = opts.useSecureCookies ?? true
   const publicSignup = opts.allowPublicSignup ?? false
   const emailPort = opts.emailPort
+  const linkOrigins = new Set<string>(trustedOrigins)
+  let base: URL
+  try {
+    base = new URL(opts.baseURL)
+  } catch {
+    throw new Error('BETTER_AUTH_URL must be an absolute origin')
+  }
+  if (!opts.requestDerivedBaseURL) linkOrigins.add(base.origin)
+  // Better Auth routes on a baseURL path when there is one; the kit throttle matches BA_BASE_PATH.
+  const mount = base.pathname.replace(/\/+$/, '')
+  if (mount !== '' && mount !== BA_BASE_PATH) {
+    throw new Error(`BETTER_AUTH_URL path must be / or ${BA_BASE_PATH}`)
+  }
+  const tokenHref = {
+    allowedOrigins: [...linkOrigins],
+    allowLoopbackHttp: opts.allowLoopbackOrigins === true,
+  }
 
-  return betterAuth({
+  const auth = betterAuth({
     baseURL: opts.baseURL,
-    basePath: '/api/auth',
+    basePath: BA_BASE_PATH,
+    // Leave Better Auth's default warn threshold intact; its messages and args are untrusted.
+    logger: { log: logBetterAuthEvent },
+    // Better Call otherwise logs the raw non-API error after Better Auth's logger returns.
+    onAPIError: { throw: true },
+    // The kit throttles in front, on D1 (`@kit/auth/repos/ba-throttle`). Better Auth's own limiter
+    // is memory per isolate, keyed `ip|path`, and on only when NODE_ENV is 'production': pinned off.
+    rateLimit: { enabled: false },
     secret: opts.secret,
     database: drizzleAdapter(db, {
       provider: 'sqlite',
@@ -79,26 +140,38 @@ export function createBetterAuth(opts: CreateBetterAuthOpts): KitBetterAuth {
         },
       },
     },
+    verification: { storeIdentifier: { hash: hashVerificationIdentifier } },
     emailAndPassword: {
       enabled: true,
       disableSignUp: !publicSignup,
+      revokeSessionsOnPasswordReset: true,
       resetPasswordTokenExpiresIn:
         opts.resetPasswordTokenExpiresIn ?? RESET_PASSWORD_TOKEN_EXPIRES_IN_SEC,
-      sendResetPassword: async ({ user, url }) => {
-        await sendResetPasswordMail(emailPort, { email: user.email, url })
-      },
+      ...(emailPort
+        ? {
+            sendResetPassword: async ({ user, url }) => {
+              await sendResetPasswordMail(emailPort, { email: user.email, url, ...tokenHref })
+            },
+          }
+        : {}),
     },
     plugins: [
       createKitOrganizationPlugin(),
-      magicLink({
-        expiresIn: opts.magicLinkExpiresIn ?? MAGIC_LINK_EXPIRES_IN_SEC,
-        disableSignUp: !publicSignup,
-        sendMagicLink: async ({ email, url }) => {
-          await sendMagicLinkMail(emailPort, { email, url })
-        },
-      }),
+      ...(emailPort
+        ? [
+            magicLink({
+              expiresIn: opts.magicLinkExpiresIn ?? MAGIC_LINK_EXPIRES_IN_SEC,
+              disableSignUp: !publicSignup,
+              sendMagicLink: async ({ email, url }) => {
+                await sendMagicLinkMail(emailPort, { email, url, ...tokenHref })
+              },
+            }),
+          ]
+        : []),
     ],
     advanced: {
+      disableOriginCheck: false,
+      database: { joins: true },
       useSecureCookies: secure,
       cookies: {
         session_token: {
@@ -114,4 +187,19 @@ export function createBetterAuth(opts: CreateBetterAuthOpts): KitBetterAuth {
     },
     trustedOrigins,
   })
+  const handler = auth.handler
+  const safeHandler = async (request: Request): Promise<Response> => {
+    try {
+      const response = await handler(request)
+      if (response.status >= 500) console.error('[Better Auth] server_error_response')
+      return response
+    } catch (error) {
+      if (isAPIError(error)) throw error
+      console.error('[Better Auth] handler_exception')
+      return new Response(null, { status: 500, statusText: 'Internal Server Error' })
+    }
+  }
+  auth.handler = safeHandler
+  auth.fetch = safeHandler
+  return auth
 }

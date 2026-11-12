@@ -7,7 +7,7 @@ import { parseCapabilityGrant } from './grant'
  *
  * ADR-0005 D4 § Authority split states that `CapabilityGrant` is pure arithmetic and that
  * grant *provenance* is an app-layer duty (apps mint from server session / org module policy,
- * residual until #31). This parse boundary therefore cannot and does not enforce provenance.
+ * residual until Roxabi/roxabi-boilerplate-cf#31). This parse boundary therefore cannot and does not enforce provenance.
  * What it does enforce, and what these tests pin: every field is explicit, nothing is
  * defaulted or coerced, and nothing extra survives into the parsed grant.
  */
@@ -17,6 +17,7 @@ const validGrant = {
   allowedTools: ['echo', 'write_demo'],
   registryVersion: 'reg-1',
   allowsInfer: false,
+  allowedModels: ['kit-infer'],
 }
 
 const expectRejected = (input: unknown): string => {
@@ -36,6 +37,7 @@ describe('parseCapabilityGrant — accepts only a fully explicit grant', () => {
     expect(r.grant.allowedTools).toEqual(['echo', 'write_demo'])
     expect(r.grant.registryVersion).toBe('reg-1')
     expect(r.grant.allowsInfer).toBe(false)
+    expect(r.grant.allowedModels).toEqual(['kit-infer'])
   })
 
   it('accepts exactly MAX_PERMIT_TOOLS tools (boundary)', () => {
@@ -62,6 +64,13 @@ describe('parseCapabilityGrant — allowsInfer is never inferred', () => {
 
   it('rejects null for allowsInfer', () => {
     expectRejected({ ...validGrant, allowsInfer: null })
+  })
+})
+
+describe('parseCapabilityGrant — allowedModels is never inferred', () => {
+  it('rejects a grant with allowedModels missing (no default, not allow-all)', () => {
+    const { allowedModels: _omitted, ...withoutModels } = validGrant
+    expectRejected(withoutModels)
   })
 })
 
@@ -125,6 +134,23 @@ describe('parseCapabilityGrant — isolation fields are mandatory', () => {
 
   it('rejects an empty registryVersion', () => {
     expectRejected({ ...validGrant, registryVersion: '' })
+  })
+})
+
+describe('parseCapabilityGrant — allowedModels bounds', () => {
+  it('rejects 33 model ids', () => {
+    expectRejected({
+      ...validGrant,
+      allowedModels: Array.from({ length: 33 }, (_, i) => `m${i}`),
+    })
+  })
+
+  it('rejects a 257-char model id', () => {
+    expectRejected({ ...validGrant, allowedModels: ['x'.repeat(257)] })
+  })
+
+  it('rejects an empty model id', () => {
+    expectRejected({ ...validGrant, allowedModels: [''] })
   })
 })
 

@@ -8,26 +8,52 @@ import {
 import type { KitDb } from '../lib/db-type'
 import * as auditRepo from '../repos/audit'
 
-export const AUDIT_ACTIONS = [
+const AUDIT_ACTIONS = [
   'user.created',
   'platform_role.set',
   'membership.add',
   'first_login',
   'invite.accept',
+  'task.create',
+  'task.update',
+  'task.delete',
+  'task.link_create',
+  'task.link_delete',
+  'notification.rule.set',
+  'notification.rule.delete',
 ] as const
 
-export type AuditAction = (typeof AUDIT_ACTIONS)[number]
+type AuditAction = (typeof AUDIT_ACTIONS)[number]
 
 const DENY_KEY = /token|password|secret|authorization|cookie|rawbody/i
 const URL_TOKEN_QUERY = /[?&](token|code|key|secret)=/i
 
 /** Per-action allowlisted meta keys (no free-form dump). */
-const META_ALLOW: Record<string, ReadonlySet<string>> = {
-  'user.created': new Set(['emailDomain']),
-  'platform_role.set': new Set(['role']),
-  'membership.add': new Set(['role']),
-  first_login: new Set(['method']),
-  'invite.accept': new Set(['invitationId']),
+const META_ALLOW: Record<string, Record<string, true>> = {
+  'user.created': { emailDomain: true },
+  'platform_role.set': { role: true },
+  'membership.add': { role: true },
+  first_login: { method: true },
+  'invite.accept': { invitationId: true },
+  'task.create': { boardKey: true, stageId: true },
+  'task.update': { boardKey: true, stageId: true },
+  'task.delete': {},
+  'task.link_create': { linkKind: true },
+  'task.link_delete': { linkKind: true },
+  'notification.rule.set': {
+    selectorKind: true,
+    selectorValue: true,
+    channel: true,
+    enabled: true,
+    locked: true,
+  },
+  'notification.rule.delete': {
+    selectorKind: true,
+    selectorValue: true,
+    channel: true,
+    enabled: true,
+    locked: true,
+  },
 }
 
 function newAuditId(): string {
@@ -51,7 +77,7 @@ export function sanitizeAuditMeta(
   const out: Record<string, unknown> = {}
   for (const [k, v] of Object.entries(meta)) {
     if (DENY_KEY.test(k)) continue
-    if (allow && !allow.has(k)) continue
+    if (allow && !Object.hasOwn(allow, k)) continue
     if (isDeniedValue(v)) continue
     if (v === undefined) continue
     out[k] = v

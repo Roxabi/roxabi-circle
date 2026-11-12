@@ -40,8 +40,8 @@ export function toPublicToolError(err: unknown): PublicToolError {
   return new PublicToolError('INTERNAL_ERROR')
 }
 
-/** Stable JSON for agent-facing tool text (sorted keys at top level + nested objects). */
-export function stableStringify(value: unknown): string {
+/** Stable JSON for agent-facing tool text (sorted keys, including nested objects). Not the flows digest helper — do not lift a shared stringify to `@kit/core` (M-04). */
+export function stableJsonWire(value: unknown): string {
   return JSON.stringify(sortKeys(value))
 }
 

@@ -8,6 +8,12 @@ Shared **shadcn Base UI** primitives for Chemin A apps. Product branding does **
 - Styles: `@import "@kit/ui/styles.css"` (see `apps/example-web/src/index.css`)
 - Living catalog: local route **`/admin/design-system`** (platform session required)
 
+## Theme
+
+Import `ThemeProvider`, `useTheme`, and the `Theme` type from `@kit/ui`. Wrap the App with `<ThemeProvider storageKey="kit.theme">` (choose an App-owned key). `useTheme()` exposes `theme` (`light`, `dark`, or `system`), `setTheme`, and the resolved `light` or `dark` value. The provider toggles `.dark` on the document root and follows system preference changes while `system` is selected. Invalid or inaccessible storage falls back to `system`; an unavailable system preference resolves to `light`.
+
+The Example App keeps `kit.theme` and its existing `public/theme-boot.js` to apply the same selection before React mounts. Apps using a boot script must use the same storage key and theme rules as their provider.
+
 ## Zero-edit / product brand
 
 Do **not** patch `packages/ui` for product colors or copy.
@@ -17,6 +23,10 @@ Do **not** patch `packages/ui` for product colors or copy.
 3. Compose shells/pages in `apps/<product>-web` wrapping `@kit/ui`.
 
 SSoT: [`docs/kit/product-consumer-contract.md`](product-consumer-contract.md) (design_overrides).
+
+Client-facing release notes belong in the Product App, not shared Kit paths.
+The Example App demonstrates an in-app changelog; it is not a shared patchlog
+Package. Promote a shared implementation only after at least two Products need it.
 
 ## Conventions for example-web
 
@@ -48,18 +58,14 @@ Add more via `bun run --filter @kit/ui ui:add <name>`.
 
 ### Sidebar 07 block (shadcn)
 
-Installed via `bunx --bun shadcn@latest add sidebar-07` into `packages/ui`:
+Installed via `bunx --bun shadcn@latest add sidebar-07` into `packages/ui`. That command also vendors Acme sample chrome (`AppSidebar`, `NavMain`, `NavProjects`, `TeamSwitcher`); those files are **deleted after install** and must not be re-added — they are not `@kit/ui` API.
 
 | Export | Role |
 |--------|------|
 | `NavUser` | Footer user menu — pass `user`, optional `children` items, `onLogout` |
-| `TeamSwitcher` | Header team switcher |
-| `NavMain` / `NavProjects` | Collapsible nav groups |
 | `Breadcrumb*` / `Collapsible*` | Supporting primitives |
 
-`AppSidebar` (Acme sample composition) lives under `packages/ui` but is **not** public barrel API — compose the pieces above like `example-web` shell.
-
-`example-web` shell uses `Sidebar collapsible="icon"` + `NavUser` for the real session menu.
+`example-web` composes `Sidebar` + `OrgSwitcher` + `NavUser`.
 
 ## TanStack (example-web)
 
@@ -84,5 +90,5 @@ The notes dump is a documented demo-size exception. If it becomes an unbounded c
 
 ## Related
 
-- Stack: `AGENTS.md` § UI / packages · `.claude/stack.yml`
+- Stack: `AGENTS.md` § UI / packages · `.dev/stack.yml`
 - Testing: design-system overlay e2e `bun run test:e2e:design-system` (API + web up)

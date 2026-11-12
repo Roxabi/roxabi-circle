@@ -3,7 +3,7 @@
  * No product/share domain — examples only.
  */
 
-export type KitRole = 'admin' | 'user'
+type KitRole = 'admin' | 'user'
 
 export type SeedUser = {
   id: string
@@ -92,9 +92,3 @@ export const DEMO_EMAIL = SEED_USERS[0]!.email
 export const DEMO_PASSWORD = SEED_USERS[0]!.password
 export const DEMO_EMAIL_B = SEED_USERS[1]!.email
 export const DEMO_PASSWORD_B = SEED_USERS[1]!.password
-
-/** Kit demo RBAC: primary demo user is admin; everyone else is user. */
-export function roleForSubject(subject: string): KitRole {
-  const u = SEED_USERS.find((x) => x.id === subject)
-  return u?.role ?? 'user'
-}

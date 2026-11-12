@@ -1,3 +1,7 @@
+import type { FlowsMessages } from './flows-catalog'
+import { flowsFr } from './flows-catalog'
+import { type ImpersonationMessages, impersonationFr } from './impersonation-catalog'
+
 export type Messages = {
   appTitle: string
   appSubtitle: string
@@ -35,7 +39,7 @@ export type Messages = {
   signUpFailed: string
   signUpDisabled: string
   signUpNameRequired: string
-  /** Login mode: password vs magic link (B-magic #59). */
+  /** Login mode: password vs magic link (B-magic go-silex/silex-boilerplate#59). */
   loginModePassword: string
   loginModeMagic: string
   magicSubmit: string
@@ -293,9 +297,11 @@ export type Messages = {
   confirmDeleteRole: string
   membersEmpty: string
   inviteExpires: string
-}
+} & FlowsMessages &
+  ImpersonationMessages
 
 export const fr: Messages = {
+  ...impersonationFr,
   appTitle: 'Kit Kit',
   appSubtitle: 'example-web · starter SaaS',
   login: 'Connexion',
@@ -589,4 +595,5 @@ export const fr: Messages = {
     'Supprimer ce rôle custom ? Les membres qui l’utilisent doivent être réassignés.',
   membersEmpty: 'Aucun membre',
   inviteExpires: 'exp.',
+  ...flowsFr,
 }

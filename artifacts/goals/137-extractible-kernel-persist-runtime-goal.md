@@ -53,73 +53,73 @@ Architecture review 2026-08-23 (Opus 5 + adversarial + 5 slices): S1 is **fatal 
 
 | ID | Decision |
 |---|---|
-| D1 | Process = **option B**: goal SSoT + issue AC + `/ship` per child. **Never `/dev` on #137 or its F-full children.** Never mint `status: approved` frame/spec/plan to skip HITL. |
-| D2 | Program exit = **#144 closed** (claim machine-true). First increment = **#142 closed**. Wave 0 ≠ S1 killed. |
-| D3 | After #142 `/ship` + auth/migrations review → **auto-enchaîner #143 puis #144**. |
-| D4 | **#141 out.** Sibling under #16. Parallel `/ship` allowed. Do not sequence, mix PRs, or block #139/#142. |
+| D1 | Process = **option B**: goal SSoT + issue AC + `/ship` per child. **Never `/dev` on Roxabi/roxabi-boilerplate-cf#137 or its F-full children.** Never mint `status: approved` frame/spec/plan to skip HITL. |
+| D2 | Program exit = **Roxabi/roxabi-boilerplate-cf#144 closed** (claim machine-true). First increment = **Roxabi/roxabi-boilerplate-cf#142 closed**. Wave 0 ≠ S1 killed. |
+| D3 | After Roxabi/roxabi-boilerplate-cf#142 `/ship` + auth/migrations review → **auto-enchaîner Roxabi/roxabi-boilerplate-cf#143 puis Roxabi/roxabi-boilerplate-cf#144**. |
+| D4 | **Roxabi/roxabi-boilerplate-cf#141 out.** Sibling under Roxabi/roxabi-boilerplate-cf#16. Parallel `/ship` allowed. Do not sequence, mix PRs, or block Roxabi/roxabi-boilerplate-cf#139/Roxabi/roxabi-boilerplate-cf#142. |
 | D5 | **S5:** promote `apps/example-api/migrations/*` applied bytes. Discard drifted `packages/*/migrations` sketches (composite FK `(plan_id, org_id)` vs single-column `plan_id`). |
-| D6 | `#139` ADR-0012 **accepted** 2026-08-24 (operator delegated authority on this goal session). `#142` may start. |
+| D6 | `Roxabi/roxabi-boilerplate-cf#139` ADR-0012 **accepted** 2026-08-24 (operator delegated authority on this goal session). `Roxabi/roxabi-boilerplate-cf#142` may start. |
 | D7 | One concern per `/ship`. Docs ≠ ADR ≠ hygiene ≠ schema ≠ runner ≠ dry-run. |
 | D8 | Every child lands via `/ship`. No naked push to `main`. |
-| D9 | Closing #137 does **not** flip platform-proof D3 or JTBD-platform to met. Those need named tenant + HITL + second compose. |
-| D10 | INV-04 (`api_keys.organization_id NOT NULL`) and INV-03 (`demo_*` org-scope) are **new catalog ids**, not part of the mechanical promote. Prefer split from #142 if they need new applied SQL. |
+| D9 | Closing Roxabi/roxabi-boilerplate-cf#137 does **not** flip platform-proof D3 or JTBD-platform to met. Those need named tenant + HITL + second compose. |
+| D10 | INV-04 (`api_keys.organization_id NOT NULL`) and INV-03 (`demo_*` org-scope) are **new catalog ids**, not part of the mechanical promote. Prefer split from Roxabi/roxabi-boilerplate-cf#142 if they need new applied SQL. |
 | D11 | Tenancy/RBAC tables: default **expand `@kit/auth/schema`** + `@kit/auth/hono`. New `@kit/orgs` only if file-length/folder-size forces it. **No tables in `@kit/db`.** |
 
 ## Process — replace `/dev` HITL
 
 ```text
 Wave A (full-auto, no invariant bake):
-  #138 docs honesty     implement → /ship     (open PR #146)
-  #140 hygiene          optional ∥ if still chore-only
-  #141 infer vs invoke  optional sibling under #16 — not this goal
+  Roxabi/roxabi-boilerplate-cf#138 docs honesty     implement → /ship     (open PR Roxabi/roxabi-boilerplate-cf#146)
+  Roxabi/roxabi-boilerplate-cf#140 hygiene          optional ∥ if still chore-only
+  Roxabi/roxabi-boilerplate-cf#141 infer vs invoke  optional sibling under Roxabi/roxabi-boilerplate-cf#16 — not this goal
 
 Wave B (human-gated):
-  #139 ADR              /ship as status: proposed  → STOP
+  Roxabi/roxabi-boilerplate-cf#139 ADR              /ship as status: proposed  → STOP
                         human: accept 0012 (accepted + normative: true)
-  #142 schema/hono      only after that flip + auth/migrations review
-  #143 runner           auto after #142 /ship
-  #144 extract-dry-run  auto after #143 /ship
+  Roxabi/roxabi-boilerplate-cf#142 schema/hono      only after that flip + auth/migrations review
+  Roxabi/roxabi-boilerplate-cf#143 runner           auto after Roxabi/roxabi-boilerplate-cf#142 /ship
+  Roxabi/roxabi-boilerplate-cf#144 extract-dry-run  auto after Roxabi/roxabi-boilerplate-cf#143 /ship
 ```
 
 
 **Remaining human gates**
-1. Accept this goal (done 2026-08-24: exit=#144, auto-chain after #142, launch=#138∥#139).
+1. Accept this goal (done 2026-08-24: exit=Roxabi/roxabi-boilerplate-cf#144, auto-chain after Roxabi/roxabi-boilerplate-cf#142, launch=Roxabi/roxabi-boilerplate-cf#138∥Roxabi/roxabi-boilerplate-cf#139).
 2. ADR-0012 flipped to `accepted` + `normative: true` (delegated 2026-08-24).
 3. Each `/ship` review (agent + `reviewed` + CI green).
-4. #142 extra: human review auth / ACL / migrations (constitution).
-5. #143 extra: confirm snapshot-only + org fail-close on the moved driver.
+4. Roxabi/roxabi-boilerplate-cf#142 extra: human review auth / ACL / migrations (constitution).
+5. Roxabi/roxabi-boilerplate-cf#143 extra: confirm snapshot-only + org fail-close on the moved driver.
 
-**Forbidden:** `/dev #137`, `/dev --from implement`, fake-approved artifacts, kitchen-sink PR.
+**Forbidden:** `/dev Roxabi/roxabi-boilerplate-cf#137`, `/dev --from implement`, fake-approved artifacts, kitchen-sink PR.
 
 ## Staged binary exits
 
 | Stage | Issues | Consumer gets | Not yet |
 |---|---|---|---|
-| **Wave A** | #138 (+ #140 if chore) | Honest D3/I3/I7. No ADR authority change. | Claim still false. |
-| **Wave B pin** | #139 **proposed** | Decision text on disk; ADR-0008 D3 still binding | Not accepted. #142 forbidden. |
-| **Slice 1** | #142 after human accept | Compose schema+repos+`requireOrgContext` from `@kit/*` | Still copy ~709 LOC FlowRun driver. extract-dry-run theater. |
-| **Program exit** | #143 then #144 | Driver is a package export; extract-dry-run proves temp compose | D6 second call site, HITL, policy mint, named tenant, JTBD-platform |
+| **Wave A** | Roxabi/roxabi-boilerplate-cf#138 (+ Roxabi/roxabi-boilerplate-cf#140 if chore) | Honest D3/I3/I7. No ADR authority change. | Claim still false. |
+| **Wave B pin** | Roxabi/roxabi-boilerplate-cf#139 **proposed** | Decision text on disk; ADR-0008 D3 still binding | Not accepted. Roxabi/roxabi-boilerplate-cf#142 forbidden. |
+| **Slice 1** | Roxabi/roxabi-boilerplate-cf#142 after human accept | Compose schema+repos+`requireOrgContext` from `@kit/*` | Still copy ~709 LOC FlowRun driver. extract-dry-run theater. |
+| **Program exit** | Roxabi/roxabi-boilerplate-cf#143 then Roxabi/roxabi-boilerplate-cf#144 | Driver is a package export; extract-dry-run proves temp compose | D6 second call site, HITL, policy mint, named tenant, JTBD-platform |
 
 ## Wave graph
 
 ```text
-#138 docs honesty          Wave A — merge anytime
-#140 hygiene               Wave A optional
-#141 infer (parent #16)    Wave A optional sibling — not this goal
+Roxabi/roxabi-boilerplate-cf#138 docs honesty          Wave A — merge anytime
+Roxabi/roxabi-boilerplate-cf#140 hygiene               Wave A optional
+Roxabi/roxabi-boilerplate-cf#141 infer (parent Roxabi/roxabi-boilerplate-cf#16)    Wave A optional sibling — not this goal
 
-#139 ADR-0012 proposed     Wave B — /ship then STOP
+Roxabi/roxabi-boilerplate-cf#139 ADR-0012 proposed     Wave B — /ship then STOP
         │  human accept (accepted + normative: true)
         ▼
-#142 promote applied schema/repos/hono
+Roxabi/roxabi-boilerplate-cf#142 promote applied schema/repos/hono
         │
-        ├─► #143 FlowRun driver → @kit/flows
+        ├─► Roxabi/roxabi-boilerplate-cf#143 FlowRun driver → @kit/flows
         │         │
-        │         └─► #33 console (existing — not this goal)
+        │         └─► Roxabi/roxabi-boilerplate-cf#33 console (existing — not this goal)
         │
-        └─► #144 extract-dry-run compose proof
+        └─► Roxabi/roxabi-boilerplate-cf#144 extract-dry-run compose proof
 ```
 
-## Slice pin — #142 (F-full sketch)
+## Slice pin — Roxabi/roxabi-boilerplate-cf#142 (F-full sketch)
 
 **(a) Boundaries**
 
@@ -138,24 +138,24 @@ Wave B (human-gated):
 
 **S5 copy direction:** `apps/example-api/migrations/0012_flows_plans_runs.sql` (composite FK) → package / catalog. Delete or retire `packages/flows/migrations/0001_flows_plans_runs.sql`.
 
-## Slice pin — #143 (move, don't redesign)
+## Slice pin — Roxabi/roxabi-boilerplate-cf#143 (move, don't redesign)
 
-Export existing `drive` / `persist` / `invoke-step` / `infer-step` / `ports`. App keeps only `WorkflowEntrypoint` + wrangler `[[workflows]]`. Persist talks to kit flow tables. Snapshot-only (`parseRunnerView`; never reread live `flow_plans`). Do not bind infer unless #141 already did. Stay incubating (D6 unmet).
+Export existing `drive` / `persist` / `invoke-step` / `infer-step` / `ports`. App keeps only `WorkflowEntrypoint` + wrangler `[[workflows]]`. Persist talks to kit flow tables. Snapshot-only (`parseRunnerView`; never reread live `flow_plans`). Do not bind infer unless Roxabi/roxabi-boilerplate-cf#141 already did. Stay incubating (D6 unmet).
 
 ## Binary program exit (DoD)
 
 Goal **exits** when **all** are true:
 
-1. [ ] #138 merged — D3 one-liner honest; I3 split; I7 fenced; #16 body matches shipped #30/#31
-2. [ ] #139 accepted + `normative: true` + indexed; ADR-0008 D3/D4 amended by this ADR
-3. [ ] #142 merged — no kit-generic table declared only in `example-api`; applied composite-FK is promote SSoT; org middleware is `@kit/auth/hono`
-4. [ ] #143 merged — driver is a `@kit/flows` export; snapshot-only + org fail-close hold
-5. [ ] #144 merged — `extract-dry-run` fails if kit-generic schema/middleware re-declared under `apps/example-api`; temp compose typechecks + one org-scoped request
+1. [ ] Roxabi/roxabi-boilerplate-cf#138 merged — D3 one-liner honest; I3 split; I7 fenced; Roxabi/roxabi-boilerplate-cf#16 body matches shipped Roxabi/roxabi-boilerplate-cf#30/Roxabi/roxabi-boilerplate-cf#31
+2. [ ] Roxabi/roxabi-boilerplate-cf#139 accepted + `normative: true` + indexed; ADR-0008 D3/D4 amended by this ADR
+3. [ ] Roxabi/roxabi-boilerplate-cf#142 merged — no kit-generic table declared only in `example-api`; applied composite-FK is promote SSoT; org middleware is `@kit/auth/hono`
+4. [ ] Roxabi/roxabi-boilerplate-cf#143 merged — driver is a `@kit/flows` export; snapshot-only + org fail-close hold
+5. [ ] Roxabi/roxabi-boilerplate-cf#144 merged — `extract-dry-run` fails if kit-generic schema/middleware re-declared under `apps/example-api`; temp compose typechecks + one org-scoped request
 6. [ ] Each of the above has a `/ship` PR (URL in exit note)
 7. [ ] `validate:full` green on kit
 8. [ ] platform-proof D3 / JTBD-platform still **Not met** (named tenant + HITL + second compose remain)
 
-**Not required:** `#141`, `#140` if deferred, `#32` HITL, `#33` console, `@kit/agents`, second product app, policy mint.
+**Not required:** `Roxabi/roxabi-boilerplate-cf#141`, `Roxabi/roxabi-boilerplate-cf#140` if deferred, `Roxabi/roxabi-boilerplate-cf#32` HITL, `Roxabi/roxabi-boilerplate-cf#33` console, `@kit/agents`, second product app, policy mint.
 
 ## Security pins
 
@@ -163,15 +163,15 @@ Goal **exits** when **all** are true:
 |---|---|
 | S5 | Never promote sketches that lost composite `(plan_id, org_id)` |
 | I1/I2/I4 | Grants narrow-only; snapshot-only; fail-closed empty permits — must survive the move |
-| IDOR | Org-scoping tests still pass after #142/#143 |
+| IDOR | Org-scoping tests still pass after Roxabi/roxabi-boilerplate-cf#142/Roxabi/roxabi-boilerplate-cf#143 |
 | INV-03 | New catalog id **or** D8 scope narrowed — not a silent sketch promote |
 
 ## Anti-goals
 
 - `/dev` on the epic or F-full children
-- Kitchen-sink PR (#142+#143+#144)
-- Folding #141 into this close definition
-- Accepting ADR-0012 or starting #142 without a recorded human accept (accept happened 2026-08-24; #142–#144 shipped)
+- Kitchen-sink PR (Roxabi/roxabi-boilerplate-cf#142+Roxabi/roxabi-boilerplate-cf#143+Roxabi/roxabi-boilerplate-cf#144)
+- Folding Roxabi/roxabi-boilerplate-cf#141 into this close definition
+- Accepting ADR-0012 or starting Roxabi/roxabi-boilerplate-cf#142 without a recorded human accept (accept happened 2026-08-24; Roxabi/roxabi-boilerplate-cf#142–Roxabi/roxabi-boilerplate-cf#144 shipped)
 - Declaring JTBD-platform met from example-api
 - Creating `@kit/tenancy` / putting tables in `@kit/db` without ADR
 - Leaving drifted sketches on a hashable promote path
@@ -179,6 +179,6 @@ Goal **exits** when **all** are true:
 
 ## Next command
 
-Closed 2026-08-24. Children: #138 #139 #140 #142 #143 #144. Sibling #141 stays under #16.
+Closed 2026-08-24. Children: Roxabi/roxabi-boilerplate-cf#138 Roxabi/roxabi-boilerplate-cf#139 Roxabi/roxabi-boilerplate-cf#140 Roxabi/roxabi-boilerplate-cf#142 Roxabi/roxabi-boilerplate-cf#143 Roxabi/roxabi-boilerplate-cf#144. Sibling Roxabi/roxabi-boilerplate-cf#141 stays under Roxabi/roxabi-boilerplate-cf#16.
 
-ADR-0012 is `accepted` + `normative: true`. Do not treat `#142 FORBIDDEN` as live — that gate fired, then #142 shipped.
+ADR-0012 is `accepted` + `normative: true`. Do not treat `Roxabi/roxabi-boilerplate-cf#142 FORBIDDEN` as live — that gate fired, then Roxabi/roxabi-boilerplate-cf#142 shipped.

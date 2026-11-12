@@ -1,6 +1,5 @@
 import { AppError } from '@kit/core'
 import { apiKeyPrefix, parseBearer, verifyApiKey } from './keys'
-import { SESSION_COOKIE } from './session'
 import type { SessionPort } from './session-port'
 
 export type AuthMethod = 'session' | 'api_key'
@@ -8,6 +7,7 @@ export type AuthMethod = 'session' | 'api_key'
 export type SessionAuthIdentity = {
   subject: string
   method: 'session'
+  sessionId: string
 }
 
 /** Authenticated Bearer sk_ identity — always org-bound (ADR-0003 D11). */
@@ -29,7 +29,6 @@ export type ApiKeyRecord = {
 }
 
 export type DualAuthPorts = {
-  cookieName?: string
   /** Full request headers for BA getSession (preferred over cookie-only). */
   headers?: Headers
   /** Required — apps inject createBetterAuthSessionPort (ADR-0002 BA-only). */
@@ -57,7 +56,6 @@ export async function resolveDualAuth(
   ports: DualAuthPorts,
 ): Promise<AuthIdentity | null> {
   const sessions = ports.sessions
-  const cookieName = ports.cookieName ?? SESSION_COOKIE
   const bearer = parseBearer(authorization)
   if (bearer) {
     let prefix: string
@@ -86,9 +84,8 @@ export async function resolveDualAuth(
   const payload = await sessions.resolveSession({
     cookieHeader,
     headers: ports.headers,
-    cookieName,
   })
-  if (payload) return { subject: payload.sub, method: 'session' }
+  if (payload) return { subject: payload.sub, method: 'session', sessionId: payload.sessionId }
 
   return null
 }
@@ -99,7 +96,7 @@ export type RequireAuthContext = {
     /** Hono raw Request — used to forward Headers to BA getSession. */
     raw?: { headers: Headers }
   }
-  set: (key: 'subject' | 'authMethod' | 'keyOrganizationId', value: string) => void
+  set: (key: 'subject' | 'authMethod' | 'keyOrganizationId' | 'sessionId', value: string) => void
 }
 
 export function createRequireAuth<C extends RequireAuthContext>(
@@ -119,6 +116,8 @@ export function createRequireAuth<C extends RequireAuthContext>(
     c.set('authMethod', auth.method)
     if (auth.method === 'api_key') {
       c.set('keyOrganizationId', auth.organizationId)
+    } else {
+      c.set('sessionId', auth.sessionId)
     }
     await next()
   }

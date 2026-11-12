@@ -6,9 +6,9 @@
 export const APPEAL_OPEN_BUTTON = 'appeal:open'
 /** Prefix — full id is appeal:close:{discordUserId} */
 export const APPEAL_CLOSE_PREFIX = 'appeal:close:'
-export const APPEAL_CHANNEL_PREFIX = 'appeal-'
+const APPEAL_CHANNEL_PREFIX = 'appeal-'
 
-export function appealCloseCustomId(discordUserId: string): string {
+function appealCloseCustomId(discordUserId: string): string {
   return `${APPEAL_CLOSE_PREFIX}${discordUserId}`
 }
 

@@ -25,37 +25,26 @@ export type TenancySeedResult = {
   platformRoles: { userId: string; role: string }[]
 }
 
-/**
- * Idempotent multi-tenant seed for BA adapter demos (ADR-0003 personas).
- * Inserts BA user + credential account, platform roles, orgs, memberships, org modules.
- * Gated to development|test unless `force: true`.
- */
-export async function seedTenancyDemo(
-  db: Db,
-  opts?: { now?: Date; environment?: string | null; force?: boolean },
-): Promise<TenancySeedResult> {
+function tenancyEnvAllows(opts?: { environment?: string | null; force?: boolean }): boolean {
   const env = opts?.environment?.trim().toLowerCase()
-  if (!opts?.force && env !== 'development' && env !== 'test' && env !== undefined) {
-    // When environment omitted (direct test calls), allow; only block staging/prod when set.
-  }
-  if (env === 'staging' || env === 'production') {
-    return { users: [], orgs: [], platformRoles: [] }
-  }
-  if (!opts?.force && env && env !== 'development' && env !== 'test') {
-    return { users: [], orgs: [], platformRoles: [] }
-  }
-  const now = opts?.now ?? new Date()
-  const ts = now.getTime()
+  if (env === 'staging' || env === 'production') return false
+  if (!opts?.force && env && env !== 'development' && env !== 'test') return false
+  return true
+}
 
-  await platformModulesService.ensurePlatformModules(db)
-
+async function seedTenancyUsers(
+  db: Db,
+  now: Date,
+  ts: number,
+  hashCredential: typeof hashPassword,
+): Promise<TenancySeedResult['users']> {
   const users: TenancySeedResult['users'] = []
   for (const p of TENANCY_PERSONAS) {
     const existing = await db.select().from(baUser).where(eq(baUser.id, p.id)).limit(1)
     if (existing[0]) {
       users.push({ id: p.id, email: p.email, created: false })
     } else {
-      const passwordHash = await hashPassword(p.password)
+      const passwordHash = await hashCredential(p.password)
       await db.insert(baUser).values({
         id: p.id,
         name: p.name,
@@ -80,7 +69,10 @@ export async function seedTenancyDemo(
       await platformRolesRepo.setPlatformRole(db, p.id, p.platformRole, ts)
     }
   }
+  return users
+}
 
+async function seedTenancyOrgs(db: Db, now: Date): Promise<TenancySeedResult['orgs']> {
   const orgs: TenancySeedResult['orgs'] = []
   for (const o of TENANCY_ORGS) {
     const existing = await db
@@ -102,7 +94,6 @@ export async function seedTenancyDemo(
       })
       orgs.push({ id: o.id, slug: o.slug, created: true })
     }
-
     for (const m of o.members) {
       const memId = `mem_${o.id}_${m.userId}`
       const memExisting = await db.select().from(baMember).where(eq(baMember.id, memId)).limit(1)
@@ -116,12 +107,12 @@ export async function seedTenancyDemo(
         })
       }
     }
-
-    // Phase B — system roles + module grants (before org module enable)
     await orgRolesService.ensureSystemRoles(db, o.id)
   }
+  return orgs
+}
 
-  // Dogfood: platform-available set; tasks/comments on org_acme; demo on org_acme + org_team
+async function seedTenancyModules(db: Db, ts: number): Promise<void> {
   for (const moduleId of PLATFORM_AVAILABLE_MODULES) {
     await platformModulesRepo.upsertPlatformModule(db, {
       moduleId,
@@ -150,11 +141,25 @@ export async function seedTenancyDemo(
       await tasksService.ensureDefaultBoard(db, o.id)
     }
   }
+}
 
+export async function seedTenancyDemo(
+  db: Db,
+  opts?: { now?: Date; environment?: string | null; force?: boolean },
+  hashCredential: typeof hashPassword = hashPassword,
+): Promise<TenancySeedResult> {
+  if (!tenancyEnvAllows(opts)) {
+    return { users: [], orgs: [], platformRoles: [] }
+  }
+  const now = opts?.now ?? new Date()
+  const ts = now.getTime()
+  await platformModulesService.ensurePlatformModules(db)
+  const users = await seedTenancyUsers(db, now, ts, hashCredential)
+  const orgs = await seedTenancyOrgs(db, now)
+  await seedTenancyModules(db, ts)
   const platformRoles = TENANCY_PERSONAS.filter((p) => p.platformRole).map((p) => ({
     userId: p.id,
     role: p.platformRole!,
   }))
-
   return { users, orgs, platformRoles }
 }

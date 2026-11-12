@@ -1,8 +1,39 @@
 import { baMember, baOrganization } from '@kit/auth/schema'
+import { D1_IN_ARRAY_CHUNK, mapInChunks } from '@kit/db'
 import { and, eq, inArray } from 'drizzle-orm'
+import { isPlatformRole, type OrgContextRecord, type OrgKind, type OrgStatus } from '../org-roles'
+import { userPlatformRoles } from '../tenancy-schema'
 import type { KitRepoDb } from './db-type'
 
 type Db = KitRepoDb
+
+export async function findOrgContext(
+  db: Db,
+  orgId: string,
+  subject: string,
+): Promise<OrgContextRecord | null> {
+  const rows = await db
+    .select({
+      status: baOrganization.status,
+      membershipRole: baMember.role,
+      platformRole: userPlatformRoles.role,
+    })
+    .from(baOrganization)
+    .leftJoin(
+      baMember,
+      and(eq(baMember.organizationId, baOrganization.id), eq(baMember.userId, subject)),
+    )
+    .leftJoin(userPlatformRoles, eq(userPlatformRoles.userId, subject))
+    .where(eq(baOrganization.id, orgId))
+    .limit(1)
+  const row = rows[0]
+  if (!row) return null
+  return {
+    status: row.status,
+    membershipRole: row.membershipRole,
+    platformRole: row.platformRole && isPlatformRole(row.platformRole) ? row.platformRole : null,
+  }
+}
 
 export async function findOrgById(db: Db, orgId: string) {
   const rows = await db.select().from(baOrganization).where(eq(baOrganization.id, orgId)).limit(1)
@@ -43,6 +74,17 @@ export async function listMembers(db: Db, orgId: string) {
   return db.select().from(baMember).where(eq(baMember.organizationId, orgId))
 }
 
+/** The ids among `userIds` that are members of `orgId` (chunked for the D1 bind limit). */
+export async function filterMemberUserIds(db: Db, orgId: string, userIds: string[]) {
+  const rows = await mapInChunks(userIds, D1_IN_ARRAY_CHUNK, (chunk) =>
+    db
+      .select({ userId: baMember.userId })
+      .from(baMember)
+      .where(and(eq(baMember.organizationId, orgId), inArray(baMember.userId, chunk))),
+  )
+  return rows.map((row) => row.userId)
+}
+
 /** Batch members across orgs (avoids N+1 when scoping staff admin directory). */
 export async function listMembersInOrgs(db: Db, orgIds: string[]) {
   if (orgIds.length === 0) return []
@@ -59,8 +101,8 @@ export async function insertOrganization(
     id: string
     name: string
     slug: string
-    kind: string
-    status: string
+    kind: OrgKind
+    status: OrgStatus
     createdAt: Date
   },
 ) {

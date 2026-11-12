@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import type { CapabilityGrant } from './authority'
-import { MAX_PERMIT_TOOLS } from './constants'
+import { MAX_ALLOWED_MODELS, MAX_MODEL_ID_CHARS, MAX_PERMIT_TOOLS } from './constants'
 
 const toolNameSchema = z
   .string()
@@ -40,12 +40,14 @@ export const capabilityGrantSchema = z
     registryVersion: z.string().min(1).max(256),
     /** Explicit infer capability — never defaulted to true. */
     allowsInfer: z.boolean(),
+    /** Minted model ids — required, never defaulted to allow-all. */
+    allowedModels: z.array(z.string().min(1).max(MAX_MODEL_ID_CHARS)).max(MAX_ALLOWED_MODELS),
   })
   .strict()
 
 /**
- * Shape validation only. Grant **provenance** is an app-layer duty (apps mint from server
- * session / org module policy, residual until #31) and is deliberately not claimed here —
+ * Shape validation only. Grant **provenance** is kit-owned (`mintCapabilityGrant` in
+ * `mint.ts`); this parse boundary does not mint and does not claim provenance —
  * ADR-0005 D4 § Authority split.
  *
  * @capability flows-grant-parse
@@ -73,6 +75,7 @@ export function parseCapabilityGrant(
       allowedTools: [...r.data.allowedTools],
       registryVersion: r.data.registryVersion,
       allowsInfer: r.data.allowsInfer,
+      allowedModels: [...r.data.allowedModels],
     },
   }
 }

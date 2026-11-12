@@ -1,8 +1,9 @@
 import { defineConfig } from 'vitest/config'
-import { makeCoverage } from '../config/vitest-coverage.mjs'
+import { makeCoverage } from '../config/vitest-coverage.mts'
 
 export default defineConfig({
   test: {
+    maxWorkers: process.env.CI ? '100%' : undefined,
     environment: 'node',
     include: ['src/**/*.test.ts'],
     coverage: makeCoverage('flows', {

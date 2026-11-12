@@ -1,13 +1,13 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import type { ReactNode } from 'react'
+import type { ReactElement } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { apiFetch } from '../lib/api'
 import type { MeResponse } from '../lib/auth'
-import { LocaleProvider } from '../lib/locale'
-import { OrgProvider } from '../lib/org-context'
 import { en } from '../messages/en'
+import { createApiDispatcher } from '../test/api-mock'
+import { createMe } from '../test/factories'
+import { renderWithAppProviders } from '../test/render'
 import { ItemsPage } from './items'
 
 vi.mock('../lib/api', async () => {
@@ -21,37 +21,29 @@ vi.mock('../lib/api', async () => {
 const fetchMock = vi.mocked(apiFetch)
 
 afterEach(() => {
-  cleanup()
   fetchMock.mockReset()
-  localStorage.clear()
 })
 
 beforeEach(() => {
   localStorage.setItem('kit.locale', 'en')
-  fetchMock.mockResolvedValue({ items: [] })
+  fetchMock.mockImplementation(
+    createApiDispatcher()
+      .on('GET', '/api/items', () => ({ items: [] }))
+      .on('POST', '/api/items', () => ({ item: { id: 'i1' } })).fetch,
+  )
 })
 
-function wrap(me: MeResponse, ui: ReactNode) {
-  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  return render(
-    <QueryClientProvider client={qc}>
-      <LocaleProvider>
-        <OrgProvider me={me}>{ui}</OrgProvider>
-      </LocaleProvider>
-    </QueryClientProvider>,
-  )
+function wrap(me: MeResponse, ui: ReactElement) {
+  return renderWithAppProviders(ui, { me })
 }
 
 function meWith(orgs: MeResponse['orgs']): MeResponse {
-  return {
+  return createMe({
     subject: 'user_x',
     email: 'x@kit.local',
-    authMethod: 'session',
-    role: 'user',
-    platformRole: null,
-    requestId: 'r',
     orgs,
-  }
+    requestId: 'r',
+  })
 }
 
 const adminOrg = {
@@ -66,20 +58,20 @@ const adminOrg = {
 const readerOrg = { ...adminOrg, role: 'reader' as const }
 
 describe('ItemsPage write chrome', () => {
-  it('hides create when role is reader', async () => {
+  it('shows create when role is reader (personal kennel)', async () => {
     wrap(meWith([readerOrg]), <ItemsPage />)
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalled()
     })
-    expect(screen.queryByRole('button', { name: en.itemCreate })).toBeNull()
+    expect(screen.getAllByRole('button', { name: en.itemCreate }).length).toBeGreaterThan(0)
   })
 
-  it('hides create when there is no active org', async () => {
+  it('shows create when there is no active org', async () => {
     wrap(meWith([]), <ItemsPage />)
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalled()
     })
-    expect(screen.queryByRole('button', { name: en.itemCreate })).toBeNull()
+    expect(screen.getAllByRole('button', { name: en.itemCreate }).length).toBeGreaterThan(0)
   })
 
   it('still GETs /api/items without an org header', async () => {
@@ -93,13 +85,12 @@ describe('ItemsPage write chrome', () => {
     expect(init?.headers?.['X-Org-Id']).toBeUndefined()
   })
 
-  it('sends X-Org-Id on create when the actor can write', async () => {
+  it('does not send X-Org-Id on create (personal kennel)', async () => {
     wrap(meWith([adminOrg]), <ItemsPage />)
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalled()
     })
     fetchMock.mockClear()
-    fetchMock.mockResolvedValueOnce({ item: { id: 'i1' } })
 
     const user = userEvent.setup()
     await user.click(screen.getAllByRole('button', { name: en.itemCreate })[0]!)
@@ -117,6 +108,6 @@ describe('ItemsPage write chrome', () => {
     })
     expect(post).toBeTruthy()
     const postInit = post?.[1] as { headers?: Record<string, string> } | undefined
-    expect(postInit?.headers?.['X-Org-Id']).toBe('org_acme')
+    expect(postInit?.headers?.['X-Org-Id']).toBeUndefined()
   })
 })

@@ -1,10 +1,21 @@
 import { createDb } from '@kit/db'
 import { describe, expect, it } from 'vitest'
 import { schema } from '../db/schema'
+import { listPlatformModules } from '../repos/platform-modules'
 import { createMemoryEnv } from '../test/memory-env'
 import { ensureKitModules, getModulesState, isModuleEnabled, setModuleEnabled } from './modules'
 
 describe('kit modules service', () => {
+  it('does not initialize the catalogue for read-only state', async () => {
+    const env = createMemoryEnv()
+    const db = createDb(env.DB, schema)
+    expect(await listPlatformModules(db)).toEqual([])
+    await getModulesState(db, { readOnly: true })
+    expect(await listPlatformModules(db)).toEqual([])
+    await getModulesState(db)
+    expect((await listPlatformModules(db)).length).toBeGreaterThan(0)
+  })
+
   it('creates demo module disabled but configured (no remote integration)', async () => {
     const env = createMemoryEnv()
     const db = createDb(env.DB, schema)

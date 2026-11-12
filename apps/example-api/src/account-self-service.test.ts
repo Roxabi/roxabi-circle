@@ -1,16 +1,14 @@
 /**
- * B-account #60 — change-password smoke + secret hygiene + me.name
+ * B-account go-silex/silex-boilerplate#60 — change-password smoke + secret hygiene + me.name
  */
-import { createDb } from '@kit/db'
 import { describe, expect, it } from 'vitest'
-import { createApp } from './app'
-import { schema } from './db/schema'
-
-import { seedDemoDatabase } from './seed/seed-db'
 import { TENANCY_PASSWORD } from './seed/tenancy-data'
-import { createMemoryEnv } from './test/memory-env'
-
-const ORIGIN = 'http://localhost:5173'
+import {
+  createSeededDemoApi,
+  loginCookie,
+  TEST_ORIGIN as ORIGIN,
+  sessionHeaders,
+} from './test/api-fixture'
 
 const BA_ENV = {
   BETTER_AUTH_SECRET: 'test-better-auth-secret-at-least-32!!',
@@ -19,14 +17,6 @@ const BA_ENV = {
   ENVIRONMENT: 'test',
   CORS_ORIGINS: ORIGIN,
   EMAIL_TRANSPORT: 'log',
-}
-
-function sessionMutation(cookie: string): Record<string, string> {
-  return {
-    cookie,
-    'content-type': 'application/json',
-    Origin: ORIGIN,
-  }
 }
 
 function assertNoPasswordMaterial(text: string, ...plaintexts: string[]) {
@@ -41,38 +31,13 @@ function assertNoPasswordMaterial(text: string, ...plaintexts: string[]) {
 }
 
 async function seedEnv() {
-  const app = createApp()
-  const env = createMemoryEnv(BA_ENV)
-  const db = createDb(env.DB as unknown as D1Database, schema)
-  await seedDemoDatabase(db, { notes: false, environment: 'test' })
-  return { app, env, db }
+  return createSeededDemoApi({ env: BA_ENV, seed: { notes: false, environment: 'test' } })
 }
 
-async function signIn(
-  app: ReturnType<typeof createApp>,
-  env: ReturnType<typeof createMemoryEnv>,
-  email: string,
-  password = TENANCY_PASSWORD,
-) {
-  const res = await app.request(
-    '/api/auth/sign-in/email',
-    {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', Origin: ORIGIN },
-      body: JSON.stringify({ email, password }),
-    },
-    env,
-  )
-  expect(res.status, `sign-in ${email}`).toBeLessThan(400)
-  const cookie = res.headers.get('set-cookie')?.split(';')[0]
-  expect(cookie).toBeTruthy()
-  return cookie!
-}
-
-describe('account self-service (B-account #60)', () => {
+describe('account self-service (B-account go-silex/silex-boilerplate#60)', () => {
   it('SC5: GET /api/me includes name from BA user', async () => {
     const { app, env } = await seedEnv()
-    const cookie = await signIn(app, env, 'staff@kit.local')
+    const cookie = await loginCookie(app, env, 'staff@kit.local', TENANCY_PASSWORD)
     const res = await app.request('/api/me', { headers: { cookie } }, env)
     expect(res.status).toBe(200)
     const body = (await res.json()) as { name?: string; email?: string; subject: string }
@@ -83,14 +48,14 @@ describe('account self-service (B-account #60)', () => {
   it('SC1/SC9: change-password happy path; old dies; no password fields in response', async () => {
     const { app, env } = await seedEnv()
     const email = 'solo@kit.local'
-    const cookie = await signIn(app, env, email, TENANCY_PASSWORD)
+    const cookie = await loginCookie(app, env, email, TENANCY_PASSWORD)
     const newPassword = 'new-solo-password-60'
 
     const res = await app.request(
       '/api/auth/change-password',
       {
         method: 'POST',
-        headers: sessionMutation(cookie),
+        headers: sessionHeaders(cookie, undefined, ORIGIN),
         body: JSON.stringify({
           currentPassword: TENANCY_PASSWORD,
           newPassword,
@@ -131,7 +96,7 @@ describe('account self-service (B-account #60)', () => {
   it('SC3/SC9: wrong current password fails; credential unchanged; no secret leak', async () => {
     const { app, env } = await seedEnv()
     const email = 'staff@kit.local'
-    const cookie = await signIn(app, env, email)
+    const cookie = await loginCookie(app, env, email, TENANCY_PASSWORD)
     const wrongCurrent = 'definitely-not-the-password'
     const attemptedNew = 'another-new-password-xx'
 
@@ -139,7 +104,7 @@ describe('account self-service (B-account #60)', () => {
       '/api/auth/change-password',
       {
         method: 'POST',
-        headers: sessionMutation(cookie),
+        headers: sessionHeaders(cookie, undefined, ORIGIN),
         body: JSON.stringify({
           currentPassword: wrongCurrent,
           newPassword: attemptedNew,
@@ -179,14 +144,14 @@ describe('account self-service (B-account #60)', () => {
 
   it('SC4/SC5: update-user name then me reflects it', async () => {
     const { app, env } = await seedEnv()
-    const cookie = await signIn(app, env, 'solo@kit.local')
+    const cookie = await loginCookie(app, env, 'solo@kit.local', TENANCY_PASSWORD)
     const newName = 'Solo Renamed 60'
 
     const upd = await app.request(
       '/api/auth/update-user',
       {
         method: 'POST',
-        headers: sessionMutation(cookie),
+        headers: sessionHeaders(cookie, undefined, ORIGIN),
         body: JSON.stringify({ name: newName }),
       },
       env,

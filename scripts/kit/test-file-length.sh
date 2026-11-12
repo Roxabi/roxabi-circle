@@ -5,8 +5,8 @@
 # Invokes the live checker by absolute path with -C "$TMP".
 # Exit 0 only if all matrix rows pass.
 set -euo pipefail
-
-unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR 2>/dev/null || true
+# shellcheck source=lib/hermetic-git.sh
+source "$(cd "$(dirname "$0")" && pwd -P)/lib/hermetic-git.sh"
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 CHECKER="${ROOT}/scripts/kit/check_file_length.sh"
@@ -282,6 +282,38 @@ assert_exit "missing packages/ + disable → 0" 0 "" \
   env -u GIT_DIR -u GIT_WORK_TREE -u GIT_COMMON_DIR -C "${MISSING}" \
     QG_FILE_MODE=tree QG_FILE_LENGTH_DISABLE=1 \
     bash "${CHECKER}"
+
+# --- staged name with a newline is still one path ---
+NL="${TMP}/newline"
+make_repo "${NL}"
+mkdir -p "${NL}/config/kit"
+: >"${NL}/config/kit/file_exemptions.txt"
+write_n_lines "${NL}/apps/acme-web/src/$(printf 'nl\ngod.tsx')" 301
+git --git-dir="${NL}/.git" --work-tree="${NL}" add -A
+assert_exit "staged newline name over cap → 1" 1 "max 300" \
+  run_checker "${NL}" staged
+
+# --- a failing git diff --cached is not an empty staged list ---
+# rc != 0 only. git's die() text is translated; the fail-open path exits 0
+# with no diagnostic (this script has no success banner).
+DIFFFAIL="${TMP}/diff-fails"
+make_repo "${DIFFFAIL}"
+mkdir -p "${DIFFFAIL}/config/kit" "${TMP}/not-an-index"
+: >"${DIFFFAIL}/config/kit/file_exemptions.txt"
+write_n_lines "${DIFFFAIL}/apps/acme-web/src/ok.tsx" 5
+git --git-dir="${DIFFFAIL}/.git" --work-tree="${DIFFFAIL}" add -A
+set +e
+out="$(run_checker "${DIFFFAIL}" staged GIT_INDEX_FILE="${TMP}/not-an-index" 2>&1)"
+rc=$?
+set -e
+if [[ "$rc" -ne 0 ]]; then
+  echo "  PASS: failing git diff --cached is a hard error (exit ${rc})"
+  PASS=$((PASS + 1))
+else
+  echo "  FAIL: failing git diff --cached was swallowed (exit 0)" >&2
+  echo "    out: $(echo "${out}" | tr '\n' ' ')" >&2
+  FAIL=$((FAIL + 1))
+fi
 
 echo "== summary: ${PASS} pass, ${FAIL} fail =="
 if [[ "${FAIL}" -ne 0 ]]; then

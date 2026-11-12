@@ -8,7 +8,7 @@
 export const ENTRY_PR_BONUS_POINTS = 10
 
 /** SHA-256 (hex) of each non-empty line of the hidden ASCII art (exact bytes). */
-export const ENTRY_BONUS_LINE_SHA256: ReadonlySet<string> = new Set([
+const ENTRY_BONUS_LINE_SHA256: ReadonlySet<string> = new Set([
   '97e0812e01a80357dd4193293b2f05bcfb628904f95097c37cf9d84bece885ed',
   '2e40923580de601369787f3554dc07b359c5c029a31e6443a30c34316fae17dc',
   '199b05a4b172b77b067f654a9703bb201f11c0d7196d3ef8e7756ea14f00edcd',

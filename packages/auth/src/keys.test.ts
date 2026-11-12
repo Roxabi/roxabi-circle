@@ -1,17 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { type BetterAuthLike, createBetterAuthSessionPort } from './better-auth-port'
 import { sessionCookieName } from './cookie-name'
-import {
-  apiKeyPrefix,
-  generateApiKey,
-  hashApiKey,
-  hashPassword,
-  PBKDF2_ITERS,
-  PBKDF2_MAX_ITERS,
-  parseBearer,
-  verifyApiKey,
-  verifyPassword,
-} from './keys'
+import { apiKeyPrefix, generateApiKey, hashApiKey, parseBearer, verifyApiKey } from './keys'
 import { createRequireAuth, normalizeApiKeyOrganizationId, resolveDualAuth } from './require-auth'
 import {
   clearSessionCookieHeader,
@@ -20,6 +10,7 @@ import {
   SESSION_COOKIE,
   sessionCookieHeader,
 } from './session'
+import { hashVerificationIdentifier } from './verification-identifier'
 
 function baPort(
   user: { id: string; email?: string } | null,
@@ -35,12 +26,20 @@ function baPort(
       api: {
         getSession: async () => ({
           user: { id: user.id, email: user.email ?? 'x@y.z' },
-          session: { expiresAt: new Date(Date.now() + expMs) },
+          session: { id: 'sess-1', expiresAt: new Date(Date.now() + expMs) },
         }),
       },
     }),
   })
 }
+
+describe('verification identifier hashing', () => {
+  it('encodes the SHA-256 digest as unpadded base64url', async () => {
+    expect(await hashVerificationIdentifier('x')).toBe(
+      'LXEWQrcmsEQBYnyp-6wy9chTD7GQPMTbAiWHF5IaSIE',
+    )
+  })
+})
 
 describe('api keys', () => {
   it('hashes and verifies with timing-safe compare', async () => {
@@ -63,37 +62,6 @@ describe('api keys', () => {
     expect(parseBearer('Bearer sk_abc')).toBe('sk_abc')
     expect(parseBearer(null)).toBeNull()
     expect(parseBearer('Basic x')).toBeNull()
-  })
-})
-
-describe('password KDF', () => {
-  it('hashes with PBKDF2 and verifies', async () => {
-    const stored = await hashPassword('demo-password-change-me')
-    expect(stored.startsWith(`pbkdf2$${PBKDF2_ITERS}$`)).toBe(true)
-    expect(await verifyPassword('demo-password-change-me', stored)).toBe(true)
-    expect(await verifyPassword('wrong-password', stored)).toBe(false)
-  })
-
-  it('rejects iterations below floor (downgrade)', async () => {
-    const good = await hashPassword('secret')
-    const parts = good.split('$')
-    // pbkdf2$1$salt$hash — weak planted hash
-    const weak = `pbkdf2$1$${parts[2]}$${parts[3]}`
-    expect(await verifyPassword('secret', weak)).toBe(false)
-  })
-
-  it('rejects iterations above max (CPU DoS bound)', async () => {
-    const good = await hashPassword('secret')
-    const parts = good.split('$')
-    const huge = `pbkdf2$${PBKDF2_MAX_ITERS + 1}$${parts[2]}$${parts[3]}`
-    expect(await verifyPassword('secret', huge)).toBe(false)
-  })
-
-  it('rejects malformed stored hashes', async () => {
-    expect(await verifyPassword('x', 'not-a-hash')).toBe(false)
-    expect(await verifyPassword('x', 'pbkdf2$only')).toBe(false)
-    expect(await verifyPassword('x', 'sha256$1$ab$cd')).toBe(false)
-    expect(await verifyPassword('x', `pbkdf2$${PBKDF2_ITERS}$$deadbeef`)).toBe(false)
   })
 })
 
@@ -130,7 +98,57 @@ describe('resolveDualAuth', () => {
       sessions: baPort({ id: 'u1', email: 'a@b.c' }),
       findApiKeyByPrefix: async () => null,
     })
-    expect(r).toMatchObject({ subject: 'u1', method: 'session' })
+    expect(r).toEqual({ subject: 'u1', method: 'session', sessionId: 'sess-1' })
+  })
+
+  it('accepts a live org-bound key (hash match, not revoked, not expired)', async () => {
+    const key = generateApiKey()
+    const keyHash = await hashApiKey(key)
+    const r = await resolveDualAuth(`Bearer ${key}`, null, {
+      sessions: baPort(null),
+      findApiKeyByPrefix: async () => ({
+        subject: 'u-live',
+        keyHash,
+        revokedAt: null,
+        expiresAt: Date.now() + 60_000,
+        organizationId: 'org_1',
+      }),
+    })
+    expect(r).toMatchObject({ subject: 'u-live', method: 'api_key', organizationId: 'org_1' })
+  })
+
+  it('rejects a revoked key even when hash matches', async () => {
+    const key = generateApiKey()
+    const keyHash = await hashApiKey(key)
+    await expect(
+      resolveDualAuth(`Bearer ${key}`, 'kit_session=opaque', {
+        sessions: baPort({ id: 'u1', email: 'a@b.c' }),
+        findApiKeyByPrefix: async () => ({
+          subject: 'u-rev',
+          keyHash,
+          revokedAt: Date.now(),
+          expiresAt: Date.now() + 60_000,
+          organizationId: 'org_1',
+        }),
+      }),
+    ).rejects.toMatchObject({ code: 'UNAUTHORIZED' })
+  })
+
+  it('rejects an expired key even when hash matches', async () => {
+    const key = generateApiKey()
+    const keyHash = await hashApiKey(key)
+    await expect(
+      resolveDualAuth(`Bearer ${key}`, 'kit_session=opaque', {
+        sessions: baPort({ id: 'u1', email: 'a@b.c' }),
+        findApiKeyByPrefix: async () => ({
+          subject: 'u-exp',
+          keyHash,
+          revokedAt: null,
+          expiresAt: Date.now() - 1_000,
+          organizationId: 'org_1',
+        }),
+      }),
+    ).rejects.toMatchObject({ code: 'UNAUTHORIZED' })
   })
 })
 
@@ -151,16 +169,15 @@ describe('SessionPort (Better Auth adapter)', () => {
       api: {
         getSession: async () => ({
           user: { id: 'ba-user-1', email: 'ba@kit.local' },
-          session: { expiresAt: exp },
+          session: { id: 'sess-1', expiresAt: exp },
         }),
       },
     }
     const port = createBetterAuthSessionPort({ getAuth: () => mockAuth })
     const payload = await port.resolveSession({
       cookieHeader: 'kit_session=opaque',
-      cookieName: SESSION_COOKIE,
     })
-    expect(payload).toMatchObject({ sub: 'ba-user-1', email: 'ba@kit.local' })
+    expect(payload).toMatchObject({ sub: 'ba-user-1', email: 'ba@kit.local', sessionId: 'sess-1' })
     expect(payload!.exp).toBeGreaterThan(Math.floor(Date.now() / 1000))
   })
 
@@ -169,54 +186,59 @@ describe('SessionPort (Better Auth adapter)', () => {
       api: {
         getSession: async () => ({
           user: { id: 'ba-2', email: 'x@y.z' },
-          session: { expiresAt: new Date(Date.now() + 60_000) },
+          session: { id: 'sess-1', expiresAt: new Date(Date.now() + 60_000) },
         }),
       },
     }
     const port = createBetterAuthSessionPort({ getAuth: () => mockAuth })
     const r = await resolveDualAuth(null, 'kit_session=x', {
       sessions: port,
-      cookieName: SESSION_COOKIE,
       findApiKeyByPrefix: async () => null,
     })
-    expect(r).toMatchObject({ subject: 'ba-2', method: 'session' })
+    expect(r).toEqual({ subject: 'ba-2', method: 'session', sessionId: 'sess-1' })
   })
 
   it('resolveSession returns null for missing session / missing expiresAt / expired / throw', async () => {
     const nullPort = createBetterAuthSessionPort({
       getAuth: () => ({ api: { getSession: async () => null } }),
     })
-    expect(
-      await nullPort.resolveSession({ cookieHeader: 'x=1', cookieName: SESSION_COOKIE }),
-    ).toBeNull()
+    expect(await nullPort.resolveSession({ cookieHeader: 'x=1' })).toBeNull()
 
     const noExp = createBetterAuthSessionPort({
       getAuth: () => ({
         api: {
           getSession: async () => ({
             user: { id: 'u', email: 'a@b.c' },
-            session: {},
+            session: { id: 'sess-1' },
           }),
         },
       }),
     })
-    expect(
-      await noExp.resolveSession({ cookieHeader: 'x=1', cookieName: SESSION_COOKIE }),
-    ).toBeNull()
+    expect(await noExp.resolveSession({ cookieHeader: 'x=1' })).toBeNull()
+
+    const noId = createBetterAuthSessionPort({
+      getAuth: () => ({
+        api: {
+          getSession: async () => ({
+            user: { id: 'u', email: 'a@b.c' },
+            session: { id: '  ', expiresAt: new Date(Date.now() + 60_000) },
+          }),
+        },
+      }),
+    })
+    expect(await noId.resolveSession({ cookieHeader: 'x=1' })).toBeNull()
 
     const expired = createBetterAuthSessionPort({
       getAuth: () => ({
         api: {
           getSession: async () => ({
             user: { id: 'u', email: 'a@b.c' },
-            session: { expiresAt: new Date(Date.now() - 60_000) },
+            session: { id: 'sess-1', expiresAt: new Date(Date.now() - 60_000) },
           }),
         },
       }),
     })
-    expect(
-      await expired.resolveSession({ cookieHeader: 'x=1', cookieName: SESSION_COOKIE }),
-    ).toBeNull()
+    expect(await expired.resolveSession({ cookieHeader: 'x=1' })).toBeNull()
 
     const throws = createBetterAuthSessionPort({
       getAuth: () => ({
@@ -227,21 +249,21 @@ describe('SessionPort (Better Auth adapter)', () => {
         },
       }),
     })
-    expect(
-      await throws.resolveSession({ cookieHeader: 'x=1', cookieName: SESSION_COOKIE }),
-    ).toBeNull()
+    expect(await throws.resolveSession({ cookieHeader: 'x=1' })).toBeNull()
   })
 
   it('resolveSession forwards cookie headers into getSession', async () => {
     let seenCookie: string | null = null
+    let seenQuery: { disableRefresh?: boolean; disableCookieCache?: boolean } | undefined
     const port = createBetterAuthSessionPort({
       getAuth: () => ({
         api: {
-          getSession: async ({ headers }) => {
+          getSession: async ({ headers, query }) => {
             seenCookie = headers.get('cookie')
+            seenQuery = query
             return {
               user: { id: 'hdr', email: 'h@x.y' },
-              session: { expiresAt: new Date(Date.now() + 60_000) },
+              session: { id: 'sess-1', expiresAt: new Date(Date.now() + 60_000) },
             }
           },
         },
@@ -249,17 +271,16 @@ describe('SessionPort (Better Auth adapter)', () => {
     })
     await port.resolveSession({
       cookieHeader: 'kit_session=opaque-token',
-      cookieName: SESSION_COOKIE,
     })
     expect(seenCookie).toBe('kit_session=opaque-token')
+    expect(seenQuery).toEqual({ disableRefresh: true, disableCookieCache: true })
   })
 })
 
-describe('resolveDualAuth cookieName inject', () => {
-  it('uses custom cookie name with BA port', async () => {
+describe('resolveDualAuth session cookie', () => {
+  it('resolves BA session regardless of cookie name string', async () => {
     const port = baPort({ id: 'cust', email: 'c@d.e' })
     const r = await resolveDualAuth(null, 'my_sess=opaque', {
-      cookieName: 'my_sess',
       sessions: port,
       findApiKeyByPrefix: async () => null,
     })
@@ -268,18 +289,37 @@ describe('resolveDualAuth cookieName inject', () => {
 })
 
 describe('session cookie helpers', () => {
-  it('sessionCookieHeader sets HttpOnly SameSite Path', () => {
-    const h = sessionCookieHeader('tok', { secure: true, maxAge: 60 })
-    expect(h).toMatch(/kit_session=tok/)
+  it('sessionCookieHeader defaults Secure on and uses BA __Secure- wire name', () => {
+    const h = sessionCookieHeader('tok', { maxAge: 60 })
+    expect(h).toMatch(/^__Secure-kit_session=tok;/)
     expect(h).toMatch(/HttpOnly/)
     expect(h).toMatch(/Secure/)
     expect(h).toMatch(/SameSite=Lax/i)
     expect(h).toMatch(/Max-Age=60/)
   })
-  it('clearSessionCookieHeader zeroes Max-Age', () => {
-    const h = clearSessionCookieHeader({ secure: false })
+  it('sessionCookieHeader omits Secure and prefix only when opted out', () => {
+    const h = sessionCookieHeader('tok', { secure: false })
+    expect(h).toMatch(/^kit_session=tok;/)
+    expect(h).not.toMatch(/__Secure-/)
+    expect(h).not.toMatch(/Secure/)
+  })
+  it('sessionCookieHeader honors name and does not double-prefix', () => {
+    expect(sessionCookieHeader('tok', { name: 'custom_sess' })).toMatch(
+      /^__Secure-custom_sess=tok;/,
+    )
+    expect(sessionCookieHeader('tok', { name: '__Secure-custom_sess' })).toMatch(
+      /^__Secure-custom_sess=tok;/,
+    )
+  })
+  it('clearSessionCookieHeader zeroes Max-Age and defaults Secure wire name', () => {
+    const h = clearSessionCookieHeader()
+    expect(h).toMatch(/^__Secure-kit_session=;/)
     expect(h).toMatch(/Max-Age=0/)
     expect(h).toMatch(/HttpOnly/)
+    expect(h).toMatch(/Secure/)
+    const http = clearSessionCookieHeader({ secure: false })
+    expect(http).toMatch(/^kit_session=;/)
+    expect(http).not.toMatch(/Secure/)
   })
   it('parseCookie extracts name', () => {
     expect(parseCookie('a=1; kit_session=abc; b=2', SESSION_COOKIE)).toBe('abc')
@@ -316,6 +356,7 @@ describe('createRequireAuth', () => {
     expect(nextCalled).toBe(true)
     expect(store.subject).toBe('req-user')
     expect(store.authMethod).toBe('session')
+    expect(store.sessionId).toBe('sess-1')
   })
 
   it('throws unauthorized without credentials', async () => {
@@ -363,6 +404,7 @@ describe('createRequireAuth', () => {
     expect(store.subject).toBe('key-user')
     expect(store.authMethod).toBe('api_key')
     expect(store.keyOrganizationId).toBe('org_x')
+    expect(store.sessionId).toBeUndefined()
   })
 
   it('D11: rejects null organizationId after verified credentials', async () => {
@@ -427,16 +469,15 @@ describe('createRequireAuth', () => {
 })
 
 describe('BA SessionPort cookie helpers', () => {
-  it('cookieHeader and clearCookieHeader honor cookie name override', () => {
+  it('clearCookieHeader honors cookie name override and defaults Secure', () => {
     const port = createBetterAuthSessionPort({
       cookieName: 'custom_sess',
       getAuth: () => ({ api: { getSession: async () => null } }),
     })
-    const set = port.cookieHeader('tok', { secure: true })
-    expect(set).toMatch(/custom_sess=tok/)
-    expect(set).toMatch(/Secure/)
-    const clear = port.clearCookieHeader({ secure: true })
-    expect(clear).toMatch(/custom_sess=/)
+    const clear = port.clearCookieHeader()
+    expect(clear).toMatch(/^__Secure-custom_sess=;/)
     expect(clear).toMatch(/Max-Age=0/)
+    expect(clear).toMatch(/Secure/)
+    expect(port.clearCookieHeader({ secure: false })).toMatch(/^custom_sess=;/)
   })
 })

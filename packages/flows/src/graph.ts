@@ -2,7 +2,13 @@
 
 export type AfterGraph = Readonly<Record<string, { readonly after?: readonly string[] }>>
 
-export function graphHasCycle(tasks: AfterGraph): boolean {
+type AdjMaps = {
+  ids: string[]
+  indeg: Map<string, number>
+  adj: Map<string, string[]>
+}
+
+function buildAdjMaps(tasks: AfterGraph): AdjMaps {
   const ids = Object.keys(tasks)
   const indeg = new Map<string, number>()
   const adj = new Map<string, string[]>()
@@ -17,6 +23,12 @@ export function graphHasCycle(tasks: AfterGraph): boolean {
       indeg.set(id, (indeg.get(id) ?? 0) + 1)
     }
   }
+  return { ids, indeg, adj }
+}
+
+/** Kahn reachability count; equals `ids.length` iff the graph is acyclic. */
+function kahnSeenCount(maps: AdjMaps): number {
+  const { ids, indeg, adj } = maps
   const q = ids.filter((id) => (indeg.get(id) ?? 0) === 0)
   let seen = 0
   while (q.length > 0) {
@@ -29,7 +41,12 @@ export function graphHasCycle(tasks: AfterGraph): boolean {
       if (next === 0) q.push(m)
     }
   }
-  return seen !== ids.length
+  return seen
+}
+
+export function graphHasCycle(tasks: AfterGraph): boolean {
+  const maps = buildAdjMaps(tasks)
+  return kahnSeenCount(maps) !== maps.ids.length
 }
 
 export function findCycle(tasks: AfterGraph): string | null {

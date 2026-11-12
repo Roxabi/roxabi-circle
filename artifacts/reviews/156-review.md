@@ -6,7 +6,7 @@ spec: artifacts/specs/156-3-exception-extract-dry-run-attendre-le-kit-spec.md
 date: 2026-08-24
 ---
 
-# Review — #156 Extract honours product identity
+# Review — Roxabi/roxabi-boilerplate-cf#156 Extract honours product identity
 
 **Range:** `4b4e55e..HEAD` (`e99bf78`) · 4 code/doc files (+ plan/spec/review artifacts)
 **Reviewer:** build-review-156-2 (single reviewer, no delegation)

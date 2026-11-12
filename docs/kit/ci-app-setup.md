@@ -1,182 +1,74 @@
 # GitHub App `kit-ci` — setup (no PAT)
 
-Same role as **kit-ci** on the operator org: ephemeral tokens for **merge-on-green**, cascade `push` workflows, and merge of PRs that touch `.github/workflows/*`.
+This runbook describes configuration for the maintained implementation, not a claim that any repository or GitHub App has been provisioned. The recommended setup uses one GitHub App dedicated to the target repository, without a PAT or a separate authorization App, installed only on that repository with a fresh repository-level PEM secret. A shared installation requires the explicit [owner exception](#shared-app-owner-exception) below. A short-lived installation token does not narrow the private key itself.
 
-**No classic PAT.** Prefer this App org-wide for all `your-org/*` private repos on Free plan.
+## Trust and setup
 
-> **Why this matters:** auto-merge (label `reviewed` + green checks → merge commit) needs this App.
->
-> | State | How you know | Merge |
-> |---|---|---|
-> | **App not set** | Job green + **warning** `Manual merge required` + Job Summary « kit-ci: not configured » | **Human** (`gh pr merge --merge` or UI) |
-> | **App set** | Mint step runs; merge attributed to `kit-ci[bot]` | Auto when `reviewed` + CI green |
->
-> Gate flag = **non-secret** org/repo var `CI_APP_ID` (never check secrets in `if:`).
-> Private key stays in secret `CI_APP_PRIVATE_KEY` and is only used when the var is set.
+Repository administrators, App managers, configured human operators, and trusted default-branch writers and dispatchers are in the trust boundary. Restrict who can change workflow definitions, Actions variables, the App installation and its key. GitHub administrators and writers can bypass process; this is not a defense against malicious trusted principals.
 
-## 1. Create the App (UI — one-time)
+1. Create the target-only GitHub App, or use the installation covered by an explicit shared-App exception. Disable its webhook unless separately required. Store its PEM as the repository Actions secret `CI_APP_PRIVATE_KEY`; never commit or print it.
+2. Set repository Actions variable `CI_APP_ID` to the App's Client ID for token minting. Record the same App's **numeric App ID**, distinct from the Client ID, and its **numeric bot user ID** from GitHub. Obtain the target repository's immutable numeric ID and the numeric GitHub user IDs of trusted human operators from GitHub, not from display names.
+3. Set the following repository Actions variables. The operator list is a JSON array of numeric IDs, not logins or strings. On Free private repositories use repository-level values rather than relying on organization-level Actions values.
 
-1. Open (org owner) :  
-   **https://github.com/organizations/your-org/settings/apps/new**  
-   (or *Settings → Developer settings → GitHub Apps → New GitHub App* under the org)
-
-2. **Identity**
-
-   | Field | Value |
+   | Variable | Value |
    |---|---|
-   | GitHub App name | `kit-ci` (must be unique on GitHub) |
-   | Homepage URL | `https://github.com/your-org` |
-   | Callback URL | leave empty / n/a |
-   | Webhook | **uncheck** Active (token mint only; no webhook needed) |
+   | `HEAD_AUTH_REPOSITORY_ID` | Target repository's numeric ID |
+   | `HEAD_AUTH_OPERATOR_IDS` | JSON array of trusted human numeric user IDs |
+   | `HEAD_AUTH_APP_ID` | Numeric ID of the installed CI App |
+   | `HEAD_AUTH_BOT_USER_ID` | Numeric user ID of that App's bot |
+   | `CI_APP_ID` | App Client ID used to mint tokens |
 
-3. **Repository permissions** (minimum)
+4. Grant the installed App repository **Contents: read and write**, **Workflows: read and write**, and **Pull requests: read and write**; GitHub supplies Metadata read. The merge token requests `contents: write` and `workflows: write` so it can merge workflow-pin changes. The separate PR comment/label publication token requests `pull-requests: write`, not `issues: write`. Gate reads use a separate read-only `GITHUB_TOKEN`; the App's union of permissions does not mean every minted token receives that union. Other inherited consumers may require additional permissions, such as Dependabot alerts read for the optional alert workflow.
+5. Confirm the implementation is present on the default branch and the effective variables and secret are available to the intended workflows. An absent `CI_APP_ID` disables automated writes: a complete valid authorization policy permits read-only merge evaluation, while an absent policy skips evaluation. An operator must perform a separately authorized manual merge. A nonempty ID with a missing key is a configuration failure, not inactive mode. Confirm an actual mint only in a separately authorized operational exercise: dispatch may also merge eligible PRs.
 
-   | Permission | Access |
-   |---|---|
-   | **Metadata** | Read-only |
-   | **Contents** | Read and write |
-   | **Pull requests** | Read and write |
-   | **Checks** | Read-only |
-   | **Actions** | Read-only |
-   | **Workflows** | Read and write |
-   | **Issues** | Read and write (optional; close-linked-issues uses `GITHUB_TOKEN` today) |
-   | **Dependabot alerts** | **Read-only** (required for `dependabot-alert-slack.yml` poll — without it API returns `403 Resource not accessible by integration`) |
+All `HEAD_AUTH_*` variables must be valid together. Plugin discovery treats all absent as unconfigured **only after complete successful pagination**; that does not automatically select native protected-auto mode. Partial, malformed, unreadable or 403 responses fail closed. Preserve the existing native protected-auto mode when it is explicitly selected by its own process.
 
-4. **Where can this App be installed?**  
-   → **Only on this account** (`your-org`) — or any account if you prefer flexibility.
+With `CI_APP_ID` absent, all-absent `HEAD_AUTH_*` is a successful inactive workflow mode: no policy parsing, evaluation, token mint or automated receipt write occurs. A complete supplied policy is still validated and permits read-only merge evaluation, but cannot enable automation while the App is disabled. Default-ref automation requires a complete valid policy whenever an App identifier or any policy value is supplied; partial or malformed policy remains an error. Unprivileged `pull_request` preflight returns before loading the default-branch adapter, which may not exist yet on a consumer's inheritance PR. Comment wakeups, revocation and Dependabot capture retain strict validation; capture remains App-gated because it withdraws authorization before evaluation.
 
-5. Create App → note **App ID** (numeric, top of app settings).
+## Shared-App owner exception
 
-6. **Generate a private key** → download the `.pem` (store in Vaultwarden, never commit).
+An owner may explicitly accept one shared merge App within an operating organization. This is an exception to the target-only recommendation, not equivalent isolation: compromise of a PEM available in a public repository can affect every repository reachable by that App, including private repositories. A small trusted human maintainer set does not remove that exposure.
 
-## 2. Install on the org
+- Approve the installation and credential-reader scope before enabling automation. Keep the operational inventory and audit details outside public issues; publish only the decision and its non-sensitive limits.
+- Configure each repository's own immutable ID and authorized human issuers. Keep App/bot identity consistent with the installed App and scope minted tokens to the target repository and required operation. These token restrictions do not contain a stolen PEM.
+- Preserve exact-head receipts, withdrawal, required checks and trusted executable provenance. External issue or PR authorship never grants merge authority or permission to execute contributed code with credentials.
+- Supply repository-level credentials and policy for private repositories on GitHub Free. Review organization-secret distribution before a public repository can inherit it; one organization's accepted exception grants no authority in another.
+- A confirmed key leak requires revocation and coordinated recovery for the affected installation. Neither a successful mint nor an approved exception proves least authority or completes the publication audit.
 
-1. App settings → **Install App** → **your-org**
-2. **All repositories** (recommended for agency CI)  
-   or only `kit` first, then product consumers
+An existing accepted installation needs no new App merely to use the same merge implementation. Enable it only after repository policy, intended readers and actual mint/merge behavior have been verified under separately authorized conditions.
 
-## 3. Store credentials
+## Reviewed-head authorization
 
-### Free private org (your-org) — **repo-level is required**
+The maintained gate uses authenticated PR comments as a grant/withdraw protocol, not labels as authority. An admitted grant binds the immutable repository ID, PR database ID and number, exact head SHA and base branch. The existing native admission owner issues a native grant after its own review, integrity and budget rules; the manual path requires an explicit reviewed SHA and opaque evidence reference from a configured human operator, and still respects native ownership and admission. No new review, allowance or budget owner is introduced. Dependabot's separate automatic lane binds the evaluated base SHA as well as head; reviewed grants record base SHA as evidence but do not universally invalidate merely because the base advances.
 
-On GitHub **Free** plans, **organization** Actions variables/secrets with visibility “all” often **do not reach private repositories**. Symptom: merge-on-green log shows `APP_ID:` empty + warning `Manual merge required`, even when org vars exist.
+Each attempt captures the newest authenticated predecessor before admission. It rechecks the scope and predecessor before publishing, then reads back the exact active receipt. A withdrawal denies all lanes; publish and confirm it before stopping, starting a review or a protected push. After withdrawal or conflict, a fresh explicit admission and issuance is required: never silently rebase an in-flight attempt. An ambiguous write is reconciled only by the same operation ID and exact payload, not a blind retry.
 
-**Always set repo-level** on each private consumer (and on the kit if needed):
+Readers paginate the entire authenticated protocol stream and select its newest numeric record across heads and lanes, not the newest matching desired head. Human issuer identity is checked against the numeric allowlist; machine identity must match both the numeric App and bot IDs, with the real Dependabot PR author for the machine lane. GitHub GraphQL proves the selected comment's identity, repository/PR association and `lastEditedAt` is null. Malformed, wrong-scope or edited newest records, duplicate selected operation IDs, missing predecessors, failed pages, partial GraphQL results and API errors hold rather than falling back to an older grant. Ordinary comments and untrusted copied markers are not issuers.
 
-```bash
-# PEM from Vaultwarden github/your-org/kit-ci → ~/.kit/secrets/kit-ci.private-key.pem
-APP_ID=4297393   # kit-ci App ID
-PEM=~/.kit/secrets/kit-ci.private-key.pem
+The gate queues the exact receipt during evaluation and requires that same receipt after fresh checks immediately before the SHA-pinned merge. A replacement receipt, even for the same head, requires a new evaluation. Labels are at most wakeup hints; neither a surviving label nor a successful token mint proves admission. Trusted `issue_comment` events, workflow completion and default-ref dispatch can wake evaluation. A dispatch scans eligible open PRs, not only its optional priority input. Privileged jobs use trusted workflow code and do not execute PR-head code with credentials.
 
-gh variable set CI_APP_ID -R your-org/<repo> --body "$APP_ID"
-gh secret set CI_APP_PRIVATE_KEY -R your-org/<repo> < "$PEM"
-```
+## Holds, repair and residual risk
 
-Optional org-level (nice for public repos / future Team plan; **not sufficient alone** on Free private):
+- Inspect the current PR, head, scope, issuer configuration, comment stream and API errors. Repair missing permissions or invalid variables; a failed withdrawal is not a confirmed disarm. After a confirmed withdrawal, perform fresh source admission and explicit reissue for the current head. Do not delete a denial to restore authority.
+- Append-only is a publisher contract, not immutable GitHub storage: trusted deletion or editing away of history can erase a fence. Returning to identical head A without an accepted withdrawal can match A again; a grant for A never authorizes B.
+- GitHub reads and merge are not atomic. Changes after the final read and old or alternative workflow definitions remain residual risks. A default-ref guard cannot constrain an older definition.
+- On GitHub Free private, merge-on-green is process, not branch protection: writers can merge or push without the gate. Never claim labels enforce checks or review. See [testing.md](./testing.md#merge-residual-github-free-private).
 
-```bash
-gh variable set CI_APP_ID --org your-org --body '<APP_ID>' --visibility all
-gh secret set CI_APP_PRIVATE_KEY --org your-org --visibility all < /path/to/kit-ci.pem
-```
+## Workflow consumers and operations
 
-### Dual-branch products (`main` + `staging`)
-
-Workflow **files** live on each branch. If you change secret **names** or mint steps:
-
-1. Land the workflow change on **`staging`** and **`main`** (or promote staging→main).
-2. `workflow_dispatch` / default-branch runs use the **default branch** workflow definition.
-3. Deleting old secret names before **both** branches read the new names breaks auto-merge on the lagging branch.
-
-### New product repo from this kit (checklist)
-
-Full **zero-edit** contract: [`product-consumer-contract.md`](./product-consumer-contract.md).  
-**Runbook:** [`playbooks/start-product.md`](./playbooks/start-product.md) — GitHub Fork is **DENY** (fork network, not polarity).
-
-When spinning a product consumer (empty product repo + inherited **immediate parent** history + `upstream` fetch-only):
-
-1. [ ] Create an **empty** GitHub private repo (under `your-org` **or** a foreign org — see below). Do **not** use the Fork button.
-2. [ ] Clone the **immediate parent** (Roxabi → kit HEAD, go-silex → mirror), rename `origin` → `upstream`, add product `origin`, push `main` (**no kit file edits**):
-   ```bash
-   git remote rename origin upstream
-   git remote add origin git@github.com:your-org/<product>.git
-   git remote set-url --push upstream no_push
-   git push -u origin main
-   ```
-3. [ ] Commit `config/product/inheritance.json` pinning that parent tip (see [`product-consumer-contract.md`](./product-consumer-contract.md) § Product file)
-4. [ ] `bun install` (hooks via prepare if no `core.hooksPath`) · copy `.dev.vars.example` → gitignored local only
-5. [ ] **CI App (mandatory on Free private):** set **repo-level** `CI_APP_ID` + `CI_APP_PRIVATE_KEY` (commands above) — **never** edit `merge-on-green.yml`
-6. [ ] Confirm: draft PR → **Merge on Green** log has non-empty `APP_ID` and mint succeeds (or evaluate-only until set)
-7. [ ] Product domain only under **new** `apps/<product>-*`; never patch `example-*` / `packages/*` for métier
-8. [ ] When `apps/<product>-api` exists: `bash scripts/kit/kit-schema-sync.sh --app apps/<product>-api` (default `--modules core`; last-resort clones `--adopt` immediately)
-
-Verify **repo** credentials (this is what Free private actually uses):
-
-```bash
-gh variable list -R your-org/<repo> | grep CI_APP
-gh secret list -R your-org/<repo> | grep CI_APP
-```
-
-### First product on a foreign org
-
-Secret/var **names are kit contract** — do not rename them to match the org brand.
-
-| Step | Action |
+| Workflow | Role |
 |---|---|
-| 1 | Create a GitHub App on **the foreign org** (same permissions as §1; App display name can be local, e.g. `acme-ci`) |
-| 2 | Install the App on the product repo(s) |
-| 3 | `gh variable set CI_APP_ID --org <foreign-org> --body '<APP_ID>' --visibility all` (or repo-level `-R`) |
-| 4 | `gh secret set CI_APP_PRIVATE_KEY --org <foreign-org> --visibility all < /path/to/app.pem` (or repo-level) |
-| 5 | Open a PR: until vars/secrets exist, merge-on-green is **evaluate-only** (green job + manual merge) — not a broken gate |
-| 6 | When set: mint step runs; merge attributed to your App bot |
+| `merge-on-green.yml` | Evaluates the exact receipt and current checks; scoped App token performs the merge |
+| `dependabot-automerge.yml` | Withdraws, captures and evaluates an immutable head/base, then publishes only an allowed machine receipt |
+| `deploy-gate.yml` | Uses the CI App for a separately decided deploy-branch promotion |
+| `dependabot-alert-slack.yml` | Optional alerts; may require Dependabot alerts read |
 
-| Kit contract name | Kind |
-|---|---|
-| **`CI_APP_ID`** | variable (enable flag) |
-| **`CI_APP_PRIVATE_KEY`** | secret (PEM) |
+For a new Product, follow [the consumer contract](./product-consumer-contract.md) and [start-product playbook](./playbooks/start-product.md); configure the recommended target-only App, or an explicitly approved shared installation, with repository-level credentials rather than editing inherited Kit workflows. For rotation, generate a new key for that App, update every intended reader in the approved scope, verify the new mints under separately authorized conditions, then revoke the old key. A partial or unverified rotation is not complete.
 
-Do **not** use obsolete `Kit_CI_APP_*` names — workflows read **`CI_APP_*` only**.
-
-## 4. Workflow consumers
-
-| Workflow | Usage |
-|---|---|
-| `kit` `.github/workflows/merge-on-green.yml` | mint token → merge when `reviewed` + checks green |
-| Product repos (`legacy-product`, …) | same mint step / org secrets (do not push to this kit as upstream) |
-
-## 5. Smoke test
-
-1. Kit HEAD: open a tiny PR to `main`. Product consumer: open it to `staging` (create that branch on the product; it does not exist on the kit).
-2. Wait for **Secret scan** green
-3. `gh pr edit <n> -R <this-repo> --add-label reviewed`
-4. Expect **Merge on Green** to merge with a **merge commit**
-5. Check run log: mint step succeeds; merge attributed to **`kit-ci[bot]`**
-
-If mint fails with *private-key must be set*: secret not visible to the repo (install App + secret visibility).
-
-## 6. Rotate key
-
-1. App settings → Generate new private key  
-2. `gh secret set CI_APP_PRIVATE_KEY …` with new PEM  
-3. Revoke old key in App settings  
-
-## 7. Free plan notes
-
-| Feature | Free private | App still useful? |
-|---|---|---|
-| Branch protection / rulesets | ❌ | Yes — merge-on-green enforces green + `reviewed` |
-| Native auto-merge queue | ❌ | Yes — App merges directly |
-| Org Actions secrets → **private** repos | ❌ unreliable | Set **repo-level** `CI_APP_*` (see §3) |
-| Ephemeral credentials | — | ✅ vs long-lived PAT |
-
-## Refs
-
-- operator twin: `KIT_CI_APP_ID` / `KIT_CI_APP_PRIVATE_KEY` + forge `auto-merge.yml`  
-- Action: `actions/create-github-app-token`  
-- legacy-product: `AGENTS.md` § GitHub Free  
+For an authorized smoke exercise, record the PR and exact head, independent review, applicable green checks, selected receipt, run and observed mint/merge outcome without exposing secrets. A skipped mint is not a successful mint; a successful mint alone proves neither authorization nor live enforcement. No smoke exercise is performed by this runbook.
 
 ## Related
 
 - Environments (product git staging/main → Wrangler → CF; kit HEAD is `main` only): [`docs/kit/environments.md`](./environments.md)
 - Cloudflare deploy (account-agnostic + local profile): [`docs/kit/deploy-cloudflare.md`](./deploy-cloudflare.md)
-- Staging examples deploy: [`docs/kit/staging-examples.md`](./staging-examples.md)
 - Product start playbook: [`docs/kit/playbooks/start-product.md`](./playbooks/start-product.md)

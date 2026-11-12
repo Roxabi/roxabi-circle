@@ -1,5 +1,14 @@
+/**
+ * @kit/mcp — agent-facing tool catalogue + public errors.
+ * Tool catalogue is forked from flows `createToolRegistry` by decision (ADR-0005 D6 amendment):
+ * executable tools here, authority classification there. Unifying is a promote that replaces both
+ * callers — never a third factory sitting beside them (M-04). `effect` / `auth` here stay
+ * descriptive; the authority-bearing name is `grantClass` in `@kit/flows` (Roxabi/roxabi-boilerplate-cf#243).
+ */
+
 import { parseBearer } from '@kit/auth'
 import type { WhoamiStatus } from './agentWire'
+import type { McpIdentity } from './identity'
 import { meResponseSchema } from './schemas'
 
 export {
@@ -24,13 +33,16 @@ export {
   type ToolContext,
   type ToolDef,
   type ToolEffect,
+  type ToolRefusal,
   type ToolServer,
+  toolRefusal,
 } from './catalogue'
+export type { McpIdentity, McpIdentityPort, McpIdentityResolveInput } from './identity'
 export {
   isPublicToolErrorCode,
   PublicToolError,
   type PublicToolErrorBody,
-  stableStringify,
+  stableJsonWire,
   toPublicToolError,
 } from './publicErrors'
 export {
@@ -65,10 +77,13 @@ export async function handlePing(): Promise<{ ok: true }> {
 export type WhoamiResult = {
   keyPresent: boolean
   verified: boolean
-  /** Subject from GET /api/me when verified; never key material. */
+  /** Subject from GET /api/me (stdio) or MCP userId (hosted); never key material. */
   subject: string | null
   /** Domain channel — machine-readable fail reason when not verified. */
   status: WhoamiStatus
+  /** Hosted MCP identity; omitted on the stdio sk_ path. */
+  userId?: string | null
+  email?: string | null
 }
 
 export type WhoamiFetch = (
@@ -83,14 +98,21 @@ export type WhoamiOptions = {
   timeoutMs?: number
   /**
    * Hostnames allowed for SSRF protection (exact host match).
-   * Defaults to localhost / 127.0.0.1.
+   * Defaults to loopback. Non-loopback names require `allowNonLocalHosts`.
    */
   allowedHosts?: string[]
+  /** Break-glass: send `sk_` to non-loopback `allowedHosts`. Default false. */
+  allowNonLocalHosts?: boolean
   /** Injectable fetch (tests). Defaults to globalThis.fetch. */
   fetch?: WhoamiFetch
 }
 
-const DEFAULT_ALLOWED_HOSTS = ['localhost', '127.0.0.1', '[::1]']
+const DEFAULT_ALLOWED_HOSTS = ['localhost', '127.0.0.1', '::1', '[::1]']
+
+function isLoopbackHost(host: string): boolean {
+  const h = host.toLowerCase()
+  return h === 'localhost' || h === '127.0.0.1' || h === '::1' || h === '[::1]'
+}
 
 function isAllowedApiBase(apiBaseUrl: string, allowedHosts: string[]): URL | null {
   let url: URL
@@ -125,6 +147,9 @@ export async function handleWhoami(
   }
 
   const allowed = opts?.allowedHosts ?? DEFAULT_ALLOWED_HOSTS
+  if (allowed.some((h) => !isLoopbackHost(h)) && !opts?.allowNonLocalHosts) {
+    return { keyPresent: true, verified: false, subject: null, status: 'bad_config' }
+  }
   const url = isAllowedApiBase(base, allowed)
   if (!url) {
     return { keyPresent: true, verified: false, subject: null, status: 'bad_config' }
@@ -166,5 +191,34 @@ export async function handleWhoami(
     return { keyPresent: true, verified: false, subject: null, status: 'unreachable' }
   } finally {
     clearTimeout(timer)
+  }
+}
+
+/**
+ * Hosted whoami from the Worker MCP token props.
+ * `verified` ⇔ MCP identity present. Never calls /api/me, never returns sk_.
+ */
+export async function handleWhoamiFromMcpIdentity(
+  identity: McpIdentity | null | undefined,
+): Promise<WhoamiResult> {
+  const userId = identity?.userId?.trim()
+  if (!userId) {
+    return {
+      keyPresent: false,
+      verified: false,
+      subject: null,
+      status: 'missing_identity',
+      userId: null,
+      email: null,
+    }
+  }
+  const email = identity?.email?.trim() || null
+  return {
+    keyPresent: false,
+    verified: true,
+    subject: userId,
+    status: 'ok',
+    userId,
+    email,
   }
 }

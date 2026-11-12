@@ -3,7 +3,7 @@ import { parseSmtpReply, type SmtpConnect, sendLog, sendSmtp } from './server'
 
 function mockConnect(script: string[]): SmtpConnect & { getWritten: () => string } {
   let writeBuf = ''
-  const connect = (async () => {
+  const connect: SmtpConnect = async () => {
     let scriptIdx = 0
     const decoder = new TextDecoder()
     const encoder = new TextEncoder()
@@ -28,9 +28,8 @@ function mockConnect(script: string[]): SmtpConnect & { getWritten: () => string
       writable,
       async close() {},
     }
-  }) as SmtpConnect & { getWritten: () => string }
-  connect.getWritten = () => writeBuf
-  return connect
+  }
+  return Object.assign(connect, { getWritten: () => writeBuf })
 }
 
 const okSmtpScript = [

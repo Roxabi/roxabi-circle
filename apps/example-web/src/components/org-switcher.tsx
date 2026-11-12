@@ -28,11 +28,11 @@ import { Building2, ChevronsUpDown, Plus } from 'lucide-react'
 import { type FormEvent, useState } from 'react'
 import { toast } from 'sonner'
 import { apiErrorToMessage, apiFetch } from '../lib/api'
-import { type MeResponse, meQueryKey } from '../lib/auth'
+import { meOrgSchema, meQueryKey, writeMeCache } from '../lib/auth'
 import { useLocale } from '../lib/locale'
 import { useOrgContext } from '../lib/org-context'
 import { orgRoleLabel } from '../lib/org-role'
-import { createOrgSchema } from '../lib/schemas'
+import { createOrgResponseSchema, createOrgSchema } from '../lib/schemas'
 
 /**
  * Sidebar org switcher — same structure as sidebar-07 `TeamSwitcher`
@@ -53,29 +53,29 @@ export function OrgSwitcher() {
 
   const createOrg = useMutation({
     mutationFn: (input: { name: string; slug?: string }) =>
-      apiFetch<{ org: { id: string; name: string; slug: string } }>('/api/orgs', {
+      apiFetch('/api/orgs', {
         method: 'POST',
         body: JSON.stringify(input),
+        parse: (raw) => createOrgResponseSchema.parse(raw),
       }),
     onSuccess: async (data) => {
       // Optimistic membership so OrgProvider does not snap back to orgs[0]
-      // while /api/me is still refetching.
-      qc.setQueryData<MeResponse>(meQueryKey, (prev) => {
-        if (!prev) return prev
-        if (prev.orgs.some((o) => o.id === data.org.id)) return prev
-        const membership: MeResponse['orgs'][number] = {
-          id: data.org.id,
-          name: data.org.name,
-          slug: data.org.slug,
-          kind: 'client',
-          status: 'active',
-          role: 'owner',
-        }
+      // while /api/me is still refetching. Parse through meOrgSchema — do not
+      // write raw POST /api/orgs JSON into the gate cache.
+      const membership = meOrgSchema.parse({
+        id: data.org.id,
+        name: data.org.name,
+        slug: data.org.slug,
+        kind: data.org.kind,
+        status: data.org.status,
+        role: data.org.role,
+      })
+      writeMeCache(qc, (prev) => {
+        if (prev.orgs.some((o) => o.id === membership.id)) return prev
         return { ...prev, orgs: [membership, ...prev.orgs] }
       })
-      setActiveOrgId(data.org.id)
-      await qc.invalidateQueries({ queryKey: meQueryKey })
-      toast.success(m.orgCreated, { description: data.org.name })
+      setActiveOrgId(membership.id)
+      toast.success(m.orgCreated, { description: membership.name })
       setCreateOpen(false)
       setName('')
       setSlug('')
@@ -83,6 +83,11 @@ export function OrgSwitcher() {
     },
     onError: (err) => {
       toast.error(m.error, { description: apiErrorToMessage(err, m) })
+    },
+    onSettled: async () => {
+      // Always refetch /api/me via fetchMe — even if the 201 body failed parse,
+      // the org already exists server-side.
+      await qc.invalidateQueries({ queryKey: meQueryKey })
     },
   })
 

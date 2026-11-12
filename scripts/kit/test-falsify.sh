@@ -20,6 +20,12 @@ import sys
 
 
 def parse_vitest_report(text: str) -> dict | None:
+    stripped = text.strip()
+    if stripped.startswith("{"):
+        try:
+            return json.loads(stripped)
+        except json.JSONDecodeError:
+            pass
     for line in text.splitlines():
         line = line.strip()
         if not line.startswith("{"):
@@ -180,16 +186,19 @@ PY
 }
 
 run_oracle() {
-  local out got
+  local json_file got
+  json_file="$(mktemp)"
   set +e
-  out="$(
+  (
     cd "${ROOT}/packages/auth"
-    bun run test -- "${ORACLE_FILE}" --reporter=json 2>&1
-  )"
+    bun run test -- "${ORACLE_FILE}" --reporter=json --outputFile="${json_file}"
+  ) >/dev/null 2>&1
   got=$?
   set -e
   ORACLE_EXIT=$got
-  ORACLE_OUT=$out
+  ORACLE_OUT="$(cat "${json_file}")"
+  rm -f "${json_file}"
+  rm -rf "${ROOT}/packages/auth/.vitest"
 }
 
 classify_oracle() {

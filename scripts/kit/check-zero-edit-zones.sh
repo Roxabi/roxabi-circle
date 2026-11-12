@@ -9,6 +9,9 @@
 # Base (product): config/product/inheritance.json → upstreamCommit
 #   transitional: docs/product/kit-baseline
 #   NEVER upstream/main. NEVER auto-fetch.
+#   The base must be an inherited kit/mirror tip: it may not descend from the commit that introduced the
+#   marker (a product commit), and the history must be complete (shallow clone fails closed).
+#   Exceptions granted/extended after zones exception_expiry.effective_from run at most max_days.
 #
 # See config/kit/zero-edit-zones.json · docs/kit/architecture/adr/0009-…
 set -euo pipefail
@@ -29,11 +32,12 @@ export ZERO_EDIT_HARNESS_SENTINEL="${ZERO_EDIT_HARNESS_SENTINEL:-}"
 
 exec node --input-type=module <<'NODE'
 import { readFileSync, existsSync } from 'node:fs'
-import { join, basename } from 'node:path'
+import { join, basename, resolve } from 'node:path'
 import { execFileSync } from 'node:child_process'
 
 const root = process.env.ROOT
-const zonesPath = join(root, process.env.ZONES_FILE)
+// resolve: ZERO_EDIT_ZONES_FILE may be absolute (dry-running a consumer with this checkout's zones).
+const zonesPath = resolve(root, process.env.ZONES_FILE)
 
 function die(msg, code = 1) {
   console.error(`check-zero-edit-zones: ${msg}`)
@@ -49,9 +53,10 @@ function loadJson(path, label) {
   }
 }
 
-function git(args, { allowFail = false } = {}) {
+function git(args, { allowFail = false, trim = true } = {}) {
   try {
-    return execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim()
+    const out = execFileSync('git', args, { cwd: root, encoding: 'utf8' })
+    return trim ? out.trim() : out
   } catch (e) {
     if (allowFail) return ''
     const err = (e.stderr || e.message || '').toString()
@@ -63,6 +68,10 @@ function gitLines(args) {
   const out = git(args)
   if (!out) return []
   return out.split('\n').map((s) => s.trim()).filter(Boolean)
+}
+
+function gitPaths(args) {
+  return git(args, { trim: false }).split('\0').filter(Boolean)
 }
 
 function refExists(ref) {
@@ -102,20 +111,25 @@ function normalizeOriginUrl(url) {
 }
 
 function listTrackedUnder(prefix) {
-  return gitLines(['ls-files', '-z', '--', prefix]).length
-    ? git(['ls-files', '-z', '--', prefix]).split('\0').filter(Boolean)
-    : []
+  return gitPaths(['ls-files', '-z', '--', prefix])
 }
 
-/** Walk working tree dirs for unclassified paths under namespaced trees (tracked only). */
+/**
+ * Walk working tree dirs for unclassified paths under namespaced trees (tracked only).
+ * ADR-0009 D1 amendment (Roxabi/roxabi-boilerplate-cf#259): a path an external tool fixes outside the namespaces is
+ * classified only when listed exactly in tool_mandated_paths — never by protected_files alone,
+ * never by directory or basename.
+ */
 function inventoryUnclassified(zones) {
   const trees = zones.namespaced_trees || ['config', 'scripts', 'docs']
   const kitNs = zones.kit_namespace || 'kit'
   const prodNs = zones.product_namespace || 'product'
+  const listed = new Set(zones.tool_mandated_paths || [])
   const bad = []
   for (const tree of trees) {
     const files = listTrackedUnder(`${tree}/`)
     for (const f of files) {
+      if (listed.has(f)) continue
       const parts = f.split('/')
       if (parts.length < 2) {
         bad.push(f)
@@ -145,6 +159,34 @@ const zones = loadJson(zonesPath, 'zones')
 if (!zones || zones.version !== 1) die(`zones config must have version: 1 (${zonesPath})`)
 if (!Array.isArray(zones.protected_prefixes) || !Array.isArray(zones.protected_files)) {
   die('zones must define protected_prefixes and protected_files arrays')
+}
+// A tool-mandated path is kit-owned: it must also be dual-edit protected, or the inventory
+// would classify a file every product could rewrite (ADR-0009 D1 amendment).
+if (zones.tool_mandated_paths !== undefined && !Array.isArray(zones.tool_mandated_paths)) {
+  die('zones tool_mandated_paths must be an array')
+}
+for (const p of zones.tool_mandated_paths || []) {
+  if (!zones.protected_files.includes(p)) die(`tool_mandated_paths entry not in protected_files: ${p}`)
+}
+// The apps/<name>/ protected_prefixes are the kit-app list (Roxabi/roxabi-boilerplate-cf#318). Any other apps entry would stay
+// protected while isFreeProductAppPath, the migrations contract and extract-dry-run read that app
+// as a product app, so the shape is a config error.
+for (const p of zones.protected_prefixes) {
+  if (/^(\.\/)?apps(\/|$)/.test(p) && !/^apps\/[^/]+\/$/.test(p)) {
+    die(`protected_prefixes apps entry must be exactly apps/<name>/ (the kit-app list, Roxabi/roxabi-boilerplate-cf#318): ${p}`)
+  }
+}
+
+// Exceptions are time-boxed from the day their expiry was granted, not from a date the product picks
+// (ADR-0009 D4 threat model). The cap is kit-owned config: absent/malformed is a config error, never "no cap".
+const expiryCap = zones.exception_expiry
+if (
+  !expiryCap ||
+  !Number.isInteger(expiryCap.max_days) ||
+  expiryCap.max_days < 1 ||
+  !/^\d{4}-\d{2}-\d{2}$/.test(expiryCap.effective_from || '')
+) {
+  die('zones exception_expiry must be { max_days: <int ≥ 1>, effective_from: "YYYY-MM-DD" }')
 }
 
 const inheritanceFile = zones.inheritance_file || 'config/product/inheritance.json'
@@ -206,14 +248,15 @@ if (unclassified.length) {
 const unclassifiedWorkflows = inventoryUnclassifiedWorkflows(zones)
 if (unclassifiedWorkflows.length) {
   console.error(
-    'check-zero-edit-zones: unclassified workflows under .github/workflows (name product-*.yml or add to protected_files):',
+    'check-zero-edit-zones: unclassified workflows under .github/workflows (name product-*.yml / product-*.yaml or add to protected_files):',
   )
   for (const f of unclassifiedWorkflows.slice(0, 50)) console.error(`  UNCLASSIFIED WORKFLOW ${f}`)
   if (unclassifiedWorkflows.length > 50) console.error(`  … +${unclassifiedWorkflows.length - 50} more`)
   die('workflow inventory gate failed (ADR-0009 D6, ADR-0013)')
 }
 
-const exceptionsPath = join(root, zones.exceptions_file || 'config/product/zero-edit-exceptions.json')
+const exceptionsRel = zones.exceptions_file || 'config/product/zero-edit-exceptions.json'
+const exceptionsPath = join(root, exceptionsRel)
 const exceptionsDoc = loadJson(exceptionsPath, 'exceptions')
 
 /** @type {Map<string, object>} */
@@ -276,13 +319,13 @@ function isProtected(relPath) {
   return false
 }
 
+// Kit apps = the apps/<name>/ protected_prefixes, the list check-migrations-contract reads too (Roxabi/roxabi-boilerplate-cf#318).
+const kitAppPrefixes = zones.protected_prefixes.filter((p) => /^apps\/[^/]+\/$/.test(p))
+
 function isFreeProductAppPath(relPath) {
   const p = relPath.replace(/^\.\//, '')
   if (!p.startsWith('apps/')) return false
-  if (p.startsWith('apps/example-api/') || p === 'apps/example-api') return false
-  if (p.startsWith('apps/example-web/') || p === 'apps/example-web') return false
-  if (p.startsWith('apps/mcp-example/') || p === 'apps/mcp-example') return false
-  return true
+  return !kitAppPrefixes.some((pref) => p === pref.replace(/\/$/, '') || p.startsWith(pref))
 }
 
 if (mode === 'kit') {
@@ -308,7 +351,7 @@ if (mode !== 'product') {
   die(`unknown mode "${mode}" (use kit|product)`)
 }
 
-// Resolve base (ADR-0009 D4 / #107) — inheritance.json only; never upstream/main
+// Resolve base (ADR-0009 D4 / Roxabi/roxabi-boilerplate-cf#107) — inheritance.json only; never upstream/main
 let baseRef = ''
 let baseSource = inheritanceFile
 
@@ -324,7 +367,7 @@ if (!hasInheritance) {
 }
 
 if ((process.env.ZERO_EDIT_BASE_REF || '').trim()) {
-  die('ZERO_EDIT_BASE_REF is removed (#107) — use config/product/inheritance.json only')
+  die('ZERO_EDIT_BASE_REF is removed (Roxabi/roxabi-boilerplate-cf#107) — use config/product/inheritance.json only')
 }
 
 if (!refExists(baseRef)) {
@@ -338,13 +381,105 @@ if (!isAncestor(baseRef, 'HEAD')) {
   die(`base ${baseRef} is not an ancestor of HEAD — marker must be an inherited tip`)
 }
 
+// Base lineage (ADR-0009 D4 threat model). The base must be an inherited kit/mirror tip, never a commit
+// the product authored: any base that hides a kit-path edit has to contain that edit, so it has to be a
+// product commit, and every product commit descends from the commit that introduced the marker.
+// This also closes the delete-and-re-add launder: the commit that deleted the marker descends from its
+// first introduction, so pinning the marker to it is refused here without a separate deletion rule.
+// A shallow clone truncates the ancestry this reads (its boundary commit looks like an introduction),
+// so it fails closed — the documented CI checkout is fetch-depth 0.
+if (git(['rev-parse', '--is-shallow-repository']) === 'true') {
+  die(
+    'shallow clone — cannot verify the inheritance marker lineage.\n' +
+      '  Deepen the checkout (fetch-depth: 0 / git fetch --unshallow) — checker never auto-fetches.',
+  )
+}
+const productAncestor = git([
+  'log', '--full-history', '-m', '--no-renames', '--diff-filter=A', '-1', '--format=%H',
+  baseRef, '--', inheritanceFile,
+])
+if (productAncestor) {
+  die(
+    `base ${baseRef} descends from ${productAncestor}, which introduced ${inheritanceFile} — ` +
+      `the marker must point at an inherited kit/mirror tip, not at a product commit.\n` +
+      `  Re-pin it to the upstream tip you merged (e.g. git rev-parse upstream/main) — never to a commit of this repo.`,
+  )
+}
+
+// Expiry cap: only an expiry granted or extended on/after effective_from is capped; earlier ones are
+// grandfathered until they expire. The grant day is the author date of the first-parent commit that
+// last extended the entry's expiry (a shortening keeps the old grant day), or today when uncommitted.
+function isoDay(d) {
+  const p = (n) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
+}
+function dayNumber(iso) {
+  const [y, m, d] = iso.split('-').map(Number)
+  return Date.UTC(y, m - 1, d) / 86400000
+}
+function exceptionExpiriesAt(rev) {
+  let text
+  try {
+    text = execFileSync('git', ['show', `${rev}:${exceptionsRel}`], {
+      cwd: root,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    })
+  } catch {
+    return new Map() // file absent at this revision
+  }
+  let doc
+  try {
+    doc = JSON.parse(text)
+  } catch {
+    return null // unparsable revision: keeps the previous state
+  }
+  const out = new Map()
+  for (const ex of Array.isArray(doc?.exceptions) ? doc.exceptions : []) {
+    if (typeof ex?.path === 'string' && typeof ex?.expires === 'string') out.set(ex.path, ex.expires)
+  }
+  return out
+}
+function exceptionsOverCap() {
+  if (exceptionByPath.size === 0) return []
+  const granted = new Map() // path -> { expires, day }
+  const revs = gitLines([
+    'log', '--first-parent', '--reverse', '--format=%H%x09%aI', '--', exceptionsRel,
+  ])
+  for (const line of revs) {
+    const [rev, authored] = line.split('\t')
+    const at = exceptionExpiriesAt(rev)
+    if (at === null) continue
+    for (const known of [...granted.keys()]) if (!at.has(known)) granted.delete(known)
+    for (const [p, expires] of at) {
+      const prev = granted.get(p)
+      if (!prev || expires > prev.expires) granted.set(p, { expires, day: authored.slice(0, 10) })
+      else if (expires < prev.expires) granted.set(p, { expires, day: prev.day })
+    }
+  }
+  const todayIso = isoDay(today)
+  const over = []
+  for (const [p, ex] of exceptionByPath) {
+    const prev = granted.get(p)
+    let day
+    if (prev && prev.expires === ex.expires) day = prev.day
+    else if (prev && ex.expires < prev.expires) day = prev.day
+    else day = todayIso
+    if (day < expiryCap.effective_from) continue
+    const limit = dayNumber(day) + expiryCap.max_days
+    if (dayNumber(ex.expires) > limit) over.push({ path: p, expires: ex.expires, day })
+  }
+  return over
+}
+const overCap = exceptionsOverCap()
+
 const pathspecs = [...zones.protected_prefixes, ...zones.protected_files]
 
 const changed = new Set([
-  ...gitLines(['diff', '--name-only', baseRef, 'HEAD', '--', ...pathspecs]),
-  ...gitLines(['diff', '--name-only', 'HEAD', '--', ...pathspecs]),
-  ...gitLines(['diff', '--cached', '--name-only', '--', ...pathspecs]),
-  ...gitLines(['ls-files', '--others', '--exclude-standard', '--', ...pathspecs]),
+  ...gitPaths(['diff', '--name-only', '-z', baseRef, 'HEAD', '--', ...pathspecs]),
+  ...gitPaths(['diff', '--name-only', '-z', 'HEAD', '--', ...pathspecs]),
+  ...gitPaths(['diff', '--cached', '--name-only', '-z', '--', ...pathspecs]),
+  ...gitPaths(['ls-files', '--others', '--exclude-standard', '-z', '--', ...pathspecs]),
 ])
 
 const violations = []
@@ -402,6 +537,17 @@ if (expiredHits.length) {
   }
 }
 
+if (overCap.length) {
+  failed = true
+  console.error(
+    `check-zero-edit-zones: exceptions granted or extended on/after ${expiryCap.effective_from} may run at most ${expiryCap.max_days} days:`,
+  )
+  for (const o of overCap) {
+    console.error(`  OVER CAP ${o.path} expires ${o.expires} (granted ${o.day}, max ${expiryCap.max_days} days)`)
+  }
+  console.error('  Shorten the expiry, or renew in a new commit (a renewal is capped from its own date).')
+}
+
 if (violations.length) {
   failed = true
   console.error('check-zero-edit-zones: DIVERGED kit paths without exception:')
@@ -411,12 +557,15 @@ if (violations.length) {
   console.error('')
   console.error('Fix options (prefer top):')
   console.error(
-    '  1. Design override — CSS tokens / wrap @kit/ui in apps/<product>-web (see design_overrides)',
+    `  1. Take the kit's file: git checkout ${baseRef} -- <path>; git rm a path the kit does not ship (e.g. .nvmrc)`,
   )
-  console.error('  2. Move logic to apps/<product>-* or config|docs|scripts/product/')
-  console.error('  3. Contribute fix on kit parent, then merge upstream + refresh inheritance.json')
   console.error(
-    `  4. Last resort: ${zones.exceptions_file} (from ${zones.exceptions_example})`,
+    '  2. Design override — CSS tokens / wrap @kit/ui in apps/<product>-web (see design_overrides)',
+  )
+  console.error('  3. Move logic to apps/<product>-* or config|docs|scripts/product/')
+  console.error('  4. Contribute fix on kit parent, then merge upstream + refresh inheritance.json')
+  console.error(
+    `  5. Last resort: ${zones.exceptions_file} (from ${zones.exceptions_example})`,
   )
 }
 

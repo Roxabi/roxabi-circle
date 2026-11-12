@@ -36,35 +36,22 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Pencil, Plus, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
-import { z } from 'zod'
 import { PageHeader } from '../components/app-shell'
 import { apiErrorToMessage, apiFetch } from '../lib/api'
 import { useLocale } from '../lib/locale'
-import { useOrgContext } from '../lib/org-context'
+import { type CreateItemValues, createItemSchema, updateItemSchema } from '../lib/schemas'
 
 type Item = { id: string; code: string; label: string; description: string; active: boolean }
 
-const createSchema = z.object({
-  code: z
-    .string()
-    .min(1)
-    .max(64)
-    .regex(/^[a-z0-9][a-z0-9_-]*$/i),
-  label: z.string().min(1).max(200),
-  description: z.string().max(2000).optional(),
-})
-
 export function ItemsPage() {
   const { m } = useLocale()
-  const { activeOrgId, activeOrg } = useOrgContext()
   const qc = useQueryClient()
   const [createOpen, setCreateOpen] = useState(false)
   const [editItem, setEditItem] = useState<Item | null>(null)
   const [pendingDelete, setPendingDelete] = useState<Item | null>(null)
   const [q, setQ] = useState('')
 
-  const canWrite = Boolean(activeOrgId) && activeOrg?.role !== 'reader'
-  const itemsQueryKey = ['items', q, activeOrgId] as const
+  const itemsQueryKey = ['items', q] as const
 
   const items = useQuery({
     queryKey: itemsQueryKey,
@@ -75,11 +62,9 @@ export function ItemsPage() {
   })
 
   const createItem = useMutation({
-    mutationFn: (input: { code: string; label: string; description: string }) => {
-      if (!activeOrgId) return Promise.reject(new Error(m.errValidation))
+    mutationFn: (input: CreateItemValues) => {
       return apiFetch('/api/items', {
         method: 'POST',
-        headers: { 'X-Org-Id': activeOrgId },
         body: JSON.stringify(input),
       })
     },
@@ -92,10 +77,8 @@ export function ItemsPage() {
 
   const updateItem = useMutation({
     mutationFn: (input: { id: string; label: string; description: string; active: boolean }) => {
-      if (!activeOrgId) return Promise.reject(new Error(m.errValidation))
       return apiFetch(`/api/items/${input.id}`, {
         method: 'PATCH',
-        headers: { 'X-Org-Id': activeOrgId },
         body: JSON.stringify({
           label: input.label,
           description: input.description,
@@ -113,10 +96,8 @@ export function ItemsPage() {
 
   const deleteItem = useMutation({
     mutationFn: (id: string) => {
-      if (!activeOrgId) return Promise.reject(new Error(m.errValidation))
       return apiFetch(`/api/items/${id}`, {
         method: 'DELETE',
-        headers: { 'X-Org-Id': activeOrgId },
       })
     },
     onSuccess: async () => {
@@ -129,13 +110,13 @@ export function ItemsPage() {
 
   const createForm = useForm({
     defaultValues: { code: '', label: '', description: '' },
-    validators: {
-      onSubmit: ({ value }) =>
-        createSchema.safeParse(value).success ? undefined : { form: m.errValidation },
-    },
     onSubmit: async ({ value }) => {
-      if (!activeOrgId) return
-      await createItem.mutateAsync(value)
+      const parsed = createItemSchema.safeParse(value)
+      if (!parsed.success) {
+        toast.error(m.error, { description: m.errValidation })
+        return
+      }
+      await createItem.mutateAsync(parsed.data)
       createForm.reset()
       setCreateOpen(false)
     },
@@ -144,8 +125,13 @@ export function ItemsPage() {
   const editForm = useForm({
     defaultValues: { label: '', description: '', active: true },
     onSubmit: async ({ value }) => {
-      if (!editItem || !activeOrgId) return
-      await updateItem.mutateAsync({ id: editItem.id, ...value })
+      if (!editItem) return
+      const parsed = updateItemSchema.safeParse(value)
+      if (!parsed.success) {
+        toast.error(m.error, { description: m.errValidation })
+        return
+      }
+      await updateItem.mutateAsync({ id: editItem.id, ...parsed.data })
     },
   })
 
@@ -157,12 +143,10 @@ export function ItemsPage() {
         title={m.itemsTitle}
         description={m.itemsDescription}
         actions={
-          canWrite ? (
-            <Button type="button" onClick={() => setCreateOpen(true)}>
-              <Plus className="size-4" />
-              {m.itemCreate}
-            </Button>
-          ) : undefined
+          <Button type="button" onClick={() => setCreateOpen(true)}>
+            <Plus className="size-4" />
+            {m.itemCreate}
+          </Button>
         }
       />
       <Input
@@ -181,13 +165,11 @@ export function ItemsPage() {
             <EmptyTitle>{m.itemEmptyTitle}</EmptyTitle>
             <EmptyDescription>{m.itemEmptyDescription}</EmptyDescription>
           </EmptyHeader>
-          {canWrite ? (
-            <EmptyContent>
-              <Button type="button" onClick={() => setCreateOpen(true)}>
-                {m.itemCreate}
-              </Button>
-            </EmptyContent>
-          ) : null}
+          <EmptyContent>
+            <Button type="button" onClick={() => setCreateOpen(true)}>
+              {m.itemCreate}
+            </Button>
+          </EmptyContent>
         </Empty>
       ) : (
         <Table>
@@ -196,7 +178,7 @@ export function ItemsPage() {
               <TableHead>{m.itemCode}</TableHead>
               <TableHead>{m.itemLabel}</TableHead>
               <TableHead>{m.itemActive}</TableHead>
-              {canWrite ? <TableHead className="w-28" /> : null}
+              <TableHead className="w-28" />
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -205,31 +187,29 @@ export function ItemsPage() {
                 <TableCell className="font-mono text-sm">{row.code}</TableCell>
                 <TableCell className="font-medium">{row.label}</TableCell>
                 <TableCell>{row.active ? m.itemActiveYes : m.itemActiveNo}</TableCell>
-                {canWrite ? (
-                  <TableCell className="text-right">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => {
-                        setEditItem(row)
-                        editForm.setFieldValue('label', row.label)
-                        editForm.setFieldValue('description', row.description)
-                        editForm.setFieldValue('active', row.active)
-                      }}
-                    >
-                      <Pencil className="size-4" />
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setPendingDelete(row)}
-                    >
-                      <Trash2 className="size-4" />
-                    </Button>
-                  </TableCell>
-                ) : null}
+                <TableCell className="text-right">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => {
+                      setEditItem(row)
+                      editForm.setFieldValue('label', row.label)
+                      editForm.setFieldValue('description', row.description)
+                      editForm.setFieldValue('active', row.active)
+                    }}
+                  >
+                    <Pencil className="size-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setPendingDelete(row)}
+                  >
+                    <Trash2 className="size-4" />
+                  </Button>
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -355,9 +335,7 @@ export function ItemsPage() {
           <AlertDialogFooter>
             <AlertDialogCancel>{m.cancel}</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() =>
-                pendingDelete && activeOrgId && void deleteItem.mutateAsync(pendingDelete.id)
-              }
+              onClick={() => pendingDelete && void deleteItem.mutateAsync(pendingDelete.id)}
             >
               {m.delete}
             </AlertDialogAction>

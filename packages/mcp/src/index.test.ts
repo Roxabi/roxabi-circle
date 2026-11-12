@@ -5,7 +5,9 @@ import {
   extractBearerFromEnv,
   handlePing,
   handleWhoami,
+  handleWhoamiFromMcpIdentity,
   type WhoamiFetch,
+  whoamiResultSchema,
 } from './index'
 
 describe('mcp kit', () => {
@@ -72,6 +74,47 @@ describe('handleWhoami verify via /api/me', () => {
     expect(fetch).not.toHaveBeenCalled()
   })
 
+  it('allows IPv6 loopback ::1', async () => {
+    const fetch: WhoamiFetch = async (url) => {
+      expect(url).toBe('http://[::1]:8787/api/me')
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ subject: 'user_1' }),
+      }
+    }
+    const r = await handleWhoami(key, { apiBaseUrl: 'http://[::1]:8787', fetch })
+    expect(r.status).toBe('ok')
+    expect(r.verified).toBe(true)
+  })
+
+  it('non-loopback allowedHosts without allowNonLocalHosts is denied', async () => {
+    const fetch = vi.fn() as unknown as WhoamiFetch
+    const r = await handleWhoami(key, {
+      apiBaseUrl: 'https://evil.example',
+      allowedHosts: ['evil.example'],
+      fetch,
+    })
+    expect(r.status).toBe('bad_config')
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it('non-loopback allowedHosts with allowNonLocalHosts reaches fetch', async () => {
+    const fetch = vi.fn(async () => ({
+      ok: false,
+      status: 503,
+      json: async () => ({}),
+    })) as unknown as WhoamiFetch
+    const r = await handleWhoami(key, {
+      apiBaseUrl: 'https://evil.example',
+      allowedHosts: ['evil.example'],
+      allowNonLocalHosts: true,
+      fetch,
+    })
+    expect(fetch).toHaveBeenCalled()
+    expect(r.status).toBe('unreachable')
+  })
+
   it('verified true when /api/me returns subject', async () => {
     const fetch: WhoamiFetch = async (url, init) => {
       expect(url).toBe('http://127.0.0.1:8787/api/me')
@@ -129,5 +172,42 @@ describe('handleWhoami verify via /api/me', () => {
     const r = await handleWhoami(key, { apiBaseUrl: 'http://127.0.0.1:8787', fetch })
     expect(r.status).toBe('invalid_response')
     expect(r.verified).toBe(false)
+  })
+})
+
+describe('handleWhoamiFromMcpIdentity', () => {
+  it('verified true when MCP identity is present (not /api/me)', async () => {
+    const r = await handleWhoamiFromMcpIdentity({
+      userId: 'user_demo',
+      email: 'demo@kit.local',
+    })
+    expect(r).toEqual({
+      keyPresent: false,
+      verified: true,
+      subject: 'user_demo',
+      status: 'ok',
+      userId: 'user_demo',
+      email: 'demo@kit.local',
+    })
+    expect(JSON.stringify(r)).not.toMatch(/sk_/)
+  })
+
+  it('missing identity → domain missing_identity, never sk_', async () => {
+    const r = await handleWhoamiFromMcpIdentity(null)
+    expect(r.verified).toBe(false)
+    expect(r.status).toBe('missing_identity')
+    expect(r.subject).toBeNull()
+    expect(r.userId).toBeNull()
+    expect(JSON.stringify(r)).not.toMatch(/sk_/)
+  })
+
+  it('stdio-shaped whoami still parses after additive fields', () => {
+    const parsed = whoamiResultSchema.parse({
+      keyPresent: true,
+      verified: false,
+      subject: null,
+      status: 'missing_key',
+    })
+    expect(parsed.status).toBe('missing_key')
   })
 })

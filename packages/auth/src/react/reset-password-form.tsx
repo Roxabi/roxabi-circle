@@ -38,7 +38,7 @@ export function ResetPasswordForm({
     validators: {
       onSubmit: ({ value }) => {
         const parsed = resetPasswordSchema.safeParse(value)
-        if (parsed.success) return undefined
+        if (parsed.success) return
         const flat = parsed.error.flatten().fieldErrors
         return {
           form: copy.errValidation,

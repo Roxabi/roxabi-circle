@@ -3,24 +3,28 @@
  * Header injection defense for subject/to is at EmailPort boundary (scrubHeaderLine).
  */
 import { escapeHtml } from '../escape-html'
+import { assertSafeTokenHref, type TokenHrefPolicy } from '../safe-token-href'
 
-export function InviteEmail(props: {
-  to: string
-  orgName: string
-  acceptUrl: string
-  expiresAt: Date
-  inviterLabel?: string
-}) {
+export function InviteEmail(
+  props: {
+    to: string
+    orgName: string
+    acceptUrl: string
+    expiresAt: Date
+    inviterLabel?: string
+  } & TokenHrefPolicy,
+) {
   const org = props.orgName
   const safeOrg = escapeHtml(org)
-  const safeUrl = escapeHtml(props.acceptUrl)
+  const href = assertSafeTokenHref(props.acceptUrl, props)
+  const safeUrl = escapeHtml(href)
   const exp = props.expiresAt.toISOString()
   const inviter = props.inviterLabel
   const subject = `Invitation — ${org} (Kit kit)`
   const text = [
     `You have been invited to join "${org}" on Kit Kit.`,
     inviter ? `Invited by: ${inviter}` : null,
-    `Accept: ${props.acceptUrl}`,
+    `Accept: ${href}`,
     `Expires: ${exp}`,
   ]
     .filter(Boolean)

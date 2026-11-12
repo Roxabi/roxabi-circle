@@ -1,4 +1,5 @@
 import { and, eq } from 'drizzle-orm'
+import type { ModuleAccess } from '../module-grants'
 import { organizationRoleModuleGrants, organizationRoles } from '../tenancy-schema'
 import type { KitRepoDb } from './db-type'
 
@@ -12,11 +13,13 @@ export async function listRolesForOrg(db: Db, organizationId: string) {
     .all()
 }
 
-export async function findRoleById(db: Db, roleId: string) {
+export async function findRoleById(db: Db, organizationId: string, roleId: string) {
   const rows = await db
     .select()
     .from(organizationRoles)
-    .where(eq(organizationRoles.id, roleId))
+    .where(
+      and(eq(organizationRoles.organizationId, organizationId), eq(organizationRoles.id, roleId)),
+    )
     .limit(1)
     .all()
   return rows[0] ?? null
@@ -48,12 +51,20 @@ export async function insertRole(
   await db.insert(organizationRoles).values(row).run()
 }
 
-export async function deleteRole(db: Db, roleId: string) {
+export async function deleteRole(db: Db, organizationId: string, roleId: string): Promise<boolean> {
+  const role = await findRoleById(db, organizationId, roleId)
+  if (!role) return false
   await db
     .delete(organizationRoleModuleGrants)
     .where(eq(organizationRoleModuleGrants.roleId, roleId))
     .run()
-  await db.delete(organizationRoles).where(eq(organizationRoles.id, roleId)).run()
+  const rows = await db
+    .delete(organizationRoles)
+    .where(
+      and(eq(organizationRoles.id, roleId), eq(organizationRoles.organizationId, organizationId)),
+    )
+    .returning({ id: organizationRoles.id })
+  return rows.length > 0
 }
 
 export async function listGrantsForRole(db: Db, roleId: string) {
@@ -72,20 +83,30 @@ export async function listGrantsForRoles(db: Db, roleIds: string[]) {
 
 export async function upsertGrant(
   db: Db,
-  row: { roleId: string; moduleId: string; access: string },
-) {
+  row: { organizationId: string; roleId: string; moduleId: string; access: ModuleAccess },
+): Promise<boolean> {
+  const role = await findRoleById(db, row.organizationId, row.roleId)
+  if (!role) return false
   await db
     .insert(organizationRoleModuleGrants)
-    .values(row)
+    .values({ roleId: row.roleId, moduleId: row.moduleId, access: row.access })
     .onConflictDoUpdate({
       target: [organizationRoleModuleGrants.roleId, organizationRoleModuleGrants.moduleId],
       set: { access: row.access },
     })
     .run()
+  return true
 }
 
-export async function deleteGrant(db: Db, roleId: string, moduleId: string) {
-  await db
+export async function deleteGrant(
+  db: Db,
+  organizationId: string,
+  roleId: string,
+  moduleId: string,
+): Promise<boolean> {
+  const role = await findRoleById(db, organizationId, roleId)
+  if (!role) return false
+  const rows = await db
     .delete(organizationRoleModuleGrants)
     .where(
       and(
@@ -93,5 +114,6 @@ export async function deleteGrant(db: Db, roleId: string, moduleId: string) {
         eq(organizationRoleModuleGrants.moduleId, moduleId),
       ),
     )
-    .run()
+    .returning({ roleId: organizationRoleModuleGrants.roleId })
+  return rows.length > 0
 }

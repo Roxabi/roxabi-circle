@@ -10,7 +10,7 @@ tier: F-lite
 ## Context
 
 **Promoted from:** [lists cursor page envelope frame](../frames/104-lists-cursor-page-envelope-frame.md) (approved, F-lite)  
-**GitHub issue:** [#104](https://github.com/Roxabi/roxabi-boilerplate-cf/issues/104)  
+**GitHub issue:** [Roxabi/roxabi-boilerplate-cf#104](https://github.com/Roxabi/roxabi-boilerplate-cf/issues/104)  
 **Refs:** [ADR-0001](../../docs/kit/architecture/adr/0001-primary-axis-packages-compose-apps.md) (≥2 call sites) · [ADR-0010](../../docs/kit/architecture/adr/0010-list-page-cursor-envelope.md) · `admin-users` offset · `admin-audit` `createdAt:id` cursor · AGENTS TanStack Table / Virtual P1
 
 This refresh incorporates the approved design deltas but returns the specification to **draft** until human re-approval.

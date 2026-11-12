@@ -1,31 +1,12 @@
-import {
-  apiKeyPrefix,
-  createBetterAuthSessionPort,
-  generateApiKey,
-  hashApiKey,
-  verifyApiKey,
-} from '@kit/auth'
-
-// re-export crypto helpers used by tests
-export { hashApiKey, verifyApiKey }
+import { apiKeyPrefix, generateApiKey, hashApiKey } from '@kit/auth'
 
 import { AppError } from '@kit/core'
 import type { DrizzleD1Database } from 'drizzle-orm/d1'
 import type { schema } from '../db/schema'
 import * as keysRepo from '../repos/keys'
-import {
-  DEMO_EMAIL,
-  DEMO_EMAIL_B,
-  DEMO_PASSWORD,
-  DEMO_PASSWORD_B,
-  type KitRole,
-  roleForSubject,
-} from '../seed/demo-data'
+import { DEMO_EMAIL, DEMO_EMAIL_B, DEMO_PASSWORD, DEMO_PASSWORD_B } from '../seed/demo-data'
 
 type Db = DrizzleD1Database<typeof schema>
-
-export type { KitRole }
-export { roleForSubject }
 
 export async function mintApiKey(
   db: Db,
@@ -103,4 +84,4 @@ export async function revokeApiKey(db: Db, id: string, subject: string): Promise
 // The supported path is `createRequireAuth` (`middleware/require-auth.ts`).
 
 /** Helper for tests that need a BA SessionPort with mock getAuth. */
-export { createBetterAuthSessionPort, DEMO_EMAIL, DEMO_EMAIL_B, DEMO_PASSWORD, DEMO_PASSWORD_B }
+export { DEMO_EMAIL, DEMO_EMAIL_B, DEMO_PASSWORD, DEMO_PASSWORD_B }

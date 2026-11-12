@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# leftover pre-commit driver (#148).
+# leftover pre-commit driver (Roxabi/roxabi-boilerplate-cf#148).
 # One process: if file-length/trufflehog fail, EXIT still restores the index
 # so a staged D is not lost (and leftover-index-tree is not left orphan).
 set -euo pipefail

@@ -11,6 +11,7 @@
  */
 import type { CfEmailAddress, SendEmailBinding } from './cf'
 import { emailDomain } from './domain'
+import { isLoopbackHost } from './loopback-host'
 import {
   createCfEmailPort,
   createLogEmailPort,
@@ -18,6 +19,7 @@ import {
   withRecipientAllowlist,
   withStagingSubjectPrefix,
 } from './ports'
+import { assertSafeTokenHref, type TokenHrefPolicy } from './safe-token-href'
 import { scrubHeaderLine } from './scrub'
 import { DemoEmail } from './templates/demo'
 import { InviteEmail } from './templates/invite'
@@ -26,8 +28,9 @@ import { ResetPasswordEmail } from './templates/reset-password'
 import { WelcomeSetPasswordEmail } from './templates/welcome-set-password'
 import type { EmailPort, EmailTransport } from './types'
 
-export type { EmailPort, EmailTransport }
-export { createLogEmailPort }
+export { EmailPolicyError } from './types'
+export type { EmailPort, EmailTransport, TokenHrefPolicy }
+export { assertSafeTokenHref, createLogEmailPort, isLoopbackHost }
 
 /** Build a plain-text demo email body (React Email-style template). */
 export function buildDemoEmailText(params: { to: string; subjectId: string }): {
@@ -46,13 +49,15 @@ export function buildDemoEmailText(params: { to: string; subjectId: string }): {
 }
 
 /** Org invite email (kit copy only). */
-export function buildInviteEmailText(params: {
-  to: string
-  orgName: string
-  acceptUrl: string
-  expiresAt: Date
-  inviterLabel?: string
-}): {
+export function buildInviteEmailText(
+  params: {
+    to: string
+    orgName: string
+    acceptUrl: string
+    expiresAt: Date
+    inviterLabel?: string
+  } & TokenHrefPolicy,
+): {
   to: string
   subject: string
   text: string
@@ -68,11 +73,9 @@ export function buildInviteEmailText(params: {
 }
 
 /** Password reset email (kit copy only). */
-export function buildResetPasswordEmailText(params: {
-  to: string
-  resetUrl: string
-  expiresHint?: string
-}): {
+export function buildResetPasswordEmailText(
+  params: { to: string; resetUrl: string; expiresHint?: string } & TokenHrefPolicy,
+): {
   to: string
   subject: string
   text: string
@@ -88,12 +91,14 @@ export function buildResetPasswordEmailText(params: {
 }
 
 /** Welcome / first-login set-password email (kit copy only). */
-export function buildWelcomeSetPasswordEmailText(params: {
-  to: string
-  setPasswordUrl: string
-  expiresHint?: string
-  name?: string
-}): {
+export function buildWelcomeSetPasswordEmailText(
+  params: {
+    to: string
+    setPasswordUrl: string
+    expiresHint?: string
+    name?: string
+  } & TokenHrefPolicy,
+): {
   to: string
   subject: string
   text: string
@@ -109,11 +114,9 @@ export function buildWelcomeSetPasswordEmailText(params: {
 }
 
 /** Magic-link sign-in email (kit copy only). */
-export function buildMagicLinkEmailText(params: {
-  to: string
-  magicUrl: string
-  expiresHint?: string
-}): {
+export function buildMagicLinkEmailText(
+  params: { to: string; magicUrl: string; expiresHint?: string } & TokenHrefPolicy,
+): {
   to: string
   subject: string
   text: string
@@ -158,17 +161,19 @@ export type CreateEmailPortOpts = {
   fromDomain?: string | null
 }
 
-function envNorm(environment?: string): string {
-  return (environment || 'development').trim().toLowerCase()
+function environmentName(environment?: string): string | undefined {
+  const n = environment?.trim().toLowerCase()
+  return n || undefined
 }
 
+/** Explicit env only — missing ENVIRONMENT is not development (parity with @kit/auth). */
 function isDevLike(environment?: string): boolean {
-  const e = envNorm(environment)
-  return e === 'development' || e === 'test' || e === ''
+  const e = environmentName(environment)
+  return e === 'development' || e === 'test'
 }
 
 function isStaging(environment?: string): boolean {
-  return envNorm(environment) === 'staging'
+  return environmentName(environment) === 'staging'
 }
 
 /** Parse `EMAIL_ALLOW_DOMAINS=a.com,b.com` → normalized unique list. */
@@ -264,41 +269,48 @@ export function prefixStagingSubject(subject: string): string {
  * - staging|production: log rejected; cf requires binding; resend requires key
  * - staging + cf|resend: EMAIL_ALLOW_DOMAINS required; From @example.com; subject `[TEST STAGING]` (D6)
  */
-export function createEmailPort(opts: CreateEmailPortOpts): EmailPort {
-  assertEmailTransportAllowed(opts.transport, opts.environment)
-  assertStagingEmailPolicy(opts)
 
-  // Production optional From-domain pin (when EMAIL_FROM_DOMAIN set).
-  if (envNorm(opts.environment) === 'production' && opts.from != null && opts.fromDomain?.trim()) {
-    assertFromDomain(opts.from, opts.fromDomain.trim())
-  }
-
-  const allow = (opts.allowDomains ?? []).map((d) => d.trim().toLowerCase()).filter(Boolean)
-
-  let port: EmailPort
-
+function buildTransportPort(opts: CreateEmailPortOpts): EmailPort {
   if (opts.transport === 'log') {
-    port = createLogEmailPort()
-  } else if (opts.transport === 'cf') {
+    return createLogEmailPort()
+  }
+  if (opts.transport === 'cf') {
     if (!opts.email) {
       throw new Error('EMAIL_TRANSPORT=cf requires EMAIL send_email binding')
     }
     if (!opts.from) {
       throw new Error('EMAIL_TRANSPORT=cf requires EMAIL_FROM')
     }
-    port = createCfEmailPort(opts.email, opts.from)
-  } else if (opts.transport === 'resend') {
+    return createCfEmailPort(opts.email, opts.from)
+  }
+  if (opts.transport === 'resend') {
     if (!opts.resendApiKey?.trim()) {
       throw new Error('EMAIL_TRANSPORT=resend requires RESEND_API_KEY')
     }
     if (!opts.from) {
       throw new Error('EMAIL_TRANSPORT=resend requires EMAIL_FROM')
     }
-    port = createResendEmailPort(opts.resendApiKey.trim(), opts.from)
-  } else {
-    throw new Error(`Unsupported EMAIL_TRANSPORT: ${opts.transport}`)
+    return createResendEmailPort(opts.resendApiKey.trim(), opts.from)
+  }
+  throw new Error(`Unsupported EMAIL_TRANSPORT: ${opts.transport}`)
+}
+
+export function createEmailPort(opts: CreateEmailPortOpts): EmailPort {
+  assertEmailTransportAllowed(opts.transport, opts.environment)
+  assertStagingEmailPolicy(opts)
+
+  // Production optional From-domain pin (when EMAIL_FROM_DOMAIN set).
+  if (
+    environmentName(opts.environment) === 'production' &&
+    opts.from != null &&
+    opts.fromDomain?.trim()
+  ) {
+    assertFromDomain(opts.from, opts.fromDomain.trim())
   }
 
+  const allow = (opts.allowDomains ?? []).map((d) => d.trim().toLowerCase()).filter(Boolean)
+
+  let port = buildTransportPort(opts)
   port = withRecipientAllowlist(port, allow)
   if (isStaging(opts.environment)) {
     port = withStagingSubjectPrefix(port, prefixStagingSubject)

@@ -93,7 +93,7 @@ the shift comes from the new source in `grant.ts`, not from the tests of M3.
   the test asserts rejection.
 - **`packages/ui/src/paths-smoke.ts`** — fails coverage remapping (`RolldownError: Parse failed`)
   and is silently excluded from the coverage report. Pre-existing, from the ts-major batch
-  (`48dd7e0`), unrelated to this work. **Filed as #46** — the failure *mode* (a file can leave
+  (`48dd7e0`), unrelated to this work. **Filed as Roxabi/roxabi-boilerplate-cf#46** — the failure *mode* (a file can leave
   coverage without reddening the gate) matters more than the file.
 
 ## Not concluded here

@@ -37,11 +37,70 @@ const stages: TaskStage[] = [
     isDefault: true,
     isTerminal: false,
   },
+  {
+    id: 's4',
+    orgId: 'o2',
+    boardKey: 'main',
+    label: 'Other org',
+    position: 0,
+    isDefault: true,
+    isTerminal: false,
+  },
 ]
 
 describe('stagesForBoard', () => {
-  it('filters and sorts by position', () => {
-    expect(stagesForBoard(stages, 'o1', 'main').map((s) => s.id)).toEqual(['s1', 's2'])
+  it('filters without changing input order and sorts position ties by ID', () => {
+    const unsorted: readonly TaskStage[] = Object.freeze([
+      {
+        id: 's-b',
+        orgId: 'o1',
+        boardKey: 'main',
+        label: 'B',
+        position: 1,
+        isDefault: false,
+        isTerminal: false,
+      },
+      {
+        id: 'other-org',
+        orgId: 'o2',
+        boardKey: 'main',
+        label: 'Other org',
+        position: 0,
+        isDefault: false,
+        isTerminal: false,
+      },
+      {
+        id: 's-a',
+        orgId: 'o1',
+        boardKey: 'main',
+        label: 'A',
+        position: 1,
+        isDefault: false,
+        isTerminal: false,
+      },
+      {
+        id: 's-0',
+        orgId: 'o1',
+        boardKey: 'main',
+        label: 'First',
+        position: 0,
+        isDefault: true,
+        isTerminal: false,
+      },
+      {
+        id: 'other-board',
+        orgId: 'o1',
+        boardKey: 'other',
+        label: 'Other board',
+        position: 0,
+        isDefault: true,
+        isTerminal: false,
+      },
+    ])
+    const originalIds = unsorted.map((s) => s.id)
+
+    expect(stagesForBoard(unsorted, 'o1', 'main').map((s) => s.id)).toEqual(['s-0', 's-a', 's-b'])
+    expect(unsorted.map((s) => s.id)).toEqual(originalIds)
   })
 })
 
@@ -83,8 +142,8 @@ describe('isStageOnBoard / terminal / done', () => {
   it('membership', () => {
     expect(isStageOnBoard(stages, 'o1', 'main', 's2')).toBe(true)
     expect(isStageOnBoard(stages, 'o1', 'main', 's3')).toBe(false)
+    expect(isStageOnBoard(stages, 'o2', 'main', 's2')).toBe(false)
   })
-
   it('terminal suggests done', () => {
     expect(isTerminalStage(stages, 's2')).toBe(true)
     expect(suggestedDoneForStage(stages, 's2')).toBe(true)

@@ -14,69 +14,90 @@ const MAX_ARGS_KEYS = 32
 const MAX_ARG_STRING = 8_192
 const MAX_ARG_DEPTH = 4
 
+function argsIssuePath(path: string): (string | number)[] {
+  return path ? path.split('.') : ['args']
+}
+
+function assertArgsString(value: string, path: string, ctx: z.RefinementCtx): void {
+  if (value.length > MAX_ARG_STRING) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: `invoke.args string exceeds ${MAX_ARG_STRING} chars`,
+      path: argsIssuePath(path),
+    })
+  }
+}
+
+function assertArgsArray(
+  value: unknown[],
+  depth: number,
+  path: string,
+  ctx: z.RefinementCtx,
+): void {
+  if (value.length > MAX_ARGS_KEYS) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: `invoke.args array length exceeds ${MAX_ARGS_KEYS}`,
+      path: argsIssuePath(path),
+    })
+  }
+  for (let i = 0; i < value.length; i++) {
+    assertArgsShape(value[i], depth + 1, path ? `${path}.${i}` : String(i), ctx)
+  }
+}
+
+function assertArgsObject(value: object, depth: number, path: string, ctx: z.RefinementCtx): void {
+  const keys = Object.keys(value)
+  if (keys.length > MAX_ARGS_KEYS) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: `invoke.args object has more than ${MAX_ARGS_KEYS} keys`,
+      path: argsIssuePath(path),
+    })
+  }
+  for (const k of keys) {
+    if (/^__|constructor|prototype$/i.test(k) || k === '__proto__') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `invoke.args key forbidden: ${k}`,
+        path: argsIssuePath(path),
+      })
+    }
+    assertArgsShape(
+      (value as Record<string, unknown>)[k],
+      depth + 1,
+      path ? `${path}.${k}` : k,
+      ctx,
+    )
+  }
+}
+
 function assertArgsShape(value: unknown, depth: number, path: string, ctx: z.RefinementCtx): void {
   if (depth > MAX_ARG_DEPTH) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       message: `invoke.args nesting exceeds max depth ${MAX_ARG_DEPTH}`,
-      path: path ? path.split('.') : ['args'],
+      path: argsIssuePath(path),
     })
     return
   }
   if (value === null || typeof value === 'boolean' || typeof value === 'number') return
   if (typeof value === 'string') {
-    if (value.length > MAX_ARG_STRING) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: `invoke.args string exceeds ${MAX_ARG_STRING} chars`,
-        path: path ? path.split('.') : ['args'],
-      })
-    }
+    assertArgsString(value, path, ctx)
     return
   }
   if (Array.isArray(value)) {
-    if (value.length > MAX_ARGS_KEYS) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: `invoke.args array length exceeds ${MAX_ARGS_KEYS}`,
-        path: path ? path.split('.') : ['args'],
-      })
-    }
-    for (let i = 0; i < value.length; i++) {
-      assertArgsShape(value[i], depth + 1, path ? `${path}.${i}` : String(i), ctx)
-    }
+    assertArgsArray(value, depth, path, ctx)
     return
   }
   if (typeof value === 'object') {
-    const keys = Object.keys(value as object)
-    if (keys.length > MAX_ARGS_KEYS) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: `invoke.args object has more than ${MAX_ARGS_KEYS} keys`,
-        path: path ? path.split('.') : ['args'],
-      })
-    }
-    for (const k of keys) {
-      if (/^__|constructor|prototype$/i.test(k) || k === '__proto__') {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: `invoke.args key forbidden: ${k}`,
-          path: path ? path.split('.') : ['args'],
-        })
-      }
-      assertArgsShape(
-        (value as Record<string, unknown>)[k],
-        depth + 1,
-        path ? `${path}.${k}` : k,
-        ctx,
-      )
-    }
+    assertArgsObject(value, depth, path, ctx)
     return
   }
   ctx.addIssue({
     code: z.ZodIssueCode.custom,
     message: 'invoke.args values must be JSON primitives/objects/arrays',
-    path: path ? path.split('.') : ['args'],
+    path: argsIssuePath(path),
   })
 }
 
@@ -100,21 +121,28 @@ const inferBodySchema = z
   })
   .strict()
 
-/** Exactly one of invoke | infer. `agent` rejected under .strict(). */
+const approveBodySchema = z
+  .object({
+    note: z.string().min(1).max(500).optional(),
+    timeout_hours: z.number().int().min(1).max(168).optional(),
+  })
+  .strict()
+
+/** Exactly one of invoke | infer | approve. `agent` rejected under .strict(). */
 export const planTaskSchema = z
   .object({
     after: z.array(nonEmptyId).max(MAX_PLAN_TASKS).optional(),
     invoke: invokeBodySchema.optional(),
     infer: inferBodySchema.optional(),
+    approve: approveBodySchema.optional(),
   })
   .strict()
   .superRefine((val, ctx) => {
-    const hasInvoke = val.invoke !== undefined
-    const hasInfer = val.infer !== undefined
-    if (hasInvoke === hasInfer) {
+    const kinds = [val.invoke, val.infer, val.approve].filter((body) => body !== undefined).length
+    if (kinds !== 1) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: 'task must have exactly one of invoke | infer (agent deferred in v0)',
+        message: 'task must have exactly one of invoke | infer | approve',
       })
     }
   })

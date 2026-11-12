@@ -1,4 +1,4 @@
-import { isOrgRoleKey, type OrgKind, type OrgRoleKey } from '@kit/auth'
+import type { OrgKind } from '@kit/auth'
 import { AppError } from '@kit/core'
 import type { DrizzleD1Database } from 'drizzle-orm/d1'
 import type { schema } from '../db/schema'
@@ -117,7 +117,7 @@ export async function createOrganization(
   // Phase B — system roles + grant seed
   await orgRolesService.ensureSystemRoles(db, orgId)
 
-  return { id: orgId, name, slug, kind, status: 'active' as const }
+  return { id: orgId, name, slug, kind, status: 'active' as const, role: 'owner' as const }
 }
 
 export async function getOrgForSubject(db: Db, orgId: string, subject: string) {
@@ -142,13 +142,4 @@ export async function listOrgMembers(db: Db, orgId: string) {
     role: m.role,
     createdAt: m.createdAt,
   }))
-}
-
-export function assertOrgRoleKey(role: string): OrgRoleKey {
-  if (!isOrgRoleKey(role)) {
-    throw AppError.fieldErrors('Invalid organization role', {
-      role: ['Invalid organization role'],
-    })
-  }
-  return role
 }

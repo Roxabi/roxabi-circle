@@ -39,8 +39,11 @@ async function readModuleRow(db: Db, id: KitModuleId) {
   }
 }
 
-export async function getModulesState(db: Db): Promise<Record<KitModuleId, ModulePublicState>> {
-  await ensureKitModules(db)
+export async function getModulesState(
+  db: Db,
+  options?: { readOnly?: boolean },
+): Promise<Record<KitModuleId, ModulePublicState>> {
+  if (!options?.readOnly) await ensureKitModules(db)
   return Object.fromEntries(
     await Promise.all(
       KIT_MODULE_IDS.map(async (id) => {

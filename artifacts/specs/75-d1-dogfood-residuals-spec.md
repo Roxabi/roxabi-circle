@@ -10,7 +10,7 @@ tier: F-lite
 ## Context
 
 **Promoted from:** [D1 dogfood residuals frame](../frames/75-d1-dogfood-residuals-frame.md) (approved, F-lite)
-**GitHub issue:** [#75](https://github.com/Roxabi/roxabi-boilerplate-cf/issues/75)
+**GitHub issue:** [Roxabi/roxabi-boilerplate-cf#75](https://github.com/Roxabi/roxabi-boilerplate-cf/issues/75)
 **Walk:** `artifacts/reviews/2026-08-13-kit-d1-human.md` (source of the three P1s)
 **Refs:** ADR-0004 (smtp Node-only) · ADR-0003 (`requireModule`) · inherit baseline `628d942`
 
@@ -84,7 +84,7 @@ Invite / demo-email: keep `onError` toast. No catch-all success. Do not require 
 
 ### Re-walk
 
-PR body includes **walk evidence** (not a SHA string alone): logins still work; magic-link empty 500 → error toast; reader POST 403; runbook matches `log`. SHA ≥ `628d942`. Closer: `Fixes #75` only.
+PR body includes **walk evidence** (not a SHA string alone): logins still work; magic-link empty 500 → error toast; reader POST 403; runbook matches `log`. SHA ≥ `628d942`. Closer: `Fixes Roxabi/roxabi-boilerplate-cf#75` only.
 
 ## Out of Scope
 
@@ -96,7 +96,7 @@ PR body includes **walk evidence** (not a SHA string alone): logins still work; 
 - New RBAC vocabulary; changing grants beyond `demo` write on mutations
 - Committing `.dev.vars`; `@cloudflare/vitest-pool-workers` as a gate
 - P2/P3 walk residuals (opaque mint copy, invite-on-email-fail UX, MCP `whoami` bad_config, platform module badges)
-- Closing #16 / #72
+- Closing Roxabi/roxabi-boilerplate-cf#16 / Roxabi/roxabi-boilerplate-cf#72
 
 ## Data Model & Consumers
 
@@ -209,7 +209,7 @@ One PR. V3 depends on N0.
 - [ ] Same mutations without `X-Org-Id` return 400 and write nothing
 - [ ] A `demo=write` tenancy actor with `X-Org-Id` still 201/200; GET subject IDOR (`demo@` vs `demo-b@`) still 404
 - [ ] Items UI hides create/edit/delete when `activeOrg.role === 'reader'` or no active org; mutations send `X-Org-Id`
-- [ ] PR includes re-walk evidence + SHA ≥ `628d942`; closer is `Fixes #75` only (no `#16` / `#72`)
+- [ ] PR includes re-walk evidence + SHA ≥ `628d942`; closer is `Fixes Roxabi/roxabi-boilerplate-cf#75` only (no `Roxabi/roxabi-boilerplate-cf#16` / `Roxabi/roxabi-boilerplate-cf#72`)
 
 ## Open Questions
 

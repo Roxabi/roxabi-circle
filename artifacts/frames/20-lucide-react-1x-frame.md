@@ -9,9 +9,9 @@ date: 2026-08-06
 
 ## Problem
 
-The kit pins `lucide-react` at **0.515.x** in `@kit/ui` and `example-web`. Upstream is on **1.x** (latest **1.29.0**). Dependabot already opened PR #5 (bump to 1.28.0) as a version-only change; major 0→1 can rename or remove icon exports, so a dedicated wave is needed: bump + fix any broken imports so typecheck and `example-web` build stay green.
+The kit pins `lucide-react` at **0.515.x** in `@kit/ui` and `example-web`. Upstream is on **1.x** (latest **1.29.0**). Dependabot already opened PR Roxabi/roxabi-boilerplate-cf#5 (bump to 1.28.0) as a version-only change; major 0→1 can rename or remove icon exports, so a dedicated wave is needed: bump + fix any broken imports so typecheck and `example-web` build stay green.
 
-Why now: wave DX (lefthook 2) landed (#25 / #19). Wave 2 was sequenced behind that; wave 3 (vitest/vite) is blocked by this.
+Why now: wave DX (lefthook 2) landed (Roxabi/roxabi-boilerplate-cf#25 / Roxabi/roxabi-boilerplate-cf#19). Wave 2 was sequenced behind that; wave 3 (vitest/vite) is blocked by this.
 
 ## Who
 
@@ -21,15 +21,15 @@ Why now: wave DX (lefthook 2) landed (#25 / #19). Wave 2 was sequenced behind th
 ## Constraints
 
 - Scope limited to `lucide-react` (packages/ui + example-web); no other UI deps
-- Prefer latest stable 1.x (currently 1.29.0; Dependabot #5 targets 1.28.0 — refresh as needed)
+- Prefer latest stable 1.x (currently 1.29.0; Dependabot Roxabi/roxabi-boilerplate-cf#5 targets 1.28.0 — refresh as needed)
 - Gates: typecheck `@kit/ui` + `example-web`, build example-web, zero missing icons
-- May rebase/refresh Dependabot #5 or land an equivalent PR on `feat/20-lucide-react-1x` — dedicated PR required (DoD)
+- May rebase/refresh Dependabot Roxabi/roxabi-boilerplate-cf#5 or land an equivalent PR on `feat/20-lucide-react-1x` — dedicated PR required (DoD)
 - Kit extractibility: no product strings; only shared UI package + example dogfood
 
 ## Out of Scope
 
 - Other UI deps (recharts already wave 1)
-- Wave 3 (vitest 4 + vite 8 + plugin-react) — #21
+- Wave 3 (vitest 4 + vite 8 + plugin-react) — Roxabi/roxabi-boilerplate-cf#21
 - shadcn re-codegen beyond what’s required to fix lucide renames
 - Runtime visual redesign of icons
 
@@ -39,7 +39,7 @@ Why now: wave DX (lefthook 2) landed (#25 / #19). Wave 2 was sequenced behind th
 
 **Failure in 6 months:** Still on 0.515 after 6 months, or 1.x landed without rename fixes so CI/typecheck stays red / icons 404 at build.
 
-**Simplest alternative:** Merge Dependabot #5 as-is (version bump only).
+**Simplest alternative:** Merge Dependabot Roxabi/roxabi-boilerplate-cf#5 as-is (version bump only).
 **Why not simplest:** Major 0→1 can break named exports; DoD requires explicit typecheck + zero missing icons, which a pure Dependabot bump does not guarantee without a rename pass.
 
 ## Complexity
@@ -50,4 +50,4 @@ Signals:
 - User-selected F-lite at `/dev` entry
 - Issue body: complexity 3, narrow DoD, one package major
 - Files: package.json ×2 + import renames across packages/ui + example-web only
-- Dependabot PR #5 already proves the version axis is mergeable (MERGEABLE, UNSTABLE checks)
+- Dependabot PR Roxabi/roxabi-boilerplate-cf#5 already proves the version axis is mergeable (MERGEABLE, UNSTABLE checks)

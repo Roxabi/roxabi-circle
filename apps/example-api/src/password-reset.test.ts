@@ -1,13 +1,14 @@
-import { baVerification } from '@kit/auth/schema'
-import { createDb } from '@kit/db'
-import { like } from 'drizzle-orm'
+import { resetPasswordIdentifier } from '@kit/auth/factory'
+import { baAccount, baVerification } from '@kit/auth/schema'
+import { eq } from 'drizzle-orm'
 import { describe, expect, it } from 'vitest'
-import { createApp } from './app'
-import { schema } from './db/schema'
-
-import { seedDemoDatabase } from './seed/seed-db'
 import { DEMO_EMAIL, DEMO_PASSWORD } from './services/auth'
-import { createMemoryEnv } from './test/memory-env'
+import { createSeededDemoApi, loginCookie } from './test/api-fixture'
+import {
+  captureMail,
+  expectTokenAbsentFromVerification,
+  resetTokenFromLink,
+} from './test/mail-capture'
 
 const ORIGIN = 'http://localhost:5173'
 
@@ -20,26 +21,13 @@ const BA_ENV = {
 }
 
 async function seedEnv() {
-  const app = createApp()
-  const env = createMemoryEnv(BA_ENV)
-  const db = createDb(env.DB as unknown as D1Database, schema)
-  await seedDemoDatabase(db, { notes: false, environment: 'test' })
-  return { app, env, db }
-}
-
-async function latestResetToken(db: ReturnType<typeof createDb>): Promise<string | null> {
-  const rows = await db
-    .select()
-    .from(baVerification)
-    .where(like(baVerification.identifier, 'reset-password:%'))
-  const row = rows[rows.length - 1]
-  if (!row?.identifier) return null
-  return row.identifier.replace(/^reset-password:/, '')
+  return createSeededDemoApi({ env: BA_ENV, seed: { notes: false, environment: 'test' } })
 }
 
 describe('password reset (B3 S3)', () => {
   it('request for known email returns generic success and stores token', async () => {
     const { app, env, db } = await seedEnv()
+    const mail = captureMail()
     const res = await app.request(
       '/api/auth/request-password-reset',
       {
@@ -55,8 +43,11 @@ describe('password reset (B3 S3)', () => {
     expect(res.status).toBeLessThan(400)
     const body = (await res.json()) as { status?: boolean; message?: string }
     expect(body.status).toBe(true)
-    const token = await latestResetToken(db)
-    expect(token).toBeTruthy()
+    const token = resetTokenFromLink(mail.link(DEMO_EMAIL, 'Reset link'))
+    await expectTokenAbsentFromVerification(db, token)
+    const rows = await db.select().from(baVerification)
+    const identifier = await resetPasswordIdentifier(token)
+    expect(rows.some((row) => row.identifier === identifier)).toBe(true)
   })
 
   it('request for unknown email still returns generic success (no enumeration)', async () => {
@@ -81,6 +72,18 @@ describe('password reset (B3 S3)', () => {
 
   it('reset with token → new password works; old fails; token single-use', async () => {
     const { app, env, db } = await seedEnv()
+    const mail = captureMail()
+    const oldCookie = await loginCookie(app, env, DEMO_EMAIL, DEMO_PASSWORD, ORIGIN)
+    expect(
+      (await app.request('/api/me', { headers: { cookie: oldCookie, Origin: ORIGIN } }, env))
+        .status,
+    ).toBe(200)
+    const other = await seedEnv()
+    const otherCredential = await other.db
+      .select()
+      .from(baAccount)
+      .where(eq(baAccount.userId, 'user_demo'))
+      .get()
     const req = await app.request(
       '/api/auth/request-password-reset',
       {
@@ -94,8 +97,8 @@ describe('password reset (B3 S3)', () => {
       env,
     )
     expect(req.status).toBeLessThan(400)
-    const token = await latestResetToken(db)
-    expect(token).toBeTruthy()
+    const token = resetTokenFromLink(mail.link(DEMO_EMAIL, 'Reset link'))
+    await expectTokenAbsentFromVerification(db, token)
 
     const newPassword = 'new-demo-password-xyz'
     const reset = await app.request(
@@ -108,6 +111,16 @@ describe('password reset (B3 S3)', () => {
       env,
     )
     expect(reset.status).toBeLessThan(400)
+    expect(
+      (await app.request('/api/me', { headers: { cookie: oldCookie, Origin: ORIGIN } }, env))
+        .status,
+    ).toBe(401)
+    const oldSession = await app.request(
+      '/api/auth/get-session',
+      { headers: { cookie: oldCookie, Origin: ORIGIN } },
+      env,
+    )
+    expect(await oldSession.json()).toBeNull()
 
     const oldLogin = await app.request(
       '/api/auth/sign-in/email',
@@ -130,6 +143,29 @@ describe('password reset (B3 S3)', () => {
       env,
     )
     expect(newLogin.status).toBeLessThan(400)
+    const newCookie = newLogin.headers.get('set-cookie')
+    expect(newCookie).toBeTruthy()
+    expect(
+      (await app.request('/api/me', { headers: { cookie: newCookie!, Origin: ORIGIN } }, env))
+        .status,
+    ).toBe(200)
+
+    const otherLogin = await other.app.request(
+      '/api/auth/sign-in/email',
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', Origin: ORIGIN },
+        body: JSON.stringify({ email: DEMO_EMAIL, password: DEMO_PASSWORD }),
+      },
+      other.env,
+    )
+    expect(otherLogin.status).toBeLessThan(400)
+    const otherCredentialAfter = await other.db
+      .select()
+      .from(baAccount)
+      .where(eq(baAccount.userId, 'user_demo'))
+      .get()
+    expect(otherCredentialAfter?.password).toBe(otherCredential?.password)
 
     const reuse = await app.request(
       '/api/auth/reset-password',

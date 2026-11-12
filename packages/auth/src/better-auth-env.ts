@@ -1,4 +1,4 @@
-import { AppError } from '@kit/core'
+import { AppError, isLoopbackHost } from '@kit/core'
 import { sessionCookieName } from './cookie-name'
 
 const DEFAULT_CORS = 'http://localhost:5173,http://127.0.0.1:5173'
@@ -20,7 +20,6 @@ export type BetterAuthEnvSlice = {
   ENVIRONMENT?: string | null
   BETTER_AUTH_SECRET?: string | null
   BETTER_AUTH_URL?: string | null
-  SESSION_SECRET?: string | null
   SESSION_COOKIE_NAME?: string | null
   CORS_ORIGINS?: string | null
   ALLOW_PUBLIC_SIGNUP?: string | null
@@ -58,26 +57,6 @@ function assertStrongSecret(label: string, secret: string, env: BetterAuthEnvSli
   return assertAuthSecret(label, secret, { allowKitPlaceholder: isDevLikeEnvironment(env) })
 }
 
-/**
- * HMAC leftover — **not** on the Better Auth session path (use getBetterAuthSecret).
- * Kept so existing product env inventories / tests do not break mid-inherit.
- * - Prefer real secret (min 32) always when set.
- * - Reject known kit placeholders outside development|test.
- * - Known fallback only when ENVIRONMENT is **explicitly** `development` | `test` and secret unset.
- */
-export function getSessionSecret(env: BetterAuthEnvSlice): string {
-  const secret = env.SESSION_SECRET?.trim()
-  if (secret) {
-    return assertStrongSecret('SESSION_SECRET', secret, env)
-  }
-  if (isDevLikeEnvironment(env)) {
-    return DEV_SESSION_FALLBACK
-  }
-  throw AppError.internal(
-    'SESSION_SECRET is required (min 32 chars) unless ENVIRONMENT is development|test',
-  )
-}
-
 function isGlobOrNullOrigin(o: string): boolean {
   const n = o.trim().toLowerCase()
   return n === '*' || n === 'null' || n.includes('*') || n.includes('?')
@@ -93,64 +72,6 @@ function isHttpOrigin(o: string): boolean {
   } catch {
     return false
   }
-}
-
-function stripHostDecorations(hostname: string): string {
-  let h = hostname.toLowerCase()
-  if (h.startsWith('[') && h.endsWith(']')) h = h.slice(1, -1)
-  while (h.endsWith('.')) h = h.slice(0, -1)
-  return h
-}
-
-function isIpv4Loopback(host: string): boolean {
-  const parts = host.split('.')
-  if (parts.length !== 4) return false
-  const octets: number[] = []
-  for (const p of parts) {
-    if (!/^\d{1,3}$/.test(p)) return false
-    const n = Number(p)
-    if (n > 255) return false
-    octets.push(n)
-  }
-  return octets[0] === 127
-}
-
-function ipv4FromHextets(hiHex: string, loHex: string): string {
-  const hi = Number.parseInt(hiHex, 16)
-  const lo = Number.parseInt(loHex, 16)
-  return `${(hi >> 8) & 255}.${hi & 255}.${(lo >> 8) & 255}.${lo & 255}`
-}
-
-/** IPv4-mapped IPv6 carrying a dotted or hex 32-bit suffix (`::ffff:7f00:2`). */
-function ipv4FromMapped6(host: string): string | undefined {
-  const dotted = /^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/.exec(host)
-  if (dotted) return dotted[1]
-  const hex = /^(?:(?:0:){0,5}|::)ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/.exec(host)
-  if (!hex?.[1] || !hex[2]) return undefined
-  return ipv4FromHextets(hex[1], hex[2])
-}
-
-/** IPv4-compatible IPv6 (`::a.b.c.d`). WHATWG may serialize as `::HHHH:HHHH` (`::1` excluded). */
-function ipv4FromCompatible6(host: string): string | undefined {
-  const dotted = /^::(\d{1,3}(?:\.\d{1,3}){3})$/.exec(host)
-  if (dotted) return dotted[1]
-  const hex = /^::([0-9a-f]{1,4}):([0-9a-f]{1,4})$/.exec(host)
-  if (!hex?.[1] || !hex[2]) return undefined
-  return ipv4FromHextets(hex[1], hex[2])
-}
-
-/**
- * Loopback classifier (not a hostname denylist): IPv4 127/8, IPv6 ::1,
- * IPv4-mapped / IPv4-compatible IPv6 after unmap, DNS `localhost` / RFC 6761
- * `.localhost`, trailing-dot FQDN forms, and unspecified `0.0.0.0` / `::`.
- */
-function isLoopbackHost(hostname: string): boolean {
-  const host = stripHostDecorations(hostname)
-  if (host === 'localhost' || host.endsWith('.localhost')) return true
-  if (host === '::1' || host === '0:0:0:0:0:0:0:1') return true
-  const v4 = ipv4FromMapped6(host) ?? ipv4FromCompatible6(host)
-  if (v4) return isIpv4Loopback(v4) || v4 === '0.0.0.0'
-  return isIpv4Loopback(host) || host === '0.0.0.0' || host === '::' || host === '0:0:0:0:0:0:0:0'
 }
 
 function isLoopbackOrigin(o: string): boolean {
@@ -215,7 +136,7 @@ export function sessionCookieNameFromEnv(env: BetterAuthEnvSlice): string {
 }
 
 /**
- * Better Auth secret (min 32 + same weak denylist as SESSION_SECRET).
+ * Better Auth secret (min 32 + kit-placeholder denylist).
  * Required for all session auth (ADR-0002 BA-only).
  */
 export function getBetterAuthSecret(env: BetterAuthEnvSlice): string {
@@ -237,7 +158,7 @@ export function allowPublicSignup(env: BetterAuthEnvSlice): boolean {
 /** Fail-closed BA config for non-dev (secret + URL). */
 export function assertBetterAuthConfigured(env: BetterAuthEnvSlice): void {
   getBetterAuthSecret(env)
-  if (!isDevLikeEnvironment(env) && !env.BETTER_AUTH_URL?.trim()) {
+  if (!(isDevLikeEnvironment(env) || env.BETTER_AUTH_URL?.trim())) {
     throw AppError.internal('BETTER_AUTH_URL is required for Better Auth outside development|test')
   }
 }

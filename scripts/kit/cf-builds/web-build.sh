@@ -15,19 +15,18 @@ if [[ "${KIT_SHOWCASE_DEPLOY:-}" != "1" ]]; then
   exit 1
 fi
 
-branch="${CF_PAGES_BRANCH:-${WORKERS_CI_BRANCH:-}}"
-if [[ -z "${branch}" ]]; then
-  branch="$(git -C "$ROOT" rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
-fi
-if [[ "${branch}" != "main" ]]; then
-  echo "error: refusing build — branch is '${branch:-unknown}', only main is allowed." >&2
-  exit 1
-fi
+# shellcheck source=require-deploy-branch.sh
+source "$(dirname "$0")/require-deploy-branch.sh"
+require_deploy_branch "$ROOT" build
 
 export VITE_API_URL="${VITE_API_URL:-https://api.boilerplate.roxabi.dev}"
 
+# shellcheck source=require-bun-version.sh
+source "$(dirname "$0")/require-bun-version.sh"
 cd "$ROOT"
-if [[ ! -d node_modules ]]; then
+if [[ -d node_modules ]]; then
+  require_bun_version "$ROOT" # the image pre-installed with its own Bun (Roxabi/roxabi-boilerplate-cf#316)
+else
   bash scripts/kit/cf-builds/install-monorepo.sh
 fi
 

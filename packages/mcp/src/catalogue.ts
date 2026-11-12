@@ -1,8 +1,13 @@
 import type { z } from 'zod'
 import { checkInputBudget } from './budget'
-import { PublicToolError, stableStringify, toPublicToolError } from './publicErrors'
+import { PublicToolError, stableJsonWire, toPublicToolError } from './publicErrors'
 
-/** Descriptive only — NEVER authorization. */
+/**
+ * Descriptive only — NEVER authorization. `registerAll` must not branch on it.
+ * Not the flows authority class: `@kit/flows` `ToolGrantClass` (`packages/flows/src/registry.ts`)
+ * decides what a Capability Grant may ever allow. Same words, opposite authority status — hence
+ * two field names, `effect` here and `grantClass` there (Roxabi/roxabi-boilerplate-cf#243).
+ */
 export type ToolEffect = 'read' | 'write'
 
 /** Descriptive only — NEVER authorization; real auth stays in handler / API. */
@@ -11,6 +16,18 @@ export type ToolAuthHint = 'none' | 'api_key'
 export type ToolContext = {
   /** Reserved for app-supplied env-derived data; package does not log secrets. */
   env?: Record<string, string | undefined>
+}
+const refusalBrand: unique symbol = Symbol('toolRefusal')
+
+/** Explicit domain refusal; its payload is intended for the MCP client. */
+export type ToolRefusal<T extends Record<string, unknown> = Record<string, unknown>> = {
+  readonly [refusalBrand]: true
+  readonly payload: T
+}
+
+/** Return a client-safe JSON object as a tool error, not an infrastructure exception. */
+export function toolRefusal<T extends Record<string, unknown>>(payload: T): ToolRefusal<T> {
+  return { [refusalBrand]: true, payload }
 }
 
 /**
@@ -27,13 +44,15 @@ export type ToolDef = {
   auth?: ToolAuthHint
   /**
    * Handler body. Catalogue always passes Zod-parsed `input` (unknown after ZodTypeAny).
+   * Return `toolRefusal(payload)` for an explicit domain refusal.
    * Prefer narrow casts / second parse inside apps if needed — DEBT:fastmcp-zod-boundary.
    */
   execute: (input: unknown, ctx: ToolContext) => Promise<unknown>
 }
 
 /**
- * Duck-typed FastMCP-like surface — no fastmcp dependency in this package.
+ * Duck-typed FastMCP-like surface — the root barrel takes no fastmcp dependency
+ * (only the optional `@kit/mcp/hosted` subpath does).
  * Uses a wide addTool signature so FastMCP (and fakes) are assignable without
  * fighting contravariant parameter checks on Tool.execute / parameters.
  */
@@ -71,6 +90,80 @@ export function assertToolsMatchAllowlist(names: string[], allowlist: readonly s
   }
 }
 
+/**
+ * MCP tool surface: executable tools (Zod input/output + `execute` + server registration).
+ *
+ * Forked from flows `createToolRegistry` **by decision**, not by drift — ADR-0005 D6 amendment
+ * (2026-09-18): that factory owns an authority classification over declarations, this one owns
+ * execution. If the fork is ever unified it is a promote that replaces both callers — never a
+ * third factory or a helper sitting beside them (M-04).
+ */
+
+async function executeRegisteredTool(
+  tool: ToolDef,
+  args: unknown,
+  ctx: ToolContext,
+): Promise<
+  | string
+  | {
+      content: { type: 'text'; text: string }[]
+      structuredContent: Record<string, unknown>
+      isError: true
+    }
+> {
+  // 1) Schema validate first — clear INVALID_ARGUMENTS (not INTERNAL).
+  // Catalogue message only (no Zod issue paths / raw input leak).
+  const parsedIn = tool.input.safeParse(args)
+  if (!parsedIn.success) {
+    throw new PublicToolError('INVALID_ARGUMENTS')
+  }
+  // 2) Budget on accepted payload shape (DoS limits after schema).
+  const budget = checkInputBudget(parsedIn.data)
+  if (!budget.ok) {
+    throw new PublicToolError('INVALID_ARGUMENTS')
+  }
+  try {
+    // 3) Typed-as-unknown parsed data only — never raw args.
+    const result = await tool.execute(parsedIn.data, ctx)
+    if (
+      typeof result === 'object' &&
+      result !== null &&
+      refusalBrand in result &&
+      result[refusalBrand] === true
+    ) {
+      const payload = (result as ToolRefusal).payload
+      if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) {
+        throw new PublicToolError('INTERNAL_ERROR')
+      }
+      const text = stableJsonWire(payload)
+      const structuredContent: unknown = JSON.parse(text)
+      if (
+        typeof structuredContent !== 'object' ||
+        structuredContent === null ||
+        Array.isArray(structuredContent)
+      ) {
+        throw new PublicToolError('INTERNAL_ERROR')
+      }
+      return {
+        content: [{ type: 'text', text }],
+        structuredContent: structuredContent as Record<string, unknown>,
+        isError: true,
+      }
+    }
+    if (tool.output) {
+      const parsedOut = tool.output.safeParse(result)
+      if (!parsedOut.success) {
+        throw new PublicToolError('INTERNAL_ERROR')
+      }
+      return stableJsonWire(parsedOut.data)
+    }
+    if (typeof result === 'string') return result
+    return stableJsonWire(result)
+  } catch (err) {
+    throw toPublicToolError(err)
+  }
+}
+
 export function createToolCatalogue(tools: readonly ToolDef[]): ToolCatalogue {
   const byName = new Map<string, ToolDef>()
   for (const t of tools) {
@@ -100,34 +193,7 @@ export function createToolCatalogue(tools: readonly ToolDef[]): ToolCatalogue {
           name: tool.name,
           description: tool.description,
           parameters: tool.input,
-          execute: async (args: unknown) => {
-            // 1) Schema validate first — clear INVALID_ARGUMENTS (not INTERNAL).
-            // Catalogue message only (no Zod issue paths / raw input leak).
-            const parsedIn = tool.input.safeParse(args)
-            if (!parsedIn.success) {
-              throw new PublicToolError('INVALID_ARGUMENTS')
-            }
-            // 2) Budget on accepted payload shape (DoS limits after schema).
-            const budget = checkInputBudget(parsedIn.data)
-            if (!budget.ok) {
-              throw new PublicToolError('INVALID_ARGUMENTS')
-            }
-            try {
-              // 3) Typed-as-unknown parsed data only — never raw args.
-              const result = await tool.execute(parsedIn.data, ctx)
-              if (tool.output) {
-                const parsedOut = tool.output.safeParse(result)
-                if (!parsedOut.success) {
-                  throw new PublicToolError('INTERNAL_ERROR')
-                }
-                return stableStringify(parsedOut.data)
-              }
-              if (typeof result === 'string') return result
-              return stableStringify(result)
-            } catch (err) {
-              throw toPublicToolError(err)
-            }
-          },
+          execute: async (args: unknown) => executeRegisteredTool(tool, args, ctx),
         })
       }
     },

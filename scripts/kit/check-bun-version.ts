@@ -4,10 +4,7 @@ import { existsSync, readdirSync, readFileSync, realpathSync, statSync } from 'n
 import { join, relative, resolve, sep } from 'node:path'
 
 const ROOT = realpathSync(
-  resolve(
-    // biome-ignore lint/suspicious/noUndeclaredEnvVars: fixture override is intentionally outside Turbo
-    process.env.BUN_VERSION_ROOT ?? join(import.meta.dirname, '../..'),
-  ),
+  resolve(process.env.BUN_VERSION_ROOT ?? join(import.meta.dirname, '../..')),
 )
 type Issue = { file: string; line: number; message: string }
 const issues: Issue[] = []
@@ -66,7 +63,7 @@ function packageVersion(): string | null {
 }
 
 function checkStack(): void {
-  const file = '.claude/stack.yml'
+  const file = '.dev/stack.yml'
   const path = join(ROOT, file)
   if (!existsSync(path)) {
     report(file, 1, 'missing stack manifest')
@@ -128,6 +125,26 @@ function yamlValue(line: string, key: string): string | null {
   }
   return value
 }
+function scanSetupBunStep(path: string, lines: string[], useIndex: number): void {
+  const [start, end] = stepBounds(lines, useIndex)
+  let versionFileLine = -1
+  let validVersionFile = false
+  for (let cursor = start; cursor < end; cursor += 1) {
+    const versionFile = yamlValue(lines[cursor], 'bun-version-file')
+    if (versionFile !== null) {
+      versionFileLine = cursor
+      if (versionFile === 'package.json') validVersionFile = true
+    }
+    const version = yamlValue(lines[cursor], 'bun-version')
+    if (version !== null && /^\d/.test(version)) {
+      report(rel(path), cursor + 1, `numeric bun-version pin is forbidden: ${version}`)
+    }
+  }
+  if (!validVersionFile) {
+    const line = versionFileLine >= 0 ? versionFileLine + 1 : useIndex + 1
+    report(rel(path), line, 'setup-bun step must set bun-version-file: package.json')
+  }
+}
 
 function checkSetupBun(path: string): number {
   const lines = readFileSync(path, 'utf8').split(/\r?\n/)
@@ -136,24 +153,7 @@ function checkSetupBun(path: string): number {
     const clean = stripYamlComment(lines[index])
     if (!/^\s*(?:-\s*)?uses\s*:\s*["']?oven-sh\/setup-bun@/i.test(clean)) continue
     uses += 1
-    const [start, end] = stepBounds(lines, index)
-    let versionFileLine = -1
-    let validVersionFile = false
-    for (let cursor = start; cursor < end; cursor += 1) {
-      const versionFile = yamlValue(lines[cursor], 'bun-version-file')
-      if (versionFile !== null) {
-        versionFileLine = cursor
-        if (versionFile === 'package.json') validVersionFile = true
-      }
-      const version = yamlValue(lines[cursor], 'bun-version')
-      if (version !== null && /^\d/.test(version)) {
-        report(rel(path), cursor + 1, `numeric bun-version pin is forbidden: ${version}`)
-      }
-    }
-    if (!validVersionFile) {
-      const line = versionFileLine >= 0 ? versionFileLine + 1 : index + 1
-      report(rel(path), line, 'setup-bun step must set bun-version-file: package.json')
-    }
+    scanSetupBunStep(path, lines, index)
   }
   return uses
 }

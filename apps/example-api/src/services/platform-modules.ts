@@ -31,8 +31,8 @@ export async function ensurePlatformModules(db: Db): Promise<void> {
   }
 }
 
-export async function listPlatformPublic(db: Db) {
-  await ensurePlatformModules(db)
+export async function listPlatformPublic(db: Db, options?: { readOnly?: boolean }) {
+  if (!options?.readOnly) await ensurePlatformModules(db)
   const rows = await platformModulesRepo.listPlatformModules(db)
   const byId = new Map(rows.map((r) => [r.moduleId, r]))
   return Object.fromEntries(
@@ -64,8 +64,12 @@ export async function setPlatformAvailable(db: Db, moduleId: string, available: 
   await platformModulesRepo.setPlatformAvailable(db, moduleId, available, Date.now())
 }
 
-export async function getOrgModulesEffective(db: Db, organizationId: string) {
-  await ensurePlatformModules(db)
+export async function getOrgModulesEffective(
+  db: Db,
+  organizationId: string,
+  options?: { readOnly?: boolean },
+) {
+  if (!options?.readOnly) await ensurePlatformModules(db)
   const platform = await platformModulesRepo.listPlatformModules(db)
   const orgRows = await platformModulesRepo.listOrgModules(db, organizationId)
   const orgById = new Map(orgRows.map((r) => [r.moduleId, r]))
@@ -139,20 +143,4 @@ export async function isModuleEffective(
   if (!platform?.available) return false
   const org = await platformModulesRepo.getOrgModule(db, organizationId, moduleId)
   return Boolean(org?.enabled)
-}
-
-/** Platform config read/write for modules (masks secrets at route layer). */
-export async function getPlatformModuleConfigJson(db: Db, moduleId: KitModuleId) {
-  await ensurePlatformModules(db)
-  const row = await platformModulesRepo.getPlatformModule(db, moduleId)
-  return row?.configJson ?? null
-}
-
-export async function setPlatformModuleConfigJson(
-  db: Db,
-  moduleId: KitModuleId,
-  configJson: string,
-) {
-  await ensurePlatformModules(db)
-  await platformModulesRepo.setPlatformConfig(db, moduleId, configJson, Date.now())
 }

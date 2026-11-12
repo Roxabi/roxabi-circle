@@ -11,7 +11,7 @@ normative: false
 
 ## Summary
 
-Coordinate a **single ship unit**: bump Vitest **3→4** (+ `@vitest/coverage-v8` 4.x) across all kit workspaces, and Vite **6→8** + `@vitejs/plugin-react` **6.x** on `example-web` + `packages/ui`, with **one** `bun install`, dual-major assert, frozen coverage floors, green typecheck / test:coverage / build:kit, then dedicated PR + close Dependabot #4 before merge.
+Coordinate a **single ship unit**: bump Vitest **3→4** (+ `@vitest/coverage-v8` 4.x) across all kit workspaces, and Vite **6→8** + `@vitejs/plugin-react` **6.x** on `example-web` + `packages/ui`, with **one** `bun install`, dual-major assert, frozen coverage floors, green typecheck / test:coverage / build:kit, then dedicated PR + close Dependabot Roxabi/roxabi-boilerplate-cf#4 before merge.
 
 **Implement-time pins (re-verify at start):** vitest + coverage-v8 **`^4.1.10`** · vite **`^8.2.0`** · `@vitejs/plugin-react` **`^6.0.5`**.
 
@@ -21,7 +21,7 @@ Coordinate a **single ship unit**: bump Vitest **3→4** (+ `@vitest/coverage-v8
 
 **Diagram:** [wave 3 dep bump data flow](../visuals/21-vitest-4-vite-8-data-flow.html)
 
-Inventory → coordinated package.json pins → atomic lock → dual-major assert → optional config → gates → ship PR + close #4.
+Inventory → coordinated package.json pins → atomic lock → dual-major assert → optional config → gates → ship PR + close Roxabi/roxabi-boilerplate-cf#4.
 
 ### File x Function Map
 
@@ -55,7 +55,7 @@ Manifests (devops) + optional config touch (13 vitest + 2 vite + coverage helper
 | T3 dual-major assert | lock/pm | bounded | 2 | — |
 | T4 config if needed | 0–15 files | judgmental | 5 | — |
 | T5 gates | 3 cmds | bounded | 4 | — |
-| T6 #4 + PR prep | 2 | trivial | 2 | — |
+| T6 Roxabi/roxabi-boilerplate-cf#4 + PR prep | 2 | trivial | 2 | — |
 
 **Total estimated ops: ~20**
 
@@ -148,11 +148,11 @@ Manifests (devops) + optional config touch (13 vitest + 2 vite + coverage helper
 
 ### Slice V3: Ship prep
 
-#### Task 6: Dependabot #4 close plan + PR body material → devops-A
+#### Task 6: Dependabot Roxabi/roxabi-boilerplate-cf#4 close plan + PR body material → devops-A
 - **File:** inventory note + PR body material in note
-- **Snippet:** list pin versions; dual-major evidence; “close #4 before merge”; note floor freeze; one ship unit
+- **Snippet:** list pin versions; dual-major evidence; “close Roxabi/roxabi-boilerplate-cf#4 before merge”; note floor freeze; one ship unit
 - **Verify:** `gh pr view 4 --json state,number,title` (ready)
-- **Expected:** note documents #4 supersede; code ready for `/pr` (implement lands code commits only — do not open PR inside implement if process separates)
+- **Expected:** note documents Roxabi/roxabi-boilerplate-cf#4 supersede; code ready for `/pr` (implement lands code commits only — do not open PR inside implement if process separates)
 - **Time:** 5 min
 - **Difficulty:** 1
 - **Traces:** SC-9, SC-10

@@ -84,6 +84,12 @@ Inchangés dans l’esprit (récence ; keywords AI) mais **AI ne pèse que 10 %*
 | `apps/circle-api/scripts/collect-github-profiles.mjs` | GitHub → signals → `scoreProfile()` |
 | D1 config (futur) | threshold / floor / weights live |
 
+Run the collector from the repository root with
+`bun run --filter @roxabi/circle-api collect:github-profiles [login...]`; it calls GitHub
+and writes profile JSON under `docs/product/profiles/`. For Discord setup, use
+`bun run --filter @roxabi/circle-api discord:guild-setup`; see the
+[Discord setup runbook](../runbooks/discord-setup.md) before operating on a guild.
+
 ## Surface candidat
 
 DM : `total`, décision, cooldown, `#appeal` si besoin.  

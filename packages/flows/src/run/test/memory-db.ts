@@ -6,7 +6,20 @@
 import { readdirSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { createSqliteD1 } from '@kit/db/testing'
 import Database from 'better-sqlite3'
+import { onTestFinished } from 'vitest'
+
+function closeAfterTest(sqlite: Database.Database): () => void {
+  let closed = false
+  const close = () => {
+    if (closed) return
+    closed = true
+    sqlite.close()
+  }
+  onTestFinished(close)
+  return close
+}
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -20,55 +33,14 @@ function applyMigrations(sqlite: Database.Database) {
   }
 }
 
-function makeStatement(sqlite: Database.Database, sql: string) {
-  let binds: unknown[] = []
-  const stmt = {
-    bind(...args: unknown[]) {
-      binds = args
-      return stmt
-    },
-    async first<T>() {
-      return (sqlite.prepare(sql).get(...binds) as T | undefined) ?? null
-    },
-    async run() {
-      const info = sqlite.prepare(sql).run(...binds)
-      return {
-        success: true,
-        meta: { changes: info.changes, last_row_id: Number(info.lastInsertRowid) },
-      }
-    },
-    async all() {
-      return { results: sqlite.prepare(sql).all(...binds), success: true }
-    },
-    async raw() {
-      return sqlite
-        .prepare(sql)
-        .raw(true)
-        .all(...binds) as unknown[][]
-    },
-  }
-  return stmt
-}
+type MemoryDb = D1Database & { close(): void }
 
-export function createMemoryDb() {
+export function createMemoryDb(): MemoryDb {
   const sqlite = new Database(':memory:')
+  const close = closeAfterTest(sqlite)
   sqlite.pragma('foreign_keys = ON')
   applyMigrations(sqlite)
-  return {
-    prepare(sql: string) {
-      return makeStatement(sqlite, sql)
-    },
-    async batch(statements: { all?: () => Promise<unknown>; run?: () => Promise<unknown> }[]) {
-      const out = []
-      for (const s of statements) {
-        if (typeof s.all === 'function') out.push(await s.all())
-        else if (typeof s.run === 'function') out.push(await s.run())
-      }
-      return out
-    },
-    async exec(query: string) {
-      sqlite.exec(query)
-      return { count: 1, duration: 0 }
-    },
-  } as unknown as D1Database
+  return Object.assign(createSqliteD1(sqlite), {
+    close,
+  }) as unknown as MemoryDb
 }

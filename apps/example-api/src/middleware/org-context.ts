@@ -1,4 +1,4 @@
-import type { OrgRoleKey } from '@kit/auth'
+import type { OrgCapability } from '@kit/auth'
 import { createOrgMiddleware, type OrgContextOpts, type OrgMiddlewareEnv } from '@kit/auth/hono'
 import type { MiddlewareHandler } from 'hono'
 import type { KitDb } from '../lib/db-type'
@@ -10,12 +10,7 @@ import * as platformModulesService from '../services/platform-modules'
 import type { AppEnv } from '../types'
 
 const orgMiddleware = createOrgMiddleware({
-  findOrgById: (db, orgId) => orgsRepo.findOrgById(db as KitDb, orgId),
-  findMembership: async (db, orgId, subject) => {
-    const membership = await orgsRepo.findMembership(db as KitDb, orgId, subject)
-    if (!membership) return null
-    return { role: membership.role as OrgRoleKey }
-  },
+  findOrgContext: (db, orgId, subject) => orgsRepo.findOrgContext(db as KitDb, orgId, subject),
   getPlatformRole: (db, subject) => platformRolesRepo.getPlatformRole(db as KitDb, subject),
   resolveModuleAccess: (db, input) => orgRolesService.resolveModuleAccess(db as KitDb, input),
   isModuleEffective: (db, orgId, moduleId) =>
@@ -32,13 +27,7 @@ export function requireOrgContext(opts: OrgContextOpts = {}): MiddlewareHandler<
   return asAppMiddleware(orgMiddleware.requireOrgContext(opts))
 }
 
-export function requireOrgRole(min: OrgRoleKey): MiddlewareHandler<AppEnv> {
-  return asAppMiddleware(orgMiddleware.requireOrgRole(min))
-}
-
-export function requireOrgCapability(
-  capability: 'read' | 'write' | 'manage_members' | 'manage_modules' | 'delete_org',
-): MiddlewareHandler<AppEnv> {
+export function requireOrgCapability(capability: OrgCapability): MiddlewareHandler<AppEnv> {
   return asAppMiddleware(orgMiddleware.requireOrgCapability(capability))
 }
 
@@ -52,5 +41,13 @@ export function requireModule(
   moduleId: KitModuleId,
   op: 'read' | 'write' = 'read',
 ): MiddlewareHandler<AppEnv> {
-  return asAppMiddleware(orgMiddleware.requireModule(moduleId, op))
+  const normal = asAppMiddleware(orgMiddleware.requireModule(moduleId, op))
+  return async (c, next) => {
+    // The global delegation gate has already checked live grants without seeding rows.
+    if (c.get('impersonationRow')) {
+      await next()
+      return
+    }
+    await normal(c, next)
+  }
 }

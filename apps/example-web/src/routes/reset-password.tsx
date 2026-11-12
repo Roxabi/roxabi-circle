@@ -5,7 +5,7 @@ import { GalleryVerticalEnd } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { apiErrorToMessage, apiFetch } from '../lib/api'
-import { defaultHomePath, type MeResponse } from '../lib/auth'
+import { defaultHomePath, fetchMe } from '../lib/auth'
 import { useLocale } from '../lib/locale'
 import { safePostAuthPath } from '../lib/safe-return-path'
 
@@ -48,7 +48,7 @@ export function ResetPasswordPage() {
       return
     }
     try {
-      const me = await apiFetch<MeResponse>('/api/me')
+      const me = await fetchMe()
       const home = preferred === '/app' || preferred === '/admin' ? preferred : defaultHomePath(me)
       await navigate({ to: home })
     } catch {

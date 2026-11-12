@@ -1,8 +1,6 @@
 # Copy to .dev.vars (gitignored). Placeholders only — never commit real secrets.
 # ENVIRONMENT must be set for local secret fallbacks / demo seed (not in wrangler [vars]).
 ENVIRONMENT=development
-# HMAC leftover — unused on the BA session path (env:check still inventories the Zod key).
-SESSION_SECRET=dev-session-secret-change-me-32chars!!
 # Better Auth (live session stack — ADR-0002 BA-only; min 32 chars; no kit placeholders in prod)
 BETTER_AUTH_SECRET=dev-better-auth-secret-change-me-32c!!
 BETTER_AUTH_URL=http://localhost:8787
@@ -27,4 +25,9 @@ EMAIL_TRANSPORT=log
 # EMAIL_FROM_DOMAIN=example.com
 # RESEND_API_KEY=   # only when EMAIL_TRANSPORT=resend
 # Integrations (optional modules) → D1 platform_modules.config_json — configure in admin UI.
+# Flows infer model allowlist (ADR-0005 D2). Comma-separated ids. Unset = empty = infer plans fail check.
+FLOW_ALLOWED_MODELS=kit-infer
+# Maintenance retention in days: positive integers; defaults are 90 and 30 respectively.
+# NOTIFICATIONS_RETENTION_DAYS=90
+# NOTIFICATION_DELIVERIES_RETENTION_DAYS=30
 PRESIGN_MODE=mock

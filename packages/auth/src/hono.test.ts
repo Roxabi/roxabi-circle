@@ -1,11 +1,33 @@
 import { Hono } from 'hono'
+import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import { describe, expect, it, vi } from 'vitest'
-import { createOrgMiddleware, type OrgContextPorts, type OrgMiddlewareEnv } from './hono'
+import {
+  createOrgMiddleware,
+  MODULE_DENIAL,
+  type OrgContextPorts,
+  type OrgMiddlewareEnv,
+} from './hono'
+
+/**
+ * `AppError.status` is a plain number the middleware throws; Hono's `c.json` wants a
+ * contentful status. Shared by the two test apps so both answer the same status.
+ */
+function errorStatus(err: unknown): ContentfulStatusCode {
+  if (!err || typeof err !== 'object' || !('status' in err) || typeof err.status !== 'number') {
+    return 500
+  }
+  // AppError carries an HTTP status as a plain number; Hono types it as a union.
+  const status = err.status as ContentfulStatusCode
+  return status
+}
 
 function ports(overrides: Partial<OrgContextPorts> = {}): OrgContextPorts {
   return {
-    findOrgById: vi.fn(async () => ({ status: 'active' })),
-    findMembership: vi.fn(async () => ({ role: 'member' as const })),
+    findOrgContext: vi.fn(async () => ({
+      status: 'active',
+      membershipRole: 'member',
+      platformRole: null,
+    })),
     getPlatformRole: vi.fn(async () => null),
     resolveModuleAccess: vi.fn(async () => true),
     isModuleEffective: vi.fn(async () => true),
@@ -49,13 +71,9 @@ function appWith(
   app.get('/orgs/:orgId/mod', mw.requireOrgContext(), mw.requireModule('flows'), (c) =>
     c.json({ ok: true }),
   )
-  app.onError((err, c) => {
-    const status =
-      typeof (err as { status?: number }).status === 'number'
-        ? (err as { status: number }).status
-        : 500
-    return c.json({ message: err instanceof Error ? err.message : 'error' }, status)
-  })
+  app.onError((err, c) =>
+    c.json({ message: err instanceof Error ? err.message : 'error' }, errorStatus(err)),
+  )
   return app
 }
 
@@ -83,10 +101,9 @@ describe('createOrgMiddleware', () => {
       await next()
     })
     app.get('/x', mw.requireOrgContext(), (c) => c.json({ ok: true }))
-    app.onError((err, c) => {
-      const status = (err as { status?: number }).status ?? 500
-      return c.json({ message: (err as Error).message }, status)
-    })
+    app.onError((err, c) =>
+      c.json({ message: err instanceof Error ? err.message : 'error' }, errorStatus(err)),
+    )
     expect((await app.request('/x')).status).toBe(400)
   })
 
@@ -126,7 +143,15 @@ describe('createOrgMiddleware', () => {
 
   it('rejects inactive org', async () => {
     const app = appWith(
-      createOrgMiddleware(ports({ findOrgById: async () => ({ status: 'suspended' }) })),
+      createOrgMiddleware(
+        ports({
+          findOrgContext: async () => ({
+            status: 'suspended',
+            membershipRole: 'member',
+            platformRole: null,
+          }),
+        }),
+      ),
       (c) => {
         c.set('subject', 'user-1')
       },
@@ -135,40 +160,32 @@ describe('createOrgMiddleware', () => {
   })
 
   it('hides missing membership as 404', async () => {
-    const app = appWith(createOrgMiddleware(ports({ findMembership: async () => null })), (c) => {
-      c.set('subject', 'user-1')
-    })
+    const app = appWith(
+      createOrgMiddleware(
+        ports({
+          findOrgContext: async () => ({
+            status: 'suspended',
+            membershipRole: null,
+            platformRole: null,
+          }),
+        }),
+      ),
+      (c) => {
+        c.set('subject', 'user-1')
+      },
+    )
     expect((await app.request('/orgs/org-a/ping')).status).toBe(404)
-  })
-
-  it('allows super_admin read bypass', async () => {
-    const mw = createOrgMiddleware(
-      ports({
-        findMembership: async () => null,
-        getPlatformRole: async () => 'super_admin',
-      }),
-    )
-    const app = new Hono<OrgMiddlewareEnv>()
-    app.use(async (c, next) => {
-      c.set('db', {})
-      c.set('subject', 'root')
-      await next()
-    })
-    app.get('/x', mw.requireOrgContext({ allowSuperAdmin: true }), (c) =>
-      c.json({ bypass: c.get('orgBypass') }),
-    )
-    app.onError((err, c) => c.json({ message: (err as Error).message }, 500))
-    const res = await app.request('/x', { headers: { 'x-org-id': 'org-a' } })
-    expect(res.status).toBe(200)
-    expect(await res.json()).toEqual({ bypass: true })
   })
 
   it('blocks super_admin write without break-glass', async () => {
     const app = appWith(
       createOrgMiddleware(
         ports({
-          findMembership: async () => null,
-          getPlatformRole: async () => 'super_admin',
+          findOrgContext: async () => ({
+            status: 'active',
+            membershipRole: null,
+            platformRole: 'super_admin',
+          }),
         }),
       ),
       (c) => {
@@ -185,7 +202,15 @@ describe('createOrgMiddleware', () => {
     expect((await member.request('/orgs/org-a/admin')).status).toBe(403)
 
     const admin = appWith(
-      createOrgMiddleware(ports({ findMembership: async () => ({ role: 'admin' as const }) })),
+      createOrgMiddleware(
+        ports({
+          findOrgContext: async () => ({
+            status: 'active',
+            membershipRole: 'admin',
+            platformRole: null,
+          }),
+        }),
+      ),
       (c) => {
         c.set('subject', 'user-1')
       },
@@ -197,8 +222,11 @@ describe('createOrgMiddleware', () => {
     const app = appWith(
       createOrgMiddleware(
         ports({
-          findMembership: async () => null,
-          getPlatformRole: async () => 'super_admin',
+          findOrgContext: async () => ({
+            status: 'active',
+            membershipRole: null,
+            platformRole: 'super_admin',
+          }),
         }),
       ),
       (c) => {
@@ -221,6 +249,13 @@ describe('createOrgMiddleware', () => {
       },
     )
     expect((await allowed.request('/staff')).status).toBe(200)
+  })
+
+  it('MODULE_DENIAL pins the shared denial literals', () => {
+    expect(MODULE_DENIAL).toEqual({
+      notAvailable: 'Module not available',
+      insufficientGrant: 'Insufficient module grant',
+    })
   })
 
   it('requireModule distinguishes missing module vs missing grant', async () => {

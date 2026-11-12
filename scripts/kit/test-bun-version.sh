@@ -5,13 +5,15 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd -P)"
 SCANNER="${ROOT}/scripts/kit/check-bun-version.ts"
 [[ -f "$SCANNER" ]] || { echo "FAIL: missing $SCANNER" >&2; exit 1; }
+# GATE: the package.json launch flags of this scanner.
+source "${ROOT}/scripts/kit/lib/gate-launch.sh"
 
 PASS=0
 FAIL=0
 assert_case() {
   local name="$1" expected="$2" tree="$3" marker="$4"
   local output rc=0
-  output="$(BUN_VERSION_ROOT="$tree" bun "$SCANNER" 2>&1)" || rc=$?
+  output="$(BUN_VERSION_ROOT="$tree" bun "${GATE[@]}" "$SCANNER" 2>&1)" || rc=$?
   if [[ "$rc" -eq "$expected" ]] && [[ "$output" == *"$marker"* ]]; then
     echo "PASS: $name"
     PASS=$((PASS + 1))
@@ -24,7 +26,7 @@ assert_case() {
 
 write_base() {
   local tree="$1"
-  mkdir -p "$tree/.claude" "$tree/.github/workflows" "$tree/docs/kit/templates"
+  mkdir -p "$tree/.dev" "$tree/.github/workflows" "$tree/docs/kit/templates"
   cat >"$tree/package.json" <<'EOF'
 {
   "name": "fixture",
@@ -32,7 +34,7 @@ write_base() {
   "packageManager": "bun@1.3.14"
 }
 EOF
-  cat >"$tree/.claude/stack.yml" <<'EOF'
+  cat >"$tree/.dev/stack.yml" <<'EOF'
 schema_version: "1.0"
 runtime: bun
 package_manager: bun
@@ -70,7 +72,7 @@ assert_case "package.json version file is the only SSoT" 0 "$BASE" "check-bun-ve
 
 DUPLICATE="$TMP/duplicate"
 cp -R "$BASE" "$DUPLICATE"
-printf 'bun_version: "1.3.14"\n' >>"$DUPLICATE/.claude/stack.yml"
+printf 'bun_version: "1.3.14"\n' >>"$DUPLICATE/.dev/stack.yml"
 assert_case "duplicated stack version" 1 "$DUPLICATE" "bun_version is forbidden"
 
 PINNED="$TMP/pinned-workflow"
@@ -85,6 +87,9 @@ jobs:
           bun-version: 1.3.14
 EOF
 assert_case "numeric workflow pin" 1 "$PINNED" "numeric bun-version pin is forbidden: 1.3.14"
+
+# A cwd .env or bunfig preload re-points the root unless the package.json flags close it.
+assert_gate_launch BUN_VERSION_ROOT "$DUPLICATE" "bun_version is forbidden"
 
 echo "== Bun version summary: $PASS pass, $FAIL fail =="
 [[ "$FAIL" -eq 0 ]]

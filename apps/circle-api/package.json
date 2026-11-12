@@ -9,13 +9,15 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "collect:github-profiles": "bun scripts/collect-github-profiles.mjs",
+    "discord:guild-setup": "bun scripts/discord-guild-setup.mjs"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20250620.0",
-    "@kit/config": "workspace:*",
+    "@vitest/coverage-v8": "3.2.7",
     "typescript": "^7.0.2",
     "vitest": "^3.2.4",
-    "wrangler": "^4.20.0"
+    "wrangler": "4.127.1"
   }
 }

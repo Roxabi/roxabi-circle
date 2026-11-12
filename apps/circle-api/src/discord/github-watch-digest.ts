@@ -91,11 +91,11 @@ export function normalizeGithubRepoUrl(input: string): string | null {
     if (parts.length !== 2) return null
     const owner = parts[0]
     let repo = parts[1]
-    if (!owner || !repo) return null
+    if (!(owner && repo)) return null
     if (repo.toLowerCase().endsWith('.git')) repo = repo.slice(0, -4)
     if (!repo || repo === '.' || repo === '..') return null
     if (RESERVED_OWNERS.has(owner.toLowerCase())) return null
-    if (!OWNER_RE.test(owner) || !REPO_RE.test(repo)) return null
+    if (!(OWNER_RE.test(owner) && REPO_RE.test(repo))) return null
     return `https://github.com/${owner}/${repo}`
   } catch {
     return null
@@ -109,6 +109,13 @@ export function extractGithubRepoUrl(content: string | null | undefined): string
     const repo = normalizeGithubRepoUrl(raw.replace(/[.,);]+$/g, ''))
     if (repo) return repo
   }
+  return null
+}
+
+function ignoredAuthorReason(msg: GatewayMessage, botUserId?: string): string | null {
+  if (msg.webhook_id) return 'webhook'
+  if (msg.author?.bot) return 'bot'
+  if (botUserId && msg.author?.id === botUserId) return 'self'
   return null
 }
 
@@ -133,11 +140,8 @@ export function planGithubWatchDigestForward(input: {
   if (input.configuredGuildId && guildId !== input.configuredGuildId) {
     return { type: 'ignore', reason: 'other_guild' }
   }
-  if (msg.webhook_id) return { type: 'ignore', reason: 'webhook' }
-  if (msg.author?.bot) return { type: 'ignore', reason: 'bot' }
-  if (input.botUserId && msg.author?.id === input.botUserId) {
-    return { type: 'ignore', reason: 'self' }
-  }
+  const authorReason = ignoredAuthorReason(msg, input.botUserId)
+  if (authorReason) return { type: 'ignore', reason: authorReason }
   if (!msg.author?.id) return { type: 'ignore', reason: 'no_author' }
 
   const url = extractGithubRepoUrl(msg.content)
@@ -194,7 +198,7 @@ async function runGithubWatchDigestForward(
 ): Promise<void> {
   const webhookUrl = runtime.webhookUrl?.trim() ?? ''
   const webhookSecret = runtime.webhookSecret?.trim() ?? ''
-  if (!webhookUrl || !webhookSecret) return
+  if (!(webhookUrl && webhookSecret)) return
 
   const action = planGithubWatchDigestForward({
     msg,

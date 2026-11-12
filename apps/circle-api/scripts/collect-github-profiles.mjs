@@ -12,9 +12,9 @@ import { execFileSync } from 'node:child_process'
  */
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { scoreProfile } from '../apps/circle-api/src/scoring/score.ts'
+import { scoreProfile } from '../src/scoring/score.ts'
 
-const ROOT = resolve(import.meta.dir, '..')
+const ROOT = resolve(import.meta.dir, '../../..')
 const OUT = resolve(ROOT, 'docs/product/profiles')
 const USERS = process.argv.slice(2).length
   ? process.argv.slice(2)
@@ -27,16 +27,23 @@ const VOLUME_FALLBACK_CAP = 50_000
 const COLLECTOR_VERSION = '0.4.0-specialty'
 
 /** Profile / meta repos that are not technical craft */
+function isProfileDescription(r, desc) {
+  return (
+    /^profile (readme|repository)/i.test(r.description || '') ||
+    desc.includes('profile readme') ||
+    desc.includes('github profile')
+  )
+}
+
 function isDocOrProfileRepo(r, login) {
   const name = (r.name || '').toLowerCase()
-  const full = (r.full_name || '').toLowerCase()
+  ;(r.full_name || '').toLowerCase()
   const desc = (r.description || '').toLowerCase()
   if (name === login.toLowerCase()) return true
   if (name === '.github') return true
   if (name.endsWith('.github.io') && (r.size || 0) < 500) return true
   if (/profile|readme|portfolio|cv-resume|awesome-list/.test(name)) return true
-  if (/^profile (readme|repository)/i.test(r.description || '')) return true
-  if (desc.includes('profile readme') || desc.includes('github profile')) return true
+  if (isProfileDescription(r, desc)) return true
   // empty-ish
   if ((r.size || 0) < 5 && !r.language) return true
   return false
@@ -112,16 +119,35 @@ function keywordAffinity(texts, topics = []) {
   return Math.min(1, hits / 6)
 }
 
-function clamp01(x) {
-  return Math.max(0, Math.min(1, x))
-}
-function logNorm(v, ref) {
-  if (v <= 0) return 0
-  return clamp01(Math.log1p(v) / Math.log1p(ref))
-}
-
 function sleep(ms) {
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms)
+}
+
+function parseArrayPages(text) {
+  const chunks = []
+  let depth = 0
+  let start = -1
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] === '[') {
+      if (depth === 0) start = i
+      depth++
+    } else if (text[i] === ']') {
+      depth--
+      if (depth === 0 && start >= 0) {
+        chunks.push(JSON.parse(text.slice(start, i + 1)))
+        start = -1
+      }
+    }
+  }
+  return chunks.flat()
+}
+
+function parsePaginatedArrays(text) {
+  try {
+    return JSON.parse(text)
+  } catch {
+    return parseArrayPages(text)
+  }
 }
 
 function gh(path, { allowFail = false } = {}) {
@@ -133,28 +159,7 @@ function gh(path, { allowFail = false } = {}) {
     })
     const t = out.trim()
     if (!t) return null
-    if (t.startsWith('[')) {
-      try {
-        return JSON.parse(t)
-      } catch {
-        const chunks = []
-        let depth = 0
-        let start = -1
-        for (let i = 0; i < t.length; i++) {
-          if (t[i] === '[') {
-            if (depth === 0) start = i
-            depth++
-          } else if (t[i] === ']') {
-            depth--
-            if (depth === 0 && start >= 0) {
-              chunks.push(JSON.parse(t.slice(start, i + 1)))
-              start = -1
-            }
-          }
-        }
-        return chunks.flat()
-      }
-    }
+    if (t.startsWith('[')) return parsePaginatedArrays(t)
     return JSON.parse(t)
   } catch (e) {
     if (allowFail) return null
@@ -208,31 +213,7 @@ function extractAtHandles(...texts) {
   return set
 }
 
-function collect(login) {
-  console.error(`\n=== collecting ${login} (${COLLECTOR_VERSION}) ===`)
-  const user = gh(`users/${login}`)
-  const accountAgeDays = Math.floor((Date.now() - new Date(user.created_at).getTime()) / 86400000)
-
-  // --- owned personal repos ---
-  let ownedRepos = gh(`users/${login}/repos?type=owner&per_page=100&sort=pushed`) || []
-  if (!Array.isArray(ownedRepos)) ownedRepos = []
-  const owned = ownedRepos.filter((r) => !r.fork)
-  const technicalOwned = owned.filter((r) => !isDocOrProfileRepo(r, login))
-  const docOnlyOwned = owned.filter((r) => isDocOrProfileRepo(r, login))
-  console.error(
-    `  owned=${owned.length} technical=${technicalOwned.length} doc/profile=${docOnlyOwned.length}`,
-  )
-
-  let memberRepos = gh(`users/${login}/repos?type=member&per_page=100`, {
-    allowFail: true,
-  })
-  if (!Array.isArray(memberRepos)) memberRepos = []
-
-  // --- public events (rich org signal) ---
-  let events = gh(`users/${login}/events/public?per_page=100`, { allowFail: true })
-  if (!Array.isArray(events)) events = []
-  // second page-ish: paginate already in gh --paginate
-
+function collectEventRepos(events, login) {
   /** @type {Map<string, { full_name: string, pushes: number, prs: number, lastAt: string }>} */
   const eventRepos = new Map()
   /** @type {Set<string>} */
@@ -240,7 +221,8 @@ function collect(login) {
 
   for (const e of events) {
     const full = e.repo?.name // owner/repo
-    if (!full || !full.includes('/')) continue
+    if (!full) continue
+    if (!full.includes('/')) continue
     const [owner] = full.split('/')
     if (owner.toLowerCase() !== login.toLowerCase()) {
       eventOrgs.add(owner)
@@ -256,8 +238,26 @@ function collect(login) {
     if (new Date(e.created_at) > new Date(cur.lastAt)) cur.lastAt = e.created_at
     eventRepos.set(full, cur)
   }
+  return { eventRepos, eventOrgs }
+}
 
-  // --- orgs (strict): public memberships + verified @Org + event orgs with enough pushes ---
+function addVerifiedOrganizations(login, user, pushesByOwner, verifiedOrgs) {
+  // 2) company/bio @handles — only real Organizations
+  for (const h of extractAtHandles(user.company, user.bio, user.blog)) {
+    if (h.toLowerCase() === login.toLowerCase()) continue
+    const org = gh(`orgs/${h}`, { allowFail: true })
+    if (org?.login && org.type !== 'User') verifiedOrgs.add(org.login)
+  }
+
+  // 3) event owners — must be Organization + enough pushes (anti noise: openai, random users)
+  for (const [owner, pushes] of pushesByOwner) {
+    if (pushes < MIN_ORG_PUSHES) continue
+    const org = gh(`orgs/${owner}`, { allowFail: true })
+    if (org?.login && org.type !== 'User') verifiedOrgs.add(org.login)
+  }
+}
+
+function collectOrganizations(login, user, eventRepos, eventOrgs) {
   /** @type {Map<string, number>} owner -> push count from events */
   const pushesByOwner = new Map()
   for (const [full, meta] of eventRepos) {
@@ -275,19 +275,7 @@ function collect(login) {
     for (const o of publicOrgs) if (o.login) verifiedOrgs.add(o.login)
   }
 
-  // 2) company/bio @handles — only real Organizations
-  for (const h of extractAtHandles(user.company, user.bio, user.blog)) {
-    if (h.toLowerCase() === login.toLowerCase()) continue
-    const org = gh(`orgs/${h}`, { allowFail: true })
-    if (org?.login && org.type !== 'User') verifiedOrgs.add(org.login)
-  }
-
-  // 3) event owners — must be Organization + enough pushes (anti noise: openai, random users)
-  for (const [owner, pushes] of pushesByOwner) {
-    if (pushes < MIN_ORG_PUSHES) continue
-    const org = gh(`orgs/${owner}`, { allowFail: true })
-    if (org?.login && org.type !== 'User') verifiedOrgs.add(org.login)
-  }
+  addVerifiedOrganizations(login, user, pushesByOwner, verifiedOrgs)
 
   const verifiedOrgList = [...verifiedOrgs]
   const publicOrgCount = verifiedOrgList.length
@@ -301,8 +289,10 @@ function collect(login) {
   console.error(
     `  orgs=[${verifiedOrgList.join(',')}] orgPushEvents=${orgPushEvents} eventOwners=${[...eventOrgs].join(',')}`,
   )
+  return { pushesByOwner, verifiedOrgs, verifiedOrgList, publicOrgCount, orgPushEvents }
+}
 
-  // --- external merged PRs (author, repo not owned by user) ---
+function collectExternalPullRequests(login) {
   let externalMergedPrs = 0
   let externalPrSample = []
   try {
@@ -321,15 +311,13 @@ function collect(login) {
     // if total_count higher, scale conservatively from sample ratio
     const total = search?.total_count || 0
     if (total > items.length && items.length > 0) {
-      const ratio =
-        externalMergedPrs /
-        Math.max(
-          1,
-          items.filter((it) => {
-            const m = String(it.repository_url || '').match(/repos\/([^/]+)\//)
-            return m
-          }).length,
-        )
+      Math.max(
+        1,
+        items.filter((it) => {
+          const m = String(it.repository_url || '').match(/repos\/([^/]+)\//)
+          return m
+        }).length,
+      )
       // recount all as external if sample all external
       const sampleExt = externalMergedPrs
       const sampleN = items.length
@@ -338,8 +326,10 @@ function collect(login) {
   } catch {
     externalMergedPrs = 0
   }
+  return { externalMergedPrs, externalPrSample }
+}
 
-  // collab: member repos not owned + unique non-owned repos from events
+function collectCollaborations(login, memberRepos, eventRepos) {
   const collabNames = new Set()
   for (const r of memberRepos) {
     if (r.owner?.login && r.owner.login.toLowerCase() !== login.toLowerCase() && !r.fork) {
@@ -353,8 +343,19 @@ function collect(login) {
     }
   }
   const collabReposCount = collabNames.size
+  return { collabNames, collabReposCount }
+}
 
-  // --- sample repos for deep scan: owned + top event repos on *verified* orgs only ---
+function padOwnedSample(ownedSample, owned) {
+  if (ownedSample.length >= 4) return
+  for (const r of [...owned].sort((a, b) => new Date(b.pushed_at) - new Date(a.pushed_at))) {
+    if (ownedSample.some((x) => x.full_name === r.full_name)) continue
+    ownedSample.push(r)
+    if (ownedSample.length >= 8) break
+  }
+}
+
+function collectSampleRepos(owned, technicalOwned, eventRepos, verifiedOrgs) {
   const orgEventRepos = [...eventRepos.values()]
     .filter((r) => {
       const [owner] = r.full_name.split('/')
@@ -368,13 +369,7 @@ function collect(login) {
     .sort((a, b) => new Date(b.pushed_at) - new Date(a.pushed_at))
     .slice(0, 8)
   // if few technical, pad with remaining owned (still non-fork)
-  if (ownedSample.length < 4) {
-    for (const r of [...owned].sort((a, b) => new Date(b.pushed_at) - new Date(a.pushed_at))) {
-      if (ownedSample.some((x) => x.full_name === r.full_name)) continue
-      ownedSample.push(r)
-      if (ownedSample.length >= 8) break
-    }
-  }
+  padOwnedSample(ownedSample, owned)
 
   /** @type {{ full_name: string, stars?: number, pushed_at?: string, topics?: string[], description?: string|null, source: string }[]} */
   const sampleMeta = []
@@ -407,12 +402,61 @@ function collect(login) {
       eventPrs: er.prs,
     })
   }
+  return sampleMeta
+}
 
-  // stars: owned non-fork only (never inflate with popular org repos)
-  const totalStars = owned.reduce((s, r) => s + (r.stargazers_count || 0), 0)
+function collectContributorVolume(r, user, login, volume) {
+  for (let attempt = 0; attempt < 4; attempt++) {
+    try {
+      const stats = gh(`repos/${r.full_name}/stats/contributors`, {
+        allowFail: true,
+      })
+      if (Array.isArray(stats) && stats.length > 0) {
+        const me = stats.find((c) => c.author?.id === user.id || c.author?.login === login)
+        if (me?.weeks) {
+          for (const w of me.weeks) {
+            volume.totalAdditions += w.a || 0
+            volume.totalDeletions += w.d || 0
+          }
+        }
+        break
+      }
+      sleep(900)
+    } catch {
+      sleep(600)
+    }
+  }
+}
 
-  let totalAdditions = 0
-  let totalDeletions = 0
+function collectRepoStructure(r, structureScores, texts) {
+  try {
+    const branch = r.default_branch || 'main'
+    const ref = gh(`repos/${r.full_name}/git/ref/heads/${encodeURIComponent(branch)}`, {
+      allowFail: true,
+    })
+    const sha = ref?.object?.sha
+    if (sha) {
+      const tree = gh(`repos/${r.full_name}/git/trees/${sha}?recursive=1`, {
+        allowFail: true,
+      })
+      const paths = (tree?.tree || [])
+        .filter((t) => t.type === 'blob')
+        .map((t) => t.path)
+        .slice(0, 3000)
+      structureScores.push(structureFromTree(paths))
+      for (const p of paths.slice(0, 400)) {
+        if (/prompts?\/|agents?\/|mcp\/|\.ipynb$/i.test(p)) texts.push(p)
+      }
+    } else {
+      structureScores.push(0.25)
+    }
+  } catch {
+    structureScores.push(0.25)
+  }
+}
+
+function scanSampleRepos(sampleMeta, user, login) {
+  const volume = { totalAdditions: 0, totalDeletions: 0 }
   const structureScores = []
   const texts = []
   const topicsAll = []
@@ -421,51 +465,9 @@ function collect(login) {
     texts.push(r.full_name, r.description || '')
     topicsAll.push(...(r.topics || []))
 
-    for (let attempt = 0; attempt < 4; attempt++) {
-      try {
-        const stats = gh(`repos/${r.full_name}/stats/contributors`, {
-          allowFail: true,
-        })
-        if (Array.isArray(stats) && stats.length > 0) {
-          const me = stats.find((c) => c.author?.id === user.id || c.author?.login === login)
-          if (me?.weeks) {
-            for (const w of me.weeks) {
-              totalAdditions += w.a || 0
-              totalDeletions += w.d || 0
-            }
-          }
-          break
-        }
-        sleep(900)
-      } catch {
-        sleep(600)
-      }
-    }
+    collectContributorVolume(r, user, login, volume)
 
-    try {
-      const branch = r.default_branch || 'main'
-      const ref = gh(`repos/${r.full_name}/git/ref/heads/${encodeURIComponent(branch)}`, {
-        allowFail: true,
-      })
-      const sha = ref?.object?.sha
-      if (sha) {
-        const tree = gh(`repos/${r.full_name}/git/trees/${sha}?recursive=1`, {
-          allowFail: true,
-        })
-        const paths = (tree?.tree || [])
-          .filter((t) => t.type === 'blob')
-          .map((t) => t.path)
-          .slice(0, 3000)
-        structureScores.push(structureFromTree(paths))
-        for (const p of paths.slice(0, 400)) {
-          if (/prompts?\/|agents?\/|mcp\/|\.ipynb$/i.test(p)) texts.push(p)
-        }
-      } else {
-        structureScores.push(0.25)
-      }
-    } catch {
-      structureScores.push(0.25)
-    }
+    collectRepoStructure(r, structureScores, texts)
 
     try {
       const langs = gh(`repos/${r.full_name}/languages`, { allowFail: true })
@@ -476,15 +478,29 @@ function collect(login) {
   }
 
   let volumeFallbackUsed = false
-  if (totalAdditions === 0) {
+  if (volume.totalAdditions === 0) {
     const sizeSum = sampleMeta.reduce((s, r) => s + (r.size || 0), 0)
-    totalAdditions = Math.min(VOLUME_FALLBACK_CAP, Math.round(sizeSum * 8))
+    volume.totalAdditions = Math.min(VOLUME_FALLBACK_CAP, Math.round(sizeSum * 8))
     volumeFallbackUsed = true
     console.error(
-      `  volume fallback from repo sizes → additions≈${totalAdditions} (cap ${VOLUME_FALLBACK_CAP})`,
+      `  volume fallback from repo sizes → additions≈${volume.totalAdditions} (cap ${VOLUME_FALLBACK_CAP})`,
     )
   }
+  return { ...volume, structureScores, texts, topicsAll, volumeFallbackUsed }
+}
 
+function addPushedMonths(repos, cutoff12, months) {
+  for (const r of repos) {
+    if (!r.pushed_at) continue
+    const t = new Date(r.pushed_at).getTime()
+    if (t >= cutoff12) {
+      const d = new Date(r.pushed_at)
+      months.add(`${d.getUTCFullYear()}-${d.getUTCMonth()}`)
+    }
+  }
+}
+
+function collectActivity(events, owned, sampleMeta) {
   const cutoff90 = Date.now() - 90 * 86400000
   const publicEvents90d = events.filter((e) => new Date(e.created_at).getTime() >= cutoff90).length
 
@@ -497,22 +513,8 @@ function collect(login) {
       months.add(`${d.getUTCFullYear()}-${d.getUTCMonth()}`)
     }
   }
-  for (const r of owned) {
-    if (!r.pushed_at) continue
-    const t = new Date(r.pushed_at).getTime()
-    if (t >= cutoff12) {
-      const d = new Date(r.pushed_at)
-      months.add(`${d.getUTCFullYear()}-${d.getUTCMonth()}`)
-    }
-  }
-  for (const r of sampleMeta) {
-    if (!r.pushed_at) continue
-    const t = new Date(r.pushed_at).getTime()
-    if (t >= cutoff12) {
-      const d = new Date(r.pushed_at)
-      months.add(`${d.getUTCFullYear()}-${d.getUTCMonth()}`)
-    }
-  }
+  addPushedMonths(owned, cutoff12, months)
+  addPushedMonths(sampleMeta, cutoff12, months)
 
   let lastPushDays = null
   for (const r of [...owned, ...sampleMeta]) {
@@ -520,6 +522,56 @@ function collect(login) {
     if (d === null) continue
     if (lastPushDays === null || d < lastPushDays) lastPushDays = d
   }
+  return { publicEvents90d, months, lastPushDays }
+}
+
+function collect(login) {
+  console.error(`\n=== collecting ${login} (${COLLECTOR_VERSION}) ===`)
+  const user = gh(`users/${login}`)
+  const accountAgeDays = Math.floor((Date.now() - new Date(user.created_at).getTime()) / 86400000)
+
+  // --- owned personal repos ---
+  let ownedRepos = gh(`users/${login}/repos?type=owner&per_page=100&sort=pushed`) || []
+  if (!Array.isArray(ownedRepos)) ownedRepos = []
+  const owned = ownedRepos.filter((r) => !r.fork)
+  const technicalOwned = owned.filter((r) => !isDocOrProfileRepo(r, login))
+  const docOnlyOwned = owned.filter((r) => isDocOrProfileRepo(r, login))
+  console.error(
+    `  owned=${owned.length} technical=${technicalOwned.length} doc/profile=${docOnlyOwned.length}`,
+  )
+
+  let memberRepos = gh(`users/${login}/repos?type=member&per_page=100`, {
+    allowFail: true,
+  })
+  if (!Array.isArray(memberRepos)) memberRepos = []
+
+  // --- public events (rich org signal) ---
+  let events = gh(`users/${login}/events/public?per_page=100`, { allowFail: true })
+  if (!Array.isArray(events)) events = []
+  // second page-ish: paginate already in gh --paginate
+
+  const { eventRepos, eventOrgs } = collectEventRepos(events, login)
+
+  // --- orgs (strict): public memberships + verified @Org + event orgs with enough pushes ---
+  const { pushesByOwner, verifiedOrgs, verifiedOrgList, publicOrgCount, orgPushEvents } =
+    collectOrganizations(login, user, eventRepos, eventOrgs)
+
+  // --- external merged PRs (author, repo not owned by user) ---
+  const { externalMergedPrs, externalPrSample } = collectExternalPullRequests(login)
+
+  // collab: member repos not owned + unique non-owned repos from events
+  const { collabNames, collabReposCount } = collectCollaborations(login, memberRepos, eventRepos)
+
+  // --- sample repos for deep scan: owned + top event repos on *verified* orgs only ---
+  const sampleMeta = collectSampleRepos(owned, technicalOwned, eventRepos, verifiedOrgs)
+
+  // stars: owned non-fork only (never inflate with popular org repos)
+  const totalStars = owned.reduce((s, r) => s + (r.stargazers_count || 0), 0)
+
+  const { totalAdditions, totalDeletions, structureScores, texts, topicsAll, volumeFallbackUsed } =
+    scanSampleRepos(sampleMeta, user, login)
+
+  const { publicEvents90d, months, lastPushDays } = collectActivity(events, owned, sampleMeta)
 
   // publicRepos owned stays personal; evidence includes org sample size
   const structureMean =

@@ -6,7 +6,11 @@
 import { readdirSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { createSqliteD1, type SqliteD1 } from '@kit/db/testing'
+import type { DeliveryRef } from '@kit/notifications'
 import Database from 'better-sqlite3'
+import { onTestFinished } from 'vitest'
+import { createMemoryNotificationWorkflow } from './memory-notification-workflow'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -22,57 +26,6 @@ function applyMigrations(sqlite: Database.Database, through?: string) {
   for (const name of files) {
     sqlite.exec(readFileSync(join(migDir, name), 'utf8'))
     if (through && name === through) break
-  }
-}
-
-function makeStatement(sqlite: Database.Database, sql: string) {
-  let binds: unknown[] = []
-  const stmt = {
-    bind(...args: unknown[]) {
-      binds = args
-      return stmt
-    },
-    async first() {
-      return sqlite.prepare(sql).get(...binds) ?? null
-    },
-    async run() {
-      const info = sqlite.prepare(sql).run(...binds)
-      return {
-        success: true,
-        meta: { changes: info.changes, last_row_id: Number(info.lastInsertRowid) },
-      }
-    },
-    async all() {
-      return { results: sqlite.prepare(sql).all(...binds), success: true }
-    },
-    /** Drizzle D1 uses .raw() → column-ordered value arrays. */
-    async raw() {
-      return sqlite
-        .prepare(sql)
-        .raw(true)
-        .all(...binds) as unknown[][]
-    },
-  }
-  return stmt
-}
-
-function makeD1(sqlite: Database.Database) {
-  return {
-    prepare(sql: string) {
-      return makeStatement(sqlite, sql)
-    },
-    async batch(statements: { all?: () => Promise<unknown>; run?: () => Promise<unknown> }[]) {
-      const out = []
-      for (const s of statements) {
-        if (typeof s.all === 'function') out.push(await s.all())
-        else if (typeof s.run === 'function') out.push(await s.run())
-      }
-      return out
-    },
-    async exec(query: string) {
-      sqlite.exec(query)
-      return { count: 1, duration: 0 }
-    },
   }
 }
 
@@ -96,6 +49,7 @@ function makeR2() {
       if (!v) return null
       return {
         key,
+        body: new Blob([v.body]).stream(),
         async text() {
           return v.body
         },
@@ -113,14 +67,59 @@ function makeR2() {
 
 type FlowRunParams = { runId: string; orgId: string }
 
-export type EnvLike = {
-  DB: ReturnType<typeof makeD1>
-  BUCKET: ReturnType<typeof makeR2>
-  /** Structural stub — Env.FLOW_RUN is required; Hono tests must still typecheck. */
-  FLOW_RUN: {
-    create: (opts?: { id?: string; params?: FlowRunParams }) => Promise<{ id: string }>
+/**
+ * WorkflowInstance double. `Env.FLOW_RUN` is a real `Workflow<FlowRunParams>`, so the
+ * fixture must answer the whole surface — tests that stub `create`/`get` return this.
+ * Members the kit never calls throw rather than answering a fake success.
+ */
+export function workflowInstanceStub(
+  id: string,
+  state: InstanceStatus['status'] = 'queued',
+): WorkflowInstance & {
+  sent: Array<{ type: string; payload: unknown }>
+  terminated: number
+} {
+  const sent: Array<{ type: string; payload: unknown }> = []
+  let terminated = 0
+  return {
+    id,
+    async status() {
+      return { status: state }
+    },
+    async pause() {
+      throw new Error('workflowInstanceStub: pause() is not implemented')
+    },
+    async resume() {
+      throw new Error('workflowInstanceStub: resume() is not implemented')
+    },
+    get terminated() {
+      return terminated
+    },
+    async terminate() {
+      terminated += 1
+    },
+    async restart() {
+      throw new Error('workflowInstanceStub: restart() is not implemented')
+    },
+    async delete() {
+      throw new Error('workflowInstanceStub: delete() is not implemented')
+    },
+    async subscribe() {
+      throw new Error('workflowInstanceStub: subscribe() is not implemented')
+    },
+    sent,
+    async sendEvent(event: { type: string; payload: unknown }) {
+      sent.push(event)
+    },
   }
-  SESSION_SECRET?: string
+}
+
+export type EnvLike = {
+  DB: SqliteD1
+  BUCKET: ReturnType<typeof makeR2>
+  /** Same type as the Worker binding, so services typecheck against `Pick<Env, 'FLOW_RUN'>`. */
+  FLOW_RUN: Workflow<FlowRunParams>
+  NOTIFICATION_DELIVERY: Workflow<DeliveryRef>
   ENVIRONMENT?: string
   CORS_ORIGINS?: string
   DEMO_USER_EMAIL?: string
@@ -130,26 +129,53 @@ export type EnvLike = {
   BETTER_AUTH_SECRET?: string
   BETTER_AUTH_URL?: string
   ALLOW_PUBLIC_SIGNUP?: string
+  FLOW_ALLOWED_MODELS?: string
+  NOTIFICATIONS_RETENTION_DAYS?: string
+  NOTIFICATION_DELIVERIES_RETENTION_DAYS?: string
 }
 
 /** Fresh in-memory SQLite + R2 for each test (same createApp entry as Worker). */
-export function createMemoryEnv(overrides?: Partial<EnvLike> & { through?: string }): EnvLike {
+export function createMemoryEnv(
+  overrides?: Partial<EnvLike> & { through?: string },
+): EnvLike & { close(): void } {
   const { through, ...envOverrides } = overrides ?? {}
   const sqlite = new Database(':memory:')
+  let closed = false
+  const close = () => {
+    if (closed) return
+    closed = true
+    sqlite.close()
+  }
+  onTestFinished(close)
   // Enforce composite FKs (e.g. flow_runs.plan_id+org_id) in tests — SQLite default is OFF.
   sqlite.pragma('foreign_keys = ON')
   applyMigrations(sqlite, through)
   return {
-    DB: makeD1(sqlite),
+    DB: createSqliteD1(sqlite),
     BUCKET: makeR2(),
     FLOW_RUN: {
-      create: async (opts) => ({ id: opts?.id ?? 'wf_test' }),
+      create: async (opts) => workflowInstanceStub(opts?.id ?? 'wf_test'),
+      // Unused by the kit: a silent success here would hide a new call site.
+      async get() {
+        throw new Error('createMemoryEnv: FLOW_RUN.get is not implemented — stub it in the test')
+      },
+      async createBatch() {
+        throw new Error(
+          'createMemoryEnv: FLOW_RUN.createBatch is not implemented — stub it in the test',
+        )
+      },
+      async deleteBatch() {
+        throw new Error(
+          'createMemoryEnv: FLOW_RUN.deleteBatch is not implemented — stub it in the test',
+        )
+      },
     },
-    SESSION_SECRET: 'test-session-secret-at-least-32-chars!',
+    NOTIFICATION_DELIVERY: createMemoryNotificationWorkflow(workflowInstanceStub),
     BETTER_AUTH_SECRET: 'test-better-auth-secret-at-least-32!!',
     BETTER_AUTH_URL: 'http://localhost:8787',
     ENVIRONMENT: 'test',
     DEMO_USER_EMAIL: 'demo@kit.local',
     ...envOverrides,
+    close,
   }
 }

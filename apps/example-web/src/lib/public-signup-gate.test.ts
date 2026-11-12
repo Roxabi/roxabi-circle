@@ -1,5 +1,6 @@
-import { QueryClient } from '@tanstack/react-query'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { createApiDispatcher } from '../test/api-mock'
+import { createTestQueryClient } from '../test/query-client'
 import { apiFetch } from './api'
 import { isPublicSignupAllowed, optionalNextSearch } from './public-signup-gate'
 
@@ -30,17 +31,33 @@ describe('isPublicSignupAllowed', () => {
   })
 
   it('is true only when /health.allowPublicSignup is true', async () => {
-    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-    fetchMock.mockResolvedValueOnce({ allowPublicSignup: true, ok: true, requestId: 'r' })
+    const qc = createTestQueryClient()
+    fetchMock.mockImplementation(
+      createApiDispatcher().on('GET', '/health', () => ({
+        allowPublicSignup: true,
+        ok: true,
+        requestId: 'r',
+      })).fetch,
+    )
     expect(await isPublicSignupAllowed(qc)).toBe(true)
     qc.clear()
-    fetchMock.mockResolvedValueOnce({ allowPublicSignup: false, ok: true, requestId: 'r' })
+    fetchMock.mockImplementation(
+      createApiDispatcher().on('GET', '/health', () => ({
+        allowPublicSignup: false,
+        ok: true,
+        requestId: 'r',
+      })).fetch,
+    )
     expect(await isPublicSignupAllowed(qc)).toBe(false)
   })
 
   it('is false when health fetch throws', async () => {
-    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-    fetchMock.mockRejectedValueOnce(new Error('down'))
+    const qc = createTestQueryClient()
+    fetchMock.mockImplementation(
+      createApiDispatcher().on('GET', '/health', () => {
+        throw new Error('down')
+      }).fetch,
+    )
     expect(await isPublicSignupAllowed(qc)).toBe(false)
   })
 })

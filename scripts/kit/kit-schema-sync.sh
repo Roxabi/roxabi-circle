@@ -4,10 +4,18 @@
 # Never rewrite applied SQL; never copy kit NNNN onto a product NNNN.
 #
 # usage: kit-schema-sync.sh --app <apps/foo-api> [--modules core|all|<comma-sets>] [--adopt] [--dry-run]
+# Omitted --modules = core ∪ `sets` recorded in the product manifest.
+# `sets` is written by explicit --modules and --adopt, and migrated once from
+# recorded ids plus canonical headers when absent. Opt out by deleting a set
+# from `sets`. An explicit list that omits a recorded set with new catalog ids
+# exits 1 and names those ids. --adopt names unclaimed files of an unselected set.
 set -euo pipefail
 shopt -s nullglob
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd -P)"
+KIT_SCHEMA_LIB="$(cd "$(dirname "$0")" && pwd -P)/lib"
+# shellcheck source=lib/kit-apps.sh
+source "${KIT_SCHEMA_LIB}/kit-apps.sh"
 CATALOG="${KIT_SCHEMA_CATALOG:-${ROOT}/config/kit/kit-schema-modules.json}"
 
 die() {
@@ -33,23 +41,9 @@ file_sha256() {
 }
 
 # Hash kit-source bytes: headed files must be exactly 4 comment lines + blank + body.
+# One definition shared with check-migrations-contract.ts: scripts/kit/lib/kit-schema-payload.ts.
 payload_sha256() {
-  local f="$1"
-  KIT_SCHEMA_FILE="$f" bun -e '
-const fs = require("fs");
-const crypto = require("crypto");
-const buf = fs.readFileSync(process.env.KIT_SCHEMA_FILE);
-const text = buf.toString("utf8").replace(/\r\n/g, "\n");
-if (text.startsWith("-- kit-schema: ")) {
-  const nl = text.indexOf("\n\n");
-  if (nl < 0) process.exit(2);
-  const header = text.slice(0, nl).split("\n");
-  if (header.length !== 4 || !header.every((l) => l.startsWith("-- "))) process.exit(2);
-  process.stdout.write(crypto.createHash("sha256").update(text.slice(nl + 2), "utf8").digest("hex"));
-} else {
-  process.stdout.write(crypto.createHash("sha256").update(buf).digest("hex"));
-}
-'
+  bun "${KIT_SCHEMA_LIB}/kit-schema-payload.ts" "$1"
 }
 
 trim() {
@@ -68,6 +62,7 @@ require_bun() {
 # --- CLI ---
 APP_ARG=""
 MODULES="core"
+MODULES_EXPLICIT=0
 ADOPT=0
 DRY_RUN=0
 
@@ -81,6 +76,7 @@ while [[ $# -gt 0 ]]; do
     --modules)
       [[ $# -ge 2 ]] || die "missing value for --modules"
       MODULES="$2"
+      MODULES_EXPLICIT=1
       shift 2
       ;;
     --adopt)
@@ -122,11 +118,16 @@ fi
 [[ -n "${APP_DIR}" && -d "${APP_DIR}" ]] || die "app directory not found: ${APP_ARG}"
 APP_DIR="$(cd "${APP_DIR}" && pwd -P)"
 
-case "${APP_DIR}" in
-  "${ROOT}/apps/example-"*)
-    die "refuse apps/example-* (applied SSoT)"
-    ;;
-esac
+# A kit app's migrations are the applied SSoT: never sync into one (kit apps: lib/kit-apps.sh, Roxabi/roxabi-boilerplate-cf#318).
+kit_apps="$(kit_app_names "${ROOT}/config/kit/zero-edit-zones.json")" ||
+  die "cannot read the kit apps from config/kit/zero-edit-zones.json"
+while IFS= read -r app; do
+  case "${APP_DIR}/" in
+    "${ROOT}/apps/${app}/"*)
+      die "refuse kit app apps/${app} (applied SSoT)"
+      ;;
+  esac
+done <<<"${kit_apps}"
 
 MIG_DIR="${APP_DIR}/migrations"
 MANIFEST="${APP_DIR}/kit-schema-manifest.json"
@@ -139,6 +140,8 @@ MODULE_SETS=()
 MODULE_PINS=()
 declare -A VALID_SET=()
 declare -A CAT_BASENAME=()
+declare -A ID_SET=()
+declare -A ID_PIN=()
 
 CATALOG_TSV="$(
   KIT_SCHEMA_CATALOG="${CATALOG}" bun -e '
@@ -201,6 +204,8 @@ while IFS=$'\t' read -r col1 col2 col3 col4; do
   MODULE_PINS+=("${col4}")
   VALID_SET["${col3}"]=1
   CAT_BASENAME["${col2}"]=1
+  ID_SET["${col1}"]="${col3}"
+  ID_PIN["${col1}"]="${col4}"
 done <<< "${CATALOG_TSV}"$'\n'
 
 [[ -n "${SOURCE_ROOT}" ]] || die "catalog source_root missing"
@@ -249,7 +254,12 @@ selected() {
 # --- existing manifest ---
 declare -A MANIFEST_SHA=()
 declare -A MANIFEST_FILE=()
+declare -A PERSISTED_SETS=()
+SETS_PRESENT=0
+SETS_DIRTY=0
+MANIFEST_EXISTS=0
 if [[ -f "${MANIFEST}" ]]; then
+  MANIFEST_EXISTS=1
   MANIFEST_TSV="$(
     KIT_SCHEMA_MANIFEST="${MANIFEST}" bun -e '
 const fs = require("fs");
@@ -258,10 +268,20 @@ let data;
 try { data = JSON.parse(fs.readFileSync(p, "utf8")); }
 catch { console.error("kit-schema-sync: invalid manifest JSON"); process.exit(1); }
 if (data.version !== 1) { console.error("kit-schema-sync: manifest version must be 1"); process.exit(1); }
-const mods = data.modules && typeof data.modules === "object" ? data.modules : {};
 const idRe = /^[A-Za-z0-9_]+$/;
 const shaRe = /^[0-9a-f]{64}$/;
 const fileRe = /^migrations\/[0-9]{4}_[A-Za-z0-9_.-]+\.sql$/;
+const mods = data.modules;
+if (!mods || typeof mods !== "object" || Array.isArray(mods)) {
+  console.error("kit-schema-sync: manifest modules must be an object"); process.exit(1);
+}
+if (!Object.prototype.hasOwnProperty.call(data, "sets")) {
+  console.log("#NOSETS");
+} else if (!Array.isArray(data.sets) || data.sets.some((s) => typeof s !== "string" || !idRe.test(s))) {
+  console.error("kit-schema-sync: manifest sets must be an array of set ids"); process.exit(1);
+} else {
+  console.log("#SETS\t" + data.sets.join(","));
+}
 for (const [id, v] of Object.entries(mods)) {
   if (!idRe.test(id)) {
     console.error("kit-schema-sync: invalid manifest id: " + id); process.exit(1);
@@ -281,10 +301,34 @@ for (const [id, v] of Object.entries(mods)) {
   )" || die "invalid manifest JSON"
   while IFS=$'\t' read -r mid msha mfile; do
     [[ -n "${mid}" ]] || continue
+    if [[ "${mid}" == "#NOSETS" ]]; then
+      SETS_PRESENT=0
+      continue
+    fi
+    if [[ "${mid}" == "#SETS" ]]; then
+      SETS_PRESENT=1
+      if [[ -n "${msha}" ]]; then
+        IFS=',' read -ra set_parts <<< "${msha}"
+        for raw_set in "${set_parts[@]}"; do
+          [[ -n "${raw_set}" ]] || continue
+          PERSISTED_SETS["${raw_set}"]=1
+        done
+      fi
+      continue
+    fi
     MANIFEST_SHA["${mid}"]="${msha}"
     MANIFEST_FILE["${mid}"]="${mfile}"
   done <<< "${MANIFEST_TSV}"$'\n'
 fi
+if [[ "${SETS_PRESENT}" -eq 1 && ${#PERSISTED_SETS[@]} -gt 0 ]]; then
+  while IFS= read -r raw_set; do
+    [[ -n "${raw_set}" ]] || continue
+    if [[ -z "${VALID_SET[$raw_set]+x}" ]]; then
+      die "manifest sets names unknown set: ${raw_set}"
+    fi
+  done < <(printf '%s\n' "${!PERSISTED_SETS[@]}" | LC_ALL=C sort)
+fi
+
 
 list_sql_files() {
   local dir="$1"
@@ -389,6 +433,107 @@ for mid in "${!MANIFEST_FILE[@]}"; do
   claim "${MANIFEST_FILE[$mid]}"
 done
 
+remember_set() {
+  local s="$1"
+  [[ -n "${s}" ]] || return 0
+  if [[ -z "${PERSISTED_SETS[$s]+x}" ]]; then
+    SETS_DIRTY=1
+  fi
+  PERSISTED_SETS["${s}"]=1
+}
+
+has_headed_sql() {
+  local f line
+  [[ -d "${MIG_DIR}" ]] || return 1
+  for f in "${MIG_DIR}"/*.sql; do
+    [[ -f "${f}" ]] || continue
+    IFS= read -r line <"${f}" || true
+    line="${line%$'\r'}"
+    [[ "${line}" == "-- kit-schema: "* ]] && return 0
+  done
+  return 1
+}
+
+if [[ "${MANIFEST_EXISTS}" -eq 0 ]] && has_headed_sql; then
+  die "manifest missing while kit-schema headed files exist; not rebuilding to core"
+fi
+
+# sets absent: derive once from recorded catalog ids and canonical headers, then write.
+if [[ "${MANIFEST_EXISTS}" -eq 1 && "${SETS_PRESENT}" -eq 0 ]]; then
+  SETS_DIRTY=1
+  PERSISTED_SETS["core"]=1
+  if [[ ${#MANIFEST_SHA[@]} -gt 0 ]]; then
+    for mid in "${!MANIFEST_SHA[@]}"; do
+      if [[ -n "${ID_SET[$mid]+x}" ]]; then
+        PERSISTED_SETS["${ID_SET[$mid]}"]=1
+      fi
+    done
+  fi
+  if [[ -d "${MIG_DIR}" ]]; then
+    for f in "${MIG_DIR}"/*.sql; do
+      [[ -f "${f}" ]] || continue
+      IFS= read -r line <"${f}" || true
+      line="${line%$'\r'}"
+      [[ "${line}" == "-- kit-schema: "* ]] || continue
+      hid="${line#-- kit-schema: }"
+      [[ "${hid}" =~ ^[A-Za-z0-9_]+$ ]] || die "invalid kit-schema header in ${f##*/}"
+      if [[ -z "${ID_SET[$hid]+x}" ]]; then
+        continue
+      fi
+      payload="$(payload_sha256 "${f}")" || die "headed ${hid} is not a canonical kit header (${f##*/})"
+      if [[ "${payload}" != "${ID_PIN[$hid]}" ]]; then
+        die "headed ${hid} drifted; not rewriting ${f##*/}"
+      fi
+      PERSISTED_SETS["${ID_SET[$hid]}"]=1
+    done
+  fi
+fi
+
+if [[ "${MODULES_EXPLICIT}" -eq 1 || "${ADOPT}" -eq 1 ]]; then
+  if [[ "${SELECT_ALL}" -eq 1 ]]; then
+    for s in "${!VALID_SET[@]}"; do
+      remember_set "${s}"
+    done
+  else
+    for s in "${!WANT_SET[@]}"; do
+      remember_set "${s}"
+    done
+  fi
+fi
+
+if [[ "${MODULES_EXPLICIT}" -eq 0 ]]; then
+  WANT_SET["core"]=1
+  if [[ ${#PERSISTED_SETS[@]} -gt 0 ]]; then
+    for s in "${!PERSISTED_SETS[@]}"; do
+      WANT_SET["${s}"]=1
+    done
+  fi
+fi
+
+if [[ "${MODULES_EXPLICIT}" -eq 1 && "${SELECT_ALL}" -eq 0 ]]; then
+  declare -A OPTED_SET=()
+  OPTED_SET["core"]=1
+  if [[ ${#PERSISTED_SETS[@]} -gt 0 ]]; then
+    for s in "${!PERSISTED_SETS[@]}"; do
+      OPTED_SET["${s}"]=1
+    done
+  fi
+  omitted_ids=()
+  oi=0
+  while [[ $oi -lt ${#MODULE_IDS[@]} ]]; do
+    oid="${MODULE_IDS[$oi]}"
+    oset="${MODULE_SETS[$oi]}"
+    oi=$((oi + 1))
+    [[ -n "${OPTED_SET[$oset]+x}" ]] || continue
+    [[ -n "${WANT_SET[$oset]+x}" ]] && continue
+    [[ -z "${MANIFEST_SHA[$oid]+x}" ]] || continue
+    omitted_ids+=("${oid}")
+  done
+  if [[ ${#omitted_ids[@]} -gt 0 ]]; then
+    die "opted-in set omitted from --modules; catalog ids not in manifest: ${omitted_ids[*]}"
+  fi
+fi
+
 PLAN_KIND=()
 PLAN_ID=()
 PLAN_SHA=()
@@ -483,6 +628,60 @@ while [[ $i -lt ${#MODULE_IDS[@]} ]]; do
   die "module ${id} mutated; add a new module id, never edit applied SQL"
 done
 
+if [[ "${ADOPT}" -eq 1 || "${MANIFEST_EXISTS}" -eq 0 || "${SETS_PRESENT}" -eq 0 ]]; then
+  if [[ -d "${MIG_DIR}" ]]; then
+  declare -A UNSEL_SET=()
+  unsel_files=()
+  for f in "${MIG_DIR}"/*.sql; do
+    [[ -f "${f}" ]] || continue
+    rel="$(rel_sql "${f}")"
+    if is_claimed "${rel}"; then
+      continue
+    fi
+    sha="$(file_sha256 "${f}")" || die "sha256 failed for ${f}"
+    matched_set=""
+    i=0
+    while [[ $i -lt ${#MODULE_IDS[@]} ]]; do
+      if [[ "${sha}" == "${MODULE_PINS[$i]}" ]]; then
+        matched_set="${MODULE_SETS[$i]}"
+        break
+      fi
+      i=$((i + 1))
+    done
+    IFS= read -r line <"${f}" || true
+    line="${line%$'\r'}"
+    if [[ "${line}" == "-- kit-schema: "* ]]; then
+      hid="${line#-- kit-schema: }"
+      if [[ "${hid}" =~ ^[A-Za-z0-9_]+$ && -n "${ID_SET[$hid]+x}" ]]; then
+        payload="$(payload_sha256 "${f}")" || die "headed ${hid} is not a canonical kit header (${rel})"
+        if [[ "${payload}" != "${ID_PIN[$hid]}" ]]; then
+          die "headed ${hid} drifted; not rewriting ${rel}"
+        fi
+        matched_set="${ID_SET[$hid]}"
+      fi
+    fi
+    if [[ -n "${matched_set}" ]] && ! selected "${matched_set}"; then
+      UNSEL_SET["${matched_set}"]=1
+      unsel_files+=("${rel}")
+    fi
+  done
+  if [[ ${#UNSEL_SET[@]} -gt 0 ]]; then
+    declare -A HINT_SET=()
+    HINT_SET["core"]=1
+    for s in "${!WANT_SET[@]}"; do
+      HINT_SET["${s}"]=1
+    done
+    for s in "${!UNSEL_SET[@]}"; do
+      HINT_SET["${s}"]=1
+    done
+    unsel_names="$(printf '%s\n' "${!UNSEL_SET[@]}" | LC_ALL=C sort | paste -sd, -)"
+    hint_names="$(printf '%s\n' "${!HINT_SET[@]}" | LC_ALL=C sort | paste -sd, -)"
+    die "unclaimed catalog files for unselected set ${unsel_names}: ${unsel_files[*]}; --adopt cannot append a missing id of a partial set; run without --adopt: --modules ${hint_names}"
+  fi
+  fi
+fi
+
+
 if [[ ${#ADOPT_SKIP[@]} -gt 0 ]]; then
   die "adopt unmatched: ${ADOPT_SKIP[*]}"
 fi
@@ -509,18 +708,34 @@ write_manifest() {
       printf '%s\t%s\t%s\n' "${id}" "${MANIFEST_SHA[$id]}" "${MANIFEST_FILE[$id]}" >>"${rows}"
     fi
   done
-  if ! KIT_SCHEMA_APP="${APP_ARG}" KIT_SCHEMA_ROWS="${rows}" KIT_SCHEMA_TMP="${tmp}" bun -e '
+  sets_csv=""
+  if [[ ${#PERSISTED_SETS[@]} -gt 0 ]]; then
+    sets_csv="$(printf '%s\n' "${!PERSISTED_SETS[@]}" | sort | paste -sd, -)"
+  fi
+  if ! KIT_SCHEMA_APP="${APP_ARG}" KIT_SCHEMA_ROWS="${rows}" KIT_SCHEMA_TMP="${tmp}" KIT_SCHEMA_SETS="${sets_csv}" KIT_SCHEMA_MANIFEST="${MANIFEST}" bun -e '
 const fs = require("fs");
-const rowsRaw = fs.readFileSync(process.env.KIT_SCHEMA_ROWS, "utf8").trim();
+const manifestPath = process.env.KIT_SCHEMA_MANIFEST || "";
+let base = { version: 1, modules: {} };
+if (manifestPath && fs.existsSync(manifestPath)) {
+  try { base = JSON.parse(fs.readFileSync(manifestPath, "utf8")); }
+  catch { base = { version: 1, modules: {} }; }
+}
+if (!base || typeof base !== "object" || Array.isArray(base)) base = { version: 1, modules: {} };
+if (typeof base.app !== "string" || !base.app) base.app = process.env.KIT_SCHEMA_APP;
+base.version = 1;
+const prevModules = base.modules && typeof base.modules === "object" && !Array.isArray(base.modules) ? base.modules : {};
 const modules = {};
+const rowsRaw = fs.readFileSync(process.env.KIT_SCHEMA_ROWS, "utf8").trim();
 if (rowsRaw) {
   for (const line of rowsRaw.split("\n")) {
     const [id, kitSha256, productFile] = line.split("\t");
-    modules[id] = { kitSha256, productFile };
+    const prev = prevModules[id] && typeof prevModules[id] === "object" && !Array.isArray(prevModules[id]) ? prevModules[id] : {};
+    modules[id] = Object.assign({}, prev, { kitSha256, productFile });
   }
 }
-const json = { version: 1, app: process.env.KIT_SCHEMA_APP, modules };
-fs.writeFileSync(process.env.KIT_SCHEMA_TMP, JSON.stringify(json, null, 2) + "\n");
+base.modules = modules;
+base.sets = process.env.KIT_SCHEMA_SETS ? process.env.KIT_SCHEMA_SETS.split(",") : [];
+fs.writeFileSync(process.env.KIT_SCHEMA_TMP, JSON.stringify(base, null, 2) + "\n");
 '; then
     rm -f -- "${tmp}" "${rows}"
     die "manifest write failed"
@@ -549,6 +764,9 @@ write_module_file() {
 }
 
 if [[ ${#PLAN_KIND[@]} -eq 0 ]]; then
+  if [[ "${SETS_DIRTY}" -eq 1 && "${DRY_RUN}" -eq 0 ]]; then
+    write_manifest
+  fi
   exit 0
 fi
 
@@ -587,7 +805,7 @@ if [[ "${DRY_RUN}" -eq 1 ]]; then
   exit 0
 fi
 
-if [[ "${changed}" -eq 1 ]]; then
+if [[ "${changed}" -eq 1 || "${SETS_DIRTY}" -eq 1 ]]; then
   write_manifest
 fi
 

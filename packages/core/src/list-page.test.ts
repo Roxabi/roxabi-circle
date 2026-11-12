@@ -11,7 +11,7 @@ import {
 } from './list-page'
 
 function base64Url(value: string): string {
-  return btoa(value).replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/, '')
+  return btoa(value).replaceAll('+', '-').replaceAll('/', '_').replace(/[=]+$/, '')
 }
 
 function expectInvalidCursor(cursor: string): string {
@@ -68,6 +68,16 @@ describe('list cursor', () => {
 
     expect(cursor).not.toContain(keyset.id)
     expect(decodeListCursor(cursor)).toEqual(keyset)
+  })
+
+  it('preserves an own __proto__ key and ordinary fields when decoding', () => {
+    const cursor = base64Url('{"createdAt":0,"id":"u_a","__proto__":1}')
+    const decoded = decodeListCursor(cursor)
+
+    expect(Object.hasOwn(decoded, '__proto__')).toBe(true)
+    expect(Object.getOwnPropertyDescriptor(decoded, '__proto__')?.value).toBe(1)
+    expect(decoded.createdAt).toBe(0)
+    expect(decoded.id).toBe('u_a')
   })
 
   it('rejects malformed and non-keyset payloads with one generic validation message', () => {

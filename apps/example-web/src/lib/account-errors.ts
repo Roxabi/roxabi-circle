@@ -1,35 +1,29 @@
 import {
   changePasswordErrorMessage as kitChangePasswordErrorMessage,
   isRateLimited as kitIsRateLimited,
+  isServerError as kitIsServerError,
 } from '@kit/auth/react'
 import type { Messages } from '../messages/fr'
-import { ApiError, apiErrorToMessage } from './api'
+import { ApiError, apiErrorToMessage, HttpError } from './api'
 
 export function isRateLimited(err: unknown): boolean {
   return kitIsRateLimited(err)
 }
 
-/** ApiError fields + BA non-kit envelopes `Error('HTTP N')` from apiFetch. */
-function resolveStatusCode(err: unknown): { status: number | null; code: string | null } {
-  if (err instanceof ApiError) return { status: err.status, code: err.code }
-  if (err instanceof Error) {
-    const match = /^HTTP (\d{3})$/.exec(err.message)
-    if (match) return { status: Number(match[1]), code: null }
-  }
-  return { status: null, code: null }
+export function isServerError(err: unknown): boolean {
+  return kitIsServerError(err)
 }
 
-/** Status ≥ 500 (`ApiError` or `Error('HTTP N')`); status-less failures fail-closed. */
-export function isServerError(err: unknown): boolean {
-  const { status } = resolveStatusCode(err)
-  if (status != null && status >= 500) return true
-  if (status == null && err != null) return true
-  return false
+/** Kit envelope fields and status from any HTTP response. */
+function resolveStatusCode(err: unknown): { status: number | null; code: string | null } {
+  if (err instanceof ApiError) return { status: err.status, code: err.code }
+  if (err instanceof HttpError) return { status: err.status, code: null }
+  return { status: null, code: null }
 }
 
 /**
  * Map BA / kit errors for **change-password** toasts only.
- * BA often returns non-kit envelopes → `Error('HTTP {status}')` from apiFetch.
+ * BA non-kit responses retain their HTTP status as HttpError.
  *
  * Status policy (MVP):
  * - 401 → re-auth
@@ -77,6 +71,7 @@ export function loginErrorMessage(err: unknown, m: Messages): string {
   ) {
     return m.loginFailed
   }
+  if (isServerError(err)) return m.errInternal
   return apiErrorToMessage(err, m)
 }
 
@@ -100,5 +95,6 @@ export function signupErrorMessage(err: unknown, m: Messages): string {
   ) {
     return m.signUpFailed
   }
+  if (isServerError(err)) return m.errInternal
   return apiErrorToMessage(err, m)
 }

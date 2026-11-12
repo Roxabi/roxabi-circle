@@ -1,10 +1,12 @@
 import { baMember, baOrganization } from '@kit/auth/schema'
 import { createDb } from '@kit/db'
-import { eq } from 'drizzle-orm'
+import { eq, sql } from 'drizzle-orm'
 import { describe, expect, it } from 'vitest'
 import { createApp } from './app'
 import { apiKeys, schema } from './db/schema'
 import { seedTenancyDemo } from './seed/seed-tenancy'
+import { loginCookie } from './test/api-fixture'
+import { hashFixtureCredential } from './test/fixture-credential'
 import { createMemoryEnv } from './test/memory-env'
 
 const BA_ENV = {
@@ -16,32 +18,11 @@ const BA_ENV = {
 
 const ORIGIN = 'http://localhost:5173'
 
-async function signIn(
-  app: ReturnType<typeof createApp>,
-  env: ReturnType<typeof createMemoryEnv>,
-  email: string,
-  password = 'demo-password-change-me',
-) {
-  const res = await app.request(
-    '/api/auth/sign-in/email',
-    {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', Origin: ORIGIN },
-      body: JSON.stringify({ email, password }),
-    },
-    env,
-  )
-  expect(res.status, `sign-in ${email}`).toBeLessThan(400)
-  const cookie = res.headers.get('set-cookie') ?? ''
-  expect(cookie, `cookie for ${email}`).toBeTruthy()
-  return cookie
-}
-
 async function seedEnv() {
   const app = createApp()
   const env = createMemoryEnv(BA_ENV)
   const db = createDb(env.DB as unknown as D1Database, schema)
-  await seedTenancyDemo(db, { environment: 'test', force: true })
+  await seedTenancyDemo(db, { environment: 'test', force: true }, hashFixtureCredential)
   return { app, env, db }
 }
 
@@ -55,7 +36,7 @@ describe('org RBAC (ADR-0003 Phase A) — IDOR matrix', () => {
 
   it('BA org mutation paths are denied (Phase A seed-only)', async () => {
     const { app, env } = await seedEnv()
-    const cookie = await signIn(app, env, 'staff@kit.local')
+    const cookie = await loginCookie(app, env, 'staff@kit.local', 'demo-password-change-me', ORIGIN)
     const res = await app.request(
       '/api/auth/organization/create',
       {
@@ -74,7 +55,7 @@ describe('org RBAC (ADR-0003 Phase A) — IDOR matrix', () => {
 
   it('staff can open acme membership org', async () => {
     const { app, env } = await seedEnv()
-    const cookie = await signIn(app, env, 'staff@kit.local')
+    const cookie = await loginCookie(app, env, 'staff@kit.local', 'demo-password-change-me', ORIGIN)
     const res = await app.request(
       '/api/orgs/org_acme',
       { headers: { cookie, Origin: ORIGIN } },
@@ -85,7 +66,7 @@ describe('org RBAC (ADR-0003 Phase A) — IDOR matrix', () => {
 
   it('staff without membership gets 404 on solo org', async () => {
     const { app, env } = await seedEnv()
-    const cookie = await signIn(app, env, 'staff@kit.local')
+    const cookie = await loginCookie(app, env, 'staff@kit.local', 'demo-password-change-me', ORIGIN)
     const res = await app.request(
       '/api/orgs/org_solo',
       { headers: { cookie, Origin: ORIGIN } },
@@ -96,7 +77,13 @@ describe('org RBAC (ADR-0003 Phase A) — IDOR matrix', () => {
 
   it('team reader cannot PATCH org modules', async () => {
     const { app, env } = await seedEnv()
-    const cookie = await signIn(app, env, 'team-reader@kit.local')
+    const cookie = await loginCookie(
+      app,
+      env,
+      'team-reader@kit.local',
+      'demo-password-change-me',
+      ORIGIN,
+    )
     const res = await app.request(
       '/api/orgs/org_team/modules/demo',
       {
@@ -115,7 +102,7 @@ describe('org RBAC (ADR-0003 Phase A) — IDOR matrix', () => {
 
   it('non-super platform PATCH modules is 403', async () => {
     const { app, env } = await seedEnv()
-    const cookie = await signIn(app, env, 'staff@kit.local')
+    const cookie = await loginCookie(app, env, 'staff@kit.local', 'demo-password-change-me', ORIGIN)
     const res = await app.request(
       '/api/platform/modules/demo',
       {
@@ -134,7 +121,7 @@ describe('org RBAC (ADR-0003 Phase A) — IDOR matrix', () => {
 
   it('path vs X-Org-Id mismatch returns 403', async () => {
     const { app, env } = await seedEnv()
-    const cookie = await signIn(app, env, 'staff@kit.local')
+    const cookie = await loginCookie(app, env, 'staff@kit.local', 'demo-password-change-me', ORIGIN)
     const res = await app.request(
       '/api/orgs/org_acme',
       {
@@ -151,7 +138,7 @@ describe('org RBAC (ADR-0003 Phase A) — IDOR matrix', () => {
 
   it('BA mint requires organizationId', async () => {
     const { app, env } = await seedEnv()
-    const cookie = await signIn(app, env, 'staff@kit.local')
+    const cookie = await loginCookie(app, env, 'staff@kit.local', 'demo-password-change-me', ORIGIN)
     const res = await app.request(
       '/api/keys',
       {
@@ -170,7 +157,7 @@ describe('org RBAC (ADR-0003 Phase A) — IDOR matrix', () => {
 
   it('mint for non-member org is forbidden', async () => {
     const { app, env } = await seedEnv()
-    const cookie = await signIn(app, env, 'staff@kit.local')
+    const cookie = await loginCookie(app, env, 'staff@kit.local', 'demo-password-change-me', ORIGIN)
     const res = await app.request(
       '/api/keys',
       {
@@ -189,7 +176,7 @@ describe('org RBAC (ADR-0003 Phase A) — IDOR matrix', () => {
 
   it('org-bound key cannot hop to another membership org', async () => {
     const { app, env, db } = await seedEnv()
-    const cookie = await signIn(app, env, 'staff@kit.local')
+    const cookie = await loginCookie(app, env, 'staff@kit.local', 'demo-password-change-me', ORIGIN)
     const mint = await app.request(
       '/api/keys',
       {
@@ -239,7 +226,7 @@ describe('org RBAC (ADR-0003 Phase A) — IDOR matrix', () => {
    */
   it('api_keys.organization_id cannot be nulled after 0015', async () => {
     const { app, env, db } = await seedEnv()
-    const cookie = await signIn(app, env, 'staff@kit.local')
+    const cookie = await loginCookie(app, env, 'staff@kit.local', 'demo-password-change-me', ORIGIN)
     const mint = await app.request(
       '/api/keys',
       {
@@ -255,8 +242,10 @@ describe('org RBAC (ADR-0003 Phase A) — IDOR matrix', () => {
     const ok = await app.request('/api/me', { headers: { authorization: `Bearer ${key}` } }, env)
     expect(ok.status).toBe(200)
 
+    // `set({ organizationId: null })` is rejected by drizzle's types (column is NOT NULL);
+    // raw SQL NULL is the only way to make the attempt the DB must refuse.
     await expect(
-      db.update(apiKeys).set({ organizationId: null }).where(eq(apiKeys.keyPrefix, keyPrefix)),
+      db.update(apiKeys).set({ organizationId: sql`NULL` }).where(eq(apiKeys.keyPrefix, keyPrefix)),
     ).rejects.toThrow()
 
     const still = await app.request('/api/me', { headers: { authorization: `Bearer ${key}` } }, env)
@@ -269,7 +258,7 @@ describe('org RBAC (ADR-0003 Phase A) — IDOR matrix', () => {
       .update(baOrganization)
       .set({ status: 'suspended' })
       .where(eq(baOrganization.id, 'org_acme'))
-    const cookie = await signIn(app, env, 'staff@kit.local')
+    const cookie = await loginCookie(app, env, 'staff@kit.local', 'demo-password-change-me', ORIGIN)
     const res = await app.request(
       '/api/orgs/org_acme',
       { headers: { cookie, Origin: ORIGIN } },
@@ -280,7 +269,7 @@ describe('org RBAC (ADR-0003 Phase A) — IDOR matrix', () => {
 
   it('super_admin cannot write tenant modules without break-glass', async () => {
     const { app, env } = await seedEnv()
-    const cookie = await signIn(app, env, 'super@kit.local')
+    const cookie = await loginCookie(app, env, 'super@kit.local', 'demo-password-change-me', ORIGIN)
     // super is not a member of org_solo; write default off → 404 (no membership leak path)
     const res = await app.request(
       '/api/orgs/org_solo/modules/demo',
@@ -300,7 +289,7 @@ describe('org RBAC (ADR-0003 Phase A) — IDOR matrix', () => {
 
   it('super_admin can read foreign org with allowSuperAdmin route', async () => {
     const { app, env } = await seedEnv()
-    const cookie = await signIn(app, env, 'super@kit.local')
+    const cookie = await loginCookie(app, env, 'super@kit.local', 'demo-password-change-me', ORIGIN)
     // GET /api/orgs/:id uses allowSuperAdmin: true
     const res = await app.request(
       '/api/orgs/org_solo',
@@ -312,7 +301,13 @@ describe('org RBAC (ADR-0003 Phase A) — IDOR matrix', () => {
 
   it('team owner can list own org members', async () => {
     const { app, env } = await seedEnv()
-    const cookie = await signIn(app, env, 'team-owner@kit.local')
+    const cookie = await loginCookie(
+      app,
+      env,
+      'team-owner@kit.local',
+      'demo-password-change-me',
+      ORIGIN,
+    )
     const res = await app.request(
       '/api/orgs/org_team/members',
       { headers: { cookie, Origin: ORIGIN } },
@@ -323,8 +318,20 @@ describe('org RBAC (ADR-0003 Phase A) — IDOR matrix', () => {
 
   it('super_admin can list platform modules; staff can list too', async () => {
     const { app, env } = await seedEnv()
-    const superCookie = await signIn(app, env, 'super@kit.local')
-    const staffCookie = await signIn(app, env, 'staff@kit.local')
+    const superCookie = await loginCookie(
+      app,
+      env,
+      'super@kit.local',
+      'demo-password-change-me',
+      ORIGIN,
+    )
+    const staffCookie = await loginCookie(
+      app,
+      env,
+      'staff@kit.local',
+      'demo-password-change-me',
+      ORIGIN,
+    )
     const s = await app.request(
       '/api/platform/modules',
       { headers: { cookie: superCookie, Origin: ORIGIN } },
@@ -339,9 +346,44 @@ describe('org RBAC (ADR-0003 Phase A) — IDOR matrix', () => {
     expect(st.status).toBe(200)
   })
 
+  it('GET /api/platform/modules rejects an org-bound staff API key', async () => {
+    const { app, env } = await seedEnv()
+    const cookie = await loginCookie(app, env, 'staff@kit.local', 'demo-password-change-me', ORIGIN)
+    const mint = await app.request(
+      '/api/keys',
+      {
+        method: 'POST',
+        headers: {
+          cookie,
+          'content-type': 'application/json',
+          Origin: ORIGIN,
+        },
+        body: JSON.stringify({ organizationId: 'org_acme' }),
+      },
+      env,
+    )
+    expect(mint.status).toBe(200)
+    const { key } = (await mint.json()) as { key: string }
+
+    const denied = await app.request(
+      '/api/platform/modules',
+      { headers: { authorization: `Bearer ${key}`, Origin: ORIGIN } },
+      env,
+    )
+    expect(denied.status).toBe(403)
+    const body = (await denied.json()) as { error: { code: string } }
+    expect(body.error.code).toBe('FORBIDDEN')
+  })
+
   it('team owner can GET org modules effective shape', async () => {
     const { app, env } = await seedEnv()
-    const cookie = await signIn(app, env, 'team-owner@kit.local')
+    const cookie = await loginCookie(
+      app,
+      env,
+      'team-owner@kit.local',
+      'demo-password-change-me',
+      ORIGIN,
+    )
     const res = await app.request(
       '/api/orgs/org_team/modules',
       { headers: { cookie, Origin: ORIGIN } },
@@ -357,7 +399,7 @@ describe('org RBAC (ADR-0003 Phase A) — IDOR matrix', () => {
 
   it('key list includes organizationId; org list scoped for bound key', async () => {
     const { app, env } = await seedEnv()
-    const cookie = await signIn(app, env, 'staff@kit.local')
+    const cookie = await loginCookie(app, env, 'staff@kit.local', 'demo-password-change-me', ORIGIN)
     const mint = await app.request(
       '/api/keys',
       {
@@ -404,7 +446,7 @@ describe('org RBAC (ADR-0003 Phase A) — IDOR matrix', () => {
 
   it('D11: Bearer listApiKeys scopes to key org (staff multi-org)', async () => {
     const { app, env } = await seedEnv()
-    const cookie = await signIn(app, env, 'staff@kit.local')
+    const cookie = await loginCookie(app, env, 'staff@kit.local', 'demo-password-change-me', ORIGIN)
 
     const mintAcme = await app.request(
       '/api/keys',

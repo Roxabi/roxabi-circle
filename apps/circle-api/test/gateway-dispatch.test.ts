@@ -89,6 +89,49 @@ type CallRecorder = {
   threadCreates: () => OutboundCall[]
 }
 
+function createThreadResponse(
+  messageId: string,
+  threaded: Set<string>,
+  denyThreads?: boolean,
+): Response {
+  if (denyThreads) {
+    return new Response(JSON.stringify({ code: 50013, message: 'Missing Permissions' }), {
+      status: 403,
+      headers: { 'content-type': 'application/json' },
+    })
+  }
+  if (threaded.has(messageId)) {
+    return new Response(JSON.stringify({ message: 'Thread already exists' }), {
+      status: 400,
+      headers: { 'content-type': 'application/json' },
+    })
+  }
+  threaded.add(messageId)
+  return new Response(JSON.stringify({ id: messageId, type: 11 }), {
+    status: 201,
+    headers: { 'content-type': 'application/json' },
+  })
+}
+
+function channelResponse(id: string, threaded: Set<string>, denyThreads?: boolean): Response {
+  if (denyThreads) {
+    return new Response(JSON.stringify({ message: 'Unknown Channel' }), {
+      status: 404,
+      headers: { 'content-type': 'application/json' },
+    })
+  }
+  if (threaded.has(id)) {
+    return new Response(JSON.stringify({ id, type: 11 }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    })
+  }
+  return new Response(JSON.stringify({ id, type: 0 }), {
+    status: 200,
+    headers: { 'content-type': 'application/json' },
+  })
+}
+
 /** Records every outbound call so we can separate Discord REST from the Grok webhook. */
 function recorder(opts?: { denyThreads?: boolean }): CallRecorder {
   const calls: OutboundCall[] = []
@@ -101,45 +144,12 @@ function recorder(opts?: { denyThreads?: boolean }): CallRecorder {
 
     const created = /\/messages\/([^/]+)\/threads$/.exec(url)
     if (method === 'POST' && created) {
-      if (opts?.denyThreads) {
-        return new Response(JSON.stringify({ code: 50013, message: 'Missing Permissions' }), {
-          status: 403,
-          headers: { 'content-type': 'application/json' },
-        })
-      }
-      const messageId = created[1]!
-      if (threaded.has(messageId)) {
-        return new Response(JSON.stringify({ message: 'Thread already exists' }), {
-          status: 400,
-          headers: { 'content-type': 'application/json' },
-        })
-      }
-      threaded.add(messageId)
-      return new Response(JSON.stringify({ id: messageId, type: 11 }), {
-        status: 201,
-        headers: { 'content-type': 'application/json' },
-      })
+      return createThreadResponse(created[1]!, threaded, opts?.denyThreads)
     }
 
     const channel = /\/channels\/([^/]+)$/.exec(url)
     if (method === 'GET' && channel) {
-      if (opts?.denyThreads) {
-        return new Response(JSON.stringify({ message: 'Unknown Channel' }), {
-          status: 404,
-          headers: { 'content-type': 'application/json' },
-        })
-      }
-      const id = channel[1]!
-      if (threaded.has(id)) {
-        return new Response(JSON.stringify({ id, type: 11 }), {
-          status: 200,
-          headers: { 'content-type': 'application/json' },
-        })
-      }
-      return new Response(JSON.stringify({ id, type: 0 }), {
-        status: 200,
-        headers: { 'content-type': 'application/json' },
-      })
+      return channelResponse(channel[1]!, threaded, opts?.denyThreads)
     }
 
     return new Response(JSON.stringify({ id: 'created-1' }), {

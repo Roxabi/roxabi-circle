@@ -3,20 +3,24 @@ import { z } from 'zod'
 /** App rollup (`flow_runs.status`). Not CF InstanceStatus. */
 export const FLOW_RUN_STATUSES = ['queued', 'running', 'succeeded', 'failed', 'cancelled'] as const
 
-/** Includes `waiting` (typed; V0 produces none). */
-export const TASK_RECEIPT_OUTCOMES = ['ok', 'skip', 'fail', 'waiting'] as const
+/** `waiting` is produced only for an approve task. `started` is a pre-port marker, not pending. */
+export const TASK_RECEIPT_OUTCOMES = ['ok', 'skip', 'fail', 'waiting', 'started'] as const
 
 export type FlowRunStatus = (typeof FLOW_RUN_STATUSES)[number]
 export type TaskReceiptOutcome = (typeof TASK_RECEIPT_OUTCOMES)[number]
 
 /** Tool/LLM text in D1 receipts — 4 KiB, not Workflow step state. */
-const RECEIPT_OUTPUT_MAX_CHARS = 4096
+export const RECEIPT_OUTPUT_MAX_CHARS = 4096
+
+/** Whole-value replace for sensitive tool text at D1 write (Roxabi/roxabi-boilerplate-cf#231). */
+export const REDACTED_OUTPUT_MARKER = '[redacted]' as const
 
 export type TaskReceipt = {
   taskId: string
   outcome: TaskReceiptOutcome
   errorCode?: string
   output?: string
+  approval?: { by: string; at: string }
 }
 
 export type ReceiptBundle = {
@@ -35,6 +39,13 @@ const taskIdSchema = z
   .max(128)
   .regex(/^[a-zA-Z][a-zA-Z0-9_-]*$/)
 
+const approvalSchema = z
+  .object({
+    by: z.string().min(1).max(200),
+    at: z.iso.datetime(),
+  })
+  .strict()
+
 const taskReceiptSchema = z
   .object({
     taskId: taskIdSchema,
@@ -46,6 +57,7 @@ const taskReceiptSchema = z
         value.length > RECEIPT_OUTPUT_MAX_CHARS ? value.slice(0, RECEIPT_OUTPUT_MAX_CHARS) : value,
       )
       .optional(),
+    approval: approvalSchema.optional(),
   })
   .strict()
   .superRefine((val, ctx) => {
@@ -54,6 +66,13 @@ const taskReceiptSchema = z
         code: z.ZodIssueCode.custom,
         message: 'errorCode is required when outcome is fail',
         path: ['errorCode'],
+      })
+    }
+    if (val.outcome === 'started' && val.output !== undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'started must not carry output',
+        path: ['output'],
       })
     }
   })
@@ -76,6 +95,32 @@ export const receiptBundleSchema = z
       }
     }
   })
+
+export function emptyBundle(): ReceiptBundle {
+  return { receiptVersion: 1, tokensUsed: 0, tasks: {} }
+}
+
+export function withTask(bundle: ReceiptBundle, rec: TaskReceipt): ReceiptBundle {
+  return {
+    receiptVersion: 1,
+    tokensUsed: bundle.tokensUsed,
+    tasks: { ...bundle.tasks, [rec.taskId]: rec },
+  }
+}
+
+/** Rehydrate a row. Empty → empty bundle. Corrupt → null. */
+export function receiptsFromRow(
+  raw: string | null,
+  taskIds: readonly string[],
+): ReceiptBundle | null {
+  if (raw == null || raw === '') return emptyBundle()
+  try {
+    const parsed = parseReceipts(JSON.parse(raw) as unknown, taskIds)
+    return parsed.ok ? parsed.receipts : null
+  } catch {
+    return null
+  }
+}
 
 /** Fail-closed rehydrate. When `taskIds` is passed, unknown keys are rejected. */
 export function parseReceipts(input: unknown, taskIds?: readonly string[]): ParseReceiptsResult {

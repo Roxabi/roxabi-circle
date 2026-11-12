@@ -1,17 +1,38 @@
 import {
   ApiError,
+  type ApiFetchInit,
   apiErrorFieldErrors,
-  createApiClient,
   fieldErrorsFirstMessages,
+  HttpError,
   apiErrorToMessage as kitApiErrorToMessage,
   apiFetch as kitApiFetch,
 } from '@kit/api-client'
 import type { ErrorCodeName } from '@kit/types'
 import type { Messages } from '../messages/fr'
 
-export { ApiError, apiErrorFieldErrors, createApiClient, fieldErrorsFirstMessages }
+export { ApiError, apiErrorFieldErrors, fieldErrorsFirstMessages, HttpError }
 
 const API_BASE = import.meta.env.VITE_API_URL ?? ''
+let principalGeneration = 0
+let impersonationId = 'none'
+
+export function invalidatePrincipalGeneration(): void {
+  principalGeneration += 1
+}
+
+export function setImpersonationFence(id: string | null): boolean {
+  const next = id ?? 'none'
+  if (next === impersonationId) return false
+  impersonationId = next
+  invalidatePrincipalGeneration()
+  return true
+}
+
+export class StalePrincipalError extends Error {
+  constructor() {
+    super('Response belongs to an earlier principal')
+  }
+}
 
 const CODE_TO_MSG: Record<ErrorCodeName, keyof Messages> = {
   UNAUTHORIZED: 'errUnauthorized',
@@ -44,6 +65,16 @@ export function apiErrorToMessage(err: unknown, fallback: string | Messages = 'E
 }
 
 /** Cookie session client — baseUrl from Vite env. */
-export function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  return kitApiFetch<T>(path, init, { baseUrl: API_BASE })
+export async function apiFetch<T>(path: string, init?: ApiFetchInit<T>): Promise<T> {
+  const generation = principalGeneration
+  const headers = new Headers(init?.headers)
+  headers.set('X-Impersonation-Id', impersonationId)
+  try {
+    const result = await kitApiFetch<T>(path, { ...init, headers }, { baseUrl: API_BASE })
+    if (generation !== principalGeneration) throw new StalePrincipalError()
+    return result
+  } catch (error) {
+    if (generation !== principalGeneration) throw new StalePrincipalError()
+    throw error
+  }
 }

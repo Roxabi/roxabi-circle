@@ -1,5 +1,10 @@
-/** Dogfood invoke (echo) + InferPort mock. Workflow stays invoke-only. */
+/** Dogfood invoke (echo) + InferPort test-double. Workflow binds inferMock. */
 
+/**
+ * Echo port. Binding resolution (Roxabi/roxabi-boilerplate-cf#232) runs in `driveFlowRun` → `runInvokeStep`
+ * via `resolveWholeBindings` before this port is called — do not re-resolve
+ * or read env here.
+ */
 export async function invokeEcho(task: {
   taskId: string
   tool: string
@@ -10,7 +15,7 @@ export async function invokeEcho(task: {
   return { output: text.slice(0, 4096) }
 }
 
-/** InferPort mock — T17 will use this. Export now so workflow can stay invoke-only. */
+/** InferPort test-double — no provider. Shape 2 replaces this with complete(). */
 export async function inferMock(_task: {
   taskId: string
   prompt: string

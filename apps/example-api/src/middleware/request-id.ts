@@ -1,3 +1,5 @@
+import type { ImpersonationInfo } from '@kit/api-client/me'
+import type { ImpersonationSession } from '@kit/auth/repos/impersonation'
 import { newRequestId } from '@kit/core'
 import type { MiddlewareHandler } from 'hono'
 import type { KitBetterAuth } from '../lib/better-auth'
@@ -8,6 +10,10 @@ export type AppVariables = {
   subject?: string
   authMethod?: 'session' | 'api_key'
   /** Set by withDb middleware (Drizzle D1). */
+  sessionId?: string
+  actorSubject?: string
+  impersonationRow?: ImpersonationSession
+  impersonationInfo?: ImpersonationInfo
   db?: KitDb
   /** Per-request Better Auth instance (Better Auth BA-only). */
   betterAuth?: KitBetterAuth

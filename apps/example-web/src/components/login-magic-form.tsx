@@ -22,7 +22,7 @@ type LoginMagicFormProps = {
   onSent: () => void
 }
 
-/** Magic-link request form (B-magic #59) — enumeration-safe success. */
+/** Magic-link request form (B-magic go-silex/silex-boilerplate#59) — enumeration-safe success. */
 export function LoginMagicForm({ next, onSent }: LoginMagicFormProps) {
   const { m } = useLocale()
 
@@ -33,7 +33,7 @@ export function LoginMagicForm({ next, onSent }: LoginMagicFormProps) {
     validators: {
       onSubmit: ({ value }) => {
         const parsed = magicLinkSchema.safeParse(value)
-        if (parsed.success) return undefined
+        if (parsed.success) return
         return {
           form: m.errValidation,
           fields: {
@@ -52,7 +52,7 @@ export function LoginMagicForm({ next, onSent }: LoginMagicFormProps) {
           }),
         })
       } catch (e) {
-        // ApiError 429 / RATE_LIMITED or BA non-kit Error('HTTP 429')
+        // HTTP 429 or Kit RATE_LIMITED.
         if (isRateLimited(e)) {
           toast.error(m.error, { description: profileErrorMessage(e, m) })
           return

@@ -9,7 +9,7 @@ tier: F-lite
 
 ## Source
 
-GitHub [#104](https://github.com/Roxabi/roxabi-boilerplate-cf/issues/104): “Promote a **single kit list-page contract** (cursor + envelope) so products stop inventing `limit`/`offset`, dump-all routes, or a third pagination flavour.”
+GitHub [Roxabi/roxabi-boilerplate-cf#104](https://github.com/Roxabi/roxabi-boilerplate-cf/issues/104): “Promote a **single kit list-page contract** (cursor + envelope) so products stop inventing `limit`/`offset`, dump-all routes, or a third pagination flavour.”
 
 ## Problem
 

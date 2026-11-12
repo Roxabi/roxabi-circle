@@ -9,7 +9,7 @@ import type { PrivilegeStorage } from './lyra-mention'
 export const LYRA_THREAD_KIND_KEY = 'lyra_channel_kind_v1'
 /** Discord caps thread names at 100 chars; leave room for the ellipsis. */
 export const LYRA_THREAD_NAME_MAX = 90
-export const LYRA_THREAD_ADOPT_ATTEMPTS = 3
+const LYRA_THREAD_ADOPT_ATTEMPTS = 3
 /** Sleep before every adopt GET, including attempt 0. Worst case: 3 × 400ms = 1200ms. */
 export const LYRA_THREAD_ADOPT_DELAY_MS = 400
 
@@ -52,6 +52,50 @@ export type LyraThreadTarget = {
   reason: 'existing_thread' | 'created' | 'adopted' | 'create_failed' | 'no_token' | 'no_thread'
 }
 
+async function adoptLyraThread(
+  token: string,
+  msg: GatewayMessage,
+  fetchImpl: typeof fetch,
+  sleep: (ms: number) => Promise<void>,
+): Promise<boolean> {
+  for (let attempt = 0; attempt < LYRA_THREAD_ADOPT_ATTEMPTS; attempt++) {
+    try {
+      await sleep(LYRA_THREAD_ADOPT_DELAY_MS)
+    } catch {
+      /* injected sleep must not abort the mention */
+    }
+    if ((await fetchChannelThreadKind(token, msg.id, fetchImpl)) === 'thread') {
+      return true
+    }
+  }
+  return false
+}
+
+async function createLyraReplyThread(
+  token: string,
+  msg: GatewayMessage,
+  channelId: string,
+  fetchImpl: typeof fetch,
+  input: { adoptOnly?: boolean },
+): Promise<LyraThreadTarget> {
+  const created = await createThreadOnMessage(
+    token,
+    channelId,
+    msg.id,
+    lyraThreadTitle(msg.content ?? '', msg.author?.username),
+  ).catch((error: unknown) => ({ ok: false as const, error: String(error) }))
+  if (created.ok) {
+    return { channelId: created.threadId, created: true, reason: 'created' }
+  }
+  console.error('lyra-thread create failed', created.error)
+
+  if ((await fetchChannelThreadKind(token, msg.id, fetchImpl)) === 'thread') {
+    return { channelId: msg.id, created: false, reason: 'adopted' }
+  }
+  // In a ruled channel, no thread means no answer, because bot-authored prose in a link-only channel is never deleted.
+  return { channelId, created: false, reason: input.adoptOnly ? 'no_thread' : 'create_failed' }
+}
+
 export async function resolveLyraReplyThread(input: {
   token?: string
   msg: GatewayMessage
@@ -79,17 +123,8 @@ export async function resolveLyraReplyThread(input: {
     return { channelId, created: false, reason: 'no_token' }
   }
 
-  if (input.adoptOnly) {
-    for (let attempt = 0; attempt < LYRA_THREAD_ADOPT_ATTEMPTS; attempt++) {
-      try {
-        await sleep(LYRA_THREAD_ADOPT_DELAY_MS)
-      } catch {
-        /* injected sleep must not abort the mention */
-      }
-      if ((await fetchChannelThreadKind(token, msg.id, fetchImpl)) === 'thread') {
-        return { channelId: msg.id, created: false, reason: 'adopted' }
-      }
-    }
+  if (input.adoptOnly && (await adoptLyraThread(token, msg, fetchImpl, sleep))) {
+    return { channelId: msg.id, created: false, reason: 'adopted' }
   }
 
   const kind = await lookupChannelKind(token, channelId, storage, fetchImpl)
@@ -97,22 +132,7 @@ export async function resolveLyraReplyThread(input: {
     return { channelId, created: false, reason: 'existing_thread' }
   }
 
-  const created = await createThreadOnMessage(
-    token,
-    channelId,
-    msg.id,
-    lyraThreadTitle(msg.content ?? '', msg.author?.username),
-  ).catch((error: unknown) => ({ ok: false as const, error: String(error) }))
-  if (created.ok) {
-    return { channelId: created.threadId, created: true, reason: 'created' }
-  }
-  console.error('lyra-thread create failed', created.error)
-
-  if ((await fetchChannelThreadKind(token, msg.id, fetchImpl)) === 'thread') {
-    return { channelId: msg.id, created: false, reason: 'adopted' }
-  }
-  // In a ruled channel, no thread means no answer, because bot-authored prose in a link-only channel is never deleted.
-  return { channelId, created: false, reason: input.adoptOnly ? 'no_thread' : 'create_failed' }
+  return createLyraReplyThread(token, msg, channelId, fetchImpl, input)
 }
 
 /**

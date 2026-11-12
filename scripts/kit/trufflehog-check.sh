@@ -13,6 +13,12 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
 
+COMMITS_ONLY=0
+if [ "${1:-}" = "--commits-only" ]; then
+  COMMITS_ONLY=1
+  shift
+fi
+
 PIN="${ROOT}/config/kit/trufflehog.version"
 
 pin_get() {
@@ -33,18 +39,23 @@ THOG_VERSION="$(pin_get version)"
 THOG_ACTION_SHA="$(pin_get action_sha)"
 
 assert_action_pin() {
-  local wf want n
-  want="uses: trufflesecurity/trufflehog@${THOG_ACTION_SHA} # v${THOG_VERSION}"
+  local wf n
   for wf in \
     "${ROOT}/.github/workflows/secret-scan.yml"; do
     [ -f "$wf" ] || {
       echo >&2 "ERROR: missing workflow ${wf}"
       exit 1
     }
-    n="$(grep -cE "^[[:space:]]+${want}\$" "$wf" || true)"
-    if [ "$n" -ne 2 ]; then
-      echo >&2 "ERROR: ${wf} want exactly 2 pins: ${want} (got ${n})"
+    # CI runs this script (introduced-commit patches), not the action's base/head
+    # walk (Roxabi/roxabi-boilerplate-cf#284). Zero action pins is required so the broken range cannot return.
+    n="$(grep -cE "^[[:space:]]+uses:[[:space:]]*trufflesecurity/trufflehog@" "$wf" || true)"
+    if [ "$n" -ne 0 ]; then
+      echo >&2 "ERROR: ${wf} must not use trufflesecurity/trufflehog action (got ${n}); use scripts/kit/trufflehog-check.sh --commits-only (Roxabi/roxabi-boilerplate-cf#284)"
       grep -nE 'trufflesecurity/trufflehog@' "$wf" >&2 || true
+      exit 1
+    fi
+    if ! grep -qE "v${THOG_VERSION}" "$wf"; then
+      echo >&2 "ERROR: ${wf} must mention pinned v${THOG_VERSION} (from config/kit/trufflehog.version)"
       exit 1
     fi
   done
@@ -60,8 +71,10 @@ EXCLUDE_SRC="${ROOT}/scripts/kit/trufflehog-exclude-paths.txt"
 DETECTORS_SRC="${ROOT}/scripts/kit/trufflehog-detectors.yaml"
 excl=$(mktemp)
 staged_list=$(mktemp)
+commits_list=$(mktemp)
+patch_dir=""
 tmp=""
-trap 'rm -f "$excl" "$staged_list"; rm -rf "${tmp:-}"' EXIT
+trap 'rm -f "$excl" "$staged_list" "$commits_list"; rm -rf "${tmp:-}" "${patch_dir:-}"' EXIT
 
 if [ -f "$EXCLUDE_SRC" ]; then
   grep -vE '^\s*(#|$)' "$EXCLUDE_SRC" > "$excl" || true
@@ -166,12 +179,26 @@ ensure_repo_trufflehog() {
 
 ensure_repo_trufflehog
 
+# Every scan goes through here. Without --no-update TruffleHog replaces its own executable
+# with the latest release, so the scan runs an unverified version and the next hook sees a
+# hash mismatch and re-downloads (Roxabi/roxabi-boilerplate-cf#261). CI's action passes the same flag itself.
+thog() {
+  "$THOG" --no-update "$@"
+}
+
 detect_base_ref() {
-  local c
+  local c rc
+  # rc 1 is "this candidate is absent". Any other failure is a git error, not
+  # "no base" — swallowing it skips the commit-range scan (Roxabi/roxabi-boilerplate-cf#265).
   for c in origin/staging origin/main origin/master staging main master; do
-    if git rev-parse --verify --quiet "$c" >/dev/null 2>&1; then
+    rc=0
+    git rev-parse --verify --quiet "$c" >/dev/null || rc=$?
+    if [ "$rc" -eq 0 ]; then
       printf '%s\n' "$c"
       return 0
+    fi
+    if [ "$rc" -ne 1 ]; then
+      return "$rc"
     fi
   done
   return 1
@@ -180,57 +207,182 @@ detect_base_ref() {
 failed=0
 scanned=0
 
-if base_ref="$(detect_base_ref)"; then
-  base_sha="$(git rev-parse "$base_ref")"
-  head_sha="$(git rev-parse HEAD)"
-  if [ "$base_sha" != "$head_sha" ]; then
-    since_sha="$(git merge-base HEAD "$base_ref" 2>/dev/null || printf '%s' "$base_sha")"
-    ahead="$(git rev-list --count "${since_sha}..HEAD" 2>/dev/null || echo 0)"
-    if [ "${ahead:-0}" -gt 0 ]; then
-      echo "trufflehog: scanning ${ahead} commit(s) after ${base_ref} (${since_sha:0:7}..HEAD)"
-      scanned=1
-      if ! "$THOG" git "file://${ROOT}" \
-        --since-commit="$since_sha" \
-        --only-verified \
-        --fail \
-        --exclude-paths="$excl"; then
-        failed=1
-      fi
-      if [ "$custom_detectors" -eq 1 ] && ! "$THOG" git "file://${ROOT}" \
-        --since-commit="$since_sha" \
-        --config="$DETECTORS_SRC" \
-        --fail \
-        --exclude-paths="$excl"; then
-        failed=1
-      fi
-    fi
+# Introduced-commit set is owned by this gate — never --since-commit (Roxabi/roxabi-boilerplate-cf#284).
+# TruffleHog's since marker is a date-ordered stop, so a merge of an updated base
+# can hide older branch commits. We materialize each introduced commit's --cc
+# patch and scan them with the filesystem collector.
+scan_introduced_patches() {
+  local ahead="$1" label="$2"
+  local tip="${THOG_RANGE_HEAD:-HEAD}"
+  local sha patch_files=()
+  : >"$commits_list"
+  if [ -n "${3:-}" ]; then
+    git rev-list --reverse "${3}..${tip}" >"$commits_list"
+  else
+    git rev-list --reverse "$tip" >"$commits_list"
   fi
-else
-  echo >&2 "trufflehog: no base ref (origin/main|staging|…) — skip commit-range scan"
-fi
-
-git diff --cached --name-only --diff-filter=ACMR -z 2>/dev/null \
-  | tr '\0' '\n' \
-  | while IFS= read -r f; do
-      [ -n "$f" ] && [ -f "$f" ] && printf '%s\n' "$f"
-    done > "$staged_list" || true
-
-if [ -s "$staged_list" ]; then
-  mapfile -t staged_files < "$staged_list"
-  echo "trufflehog: scanning ${#staged_files[@]} staged file(s)"
+  ahead="$(grep -c . "$commits_list" || true)"
+  if [ "$ahead" -eq 0 ]; then
+    return 0
+  fi
+  echo "trufflehog: scanning ${ahead} introduced commit(s) ${label}"
+  patch_dir="$(mktemp -d "${TMPDIR:-/tmp}/thog-patches.XXXXXX")"
+  while IFS= read -r sha || [ -n "${sha:-}" ]; do
+    [ -n "$sha" ] || continue
+    # --cc: merge resolutions included (combined diff).
+    git show --cc --format=medium "$sha" >"${patch_dir}/${sha}.patch"
+    patch_files+=("${patch_dir}/${sha}.patch")
+  done <"$commits_list"
+  if [ "${#patch_files[@]}" -eq 0 ]; then
+    return 0
+  fi
   scanned=1
-  if ! "$THOG" filesystem \
+  if ! thog filesystem \
     --only-verified \
     --fail \
     --exclude-paths="$excl" \
-    "${staged_files[@]}"; then
+    -- "${patch_files[@]}"; then
     failed=1
   fi
-  if [ "$custom_detectors" -eq 1 ] && ! "$THOG" filesystem \
+  if [ "$custom_detectors" -eq 1 ] && ! thog filesystem \
     --config="$DETECTORS_SRC" \
     --fail \
     --exclude-paths="$excl" \
-    "${staged_files[@]}"; then
+    -- "${patch_files[@]}"; then
+    failed=1
+  fi
+}
+
+# CI / explicit range: THOG_RANGE_BASE (empty = full) + THOG_RANGE_HEAD (default HEAD).
+# Shared with .github/workflows/secret-scan.yml — do not reimplement (Roxabi/roxabi-boilerplate-cf#284).
+# Ordinary local unborn HEAD (no THOG_RANGE_*, not --commits-only): no commit object yet, so
+# rev-parse HEAD exits 128 before the index scan. Skip history only when `git show-ref --exists`
+# says the branch ref is missing (exit 2). Exit 0, 1, or anything else refuses before the index.
+# A Git without --exists fails closed on this path only. Explicit range, --commits-only, corrupt
+# or detached missing HEAD, and any other git error stay fail-closed (Roxabi/roxabi-boilerplate-cf#510).
+base_rc=0
+base_ref=""
+base_sha=""
+ordinary_unborn=0
+if [ "$COMMITS_ONLY" -eq 0 ] && [ "${THOG_RANGE_BASE+x}" != x ] && [ "${THOG_RANGE_HEAD+x}" != x ]; then
+  head_rc=0
+  head_sha="$(git rev-parse --verify --quiet HEAD)" || head_rc=$?
+  if [ "$head_rc" -eq 0 ]; then
+    :
+  elif [ "$head_rc" -eq 1 ] && branch_ref="$(git symbolic-ref -q HEAD)"; then
+    # --exists does not resolve the object. Only exit 2 (missing) is unborn.
+    # 0 = ref present (including a non-OID), 1 = lookup error, other = refuse.
+    ref_rc=0
+    ref_err="$(git show-ref --exists "$branch_ref" 2>&1)" || ref_rc=$?
+    if [ "$ref_rc" -eq 2 ]; then
+      ordinary_unborn=1
+      head_sha=""
+    elif [ "$ref_rc" -eq 0 ]; then
+      echo >&2 "trufflehog: refusing unresolved HEAD (${branch_ref}): branch ref exists"
+      exit 128
+    else
+      echo >&2 "trufflehog: refusing unresolved HEAD (${branch_ref}): git show-ref --exists exited ${ref_rc}; not treating it as unborn"
+      if [ -n "$ref_err" ]; then
+        printf '%s\n' "$ref_err" >&2
+      fi
+      exit "$ref_rc"
+    fi
+  else
+    git rev-parse --verify HEAD >/dev/null || exit "$head_rc"
+    exit "$head_rc"
+  fi
+else
+  head_sha="$(git rev-parse "${THOG_RANGE_HEAD:-HEAD}")"
+fi
+if [ "$ordinary_unborn" -eq 0 ]; then
+  if [ "${THOG_RANGE_BASE+x}" = x ]; then
+    base_sha="${THOG_RANGE_BASE}"
+    base_ref="THOG_RANGE_BASE"
+    if [ -z "$base_sha" ]; then
+      # Empty base → full history of head (force-push / orphan).
+      ahead="$(git rev-list --count "$head_sha")"
+      if [ "$ahead" -gt 0 ]; then
+        scan_introduced_patches "$ahead" "(THOG_RANGE empty base → full)"
+      fi
+      base_rc=2
+    else
+      base_rc=0
+    fi
+  else
+    base_ref="$(detect_base_ref)" || base_rc=$?
+  fi
+  if [ "$base_rc" -eq 0 ]; then
+    if [ -z "$base_sha" ]; then
+      base_sha="$(git rev-parse "$base_ref")"
+    fi
+    if [ "$base_sha" != "$head_sha" ]; then
+      # Always merge-base on resolved SHAs — never the label string. CI sets
+      # base_ref=THOG_RANGE_BASE while base_sha is the real object (Roxabi/roxabi-boilerplate-cf#284 review).
+      # rc 1: no common ancestor (or a shallow cut) — scan the whole tip history,
+      # same as CI with an empty base. Anything else is a git failure; do not
+      # substitute the base tip and do not hide stderr (Roxabi/roxabi-boilerplate-cf#265).
+      mb_rc=0
+      since_sha="$(git merge-base "$head_sha" "$base_sha")" || mb_rc=$?
+      if [ "$mb_rc" -eq 1 ]; then
+        ahead="$(git rev-list --count "$head_sha")"
+        if [ "$ahead" -gt 0 ]; then
+          scan_introduced_patches "$ahead" "after ${base_ref} (full history, no merge-base)"
+        fi
+      elif [ "$mb_rc" -ne 0 ]; then
+        exit "$mb_rc"
+      else
+        ahead="$(git rev-list --count "${since_sha}..${head_sha}")"
+        if [ "$ahead" -gt 0 ]; then
+          scan_introduced_patches "$ahead" "after ${base_ref} (${since_sha:0:7}..${head_sha:0:7})" "$since_sha"
+        fi
+      fi
+    fi
+  elif [ "$base_rc" -eq 1 ]; then
+    # No origin base: still scan every local commit (fail closed for introduced
+    # history). Never report "on base" / skip (Roxabi/roxabi-boilerplate-cf#284).
+    ahead="$(git rev-list --count "$head_sha")"
+    if [ "$ahead" -gt 0 ]; then
+      scan_introduced_patches "$ahead" "(no origin base — full local history)"
+    fi
+  elif [ "$base_rc" -eq 2 ]; then
+    : # empty THOG_RANGE_BASE already scanned above
+  else
+    exit "$base_rc"
+  fi
+fi
+
+# NUL-delimited on purpose (Roxabi/roxabi-boilerplate-cf#265). Translating the stream to newlines splits a
+# name that itself contains a newline; both halves fail `[ -f ]` and the file
+# is never scanned. stderr stays attached: a git failure is a hard error, not
+# an empty list. (A process substitution would not propagate that status under
+# set -e, so the NUL bytes land in a file whose write is a bare command.)
+# --diff-filter=d is everything except deletions: a type-change or rename is
+# content about to be committed.
+if [ "$COMMITS_ONLY" -eq 0 ]; then
+  git diff --cached --name-only --diff-filter=d -z >"$staged_list"
+else
+  : >"$staged_list"
+fi
+staged_files=()
+while IFS= read -r -d '' f || [ -n "${f:-}" ]; do
+  [ -n "$f" ] && [ -f "$f" ] && staged_files+=("$f")
+done <"$staged_list"
+
+if [ "${#staged_files[@]}" -gt 0 ]; then
+  echo "trufflehog: scanning ${#staged_files[@]} staged file(s)"
+  scanned=1
+  if ! thog filesystem \
+    --only-verified \
+    --fail \
+    --exclude-paths="$excl" \
+    -- "${staged_files[@]}"; then
+    failed=1
+  fi
+  if [ "$custom_detectors" -eq 1 ] && ! thog filesystem \
+    --config="$DETECTORS_SRC" \
+    --fail \
+    --exclude-paths="$excl" \
+    -- "${staged_files[@]}"; then
     failed=1
   fi
 fi

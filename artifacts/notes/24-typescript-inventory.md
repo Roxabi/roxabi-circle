@@ -3,7 +3,7 @@ status: reference
 normative: false
 ---
 
-# #24 TypeScript 7 — inventory & ship notes
+# Roxabi/roxabi-boilerplate-cf#24 TypeScript 7 — inventory & ship notes
 
 ## Pre-bump (2026-08-08)
 
@@ -30,7 +30,7 @@ normative: false
 - **`packages/ui/tsconfig.json`:** `"baseUrl": "."` + `paths` `@/*` → `./src/*` (6/7 hard-deprecation landmine)
 - **AGENTS.md Language row:** `TypeScript 5.9+ strict`
 - **Registry:** `typescript@7.0.2` latest stable; **6.x bridge exists** (`6.0.2` / `6.0.3`)
-- **Dependabot PR #12:** CLOSED (superseded by dedicated PR #43) — `chore(deps-dev): bump typescript from 5.9.3 to 7.0.2` (same 15 files). **Not ship unit.** Close **before** dedicated merge; never label `reviewed`.
+- **Dependabot PR Roxabi/roxabi-boilerplate-cf#12:** CLOSED (superseded by dedicated PR Roxabi/roxabi-boilerplate-cf#43) — `chore(deps-dev): bump typescript from 5.9.3 to 7.0.2` (same 15 files). **Not ship unit.** Close **before** dedicated merge; never label `reviewed`.
 
 ## Post-bump (2026-08-08)
 
@@ -56,11 +56,11 @@ normative: false
 ## PR body bullets (T7)
 
 - Title: `chore(deps): wave5b typescript7 monorepo pin + ts-major gate`
-- Closes #24
-- **Supersedes Dependabot #12** — close #12 **before** dedicated merge; do not label #12 `reviewed`
+- Closes Roxabi/roxabi-boilerplate-cf#24
+- **Supersedes Dependabot Roxabi/roxabi-boilerplate-cf#12** — close Roxabi/roxabi-boilerplate-cf#12 **before** dedicated merge; do not label Roxabi/roxabi-boilerplate-cf#12 `reviewed`
 - D2: permanent `scripts/check-typescript-major.sh` + `bun run ts-major` in `validate` / `validate:full` (mirror `zod-major`)
 - Force typecheck after clean install (`TURBO_FORCE=true`); build:kit + validate:full green
 - First-party only; skipLibCheck baseline unchanged; no dual-install
 - Compile fix: drop `packages/ui` `baseUrl`
 - Docs: AGENTS Language row → TypeScript 7+ strict
-- No product domain / other majors; no #30/#31 redesign
+- No product domain / other majors; no Roxabi/roxabi-boilerplate-cf#30/Roxabi/roxabi-boilerplate-cf#31 redesign

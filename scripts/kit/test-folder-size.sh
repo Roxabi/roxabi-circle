@@ -4,8 +4,8 @@
 # Builds a temp git repo (never plants under the live apps/ or packages/).
 # Exit 0 only if all matrix rows pass.
 set -euo pipefail
-
-unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR 2>/dev/null || true
+# shellcheck source=lib/hermetic-git.sh
+source "$(cd "$(dirname "$0")" && pwd -P)/lib/hermetic-git.sh"
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 CHECKER="${ROOT}/scripts/kit/check_folder_size.sh"

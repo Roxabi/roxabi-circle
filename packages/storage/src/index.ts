@@ -17,6 +17,8 @@ export type KitR2Bucket = {
 
 export type KitR2ObjectBody = {
   key: string
+  body: ReadableStream
+  httpMetadata?: { contentType?: string }
   text(): Promise<string>
 }
 
@@ -29,10 +31,12 @@ export class StorageError extends Error {
   }
 }
 
-/** Append path segments, rejecting empty / `.` / `..` (including inside prefix). */
+/** Append path segments. Empty / `.` / `..` fail closed (no silent elision). */
 function pushPathSegments(target: string[], part: string): void {
   for (const seg of part.split('/')) {
-    if (!seg || seg === '.') continue
+    if (!seg || seg === '.') {
+      throw new StorageError('PATH_TRAVERSAL', 'empty or current-dir segment rejected')
+    }
     if (seg === '..') {
       throw new StorageError('PATH_TRAVERSAL', 'path traversal rejected')
     }
@@ -41,8 +45,26 @@ function pushPathSegments(target: string[], part: string): void {
 }
 
 /**
+ * Trim leading/trailing slashes, then walk via {@link joinObjectKey}.
+ * Used by {@link StorageClient} and prefix-required {@link createPresignedUrl}.
+ */
+function normalizePrefix(prefix: string): string {
+  const trimmed = prefix.replace(/^\/+|\/+$/g, '')
+  if (!trimmed) {
+    throw new StorageError('PATH_TRAVERSAL', 'invalid base prefix')
+  }
+  return joinObjectKey(trimmed)
+}
+
+function assertKeyUnderPrefix(root: string, key: string): void {
+  if (key !== root && !key.startsWith(`${root}/`)) {
+    throw new StorageError('OUTSIDE_PREFIX', 'key outside prefix')
+  }
+}
+
+/**
  * Join path segments under a product/demo prefix.
- * Rejects traversal in **prefix and parts** (e.g. `demo/../x`).
+ * Rejects empty / `.` / `..` in **prefix and parts** (e.g. `demo/../x`, `demo/./x`).
  */
 export function joinObjectKey(prefix: string, ...parts: string[]): string {
   const segments: string[] = []
@@ -54,7 +76,7 @@ export function joinObjectKey(prefix: string, ...parts: string[]): string {
 }
 
 /**
- * Reject empty keys and `..` segments (used by advanced {@link createPresignedUrl}).
+ * Reject empty keys and empty / `.` / `..` segments.
  * Product I/O: use {@link StorageClient} so keys stay under a base prefix.
  */
 export function assertObjectKey(key: string): void {
@@ -71,22 +93,19 @@ export function assertObjectKey(key: string): void {
 export class StorageClient {
   constructor(
     private readonly bucket: KitR2Bucket,
-    private readonly basePrefix: string,
+    basePrefix: string,
   ) {
-    if (!basePrefix || basePrefix.includes('..')) {
-      throw new StorageError('PATH_TRAVERSAL', 'invalid base prefix')
-    }
+    this.basePrefix = normalizePrefix(basePrefix)
   }
+
+  private readonly basePrefix: string
 
   key(...parts: string[]): string {
     return joinObjectKey(this.basePrefix, ...parts)
   }
 
   private assertUnderPrefix(key: string): void {
-    const root = this.basePrefix.replace(/\/+$/, '')
-    if (key !== root && !key.startsWith(`${root}/`)) {
-      throw new StorageError('OUTSIDE_PREFIX', 'key outside base prefix')
-    }
+    assertKeyUnderPrefix(this.basePrefix, key)
   }
 
   async put(
@@ -123,9 +142,10 @@ export class StorageClient {
   }
 
   async list(opts?: { subPrefix?: string; limit?: number }): Promise<{ key: string }[]> {
-    const prefix = opts?.subPrefix
-      ? this.key(...opts.subPrefix.split('/').filter(Boolean))
-      : joinObjectKey(this.basePrefix)
+    const prefix =
+      opts && 'subPrefix' in opts && opts.subPrefix !== undefined
+        ? this.key(...opts.subPrefix.split('/'))
+        : this.basePrefix
     this.assertUnderPrefix(prefix)
     if (typeof this.bucket.list === 'function') {
       const res = await this.bucket.list({ prefix: `${prefix}/`, limit: opts?.limit })
@@ -153,6 +173,7 @@ export class StorageClient {
     this.assertUnderPrefix(key)
     const result = await createPresignedUrl(signer, {
       key,
+      prefix: this.basePrefix,
       method: input.method ?? 'PUT',
       expiresIn: input.expiresIn ?? 300,
       contentType: input.contentType,
@@ -167,6 +188,8 @@ export type PresignMethod = 'PUT'
 
 export type PresignInput = {
   key: string
+  /** Required product prefix — key must equal it or sit under `${prefix}/`. */
+  prefix: string
   method: PresignMethod
   /** seconds — clamped to [60, 3600] */
   expiresIn: number
@@ -190,25 +213,25 @@ function clampExpiresIn(seconds: number): number {
 }
 
 /**
- * Low-level presign: validate key safety then delegate to an app-provided signer
- * (S3 or mock). Package never holds R2 secrets.
+ * Low-level presign: key must sit under `prefix`, then delegate to an
+ * app-provided signer (S3 or mock). Package never holds R2 secrets.
  *
- * **Advanced / custom keys** (not deprecated). Path-safe only — does **not**
- * enforce a product prefix. Prefer {@link StorageClient.presign} so keys are
- * joined under `basePrefix`; use this only when you already have a full key
- * (e.g. from `client.key` or a trusted store).
+ * Prefer {@link StorageClient.presign} so the key is built under `basePrefix`.
  */
 export async function createPresignedUrl(
   signer: PresignSigner,
   input: PresignInput,
 ): Promise<PresignResult> {
+  const root = normalizePrefix(input.prefix)
   assertObjectKey(input.key)
+  assertKeyUnderPrefix(root, input.key)
   if (input.method !== 'PUT') {
     throw new StorageError('IO', 'only PUT presign is supported in kit v1')
   }
   const expiresIn = clampExpiresIn(input.expiresIn)
   return signer.sign({
     key: input.key,
+    prefix: root,
     method: 'PUT',
     expiresIn,
     contentType: input.contentType,

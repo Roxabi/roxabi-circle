@@ -1,11 +1,11 @@
 /**
  * Better Auth Drizzle SQLite/D1 tables (ADR-0008 D6).
  *
- * Applied SQL SSoT remains `apps/example-api/migrations/*` (ADR-0008 D3).
- * This module is the Drizzle companion — products import `@kit/auth/schema`,
- * they do not copy `better-auth-schema.ts`.
+ * SQL identity is catalog `id` + `kitSha256` (`config/kit/kit-schema-modules.json`).
+ * `apps/example-api/migrations/*` is the dogfood wrangler journal, not a clone template.
+ * This module is the Drizzle companion — products import `@kit/auth/schema`.
  */
-import { sql } from 'drizzle-orm'
+import { relations, sql } from 'drizzle-orm'
 import { index, integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core'
 
 export const baUser = sqliteTable('user', {
@@ -112,7 +112,7 @@ export const baAccount = sqliteTable(
     id: text('id').primaryKey(),
     accountId: text('account_id').notNull(),
     providerId: text('provider_id').notNull(),
-    issuer: text('issuer').notNull(),
+    issuer: text('issuer').notNull().default('local:credential'),
     userId: text('user_id')
       .notNull()
       .references(() => baUser.id, { onDelete: 'cascade' }),
@@ -154,7 +154,7 @@ export const baVerification = sqliteTable(
   (table) => [index('verification_identifier_idx').on(table.identifier)],
 )
 
-export const betterAuthDrizzleSchema = {
+const betterAuthTables = {
   user: baUser,
   session: baSession,
   account: baAccount,
@@ -164,6 +164,56 @@ export const betterAuthDrizzleSchema = {
   invitation: baInvitation,
 }
 
+/** The Better Auth tables; custom schemas retain their own table identities. */
+export type BetterAuthTables = typeof betterAuthTables
+
+/** Build relation metadata against the exact tables passed to Drizzle and the adapter. */
+export function withBetterAuthRelations<T extends BetterAuthTables>(tables: T) {
+  return {
+    ...tables,
+    userRelations: relations(tables.user, ({ many }) => ({
+      accounts: many(tables.account),
+      sessions: many(tables.session),
+      members: many(tables.member),
+      invitations: many(tables.invitation),
+    })),
+    sessionRelations: relations(tables.session, ({ one }) => ({
+      user: one(tables.user, { fields: [tables.session.userId], references: [tables.user.id] }),
+    })),
+    accountRelations: relations(tables.account, ({ one }) => ({
+      user: one(tables.user, { fields: [tables.account.userId], references: [tables.user.id] }),
+    })),
+    organizationRelations: relations(tables.organization, ({ many }) => ({
+      members: many(tables.member),
+      invitations: many(tables.invitation),
+    })),
+    memberRelations: relations(tables.member, ({ one }) => ({
+      user: one(tables.user, { fields: [tables.member.userId], references: [tables.user.id] }),
+      organization: one(tables.organization, {
+        fields: [tables.member.organizationId],
+        references: [tables.organization.id],
+      }),
+    })),
+    invitationRelations: relations(tables.invitation, ({ one }) => ({
+      user: one(tables.user, {
+        fields: [tables.invitation.inviterId],
+        references: [tables.user.id],
+      }),
+      organization: one(tables.organization, {
+        fields: [tables.invitation.organizationId],
+        references: [tables.organization.id],
+      }),
+    })),
+  }
+}
+
+export const betterAuthDrizzleSchema = withBetterAuthRelations(betterAuthTables)
+
+export {
+  impersonationDrizzleSchema,
+  impersonationRolePermissions,
+  impersonationSessions,
+} from './impersonation-schema'
 export {
   apiKeys,
   auditEvents,
@@ -177,10 +227,13 @@ export {
   userPlatformRoles,
 } from './tenancy-schema'
 
+import { impersonationDrizzleSchema } from './impersonation-schema'
+
 import { tenancyDrizzleSchema } from './tenancy-schema'
 
 /** Better Auth + kit tenancy/RBAC tables for Drizzle compose. */
 export const kitAuthSchema = {
   ...betterAuthDrizzleSchema,
   ...tenancyDrizzleSchema,
+  ...impersonationDrizzleSchema,
 }
