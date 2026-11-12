@@ -98,7 +98,7 @@ invariant invariant.kit.api-key-compare-is-constant-time
   tag: security
 
 invariant invariant.kit.grant-provenance-not-client
-  statement: Grants are never minted from the client, a plan body, or an agent self-description. Residual until #142 — dogfood is server-side dogfoodFixedGrant, not org module policy mint.
+  statement: Grants are never minted from the client, a plan body, or an agent self-description. Residual until Roxabi/roxabi-boilerplate-cf#142 — dogfood is server-side dogfoodFixedGrant, not org module policy mint.
   status: declared
   provenance: author
   appliesAtLevel: 4

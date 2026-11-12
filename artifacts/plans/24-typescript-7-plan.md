@@ -11,9 +11,9 @@ normative: false
 
 ## Summary
 
-Single ship unit: bump monorepo **TypeScript 5.9.3 → ^7.0.2** on all **15** manifests that pin it, clean install, permanent **`ts-major`** gate (mirror `zod-major`), fix **6/7 hard deprecations** (known: `packages/ui` `baseUrl`) + first-party diagnostics under native `tsc` 7, update AGENTS to **TypeScript 7+**, then green **forced typecheck** · `build:kit` · `validate:full`. Dedicated PR for #24 with triage attestation; **close Dependabot #12 before merge**; not a ship unit if only #12 lands green.
+Single ship unit: bump monorepo **TypeScript 5.9.3 → ^7.0.2** on all **15** manifests that pin it, clean install, permanent **`ts-major`** gate (mirror `zod-major`), fix **6/7 hard deprecations** (known: `packages/ui` `baseUrl`) + first-party diagnostics under native `tsc` 7, update AGENTS to **TypeScript 7+**, then green **forced typecheck** · `build:kit` · `validate:full`. Dedicated PR for Roxabi/roxabi-boilerplate-cf#24 with triage attestation; **close Dependabot Roxabi/roxabi-boilerplate-cf#12 before merge**; not a ship unit if only Roxabi/roxabi-boilerplate-cf#12 lands green.
 
-**Implement-time pin (re-verify at start):** `typescript` **`^7.0.2`** (or newer 7.x patch if npm latest). Confirm #12 still open and 6.x bridge availability for hatch.
+**Implement-time pin (re-verify at start):** `typescript` **`^7.0.2`** (or newer 7.x patch if npm latest). Confirm Roxabi/roxabi-boilerplate-cf#12 still open and 6.x bridge availability for hatch.
 
 ## Architecture
 
@@ -21,7 +21,7 @@ Single ship unit: bump monorepo **TypeScript 5.9.3 → ^7.0.2** on all **15** ma
 
 **Diagram:** [wave 5b TypeScript 7 data flow](../visuals/24-typescript-7-data-flow.html)
 
-Inventory → pin ^7.0.2 + lock → permanent D2 (`ts-major`) → compile fixes (ui baseUrl + first-party) → docs → forced gates → ship PR (close #12 first).
+Inventory → pin ^7.0.2 + lock → permanent D2 (`ts-major`) → compile fixes (ui baseUrl + first-party) → docs → forced gates → ship PR (close Roxabi/roxabi-boilerplate-cf#12 first).
 
 ### File x Function Map
 
@@ -34,10 +34,10 @@ Manifest + lock + D2 script (devops) · compile/tsconfig (backend-A) · AGENTS (
 - Frame: `artifacts/frames/24-typescript-7-frame.md` (approved, F-lite)
 - Spec: `artifacts/specs/24-typescript-7-spec.md` (approved)
 - Branch/ω: `feat/24-typescript-7` @ `~/.grok/worktrees/Roxabi-roxabi-boilerplate-cf/24-typescript-7`
-- Prior wave pattern: #23 Zod 4 plan (deps wave sequential + permanent major script)
+- Prior wave pattern: Roxabi/roxabi-boilerplate-cf#23 Zod 4 plan (deps wave sequential + permanent major script)
 - Known pins: root + 14 workspaces all `^5.9.0` → resolved `5.9.3`; `@kit/config` unpinned
 - Known landmine: `packages/ui/tsconfig.json` `"baseUrl": "."` + `paths` `@/*`
-- Dependabot: **PR #12** `dependabot/npm_and_yarn/typescript-7.0.2` (same 15 files) — not ship unit
+- Dependabot: **PR Roxabi/roxabi-boilerplate-cf#12** `dependabot/npm_and_yarn/typescript-7.0.2` (same 15 files) — not ship unit
 - Ref script: `scripts/check-zod-major.sh` + `zod-major` in `validate` / `validate:full`
 
 ## Agents
@@ -74,13 +74,13 @@ Use **safe** chain in seeding blueprint below.
 
 | Task | Items | Class | Est. ops | Split? |
 |------|-------|-------|----------|--------|
-| T1 inventory | 15 pins + ui baseUrl + AGENTS + #12 | bounded | 4 | — |
+| T1 inventory | 15 pins + ui baseUrl + AGENTS + Roxabi/roxabi-boilerplate-cf#12 | bounded | 4 | — |
 | T2 pin + clean install | 15 package.json + lock | bounded | 6 | — |
 | T3 ts-major script + wire | script + package.json validate* | judgmental | 8 | — |
 | T4 compile fixes | ui tsconfig + first-party errors | judgmental | 15 | — |
 | T5 docs | AGENTS + grep | bounded | 4 | — |
 | T6 gates | force typecheck · build:kit · validate:full · ts-major | bounded | 10 | — |
-| T7 PR process | note + close #12 checklist | trivial | 3 | — |
+| T7 PR process | note + close Roxabi/roxabi-boilerplate-cf#12 checklist | trivial | 3 | — |
 
 **Total estimated ops: ~50**
 
@@ -106,9 +106,9 @@ Use **safe** chain in seeding blueprint below.
 
 #### Task 1: Capture pre-bump TypeScript inventory → devops-A
 - **File:** `artifacts/notes/24-typescript-inventory.md` (create under worktree)
-- **Snippet:** table `manifest | package.json range | lock resolution`; list all 15 paths; note `@kit/config` unpinned; record `packages/ui` baseUrl+paths; AGENTS Language row text; Dependabot #12 state/target; optional `npm view typescript version` / 6.x bridge note for hatch
-- **Verify:** `test -f artifacts/notes/24-typescript-inventory.md && grep -E 'typescript|5\\.9|baseUrl|#12' artifacts/notes/24-typescript-inventory.md | wc -l` (ready)
-- **Expected:** 15 pins listed; baseUrl + #12 recorded
+- **Snippet:** table `manifest | package.json range | lock resolution`; list all 15 paths; note `@kit/config` unpinned; record `packages/ui` baseUrl+paths; AGENTS Language row text; Dependabot Roxabi/roxabi-boilerplate-cf#12 state/target; optional `npm view typescript version` / 6.x bridge note for hatch
+- **Verify:** `test -f artifacts/notes/24-typescript-inventory.md && grep -E 'typescript|5\\.9|baseUrl|Roxabi/roxabi-boilerplate-cf#12' artifacts/notes/24-typescript-inventory.md | wc -l` (ready)
+- **Expected:** 15 pins listed; baseUrl + Roxabi/roxabi-boilerplate-cf#12 recorded
 - **Time:** 8 min
 - **Difficulty:** 1
 - **Traces:** SC-1–SC-2 (pre-state), χ items
@@ -191,10 +191,10 @@ Use **safe** chain in seeding blueprint below.
 - **Verify:** T6 all green including validate:full
 - **Phase:** RED-GATE
 
-#### Task 7: PR body material + Dependabot #12 close-before-merge → devops-A
+#### Task 7: PR body material + Dependabot Roxabi/roxabi-boilerplate-cf#12 close-before-merge → devops-A
 - **File:** inventory note (append PR body bullets)
-- **Snippet:** pin used; D2/ts-major evidence; force-typecheck evidence; compile fixes list or zero-diagnostics attestation; “no other majors”; #30/#31 dirty-merge ban; **close/supersede #12 before dedicated merge**; do not label #12 `reviewed`; ship vehicle = dedicated #24 PR only; title shape `chore(deps): wave5b typescript7…`
-- **Verify:** `test -f artifacts/notes/24-typescript-inventory.md && grep -E 'ts-major|validate:full|#12|attestation|wave5b' artifacts/notes/24-typescript-inventory.md` (ready)
+- **Snippet:** pin used; D2/ts-major evidence; force-typecheck evidence; compile fixes list or zero-diagnostics attestation; “no other majors”; Roxabi/roxabi-boilerplate-cf#30/Roxabi/roxabi-boilerplate-cf#31 dirty-merge ban; **close/supersede Roxabi/roxabi-boilerplate-cf#12 before dedicated merge**; do not label Roxabi/roxabi-boilerplate-cf#12 `reviewed`; ship vehicle = dedicated Roxabi/roxabi-boilerplate-cf#24 PR only; title shape `chore(deps): wave5b typescript7…`
+- **Verify:** `test -f artifacts/notes/24-typescript-inventory.md && grep -E 'ts-major|validate:full|Roxabi/roxabi-boilerplate-cf#12|attestation|wave5b' artifacts/notes/24-typescript-inventory.md` (ready)
 - **Expected:** note ready for `/pr`; code commits already on branch
 - **Time:** 8 min
 - **Difficulty:** 1

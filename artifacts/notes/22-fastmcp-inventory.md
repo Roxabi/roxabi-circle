@@ -3,7 +3,7 @@ status: reference
 normative: false
 ---
 
-# #22 FastMCP inventory (pre → post)
+# Roxabi/roxabi-boilerplate-cf#22 FastMCP inventory (pre → post)
 
 | Path | Field / API | Today | Target |
 |------|-------------|-------|--------|
@@ -13,7 +13,7 @@ normative: false
 | `apps/mcp-example/src/index.ts` | `server.start({ transportType: 'stdio' })` | v3 | v4-compatible |
 | `packages/mcp/src/catalogue.ts` | `ToolServer.addTool` + `parameters: tool.input` | duck-type | keep unless break |
 | `apps/mcp-example/scripts/stdio-smoke.mjs` | tools/list + ping + whoami | works on 3.x | adjust only if break |
-| Dependabot #7 | PR | OPEN → 4.12.2 | **do not merge**; close before dedicated merge |
+| Dependabot Roxabi/roxabi-boilerplate-cf#7 | PR | OPEN → 4.12.2 | **do not merge**; close before dedicated merge |
 
 **npm latest at plan/implement:** `4.12.6`
 
@@ -33,20 +33,20 @@ normative: false
 
 ## Residuals (documented non-claims)
 
-- Kit packages pin `zod` ^3.25; FastMCP 4 pulls `zod` ^4 transitively (dual graph) — monorepo Zod wave = #23
+- Kit packages pin `zod` ^3.25; FastMCP 4 pulls `zod` ^4 transitively (dual graph) — monorepo Zod wave = Roxabi/roxabi-boilerplate-cf#23
 - Smoke exercises empty-input tools + registration/list/call — not a full non-empty schema matrix
 
 ## PR body material (T6)
 
-**Title:** `chore(deps): wave4 fastmcp 3→4 (#22)`
+**Title:** `chore(deps): wave4 fastmcp 3→4 (Roxabi/roxabi-boilerplate-cf#22)`
 
 **Body bullets:**
 - Pin `apps/mcp-example` `fastmcp` `^3.1.0` → `^4.12.6` (lock 3.35.0 → 4.12.6)
 - Single-major assert: no `fastmcp@3.` in lock for consumer
 - No adapter source changes (constructor / `addTool` / stdio smoke unchanged)
 - Gates: `@kit/mcp` + `mcp-example` typecheck/test, `smoke:mcp`, `validate:full` green
-- **Do not merge Dependabot #7** — close/supersede #7 before this PR merges
+- **Do not merge Dependabot Roxabi/roxabi-boilerplate-cf#7** — close/supersede Roxabi/roxabi-boilerplate-cf#7 before this PR merges
 - Residuals: dual Zod 3/4 graph (kit vs transitive); empty-input smoke non-claim
-- Closes #22
+- Closes Roxabi/roxabi-boilerplate-cf#22
 
-**#7 status at implement:** OPEN (`dependabot/npm_and_yarn/fastmcp-4.12.1`, title targets 4.12.2)
+**Roxabi/roxabi-boilerplate-cf#7 status at implement:** OPEN (`dependabot/npm_and_yarn/fastmcp-4.12.1`, title targets 4.12.2)

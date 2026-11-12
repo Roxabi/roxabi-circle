@@ -19,7 +19,7 @@ One F-lite PR, TDD waves, shared classifier module to prevent drift with zero-ed
 - **ADR:** [`docs/kit/architecture/adr/0009-kit-namespace-polarity-inheritance-marker.md`](../../docs/kit/architecture/adr/0009-kit-namespace-polarity-inheritance-marker.md) (D5 mode detection)
 - **Contract:** [`docs/kit/product-consumer-contract.md`](../../docs/kit/product-consumer-contract.md) (kit vs product apps)
 - **Spec:** [156 spec](../specs/156-3-exception-extract-dry-run-attendre-le-kit-spec.md)
-- **Predecessor:** #144 extract bar (allowlist, residency, compose) — behaviour preserved except identity branching
+- **Predecessor:** Roxabi/roxabi-boilerplate-cf#144 extract bar (allowlist, residency, compose) — behaviour preserved except identity branching
 
 ```text
 config/kit/zero-edit-zones.json
@@ -54,7 +54,7 @@ config/kit/zero-edit-zones.json
 ## Bootstrap Context
 
 - Frame: none (F-lite). Spec is normative.
-- After #144, `extract-dry-run.sh` defaults `EXTRACT_MODE=kit` and hardcodes `apps/share-api` / `apps/share-web` as product probes — violates AC 1, 3, 5.
+- After Roxabi/roxabi-boilerplate-cf#144, `extract-dry-run.sh` defaults `EXTRACT_MODE=kit` and hardcodes `apps/share-api` / `apps/share-web` as product probes — violates AC 1, 3, 5.
 - Zero-edit already implements D5 in embedded Node (`check-zero-edit-zones.sh` L150–180) with `isFreeProductAppPath` complement logic (L256–263).
 - Kit example set SSoT: `example-api`, `example-web`, `example-web-branded`, `mcp-example` (already in `KIT_APP_ALLOW` + test helper).
 - `EXTRACT_MODE=mono` today bypasses allowlist — must not be reachable on lefthook/CI without sentinel (AC 4).

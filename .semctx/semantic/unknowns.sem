@@ -2,7 +2,7 @@
 
 
 unknown unknown.kit.grant-policy-mint
-  statement: Grant mint from org module policy is residual until #142; current dogfood is server-side dogfoodFixedGrant.
+  statement: Grant mint from org module policy is residual until Roxabi/roxabi-boilerplate-cf#142; current dogfood is server-side dogfoodFixedGrant.
   status: declared
   provenance: author
   risks: invariant.kit.grant-provenance-not-client

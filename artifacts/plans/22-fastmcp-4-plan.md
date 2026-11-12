@@ -11,9 +11,9 @@ normative: false
 
 ## Summary
 
-Single ship unit: bump **FastMCP 3→4** on `apps/mcp-example`, one clean `bun install`, single-major assert (no consumer on 3.x), fix constructor/`addTool`/stdio only if broken, then green typecheck + package tests + `smoke:mcp` + `validate:full`. Dedicated PR for #22; **do not merge Dependabot #7** — close/supersede before merge.
+Single ship unit: bump **FastMCP 3→4** on `apps/mcp-example`, one clean `bun install`, single-major assert (no consumer on 3.x), fix constructor/`addTool`/stdio only if broken, then green typecheck + package tests + `smoke:mcp` + `validate:full`. Dedicated PR for Roxabi/roxabi-boilerplate-cf#22; **do not merge Dependabot Roxabi/roxabi-boilerplate-cf#7** — close/supersede before merge.
 
-**Implement-time pin (re-verify at start):** `fastmcp` **`^4.12.6`** (or latest 4.x if newer; ≥ Dependabot #7 target 4.12.2).
+**Implement-time pin (re-verify at start):** `fastmcp` **`^4.12.6`** (or latest 4.x if newer; ≥ Dependabot Roxabi/roxabi-boilerplate-cf#7 target 4.12.2).
 
 ## Architecture
 
@@ -21,7 +21,7 @@ Single ship unit: bump **FastMCP 3→4** on `apps/mcp-example`, one clean `bun i
 
 **Diagram:** [wave 4 FastMCP data flow](../visuals/22-fastmcp-4-data-flow.html)
 
-Inventory → pin 4.x + lock → single-major assert → optional adapter → gates → ship PR + close #7.
+Inventory → pin 4.x + lock → single-major assert → optional adapter → gates → ship PR + close Roxabi/roxabi-boilerplate-cf#7.
 
 ### File x Function Map
 
@@ -55,7 +55,7 @@ Manifest + lock (devops) · optional `index.ts` / `catalogue.ts` / `stdio-smoke.
 | T3 single-major assert | lock/pm | bounded | 2 | — |
 | T4 adapter if needed | 0–3 files | judgmental | 6 | — |
 | T5 gates | 5 cmds | bounded | 5 | — |
-| T6 #7 + PR prep | 2 | trivial | 2 | — |
+| T6 Roxabi/roxabi-boilerplate-cf#7 + PR prep | 2 | trivial | 2 | — |
 
 **Total estimated ops: ~22**
 
@@ -79,7 +79,7 @@ Manifest + lock (devops) · optional `index.ts` / `catalogue.ts` / `stdio-smoke.
 
 #### Task 1: Capture pre-bump FastMCP inventory → devops-A
 - **File:** `artifacts/notes/22-fastmcp-inventory.md` (create under worktree)
-- **Snippet:** table `path | field/API | today | target` for package.json, lock pin, index.ts construct/start, catalogue ToolServer/registerAll, stdio-smoke; note Dependabot #7 target
+- **Snippet:** table `path | field/API | today | target` for package.json, lock pin, index.ts construct/start, catalogue ToolServer/registerAll, stdio-smoke; note Dependabot Roxabi/roxabi-boilerplate-cf#7 target
 - **Verify:** `test -f artifacts/notes/22-fastmcp-inventory.md && grep -E 'fastmcp|FastMCP|smoke' artifacts/notes/22-fastmcp-inventory.md | wc -l` (ready)
 - **Expected:** inventory lists current `^3.1.0` / lock 3.35.0 and touchpoints for A1–A3
 - **Time:** 5 min
@@ -148,11 +148,11 @@ Manifest + lock (devops) · optional `index.ts` / `catalogue.ts` / `stdio-smoke.
 
 ### Slice V3: Ship process
 
-#### Task 6: Dependabot #7 close plan + PR body material → devops-A
+#### Task 6: Dependabot Roxabi/roxabi-boilerplate-cf#7 close plan + PR body material → devops-A
 - **File:** inventory note (append PR body bullets)
-- **Snippet:** pins used; D2 evidence; “do not merge #7”; close #7 before dedicated merge; residuals dual-Zod + empty-input smoke non-claim; one ship unit
+- **Snippet:** pins used; D2 evidence; “do not merge Roxabi/roxabi-boilerplate-cf#7”; close Roxabi/roxabi-boilerplate-cf#7 before dedicated merge; residuals dual-Zod + empty-input smoke non-claim; one ship unit
 - **Verify:** `gh pr view 7 --json state,number,title` (ready)
-- **Expected:** note documents #7 supersede policy; code ready for `/pr` (implement lands code commits — open PR in `/pr` step)
+- **Expected:** note documents Roxabi/roxabi-boilerplate-cf#7 supersede policy; code ready for `/pr` (implement lands code commits — open PR in `/pr` step)
 - **Time:** 5 min
 - **Difficulty:** 1
 - **Traces:** SC-11, SC-12, SC-14

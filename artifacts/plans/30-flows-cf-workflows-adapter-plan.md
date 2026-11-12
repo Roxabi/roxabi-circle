@@ -11,7 +11,7 @@ normative: false
 
 ## Summary
 
-Ship the #30 runner as one PR: pure `interpretRun` + `parseReceipts` + `readRunRollup` in `@kit/flows`; `driveFlowRun` + thin `FlowRunWorkflow` in `apps/example-api`; Node tests with memory D1 (no pool-workers gate). V0 `succeeded` = every task `ok`. Closing keyword = issue 30 only.
+Ship the Roxabi/roxabi-boilerplate-cf#30 runner as one PR: pure `interpretRun` + `parseReceipts` + `readRunRollup` in `@kit/flows`; `driveFlowRun` + thin `FlowRunWorkflow` in `apps/example-api`; Node tests with memory D1 (no pool-workers gate). V0 `succeeded` = every task `ok`. Closing keyword = issue 30 only.
 
 ## Architecture
 
@@ -26,10 +26,10 @@ Insert `queued` → `FLOW_RUN.create({ id, params })` → claim CAS → parse (d
 - Frame: `artifacts/frames/30-flows-cf-workflows-adapter-frame.md`
 - Already shipped: `parseRunnerView`, `createRunSnapshot`, D1 `0012_flows_plans_runs.sql`, `flows-dogfood.ts` (freeze only)
 - Pattern tests: `packages/flows/src/check.test.ts`, `apps/example-api/src/lib/flows-dogfood.test.ts`, `apps/example-api/src/test/memory-env.ts` (Node + better-sqlite3)
-- No `@cloudflare/vitest-pool-workers` — do not add (spec 21 / #30 residual)
+- No `@cloudflare/vitest-pool-workers` — do not add (spec 21 / Roxabi/roxabi-boilerplate-cf#30 residual)
 - File length: `apps/` + `packages/` max 300 — split `flows-run/*`
 - CF: `create({ id, params })`; `run` reads `event.payload` + `event.instanceId`; side effects inside `step.do`; default retries 5× — set `limit: 0` on invoke/infer
-- Closer: `.github/workflows/close-linked-issues.yml` unanchored — never write `close #16` / `fix #16` / same for 72 in the PR body
+- Closer: `.github/workflows/close-linked-issues.yml` unanchored — never write `close Roxabi/roxabi-boilerplate-cf#16` / `fix Roxabi/roxabi-boilerplate-cf#16` / same for 72 in the PR body
 
 ## Agents
 
@@ -313,7 +313,7 @@ T17 stays on C (drive already owns the loop). InferPort implementation is `ports
 
 #### RED-GATE V3: T22 → tester-B
 - **Verify:** `bun --filter @kit/flows test && bun --filter @kit/example-api test src/flows-run/` (`ready`)
-- **Expected:** V1–V3 green. PR later: `Fixes #30` only; body says “epic 16 and tracker 72 stay open” — **do not** write `close #16`
+- **Expected:** V1–V3 green. PR later: `Fixes Roxabi/roxabi-boilerplate-cf#30` only; body says “epic 16 and tracker 72 stay open” — **do not** write `close Roxabi/roxabi-boilerplate-cf#16`
 - **Phase:** RED-GATE
 - **Traces:** T4 close-ban | **Subject:** driver
 

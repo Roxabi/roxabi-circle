@@ -3,7 +3,7 @@ status: reference
 normative: false
 ---
 
-# #23 Zod inventory (pre-bump)
+# Roxabi/roxabi-boilerplate-cf#23 Zod inventory (pre-bump)
 
 Generated: 2026-08-07T10:41:30+02:00
 npm latest zod: 4.4.3
@@ -41,8 +41,8 @@ npm latest zod: 4.4.3
 - better-auth / @better-auth/core, fastmcp, @modelcontextprotocol/sdk → zod@4.4.3
 
 ## Cross-track
-- #29 OPEN, #30 OPEN — freeze/rebase if schema conflict
-- #24 TypeScript 7 — OOS
+- Roxabi/roxabi-boilerplate-cf#29 OPEN, Roxabi/roxabi-boilerplate-cf#30 OPEN — freeze/rebase if schema conflict
+- Roxabi/roxabi-boilerplate-cf#24 TypeScript 7 — OOS
 
 ## Post-bump
 
@@ -66,7 +66,7 @@ zod lock lines:
 
 | Package | Why | Follow-up |
 |---------|-----|-----------|
-| shadcn@4.13.0 (`packages/ui` CLI) | CLI tool pins `zod: ^3.24.1`; nested lock key `shadcn/zod` → `zod@3.25.76`. Not a kit runtime dep path for core/flows/mcp/examples. | Optional: wait for shadcn CLI zod 4 peer; not blocking #23 |
+| shadcn@4.13.0 (`packages/ui` CLI) | CLI tool pins `zod: ^3.24.1`; nested lock key `shadcn/zod` → `zod@3.25.76`. Not a kit runtime dep path for core/flows/mcp/examples. | Optional: wait for shadcn CLI zod 4 peer; not blocking Roxabi/roxabi-boilerplate-cf#23 |
 
 Kit workspaces resolve **zod@4.4.3** (verified via require.resolve).
 
@@ -79,15 +79,15 @@ Kit workspaces resolve **zod@4.4.3** (verified via require.resolve).
 ### PR body bullets
 - Pin: `zod@^4.4.3` on 6 workspaces
 - D2: only residual = shadcn CLI (allowlisted)
-- No TypeScript 7 / no tsconfig target bump (#24 OOS)
-- #29/#30: rebase if schema conflict; do not land dirty concurrent schema PRs without re-assert
+- No TypeScript 7 / no tsconfig target bump (Roxabi/roxabi-boilerplate-cf#24 OOS)
+- Roxabi/roxabi-boilerplate-cf#29/Roxabi/roxabi-boilerplate-cf#30: rebase if schema conflict; do not land dirty concurrent schema PRs without re-assert
 - Dependabot zod bots: close/supersede — not ship unit
 - Gates: typecheck, core/flows/mcp/example-api/auth tests, example-web typecheck, smoke:mcp, validate:full
 
 ### Tooling follow-fix (same PR)
-- `@kit/flows` was still on `vitest@^3.2.0` while monorepo is vitest 4 — broke `test:coverage` (mixed coverage-v8 provider). Aligned to `^4.1.10` so validate:full passes. Residual from #28 landing before full vitest4 dogfood on flows.
+- `@kit/flows` was still on `vitest@^3.2.0` while monorepo is vitest 4 — broke `test:coverage` (mixed coverage-v8 provider). Aligned to `^4.1.10` so validate:full passes. Residual from Roxabi/roxabi-boilerplate-cf#28 landing before full vitest4 dogfood on flows.
 
-## Review fixes (#41)
+## Review fixes (Roxabi/roxabi-boilerplate-cf#41)
 
 - `scripts/check-zod-major.sh` + `bun run zod-major` in `validate:full`
 - `shadcn` moved to `@kit/ui` **devDependencies** (CLI only; `ui:add` already uses `bunx`)

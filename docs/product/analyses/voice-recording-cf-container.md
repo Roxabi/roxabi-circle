@@ -2,11 +2,11 @@
 
 **Date :** 2026-09-10 → 2026-09-11  
 **Statut :** expérience **terminée**. **Pas produit.** Pas armé sur `circle.roxabi.dev`.  
-**Code spike :** **pas sur `main`.** PR #33 fermée, branche feature droppée. Archive locale (pas un merge) :
+**Code spike :** **pas sur `main`.** PR Roxabi/roxabi-circle#33 fermée, branche feature droppée. Archive locale (pas un merge) :
 
 | | |
 |---|---|
-| Base (PR #33) | `60fab6c` — `refs/archive/spike-a-60fab6c` · branche locale `spike-a-archive` |
+| Base (PR Roxabi/roxabi-circle#33) | `60fab6c` — `refs/archive/spike-a-60fab6c` · branche locale `spike-a-archive` |
 | + WT (DAVE / one-shot) | `d7d3639` — `refs/archive/spike-a-wt` |
 | Fichiers | `~/projects/artifacts/spike-a-README.md` |
 

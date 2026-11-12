@@ -11,7 +11,7 @@ normative: false
 
 ## Summary
 
-Single ship unit: bump monorepo **Zod 3.25 → ^4.4.3** on all six workspaces that pin it, clean install, **machine D2** (no `zod@3.` in lock or allowlist), port **`@kit/flows` schemas** (+ minimal `z.record` / `parseOrThrow` fixtures), fix other Zod 4 breaks only if needed, then green typecheck + focused tests + `smoke:mcp` + `validate:full`. Dedicated PR for #23; **no TypeScript 7**; freeze/rebase #29/#30 if schema conflict; do not merge Dependabot zod bots as ship unit.
+Single ship unit: bump monorepo **Zod 3.25 → ^4.4.3** on all six workspaces that pin it, clean install, **machine D2** (no `zod@3.` in lock or allowlist), port **`@kit/flows` schemas** (+ minimal `z.record` / `parseOrThrow` fixtures), fix other Zod 4 breaks only if needed, then green typecheck + focused tests + `smoke:mcp` + `validate:full`. Dedicated PR for Roxabi/roxabi-boilerplate-cf#23; **no TypeScript 7**; freeze/rebase Roxabi/roxabi-boilerplate-cf#29/Roxabi/roxabi-boilerplate-cf#30 if schema conflict; do not merge Dependabot zod bots as ship unit.
 
 **Implement-time pin (re-verify at start):** `zod` **`^4.4.3`** (or newer 4.x patch if npm latest).
 
@@ -34,7 +34,7 @@ Manifest + lock (devops) · core parse + flows schemas (backend-A) · mcp + api 
 - Frame: `artifacts/frames/23-zod-4-frame.md` (approved, F-lite)
 - Spec: `artifacts/specs/23-zod-4-spec.md` (approved)
 - Branch/ω: `feat/23-zod-4` @ `~/.grok/worktrees/Roxabi-roxabi-boilerplate-cf/23-zod-4`
-- Prior wave pattern: #22 FastMCP plan (deps wave sequential)
+- Prior wave pattern: Roxabi/roxabi-boilerplate-cf#22 FastMCP plan (deps wave sequential)
 - Known pins: core, flows, mcp, example-api, example-web (exact 3.25.76), mcp-example → all `^3.25` class
 - Lock today: `zod@3.25.76` + nested peers `zod@4.4.3` (BA / FastMCP / MCP SDK)
 
@@ -98,7 +98,7 @@ Manifest + lock (devops) · core parse + flows schemas (backend-A) · mcp + api 
 
 #### Task 1: Capture pre-bump Zod inventory → devops-A
 - **File:** `artifacts/notes/23-zod-inventory.md` (create under worktree)
-- **Snippet:** table `workspace | package.json range | lock resolution`; list import sites (core parse, flows schema/grant, mcp catalogue, example-api/web); note nested BA/FastMCP zod@4.4.3; note #29/#30 open
+- **Snippet:** table `workspace | package.json range | lock resolution`; list import sites (core parse, flows schema/grant, mcp catalogue, example-api/web); note nested BA/FastMCP zod@4.4.3; note Roxabi/roxabi-boilerplate-cf#29/Roxabi/roxabi-boilerplate-cf#30 open
 - **Verify:** `test -f artifacts/notes/23-zod-inventory.md && grep -E 'zod|3\\.25|4\\.' artifacts/notes/23-zod-inventory.md | wc -l` (ready)
 - **Expected:** six pins listed; dual-graph pre-state recorded
 - **Time:** 5 min
@@ -205,8 +205,8 @@ Manifest + lock (devops) · core parse + flows schemas (backend-A) · mcp + api 
 
 #### Task 9: PR body material + cross-track note → devops-A
 - **File:** inventory note (append PR body bullets)
-- **Snippet:** pin used; D2 evidence; allowlist if any; “no #24 / no typescript major”; #29/#30 freeze-or-rebase; Dependabot zod not ship unit; residual dual non-claim only if allowlisted
-- **Verify:** `test -f artifacts/notes/23-zod-inventory.md && grep -E 'D2|4\\.4|validate:full|#24' artifacts/notes/23-zod-inventory.md` (ready)
+- **Snippet:** pin used; D2 evidence; allowlist if any; “no Roxabi/roxabi-boilerplate-cf#24 / no typescript major”; Roxabi/roxabi-boilerplate-cf#29/Roxabi/roxabi-boilerplate-cf#30 freeze-or-rebase; Dependabot zod not ship unit; residual dual non-claim only if allowlisted
+- **Verify:** `test -f artifacts/notes/23-zod-inventory.md && grep -E 'D2|4\\.4|validate:full|Roxabi/roxabi-boilerplate-cf#24' artifacts/notes/23-zod-inventory.md` (ready)
 - **Expected:** note ready for `/pr`; code commits already on branch
 - **Time:** 5 min
 - **Difficulty:** 1

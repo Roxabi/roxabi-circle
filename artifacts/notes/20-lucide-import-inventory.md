@@ -3,7 +3,7 @@ status: reference
 normative: false
 ---
 
-# Lucide import inventory — #20
+# Lucide import inventory — Roxabi/roxabi-boilerplate-cf#20
 
 Pre-bump sites: **25**
 
@@ -47,8 +47,8 @@ Pre-bump sites: **25**
 - Lock resolves: `lucide-react@1.29.0` (single)
 - Gates: `@kit/ui` typecheck ✓ · `@kit/example-web` typecheck ✓ · example-web build (see commit)
 
-## Dependabot #5
+## Dependabot Roxabi/roxabi-boilerplate-cf#5
 
-- Close/supersede PR #5 (`dependabot/npm_and_yarn/lucide-react-1.27.0`) **before** merging this feature PR.
-- #5 is version-only to 1.28.0; this wave pins **1.29.0** + inventory + gates.
+- Close/supersede PR Roxabi/roxabi-boilerplate-cf#5 (`dependabot/npm_and_yarn/lucide-react-1.27.0`) **before** merging this feature PR.
+- Roxabi/roxabi-boilerplate-cf#5 is version-only to 1.28.0; this wave pins **1.29.0** + inventory + gates.
 - Command when feature PR is open: `gh pr close 5 --comment "Superseded by feat/20-lucide-react-1x (lucide-react ^1.29.0 + verify)."`

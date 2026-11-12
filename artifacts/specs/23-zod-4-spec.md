@@ -10,17 +10,17 @@ tier: F-lite
 
 ## Context
 
-**Promoted from:** [frame #23 Zod 4](../frames/23-zod-4-frame.md) (F-lite — analyze skipped)
-**GitHub issue:** #23
-**Related:** Waves #19–#22 closed; `@kit/flows` pure core on main (#28 / PR #37) still Zod 3; blocks #24 (TypeScript 7); mirror go-silex/silex-boilerplate#103; cross-track freeze/rebase #29/#30 if they touch schemas during this PR
+**Promoted from:** [frame Roxabi/roxabi-boilerplate-cf#23 Zod 4](../frames/23-zod-4-frame.md) (F-lite — analyze skipped)
+**GitHub issue:** Roxabi/roxabi-boilerplate-cf#23
+**Related:** Waves Roxabi/roxabi-boilerplate-cf#19–Roxabi/roxabi-boilerplate-cf#22 closed; `@kit/flows` pure core on main (Roxabi/roxabi-boilerplate-cf#28 / PR Roxabi/roxabi-boilerplate-cf#37) still Zod 3; blocks Roxabi/roxabi-boilerplate-cf#24 (TypeScript 7); mirror go-silex/silex-boilerplate#103; cross-track freeze/rebase Roxabi/roxabi-boilerplate-cf#29/Roxabi/roxabi-boilerplate-cf#30 if they touch schemas during this PR
 
 ## Intent
 
-Align the monorepo with the AGENTS SSoT target **Zod 4**. Kit packages and examples still pin **Zod 3.25.x** (`^3.25.0` / exact `3.25.76` on example-web) while Better Auth, FastMCP 4, and the MCP SDK already pull **zod@4.4.3** transitively — dual major in the lockfile today. Wave 5a owns a deliberate monorepo bump + API fixes (including **port of `@kit/flows` schemas**), so typecheck and validation-focused tests go green on a **single Zod major in the install graph** before TypeScript 7 (#24).
+Align the monorepo with the AGENTS SSoT target **Zod 4**. Kit packages and examples still pin **Zod 3.25.x** (`^3.25.0` / exact `3.25.76` on example-web) while Better Auth, FastMCP 4, and the MCP SDK already pull **zod@4.4.3** transitively — dual major in the lockfile today. Wave 5a owns a deliberate monorepo bump + API fixes (including **port of `@kit/flows` schemas**), so typecheck and validation-focused tests go green on a **single Zod major in the install graph** before TypeScript 7 (Roxabi/roxabi-boilerplate-cf#24).
 
 ## Goal
 
-All workspaces that declare `zod` pin **`^4.4.3`** (or newer 4.x patch at implement); after clean install the lockfile has **no `zod@3.` resolution** (allowlist only if unavoidable — see D2); monorepo typecheck + focused package tests exit 0; dedicated PR closes #23 without TypeScript 7.
+All workspaces that declare `zod` pin **`^4.4.3`** (or newer 4.x patch at implement); after clean install the lockfile has **no `zod@3.` resolution** (allowlist only if unavoidable — see D2); monorepo typecheck + focused package tests exit 0; dedicated PR closes Roxabi/roxabi-boilerplate-cf#23 without TypeScript 7.
 
 ## Users
 
@@ -29,8 +29,8 @@ All workspaces that declare `zod` pin **`^4.4.3`** (or newer 4.x patch at implem
 
 ## Out of Scope
 
-- TypeScript 7 / `typescript` major / tsconfig target bumps (#24)
-- Unrelated dependency majors already covered by waves #19–#22
+- TypeScript 7 / `typescript` major / tsconfig target bumps (Roxabi/roxabi-boilerplate-cf#24)
+- Unrelated dependency majors already covered by waves Roxabi/roxabi-boilerplate-cf#19–Roxabi/roxabi-boilerplate-cf#22
 - Product-domain schema redesign or new validation features beyond migration
 - Product apps outside this monorepo (consumers pull after land)
 
@@ -55,7 +55,7 @@ All workspaces that declare `zod` pin **`^4.4.3`** (or newer 4.x patch at implem
    - at least one plan path exercising `z.record` task keys
    - at least one `parseOrThrow` / flatten → `AppError.validation` fieldErrors shape assert under Zod 4
 6. **Do not** include TypeScript 7 prep, product redesigns, or new validation features. PR review flags non-migration schema restructures and any `typescript` version/tsconfig target change.
-7. **Cross-track (process DoD):** during #23 open window, **do not merge** #29/#30 schema-touching PRs without rebase + re-run D2 + `@kit/flows` tests. Close/supersede any Dependabot `zod` PRs — **not** ship units. Post-rebase: re-assert D2 + focused tests before merge.
+7. **Cross-track (process DoD):** during Roxabi/roxabi-boilerplate-cf#23 open window, **do not merge** Roxabi/roxabi-boilerplate-cf#29/Roxabi/roxabi-boilerplate-cf#30 schema-touching PRs without rebase + re-run D2 + `@kit/flows` tests. Close/supersede any Dependabot `zod` PRs — **not** ship units. Post-rebase: re-assert D2 + focused tests before merge.
 8. **Gates after clean install** (all required):
    - `bun run typecheck`
    - `bun run --filter @kit/core test`
@@ -66,7 +66,7 @@ All workspaces that declare `zod` pin **`^4.4.3`** (or newer 4.x patch at implem
    - `bun run --filter @kit/example-web typecheck`
    - `bun run smoke:mcp` (always — mcp-example pins zod)
    - Before push: `bun run validate:full`
-9. Dedicated PR against `main` closes #23. Title: `chore(deps): wave5a zod4…`. **Isolated** from #24.
+9. Dedicated PR against `main` closes Roxabi/roxabi-boilerplate-cf#23. Title: `chore(deps): wave5a zod4…`. **Isolated** from Roxabi/roxabi-boilerplate-cf#24.
 
 ## Data Model & Consumers
 
@@ -126,8 +126,8 @@ No application domain model change. Dependency + schema surface only:
 | S1 | `bun run typecheck` | monorepo | exit 0 |
 | S2 | focused package tests + auth | vitest filters | exit 0 |
 | S3 | `smoke:mcp` + `validate:full` | root scripts | exit 0 |
-| S4 | Dedicated PR for #23 | open against main | no #24 / no TS major |
-| S5 | Cross-track freeze + Dependabot | process | #29/#30 not merged dirty; bot zod PRs closed |
+| S4 | Dedicated PR for Roxabi/roxabi-boilerplate-cf#23 | open against main | no Roxabi/roxabi-boilerplate-cf#24 / no TS major |
+| S5 | Cross-track freeze + Dependabot | process | Roxabi/roxabi-boilerplate-cf#29/Roxabi/roxabi-boilerplate-cf#30 not merged dirty; bot zod PRs closed |
 
 ### Wiring
 
@@ -145,7 +145,7 @@ D1 → clean bun install → D2 assert
 |---|------|-------------|---------------|
 | 1 | Manifest + lock | D1, D2 | all declared `zod` = `^4.4.3` (+patch); D2 machine assert — **not mergeable alone** |
 | 2 | Schema port + green gates | A1–A6, S1, S2 | typecheck + focused tests + smoke:mcp green — **required for ship** |
-| 3 | Ship process | S3, S4, S5 | `validate:full` green; dedicated #23 PR only; cross-track + Dependabot handled |
+| 3 | Ship process | S3, S4, S5 | `validate:full` green; dedicated Roxabi/roxabi-boilerplate-cf#23 PR only; cross-track + Dependabot handled |
 
 ## Success Criteria
 
@@ -160,7 +160,7 @@ D1 → clean bun install → D2 assert
 - [ ] `bun run smoke:mcp` exits 0
 - [ ] `bun run typecheck` exits 0
 - [ ] `bun run validate:full` exits 0 before push
-- [ ] Dedicated PR for #23; title wave5a/zod4; **no** TypeScript major / tsconfig target bump / #24 scope
+- [ ] Dedicated PR for Roxabi/roxabi-boilerplate-cf#23; title wave5a/zod4; **no** TypeScript major / tsconfig target bump / Roxabi/roxabi-boilerplate-cf#24 scope
 - [ ] Dependabot zod PRs not merged as ship unit; closed/superseded when dedicated PR lands
 - [ ] No product-domain schema redesign beyond migration
 
@@ -172,10 +172,10 @@ D1 → clean bun install → D2 assert
 | `z.record` one- vs two-arg semantics | Adjust flows `schema.ts`; keep plan validation behavior; fixture proves keys |
 | `error.flatten()` shape changes | Adapt `parseOrThrow` once; fixture asserts AppError fieldErrors |
 | Residual transitive zod 3 | Prefer eliminate; else allowlist table in PR; D2 fails on new non-allowlisted 3.x |
-| #29/#30 concurrent schema edits | Freeze merge until #23 lands or rebase + re-assert D2 + flows tests |
+| Roxabi/roxabi-boilerplate-cf#29/Roxabi/roxabi-boilerplate-cf#30 concurrent schema edits | Freeze merge until Roxabi/roxabi-boilerplate-cf#23 lands or rebase + re-assert D2 + flows tests |
 | Dependabot zod PR mid-wave | Do not merge as ship unit; close/supersede |
 | example-web exact pin | Normalize to `^4.4.3` with siblings |
-| Temptation to include TS 7 | Hard OOS — separate #24; review rejects typescript major in this PR |
+| Temptation to include TS 7 | Hard OOS — separate Roxabi/roxabi-boilerplate-cf#24; review rejects typescript major in this PR |
 
 ## χ
 

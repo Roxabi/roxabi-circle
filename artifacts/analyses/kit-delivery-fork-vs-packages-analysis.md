@@ -136,7 +136,7 @@ On a donc un gate qui bloque la dérive *déclarée* et laisse passer la dérive
 
 ```sql
 -- SKETCH / REFERENCE ONLY — NOT applied by wrangler.
--- Applied SSoT: apps/example-api/migrations/0012_flows_plans_runs.sql (#29)
+-- Applied SSoT: apps/example-api/migrations/0012_flows_plans_runs.sql (Roxabi/roxabi-boilerplate-cf#29)
 -- OUT OF DATE for types: sketch used text timestamps; applied uses integer ms.
 ```
 
@@ -149,7 +149,7 @@ Deux raisons pour lesquelles un package ne peut pas posséder le fichier final :
 1. `wrangler d1 migrations apply` traque par **nom de fichier** dans `d1_migrations` — on ne
    renumérote pas après application.
 2. Les esquisses sont déclarées `OUT OF DATE` : une copie package→app perdrait la FK composite
-   `(plan_id, org_id)` de la migration appliquée, donc l'isolation inter-org (invariant #5).
+   `(plan_id, org_id)` de la migration appliquée, donc l'isolation inter-org (invariant 5).
 
 ---
 

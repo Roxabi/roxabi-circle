@@ -7,7 +7,7 @@ status: validated
 
 ## TL;DR
 
-After #144, extract treats every tree as kit HEAD: a product app is “unexpected contamination”. Kit and examples stay immutable; a product already has an identity (ADR-0009 D5, same classifier as zero-edit). Extract must reuse that classifier so `apps/<product>-*` is allowed on a product tree and still forbidden on kit HEAD. Unclassified trees fail closed with the same actionable remedy — they do not silently become kit. No new exception register. Residency and compose proofs stay as they are.
+After Roxabi/roxabi-boilerplate-cf#144, extract treats every tree as kit HEAD: a product app is “unexpected contamination”. Kit and examples stay immutable; a product already has an identity (ADR-0009 D5, same classifier as zero-edit). Extract must reuse that classifier so `apps/<product>-*` is allowed on a product tree and still forbidden on kit HEAD. Unclassified trees fail closed with the same actionable remedy — they do not silently become kit. No new exception register. Residency and compose proofs stay as they are.
 
 ## Data model
 
@@ -35,7 +35,7 @@ No new persisted records. No D1 / API / UI types.
 ## Out of scope
 
 - Changing what residency or compose prove.
-- A product-owned extract exception / skip register (the #118 analog).
+- A product-owned extract exception / skip register (the Roxabi/roxabi-boilerplate-cf#118 analog).
 - Retiring any product-repo exception entry (none on LGU principal today; inherit is product work).
 - The file-length exemption sibling.
 - Live inherit of a product repo, deploy wiring, or “don’t deploy examples” (already the consumer contract).
@@ -61,4 +61,4 @@ No new persisted records. No D1 / API / UI types.
 - [CP-EXTRACT](../../docs/kit/testing.md#critical-path-inventory-cp-) — extract bar (allowlist, residency, compose)
 - [ADR-0001](../../docs/kit/architecture/adr/0001-primary-axis-packages-compose-apps.md) — packages compose apps
 
-issue: #156
+issue: Roxabi/roxabi-boilerplate-cf#156

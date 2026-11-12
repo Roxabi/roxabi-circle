@@ -10,7 +10,7 @@ tier: F-lite
 ## Context
 
 **Promoted from:** [product-owned file-length exemption frame](../frames/118-file-length-exemption-surface-frame.md) (approved, F-lite)
-**GitHub issue:** [#118](https://github.com/Roxabi/roxabi-boilerplate-cf/issues/118)
+**GitHub issue:** [Roxabi/roxabi-boilerplate-cf#118](https://github.com/Roxabi/roxabi-boilerplate-cf/issues/118)
 **Refs:** [product-consumer-contract](../../docs/kit/product-consumer-contract.md) · [ADR-0001](../../docs/kit/architecture/adr/0001-primary-axis-packages-compose-apps.md) · [ADR-0009](../../docs/kit/architecture/adr/0009-kit-namespace-polarity-inheritance-marker.md) · `tools/check_file_length.sh` · `tools/file_exemptions.txt` · `config/kit/zero-edit-zones.json` (`tools/` is a `protected_prefix`) · adversarial panel 2026-08-08 item 7
 
 Expert fold (draft): architect + doc-writer + product-lead + adversarial + devops. Allow predicate tightened to `apps/<product>-{api,web,mcp}/` (issue + contract, not `isFreeProductAppPath`). Staged apply uses index bytes. Harness is a temp git repo.

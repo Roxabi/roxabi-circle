@@ -3,7 +3,7 @@ status: reference
 normative: false
 ---
 
-# #21 pre-bump inventory — vitest / vite / plugin-react
+# Roxabi/roxabi-boilerplate-cf#21 pre-bump inventory — vitest / vite / plugin-react
 
 Generated: 2026-08-06T13:40Z
 Pins target (plan): vitest+coverage-v8 ^4.1.10 · vite ^8.2.0 · @vitejs/plugin-react ^6.0.5
@@ -95,7 +95,7 @@ Unchanged floors elsewhere. Rationale: Vitest 4 v8 remapping changes statement/b
 - test:coverage: OK (floors recalibrated — see table above)
 - build:kit: OK (Vite 8.2.0)
 
-### Dependabot #4
+### Dependabot Roxabi/roxabi-boilerplate-cf#4
 - Close/supersede **before** merge of dedicated PR (plugin-react-only incomplete peers).
 - Title shape: `chore(deps): wave3 vitest4 + vite8 + plugin-react`
 

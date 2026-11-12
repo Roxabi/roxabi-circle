@@ -29,7 +29,7 @@ Why now: Circle inherit is `628d942`; these are kit-side follow-ups from that wa
 - Email AC is an explicit fork: **Worker-local path matches the Mailpit runbook** *or* README / AGENTS / compose **drop smtp-on-Worker**. Do not leave both claims live. Spec picks; do not add a third transport.
 - Magic-link / invite / demo-email: HTTP 5xx ≠ « check your inbox ». Anti-enum stays for 2xx / unknown-account success. Fail-closed toast on transport / 5xx without enumerating accounts.
 - `reader` cannot `POST` (or mutate) catalogue items: server grant first (`requireModule('demo', 'write')` or equivalent), then UI hide create. Test pins the 403/404. Org isolation already green — do not regress.
-- Re-walk B on inherit baseline `628d942` or newer; note SHA in the PR. Closer: `Fixes #75` only.
+- Re-walk B on inherit baseline `628d942` or newer; note SHA in the PR. Closer: `Fixes Roxabi/roxabi-boilerplate-cf#75` only.
 - P2/P3 in the walk stay in `artifacts/reviews/2026-08-13-kit-d1-human.md` — not this issue (opaque mint copy, invite-on-email-fail, MCP `whoami` bad_config, platform module badges).
 
 ## Out of Scope
@@ -52,6 +52,6 @@ Why now: Circle inherit is `628d942`; these are kit-side follow-ups from that wa
 
 ## Complexity
 
-**Tier: F-lite** — three residual bugs, known files, no new architecture. `/dev` chose F-lite (`complexity: 5` already on #75).
+**Tier: F-lite** — three residual bugs, known files, no new architecture. `/dev` chose F-lite (`complexity: 5` already on Roxabi/roxabi-boilerplate-cf#75).
 
 Signals: email + auth UI + RBAC, but each is a pinned residual from one walk; `requireModule` already exists; ADR-0004 already forbids smtp on Worker; UI bug is a catch-all in one form.

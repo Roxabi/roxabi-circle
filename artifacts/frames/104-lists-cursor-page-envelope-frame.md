@@ -32,7 +32,7 @@ Why now: LGU already has client windows over dump routes (Base palier 120, impor
 - LGU `/api/base`, `/api/tournages`, BaseExplorer palier — product after `git fetch upstream`.
 - Numbered offset pages with `total`; infinite-scroll observer in `@kit/ui`; TanStack Virtual package.
 - Changing tiny lookups (`GET /api/orgs`, roles) unless they already page.
-- Flows admin pagination (#31 leftover) unless already in tree and cheap.
+- Flows admin pagination (Roxabi/roxabi-boilerplate-cf#31 leftover) unless already in tree and cheap.
 - Analytical bundles (`/api/insights`-class) — not lists; server aggregates.
 
 ## Premise Validity
@@ -46,6 +46,6 @@ Why now: LGU already has client windows over dump routes (Base palier 120, impor
 
 ## Complexity
 
-**Tier: F-lite** — single domain (list page contract), clear decision table in #104, known call sites. `/dev` chose F-lite.
+**Tier: F-lite** — single domain (list page contract), clear decision table in Roxabi/roxabi-boilerplate-cf#104, known call sites. `/dev` chose F-lite.
 
 Signals: types + core + ADR + two API routes + one web page + docs; no multi-domain unknowns; package rule satisfied by ≥2 example-api call sites (ADR-0001).
