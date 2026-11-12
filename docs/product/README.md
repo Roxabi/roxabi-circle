@@ -15,6 +15,8 @@ Kit packages live under `packages/@kit/*` and `apps/example-*` (zero-edit). Prod
 
 Existing Product functions are adapted to the inherited complexity floor of 15.
 
+Circle declares no separate Product push CI in `config/product/deploy-gate.json`. The inherited Kit CI and Secret scan remain required; `product-semctx.yml` is a PR-only check, not a deploy workflow. Kit CI typechecks the Circle API workspace and includes it in Root coverage through `config/product/coverage-order.txt`.
+
 ## Live
 
 | | |
