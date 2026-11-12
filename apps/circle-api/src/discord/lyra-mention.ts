@@ -4,8 +4,9 @@
  */
 
 import type { GatewayMessage } from './github-watch'
+import { lyraMessageIgnoreReason } from './lyra-message-gating'
 import { resolveLyraReplyThread } from './lyra-thread'
-import { isGatewayMessageInThread, prepareLyraThreadForward } from './lyra-thread-active'
+import { prepareLyraThreadForward } from './lyra-thread-active'
 
 /** Lyra bot user id (same snowflake as the Discord application). */
 export const LYRA_DISCORD_USER_ID = '1534228521420067046'
@@ -173,14 +174,8 @@ export function planLyraMentionForward(input: {
   if (input.configuredGuildId && guildId !== input.configuredGuildId) {
     return { type: 'ignore', reason: 'other_guild' }
   }
-  if (msg.webhook_id) return { type: 'ignore', reason: 'webhook' }
-  if (msg.author?.bot) return { type: 'ignore', reason: 'bot' }
-  if (msg.author?.id === lyraUserId) return { type: 'ignore', reason: 'self' }
-  if (!mentionsLyraUser(msg, lyraUserId)) {
-    if (!input.threadActive || !isGatewayMessageInThread(msg)) {
-      return { type: 'ignore', reason: 'no_mention' }
-    }
-  }
+  const ignoreReason = lyraMessageIgnoreReason(msg, lyraUserId, input, mentionsLyraUser)
+  if (ignoreReason) return { type: 'ignore', reason: ignoreReason }
   if (!msg.author?.id) return { type: 'ignore', reason: 'no_author' }
 
   const allowed = authorAllowedForLyra({
@@ -242,7 +237,7 @@ async function runLyraMentionForward(
 ): Promise<void> {
   const webhookUrl = runtime.webhookUrl?.trim() ?? ''
   const webhookSecret = runtime.webhookSecret?.trim() ?? ''
-  if (!webhookUrl || !webhookSecret) return
+  if (!(webhookUrl && webhookSecret)) return
 
   const prepared = await prepareLyraThreadForward({
     msg,

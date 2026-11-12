@@ -72,7 +72,7 @@ export function parseTrendingHtml(html: string, period: 'daily' | 'weekly'): Tre
   const out: TrendingHit[] = []
   for (const b of blocks) {
     const m = b.match(/<h2[^>]*>[\s\S]*?href="\/([^/"]+)\/([^/"]+)"/)
-    if (!m?.[1] || !m[2]) continue
+    if (!(m?.[1] && m[2])) continue
     const owner = m[1]
     const name = m[2]
     if (owner === 'login' || owner === 'sponsors' || owner === 'apps') continue
@@ -207,6 +207,16 @@ export function scoreVelocity(r: Pick<DigestRepo, 'deltaWeekly' | 'deltaDaily'>)
   return (r.deltaWeekly ?? 0) * 10 + (r.deltaDaily ?? 0)
 }
 
+function addPostedRepos(raw: string, re: RegExp, out: Set<string>): void {
+  for (const m of raw.matchAll(re)) {
+    const owner = m[1]
+    const name = m[2]
+    if (!(owner && name)) continue
+    if (owner === 'orgs' || owner === 'settings') continue
+    out.add(`${owner}/${name}`.toLowerCase())
+  }
+}
+
 export function extractPostedRepos(
   messages: { content?: string; timestamp?: string }[],
   sinceMs: number,
@@ -216,14 +226,7 @@ export function extractPostedRepos(
   for (const msg of messages) {
     const ts = msg.timestamp ? Date.parse(msg.timestamp) : 0
     if (ts && ts < sinceMs) continue
-    const raw = msg.content ?? ''
-    for (const m of raw.matchAll(re)) {
-      const owner = m[1]
-      const name = m[2]
-      if (!owner || !name) continue
-      if (owner === 'orgs' || owner === 'settings') continue
-      out.add(`${owner}/${name}`.toLowerCase())
-    }
+    addPostedRepos(msg.content ?? '', re, out)
   }
   return out
 }
@@ -265,9 +268,9 @@ export function readmeExcerpt(markdown: string, max = 220): string {
     .map((l) => l.trim())
     .filter((l) => l.length > 0)
     .filter(
-      (l) => !l.startsWith('#') && !l.startsWith('![') && !l.startsWith('<') && !l.startsWith('['),
+      (l) => !(l.startsWith('#') || l.startsWith('![') || l.startsWith('<') || l.startsWith('[')),
     )
-    .filter((l) => !l.startsWith('---') && !l.startsWith('|'))
+    .filter((l) => !(l.startsWith('---') || l.startsWith('|')))
   const para = stripTags(lines.slice(0, 4).join(' '))
     .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
     .replace(/[*_`]/g, '')

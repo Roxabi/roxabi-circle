@@ -13,6 +13,8 @@ Roxabi/roxabi-circle       (this product — origin)
 
 Kit packages live under `packages/@kit/*` and `apps/example-*` (zero-edit). Product code = `apps/circle-api` + `docs/product/*`.
 
+Existing Product functions are adapted to the inherited complexity floor of 15.
+
 ## Live
 
 | | |

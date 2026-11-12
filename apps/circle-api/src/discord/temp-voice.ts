@@ -3,6 +3,8 @@
  * REST side effects live in temp-voice-rest.ts (tested separately).
  */
 
+import { planVoiceCleanup } from './temp-voice-cleanup'
+
 /** Hard cap on concurrent bot-created temp rooms (hub spam guard). */
 export const MAX_TEMP_VOICE_ROOMS = 25
 /** Min ms between successful spawns per user. */
@@ -126,6 +128,37 @@ export type TempVoicePlan =
   | { type: 'reuse'; userId: string; channelId: string }
   | { type: 'cleanup'; channelIds: string[] }
 
+function planHubJoin(
+  vs: VoiceStateUpdate,
+  store: TempVoiceStore,
+  memberRoleId: string | undefined,
+  now: number,
+): TempVoicePlan {
+  if (memberRoleId && !vs.member?.roles?.includes(memberRoleId)) {
+    return { type: 'ignore', reason: 'not_member' }
+  }
+  const existing = Object.entries(store.channels).find(([, m]) => m.ownerId === vs.user_id)
+  if (existing) {
+    return { type: 'reuse', userId: vs.user_id, channelId: existing[0] }
+  }
+  if (Object.keys(store.channels).length >= MAX_TEMP_VOICE_ROOMS) {
+    return { type: 'ignore', reason: 'room_cap' }
+  }
+  const started = store.creating?.[vs.user_id]
+  if (started && now - started < 15_000) {
+    return { type: 'ignore', reason: 'create_in_flight' }
+  }
+  const lastSpawn = store.lastSpawnAt?.[vs.user_id]
+  if (lastSpawn && now - lastSpawn < TEMP_VOICE_SPAWN_COOLDOWN_MS) {
+    return { type: 'ignore', reason: 'spawn_cooldown' }
+  }
+  return {
+    type: 'spawn',
+    userId: vs.user_id,
+    displayName: displayNameFromVoiceState(vs),
+  }
+}
+
 /** Plan reaction to one VOICE_STATE_UPDATE. */
 export function planTempVoiceEvent(input: {
   vs: VoiceStateUpdate
@@ -152,46 +185,10 @@ export function planTempVoiceEvent(input: {
   const left = input.previousChannelId
 
   if (joined === hubChannelId) {
-    if (memberRoleId && !vs.member?.roles?.includes(memberRoleId)) {
-      return { type: 'ignore', reason: 'not_member' }
-    }
-    const existing = Object.entries(store.channels).find(([, m]) => m.ownerId === vs.user_id)
-    if (existing) {
-      return { type: 'reuse', userId: vs.user_id, channelId: existing[0] }
-    }
-    if (Object.keys(store.channels).length >= MAX_TEMP_VOICE_ROOMS) {
-      return { type: 'ignore', reason: 'room_cap' }
-    }
-    const started = store.creating?.[vs.user_id]
-    if (started && now - started < 15_000) {
-      return { type: 'ignore', reason: 'create_in_flight' }
-    }
-    const lastSpawn = store.lastSpawnAt?.[vs.user_id]
-    if (lastSpawn && now - lastSpawn < TEMP_VOICE_SPAWN_COOLDOWN_MS) {
-      return { type: 'ignore', reason: 'spawn_cooldown' }
-    }
-    return {
-      type: 'spawn',
-      userId: vs.user_id,
-      displayName: displayNameFromVoiceState(vs),
-    }
+    return planHubJoin(vs, store, memberRoleId, now)
   }
 
-  if (store.occupancyTrusted === false) {
-    return { type: 'ignore', reason: 'occupancy_untrusted' }
-  }
-
-  const emptyTracked: string[] = []
-  for (const channelId of Object.keys(store.channels)) {
-    if (channelId === left || channelId === joined) {
-      if ((store.occupancy[channelId] ?? []).length === 0) emptyTracked.push(channelId)
-    }
-  }
-  if (left && store.channels[left] && (store.occupancy[left] ?? []).length === 0) {
-    if (!emptyTracked.includes(left)) emptyTracked.push(left)
-  }
-  if (emptyTracked.length) return { type: 'cleanup', channelIds: emptyTracked }
-  return { type: 'ignore', reason: 'no_op' }
+  return planVoiceCleanup(store, left, joined)
 }
 
 export function markOccupancyUntrusted(
@@ -250,7 +247,7 @@ export function hydrateOccupancyFromVoiceStates(
 ): TempVoiceStore {
   const occupancy: Record<string, string[]> = {}
   for (const vs of voiceStates) {
-    if (!vs.user_id || !vs.channel_id) continue
+    if (!(vs.user_id && vs.channel_id)) continue
     const list = occupancy[vs.channel_id] ?? []
     if (!list.includes(vs.user_id)) list.push(vs.user_id)
     occupancy[vs.channel_id] = list
