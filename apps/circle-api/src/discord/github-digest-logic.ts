@@ -4,9 +4,8 @@
  * Not a live Worker path: scrape-post is retired (see github-digest.ts).
  */
 
-export const DISCORD_SUPPRESS_EMBEDS = 4
 export const DISCORD_CONTENT_MAX = 2000
-export const DIGEST_PICK = 5
+const DIGEST_PICK = 5
 
 /**
  * Share of candidates whose metadata must be readable for an empty pick list to
@@ -14,7 +13,7 @@ export const DIGEST_PICK = 5
  * Anonymous api.github.com is 60 req/h per IP and one run costs ~48, so a
  * partially-consumed budget silently starves the selection.
  */
-export const DIGEST_META_FAILURE_RATIO = 0.25
+const DIGEST_META_FAILURE_RATIO = 0.25
 
 export type TrendingHit = {
   owner: string
@@ -52,7 +51,7 @@ export type DigestBucket =
   | 'eval'
   | 'other'
 
-export const MONUMENTS = new Set([
+const MONUMENTS = new Set([
   'obra/superpowers',
   'mattpocock/skills',
   'juliusbrussee/caveman',
@@ -203,7 +202,7 @@ export function emptyDigestOutcome(
   return rateLimited > 0 ? 'github_rate_limited' : 'github_meta_unavailable'
 }
 
-export function scoreVelocity(r: Pick<DigestRepo, 'deltaWeekly' | 'deltaDaily'>): number {
+function scoreVelocity(r: Pick<DigestRepo, 'deltaWeekly' | 'deltaDaily'>): number {
   return (r.deltaWeekly ?? 0) * 10 + (r.deltaDaily ?? 0)
 }
 
@@ -236,17 +235,11 @@ export function alreadyPostedToday(messages: { content?: string }[], dateLabel: 
   return messages.some((m) => (m.content ?? '').includes(needle))
 }
 
-export function ageDays(createdIso: string, now: Date): number {
-  const created = Date.parse(createdIso)
-  if (!Number.isFinite(created)) return 9999
-  return Math.max(0, Math.floor((now.getTime() - created) / 86_400_000))
-}
-
-export function stripTags(s: string): string {
+function stripTags(s: string): string {
   return s.replace(/<[^>]+>/g, '')
 }
 
-export function decodeHtml(s: string): string {
+function decodeHtml(s: string): string {
   return s
     .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')

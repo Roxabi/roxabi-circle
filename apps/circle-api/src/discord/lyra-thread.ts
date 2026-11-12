@@ -9,7 +9,7 @@ import type { PrivilegeStorage } from './lyra-mention'
 export const LYRA_THREAD_KIND_KEY = 'lyra_channel_kind_v1'
 /** Discord caps thread names at 100 chars; leave room for the ellipsis. */
 export const LYRA_THREAD_NAME_MAX = 90
-export const LYRA_THREAD_ADOPT_ATTEMPTS = 3
+const LYRA_THREAD_ADOPT_ATTEMPTS = 3
 /** Sleep before every adopt GET, including attempt 0. Worst case: 3 × 400ms = 1200ms. */
 export const LYRA_THREAD_ADOPT_DELAY_MS = 400
 

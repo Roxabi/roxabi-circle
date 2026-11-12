@@ -13,7 +13,7 @@ export const LYRA_DISCORD_USER_ID = '1534228521420067046'
 
 export const LYRA_MENTION_SOURCE = 'discord' as const
 
-export const GUILD_PRIVILEGE_KEY = 'guild_privilege_v1'
+const GUILD_PRIVILEGE_KEY = 'guild_privilege_v1'
 
 /** Discord PermissionFlagsBits.Administrator */
 const ADMINISTRATOR = 8n
@@ -72,7 +72,7 @@ export type LyraMentionRuntime = {
   sleep?: (ms: number) => Promise<void>
 }
 
-export function hasAdministratorPermission(permissions?: string | null): boolean {
+function hasAdministratorPermission(permissions?: string | null): boolean {
   if (!permissions) return false
   try {
     return (BigInt(permissions) & ADMINISTRATOR) === ADMINISTRATOR
@@ -112,9 +112,7 @@ export async function rememberGuildPrivilege(
   await storage.put(GUILD_PRIVILEGE_KEY, extractGuildPrivilege(g))
 }
 
-export async function loadGuildPrivilege(
-  storage: PrivilegeStorage,
-): Promise<GuildPrivilege | null> {
+async function loadGuildPrivilege(storage: PrivilegeStorage): Promise<GuildPrivilege | null> {
   const raw = await storage.get<GuildPrivilege>(GUILD_PRIVILEGE_KEY)
   if (!raw || typeof raw !== 'object') return null
   const adminRoleIds = Array.isArray(raw.adminRoleIds)

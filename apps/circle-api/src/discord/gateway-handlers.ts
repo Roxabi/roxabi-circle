@@ -50,7 +50,7 @@ export async function loadTempVoiceStore(storage: DurableObjectStorage): Promise
   }
 }
 
-export async function saveTempVoiceStore(
+async function saveTempVoiceStore(
   storage: DurableObjectStorage,
   store: TempVoiceStore,
 ): Promise<void> {
@@ -167,7 +167,7 @@ async function onVoiceStateUpdate(ctx: GatewayDispatchCtx, vs: VoiceStateUpdate)
   const category = ctx.env.DISCORD_VOICE_CATEGORY_ID
   const guildId = ctx.env.DISCORD_GUILD_ID
   const memberRoleId = ctx.env.DISCORD_MEMBER_ROLE_ID
-  if (!hub || !category || !guildId || !memberRoleId) return
+  if (!(hub && category && guildId && memberRoleId)) return
   if (vs.guild_id && vs.guild_id !== guildId) return
 
   const store = await loadTempVoiceStore(ctx.storage)

@@ -10,9 +10,3 @@ export function logNorm(x: number, cap: number): number {
   if (cap <= 0) return 0
   return clamp01(Math.log1p(x) / Math.log1p(cap))
 }
-
-/** Linear map with clamp. */
-export function linearNorm(x: number, min: number, max: number): number {
-  if (max <= min) return 0
-  return clamp01((x - min) / (max - min))
-}

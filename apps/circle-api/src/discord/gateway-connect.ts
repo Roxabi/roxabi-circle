@@ -7,9 +7,9 @@ import { resolveGatewayUrl } from './gateway-socket'
 
 const ENCODING = 'json'
 const API_VERSION = 10
-export const CONNECT_DEADLINE_MS = 25_000
+const CONNECT_DEADLINE_MS = 25_000
 
-export function socketBusy(ws: WebSocket | null): boolean {
+function socketBusy(ws: WebSocket | null): boolean {
   if (!ws) return false
   return ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING
 }

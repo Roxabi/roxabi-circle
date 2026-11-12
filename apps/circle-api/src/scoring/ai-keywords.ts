@@ -1,5 +1,5 @@
 /** Topics / name stems that signal AI affinity. Lowercase. */
-export const AI_KEYWORDS: readonly string[] = [
+const AI_KEYWORDS: readonly string[] = [
   'ai',
   'llm',
   'llms',

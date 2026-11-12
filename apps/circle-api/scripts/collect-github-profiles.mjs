@@ -12,9 +12,9 @@ import { execFileSync } from 'node:child_process'
  */
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { scoreProfile } from '../apps/circle-api/src/scoring/score.ts'
+import { scoreProfile } from '../src/scoring/score.ts'
 
-const ROOT = resolve(import.meta.dir, '..')
+const ROOT = resolve(import.meta.dir, '../../..')
 const OUT = resolve(ROOT, 'docs/product/profiles')
 const USERS = process.argv.slice(2).length
   ? process.argv.slice(2)

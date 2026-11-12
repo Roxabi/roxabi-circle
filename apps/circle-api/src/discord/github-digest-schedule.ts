@@ -4,7 +4,7 @@
  * 10:30 / 11:30 UTC expressions so leftover triggers no-op instead of posting.
  */
 
-export const DIGEST_CRONS = ['30 10 * * *', '30 11 * * *'] as const
+const DIGEST_CRONS = ['30 10 * * *', '30 11 * * *'] as const
 
 export function isDigestCron(cron: string): boolean {
   return (DIGEST_CRONS as readonly string[]).includes(cron)
@@ -16,7 +16,7 @@ export function isParisDigestSlot(now: Date): boolean {
   return hour === 12 && minute >= 25 && minute <= 35
 }
 
-export function parisHourMinute(now: Date): { hour: number; minute: number } {
+function parisHourMinute(now: Date): { hour: number; minute: number } {
   const parts = new Intl.DateTimeFormat('en-GB', {
     timeZone: 'Europe/Paris',
     hour: '2-digit',

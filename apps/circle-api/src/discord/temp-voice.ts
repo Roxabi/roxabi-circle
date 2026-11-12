@@ -8,7 +8,7 @@ import { planVoiceCleanup } from './temp-voice-cleanup'
 /** Hard cap on concurrent bot-created temp rooms (hub spam guard). */
 export const MAX_TEMP_VOICE_ROOMS = 25
 /** Min ms between successful spawns per user. */
-export const TEMP_VOICE_SPAWN_COOLDOWN_MS = 30_000
+const TEMP_VOICE_SPAWN_COOLDOWN_MS = 30_000
 
 // Permission bits (voice + channel control + text-in-voice)
 const CREATE_INVITE = 1 << 0
@@ -57,7 +57,7 @@ export const OWNER_VOICE_ALLOW =
   DEAFEN_MEMBERS |
   MOVE_MEMBERS |
   MANAGE_MESSAGES
-export const EVERYONE_VOICE_DENY = VIEW | CONNECT
+const EVERYONE_VOICE_DENY = VIEW | CONNECT
 
 export type VoiceStateUpdate = {
   guild_id?: string | null
@@ -71,7 +71,7 @@ export type VoiceStateUpdate = {
   }
 }
 
-export type TempVoiceMeta = {
+type TempVoiceMeta = {
   ownerId: string
   createdAt: number
   name: string
@@ -117,7 +117,7 @@ export function tempVoiceChannelName(displayName: string): string {
   return `🔊 ${label}`.slice(0, 100)
 }
 
-export function displayNameFromVoiceState(vs: VoiceStateUpdate): string {
+function displayNameFromVoiceState(vs: VoiceStateUpdate): string {
   const m = vs.member
   return m?.nick || m?.user?.global_name || m?.user?.username || `user-${vs.user_id.slice(-4)}`
 }

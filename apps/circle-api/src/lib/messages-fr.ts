@@ -31,18 +31,6 @@ export function rejectDm(opts: {
   ].join('\n')
 }
 
-export function alreadyMemberEphemeral(): string {
-  return 'Tu es déjà membre du Roxabi Circle.'
-}
-
-export function cooldownEphemeral(nextEligibleAtMs: number, nowMs = Date.now()): string {
-  const ms = Math.max(0, nextEligibleAtMs - nowMs)
-  const hours = Math.ceil(ms / (60 * 60 * 1000))
-  const days = Math.ceil(ms / (24 * 60 * 60 * 1000))
-  const wait = hours <= 48 ? `environ ${hours} h` : `environ ${days} jour${days > 1 ? 's' : ''}`
-  return `Prochaine tentative dans ${wait}. Patience.`
-}
-
 function formatScore(score: number): string {
   // Show one decimal only if needed
   return Number.isInteger(score) ? String(score) : score.toFixed(1)
