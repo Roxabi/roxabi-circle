@@ -35,6 +35,8 @@ GitHub CI     → same gates again         # guardrail only
 merge-on-green (current exact-head authorization receipt + checks)
 ```
 
+After Biome, pre-commit restages the indexed ACMR paths as literal names using tracked-only updates, including already-indexed files under ignore rules. It does not discover ignored untracked neighbors, and staged deletions remain deletions. `test:lefthook-deletes` exercises these index boundaries.
+
 | Layer | Role | Cost expectation |
 |---|---|---|
 | **Lefthook pre-push** | **Primary kit bar** — `validate:full` | Accept wall-clock; fix here |
