@@ -18,4 +18,4 @@ if [ "${#files[@]}" -eq 0 ]; then
 fi
 
 bunx biome check --write --no-errors-on-unmatched --files-ignore-unknown=true -- "${files[@]}"
-git add -- "${files[@]}"
+git --literal-pathspecs add -u -- "${files[@]}"
