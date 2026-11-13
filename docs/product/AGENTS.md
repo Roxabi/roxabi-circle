@@ -7,8 +7,8 @@ Discord gated community (AI + open source DNA). Entry = GitHub OAuth + **PR d’
 ## Upstream (direct)
 
 - `origin` = `Roxabi/roxabi-circle` (this product)
-- `upstream` = `go-silex/unkillable-kit` — fetch / merge only, never push; publication is pending
-- Pull kit after publication: `git fetch upstream && git merge upstream/main`
+- `upstream` = `go-silex/unkillable-kit` (public Chemin A Kit HEAD, intentional switch on 2026-11-12) — **fetch / merge only**, `pushurl=no_push`
+- Pull kit: `git fetch upstream && git merge upstream/main`
 - `config/product/inheritance.json` records the last merged upstream tip
 
 ## Read first
